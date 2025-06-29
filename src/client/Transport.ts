@@ -63,6 +63,10 @@ export class SendAllianceReplyIntentEvent implements GameEvent {
   ) {}
 }
 
+export class SendAllianceExtensionIntentEvent implements GameEvent {
+  constructor(public readonly recipient: PlayerView) {}
+}
+
 export class SendSpawnIntentEvent implements GameEvent {
   constructor(public readonly cell: Cell) {}
 }
@@ -195,6 +199,9 @@ export class Transport {
     );
     this.eventBus.on(SendBreakAllianceIntentEvent, (e) =>
       this.onBreakAllianceRequestUIEvent(e),
+    );
+    this.eventBus.on(SendAllianceExtensionIntentEvent, (e) =>
+      this.onSendAllianceExtensionIntent(e),
     );
     this.eventBus.on(SendSpawnIntentEvent, (e) =>
       this.onSendSpawnIntentEvent(e),
@@ -410,6 +417,16 @@ export class Transport {
   private onBreakAllianceRequestUIEvent(event: SendBreakAllianceIntentEvent) {
     this.sendIntent({
       type: "breakAlliance",
+      clientID: this.lobbyConfig.clientID,
+      recipient: event.recipient.id(),
+    });
+  }
+
+  private onSendAllianceExtensionIntent(
+    event: SendAllianceExtensionIntentEvent,
+  ) {
+    this.sendIntent({
+      type: "allianceExtension",
       clientID: this.lobbyConfig.clientID,
       recipient: event.recipient.id(),
     });

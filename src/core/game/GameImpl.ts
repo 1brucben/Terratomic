@@ -64,6 +64,7 @@ export class GameImpl implements Game {
 
   allianceRequests: AllianceRequestImpl[] = [];
   alliances_: AllianceImpl[] = [];
+  private nextAllianceID = 0;
 
   private nextPlayerID = 1;
   private _nextUnitID = 1;
@@ -233,7 +234,9 @@ export class GameImpl implements Game {
       requestor as PlayerImpl,
       recipient as PlayerImpl,
       this._ticks,
+      this.nextAllianceID++,
     );
+
     this.alliances_.push(alliance);
     (request.requestor() as PlayerImpl).pastOutgoingAllianceRequests.push(
       request,
@@ -789,6 +792,9 @@ export class GameImpl implements Game {
   }
   stats(): Stats {
     return this._stats;
+  }
+  public alliances(): AllianceImpl[] {
+    return this.alliances_;
   }
 }
 

@@ -24,6 +24,7 @@ export type Intent =
   | CancelBoatIntent
   | AllianceRequestIntent
   | AllianceRequestReplyIntent
+  | AllianceExtensionIntent
   | BreakAllianceIntent
   | TargetPlayerIntent
   | EmojiIntent
@@ -223,6 +224,15 @@ export const AllianceRequestReplyIntentSchema = BaseIntentSchema.extend({
   accept: z.boolean(),
 });
 
+export const AllianceExtensionIntentSchema = BaseIntentSchema.extend({
+  type: z.literal("allianceExtension"),
+  recipient: ID,
+});
+
+export type AllianceExtensionIntent = z.infer<
+  typeof AllianceExtensionIntentSchema
+>;
+
 export const BreakAllianceIntentSchema = BaseIntentSchema.extend({
   type: z.literal("breakAlliance"),
   recipient: ID,
@@ -311,6 +321,7 @@ const IntentSchema = z.discriminatedUnion("type", [
   CancelBoatIntentSchema,
   AllianceRequestIntentSchema,
   AllianceRequestReplyIntentSchema,
+  AllianceExtensionIntentSchema,
   BreakAllianceIntentSchema,
   TargetPlayerIntentSchema,
   EmojiIntentSchema,

@@ -18,6 +18,7 @@ export interface GameUpdateViewData {
   updates: GameUpdates;
   packedTileUpdates: BigUint64Array;
   playerNameViewData: Record<number, NameViewData>;
+  alliances?: AllianceViewData[];
 }
 
 export interface ErrorUpdate {
@@ -40,6 +41,8 @@ export enum GameUpdateType {
   Win,
   Hash,
   UnitIncoming,
+  AllianceExtensionPrompt,
+  AllianceExtensionAccepted,
 }
 
 export type GameUpdate =
@@ -50,6 +53,7 @@ export type GameUpdate =
   | AllianceRequestReplyUpdate
   | BrokeAllianceUpdate
   | AllianceExpiredUpdate
+  | AllianceExtensionAcceptedUpdate
   | DisplayMessageUpdate
   | DisplayChatMessageUpdate
   | TargetPlayerUpdate
@@ -201,4 +205,18 @@ export interface UnitIncomingUpdate {
   message: string;
   messageType: MessageType;
   playerID: number;
+}
+
+export interface AllianceExtensionAcceptedUpdate {
+  type: GameUpdateType.AllianceExtensionAccepted;
+  playerID: number;
+  allianceID: number;
+}
+
+export interface AllianceViewData {
+  requestorID: number;
+  recipientID: number;
+  createdAt: number;
+  extensionRequestedByMe: boolean;
+  extensionRequestedByOther: boolean;
 }

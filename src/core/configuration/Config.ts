@@ -148,6 +148,7 @@ export interface Config {
   nukeDeathFactor(humans: number, tilesOwned: number): number;
   structureMinDist(): number;
   isReplay(): boolean;
+  allianceExtensionPromptOffset(): number;
 }
 
 export interface Theme {

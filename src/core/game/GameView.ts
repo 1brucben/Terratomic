@@ -24,6 +24,7 @@ import {
 } from "./Game";
 import { GameMap, TileRef, TileUpdate } from "./GameMap";
 import {
+  AllianceViewData,
   AttackUpdate,
   GameUpdateType,
   GameUpdateViewData,
@@ -321,6 +322,7 @@ export class GameView implements GameMap {
 
   private _myPlayer: PlayerView | null = null;
   private _focusedPlayer: PlayerView | null = null;
+  private _alliances: AllianceViewData[] = [];
 
   private unitGrid: UnitGrid;
 
@@ -358,6 +360,9 @@ export class GameView implements GameMap {
     if (gu.updates === null) {
       throw new Error("lastUpdate.updates not initialized");
     }
+    if (gu.alliances) {
+      this._alliances = gu.alliances;
+    }
     gu.updates[GameUpdateType.Player].forEach((pu) => {
       this.smallIDToID.set(pu.smallID, pu.id);
       const player = this._players.get(pu.id);
@@ -393,6 +398,10 @@ export class GameView implements GameMap {
         this.toDelete.add(unit.id());
       }
     });
+  }
+
+  public alliances(): AllianceViewData[] {
+    return this._alliances;
   }
 
   recentlyUpdatedTiles(): TileRef[] {

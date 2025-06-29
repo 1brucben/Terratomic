@@ -332,6 +332,12 @@ export interface Alliance {
 export interface MutableAlliance extends Alliance {
   expire(): void;
   other(player: Player): Player;
+  wantsExtension(): boolean;
+  requestExtension(player: Player): void;
+  extensionRequestedBy(player: Player): boolean;
+  clearExtensionRequests(): void;
+  id(): number;
+  extendDuration(currentTick: Tick): void;
 }
 
 export class PlayerInfo {
@@ -576,7 +582,6 @@ export interface Player {
 }
 
 export interface Game extends GameMap {
-  expireAlliance(alliance: Alliance);
   // Map & Dimensions
   isOnMap(cell: Cell): boolean;
   width(): number;
@@ -597,6 +602,10 @@ export interface Game extends GameMap {
   owner(ref: TileRef): Player | TerraNullius;
 
   teams(): Team[];
+
+  // Alliances
+  alliances(): MutableAlliance[];
+  expireAlliance(alliance: Alliance): void;
 
   // Game State
   ticks(): Tick;
@@ -711,6 +720,7 @@ export enum MessageType {
   SENT_TROOPS_TO_PLAYER,
   RECEIVED_TROOPS_FROM_PLAYER,
   CHAT,
+  WARN,
 }
 
 // Message categories used for filtering events in the EventsDisplay
@@ -741,6 +751,7 @@ export const MESSAGE_TYPE_CATEGORIES: Record<MessageType, MessageCategory> = {
   [MessageType.ALLIANCE_REQUEST]: MessageCategory.ALLIANCE,
   [MessageType.ALLIANCE_BROKEN]: MessageCategory.ALLIANCE,
   [MessageType.ALLIANCE_EXPIRED]: MessageCategory.ALLIANCE,
+  [MessageType.WARN]: MessageCategory.ALLIANCE,
   [MessageType.SENT_GOLD_TO_PLAYER]: MessageCategory.TRADE,
   [MessageType.RECEIVED_GOLD_FROM_PLAYER]: MessageCategory.TRADE,
   [MessageType.RECEIVED_GOLD_FROM_TRADE]: MessageCategory.TRADE,

@@ -1,7 +1,9 @@
 import { placeName } from "../client/graphics/NameBoxCalculator";
 import { getConfig } from "./configuration/ConfigLoader";
+import { AllianceExpireCheckExecution } from "./execution/alliance/AllianceExpireCheckExecution";
 import { Executor } from "./execution/ExecutionManager";
 import { WinCheckExecution } from "./execution/WinCheckExecution";
+import { AllianceImpl } from "./game/AllianceImpl";
 import {
   AllPlayers,
   Cell,
@@ -20,6 +22,7 @@ import {
 import { createGame } from "./game/GameImpl";
 import { TileRef } from "./game/GameMap";
 import {
+  AllianceViewData,
   ErrorUpdate,
   GameUpdateType,
   GameUpdateViewData,
@@ -81,9 +84,25 @@ export async function createGameRunner(
     game,
     new Executor(game, gameStart.gameID, clientID),
     callBack,
+    clientID,
   );
   gr.init();
   return gr;
+}
+
+function toAllianceViewData(
+  alliance: AllianceImpl,
+  me: Player,
+): AllianceViewData {
+  return {
+    requestorID: alliance.requestor().smallID(),
+    recipientID: alliance.recipient().smallID(),
+    createdAt: alliance.createdAt(),
+    extensionRequestedByMe: alliance.extensionRequestedBy(me),
+    extensionRequestedByOther: alliance.extensionRequestedBy(
+      alliance.otherPlayer(me),
+    ),
+  };
 }
 
 export class GameRunner {
@@ -92,12 +111,16 @@ export class GameRunner {
   private isExecuting = false;
 
   private playerViewData: Record<PlayerID, NameViewData> = {};
+  private clientID: ClientID;
 
   constructor(
     public game: Game,
     private execManager: Executor,
     private callBack: (gu: GameUpdateViewData | ErrorUpdate) => void,
-  ) {}
+    clientID: ClientID,
+  ) {
+    this.clientID = clientID;
+  }
 
   init() {
     if (this.game.config().bots() > 0) {
@@ -109,6 +132,7 @@ export class GameRunner {
       this.game.addExecution(...this.execManager.fakeHumanExecutions());
     }
     this.game.addExecution(new WinCheckExecution());
+    this.game.addExecution(new AllianceExpireCheckExecution());
   }
 
   public addTurn(turn: Turn): void {
@@ -167,12 +191,25 @@ export class GameRunner {
     // Many tiles are updated to pack it into an array
     const packedTileUpdates = updates[GameUpdateType.Tile].map((u) => u.update);
     updates[GameUpdateType.Tile] = [];
-
+    const me = this.game.playerByClientID(this.clientID);
+    if (!me) {
+      this.isExecuting = false;
+      return;
+    }
+    const alliances = this.game
+      .alliances()
+      .filter(
+        (a) =>
+          a.requestor().smallID() === me.smallID() ||
+          a.recipient().smallID() === me.smallID(),
+      )
+      .map((a) => toAllianceViewData(a as AllianceImpl, me));
     this.callBack({
       tick: this.game.ticks(),
       packedTileUpdates: new BigUint64Array(packedTileUpdates),
       updates: updates,
       playerNameViewData: this.playerViewData,
+      alliances: alliances,
     });
     this.isExecuting = false;
   }
