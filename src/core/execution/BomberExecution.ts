@@ -89,6 +89,7 @@ export class BomberExecution implements Execution {
         this.dropBomb();
       } else if (this.returning) {
         // If we're returning and arrived back at the airfield, end the execution
+        this.bomber.delete(true);
         this.active = false;
       }
       return; // skip the move() call when we've already handled arrival

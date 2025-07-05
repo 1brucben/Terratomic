@@ -286,7 +286,7 @@ export class UnitLayer implements Layer {
         this.handleMIRVWarhead(unit);
         break;
       case UnitType.Bomber:
-        this.handleCargoPlaneEvent(unit);
+        this.handleBomberEvent(unit);
         break;
       case UnitType.AtomBomb:
       case UnitType.HydrogenBomb:
@@ -444,6 +444,10 @@ export class UnitLayer implements Layer {
   }
 
   private handleCargoPlaneEvent(unit: UnitView) {
+    this.drawSprite(unit);
+  }
+
+  private handleBomberEvent(unit: UnitView) {
     this.drawSprite(unit);
   }
 
