@@ -587,8 +587,7 @@ export class GameImpl implements Game {
   }
 
   /**
-   * Trigger a small nuke‐style blast at `tile`, with a given radius and
-   * fraction‐scale.  Owner is used for credit/damage attribution.
+   * Trigger a small blast at `tile`, with a given radius.  Owner is used for credit/damage attribution.
    */
   public nukeExplosion(tile: TileRef, radius: number, owner: Player): void {
     // 1) collect all tiles within Euclidean radius
@@ -605,6 +604,10 @@ export class GameImpl implements Game {
         .concat(this.units(UnitType.DefensePost))
         .filter((u) => u.tile() === t);
       for (const u of unitList) {
+        const uowner = u.owner();
+        if (!uowner.isPlayer()) continue; // skip terra nullius
+        if (uowner.id() === owner.id()) continue; // skip yourself
+        if (owner.isFriendly(uowner)) continue; // skip your allies
         u.delete(true, owner);
       }
       // optional: make it terra nullius

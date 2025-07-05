@@ -308,19 +308,15 @@ export class DefaultConfig implements Config {
   }
 
   // Bombers
-  //How many ticks a Bomber can stay airborne.
-  bomberFuelTicks(): number {
-    return 500;
-  }
   // How many ticks between each bomber spawn attempt per airfield.
-  // // 30 × 10 = 300 ticks
+  // // 20 × 10 = 200 ticks
   bomberSpawnInterval(): number {
-    return 30;
+    return 20;
   }
 
   // A Bomber can carry x bombs.
   bomberPayload(): number {
-    return 3;
+    return 1;
   }
   // How many ticks it takes for a Bomber to drop a bomb.
   bomberDropCadence(): number {
@@ -332,11 +328,7 @@ export class DefaultConfig implements Config {
   }
   /** How many tiles out from the bomb’s center the blast reaches */
   bomberExplosionRadius(): number {
-    return 5;
-  }
-  /** Fraction of a full nuke’s magnitude to apply (e.g. 0.125 = 1/8th strength) */
-  bomberExplosionScale(): number {
-    return 0.125;
+    return 4;
   }
 
   unitInfo(type: UnitType): UnitInfo {

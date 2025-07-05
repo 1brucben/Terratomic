@@ -95,14 +95,26 @@ export class AirfieldExecution implements Execution {
         UnitType.City,
         UnitType.SAMLauncher,
         UnitType.Airfield,
-        UnitType.DefensePost,
         UnitType.MissileSilo,
         UnitType.Port,
         UnitType.Hospital,
         UnitType.Academy,
+        UnitType.DefensePost,
       ])
       .map(({ unit }) => unit.tile())
-      .filter((t) => this.mg!.owner(t).id() !== this.player.id());
+      .filter((t) => {
+        const owner = this.mg!.owner(t);
+        if (!owner.isPlayer()) return false;
+
+        // 1) never target yourself
+        if (owner.id() === this.player.id()) return false;
+
+        // 2) never target allies
+        if (this.player.isFriendly(owner as Player)) return false;
+
+        // now what's left must be true enemies
+        return true;
+      });
 
     if (targets.length === 0) {
       return;

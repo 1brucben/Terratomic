@@ -129,13 +129,11 @@ export interface Config {
   cargoPlaneGold(dist: number): Gold;
   cargoPlaneSpawnRate(numberOfAirplanes: number): number;
   cargoPlaneMaxNumber(): number;
-  bomberFuelTicks(): number;
   bomberDropCadence(): number;
   bomberPayload(): number;
   bomberSpawnInterval(): number;
   bomberTargetRange(): number;
   bomberExplosionRadius(): number;
-  bomberExplosionScale(): number;
   safeFromPiratesCooldownMax(): number;
   defensePostRange(): number;
   SAMCooldown(): number;
