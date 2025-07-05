@@ -202,48 +202,47 @@ export class SAMLauncherExecution implements Execution {
       this.interceptCargoPlanes();
     }
   }
-
+  // Bomber targetting added
   private interceptCargoPlanes() {
-    const potentialCargoPlaneTargets = this.mg.nearbyUnits(
+    const potentialAirborneTargets = this.mg.nearbyUnits(
       this.sam!.tile(),
       this.cargoPlaneSearchRadius,
-      UnitType.CargoPlane,
+      [UnitType.CargoPlane, UnitType.Bomber],
     );
     if (!this.sam) return;
 
-    const validCargoPlaneTargets = potentialCargoPlaneTargets.filter(
-      ({ unit }) => {
-        const unitOwner = unit.owner();
-        const targetUnitOwner = unit.targetUnit()?.owner();
+    const validAirborneTargets = potentialAirborneTargets.filter(({ unit }) => {
+      const unitOwner = unit.owner();
+      const targetUnitOwner = unit.targetUnit()?.owner();
 
-        if (unitOwner === this.player) return false;
+      if (unitOwner === this.player) return false;
 
-        // Do not shoot friendly cargo planes
-        if (this.player.isFriendly(unitOwner)) return false;
+      // Do not shoot friendly cargo planes
+      if (this.player.isFriendly(unitOwner)) return false;
+      // never shoot planes heading toward or belonging to you or your allies
+      if (
+        targetUnitOwner === this.player ||
+        (targetUnitOwner && targetUnitOwner.isFriendly(this.player))
+      ) {
+        return false;
+      }
 
-        if (
-          targetUnitOwner === this.player ||
-          (targetUnitOwner && targetUnitOwner?.isFriendly(this.player))
-        ) {
-          return false;
-        }
+      // Only target units that are not targeted
+      return !unit.targetedBySAM();
+    });
 
-        // Only target units that are not targeted
-        return !unit.targetedBySAM();
-      },
-    );
-
-    if (validCargoPlaneTargets.length > 0) {
+    if (validAirborneTargets.length > 0) {
       this.sam.launch();
       const samOwner = this.sam!.owner();
 
       this.mg.displayMessage(
-        `${validCargoPlaneTargets.length} Cargo Plane(s) intercepted`,
+        `${validAirborneTargets.length} AirPlane(s) intercepted`,
         MessageType.SAM_HIT,
         samOwner.id(),
       );
 
-      validCargoPlaneTargets.forEach(({ unit: u }) => {
+      validAirborneTargets.forEach(({ unit: u }) => {
+        // mark it so no other SAM tries the same plane
         u.setTargetedBySAM(true);
         this.mg.addExecution(
           new SAMMissileExecution(
