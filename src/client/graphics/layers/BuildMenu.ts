@@ -54,6 +54,13 @@ const buildTable: BuildItemDisplay[][] = [
       countable: false,
     },
     {
+      unitType: UnitType.Airfield,
+      icon: airfieldIcon,
+      description: "build_menu.desc.airfield",
+      key: "unit_type.airfield",
+      countable: true,
+    },
+    {
       unitType: UnitType.Warship,
       icon: warshipIcon,
       description: "build_menu.desc.warship",
@@ -108,13 +115,6 @@ const buildTable: BuildItemDisplay[][] = [
       icon: cityIcon,
       description: "build_menu.desc.city",
       key: "unit_type.city",
-      countable: true,
-    },
-    {
-      unitType: UnitType.Airfield,
-      icon: airfieldIcon,
-      description: "build_menu.desc.airfield",
-      key: "unit_type.airfield",
       countable: true,
     },
   ],
