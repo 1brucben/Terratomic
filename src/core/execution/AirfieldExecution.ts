@@ -87,6 +87,13 @@ export class AirfieldExecution implements Execution {
     }
     this.spawnTicker = 0;
 
+    const busyTargets = new Set<TileRef>(
+      this.mg
+        .units(UnitType.Bomber)
+        .map((u) => u.targetTile())
+        .filter((t): t is TileRef => t !== undefined),
+    );
+
     // 3.4a: Gather all enemy units in range, with their owner and distance²
     const range = mg.config().bomberTargetRange();
     type Near = { unit: Unit; dist2: number };
@@ -102,12 +109,24 @@ export class AirfieldExecution implements Execution {
         UnitType.Hospital,
       ])
       .filter(({ unit, distSquared }) => {
-        const o = mg.owner(unit.tile());
-        return (
-          o.isPlayer() &&
-          o.id() !== this.player.id() &&
-          !this.player.isFriendly(o as Player)
-        );
+        const t = unit.tile();
+        const o = this.mg!.owner(t);
+
+        // a) Only enemy units
+        if (
+          !o.isPlayer() ||
+          o.id() === this.player.id() ||
+          this.player.isFriendly(o)
+        ) {
+          return false;
+        }
+
+        // b) only targets free of other Bombers
+        if (busyTargets.has(t)) {
+          return false;
+        }
+
+        return true;
       })
       .map(({ unit, distSquared }) => ({ unit, dist2: distSquared }));
 
