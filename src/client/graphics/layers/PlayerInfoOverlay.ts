@@ -276,6 +276,10 @@ export class PlayerInfoOverlay extends LitElement implements Layer {
           ${translateText("player_info_overlay.warships")}:
           ${player.units(UnitType.Warship).length}
         </div>
+        <div class="text-sm opacity-80" translate="no">
+          ${translateText("player_info_overlay.fighter_jets")}:
+          ${player.units(UnitType.FighterJet).length}
+        </div>
         ${relationHtml}
       </div>
     `;

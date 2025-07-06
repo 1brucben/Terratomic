@@ -10,7 +10,10 @@ import {
   MouseUpEvent,
   UnitSelectionEvent,
 } from "../../InputHandler";
-import { MoveWarshipIntentEvent } from "../../Transport";
+import {
+  MoveFighterJetIntentEvent,
+  MoveWarshipIntentEvent,
+} from "../../Transport";
 import { TransformHandler } from "../TransformHandler";
 import { Layer } from "./Layer";
 
@@ -48,6 +51,7 @@ export class UnitLayer implements Layer {
 
   // Configuration for unit selection
   private readonly WARSHIP_SELECTION_RADIUS = 10; // Radius in game cells for warship selection hit zone
+  private readonly FIGHTER_JET_SELECTION_RADIUS = 10; // Radius in game cells for fighter jet selection hit zone
 
   constructor(
     private game: GameView,
@@ -109,6 +113,28 @@ export class UnitLayer implements Layer {
       });
   }
 
+  private findFighterJetsNearCell(cell: { x: number; y: number }): UnitView[] {
+    if (!this.game.isValidCoord(cell.x, cell.y)) {
+      return [];
+    }
+    const clickRef = this.game.ref(cell.x, cell.y);
+
+    return this.game
+      .units(UnitType.FighterJet)
+      .filter(
+        (unit) =>
+          unit.isActive() &&
+          unit.owner() === this.game.myPlayer() &&
+          this.game.manhattanDist(unit.tile(), clickRef) <=
+            this.FIGHTER_JET_SELECTION_RADIUS,
+      )
+      .sort((a, b) => {
+        const distA = this.game.manhattanDist(a.tile(), clickRef);
+        const distB = this.game.manhattanDist(b.tile(), clickRef);
+        return distA - distB;
+      });
+  }
+
   private onMouseUp(event: MouseUpEvent) {
     // Convert screen coordinates to world coordinates
     const cell = this.transformHandler.screenToWorldCoordinates(
@@ -118,6 +144,7 @@ export class UnitLayer implements Layer {
 
     // Find warships near this cell, sorted by distance
     const nearbyWarships = this.findWarshipsNearCell(cell);
+    const nearbyFighterJets = this.findFighterJetsNearCell(cell);
 
     if (this.selectedUnit) {
       const clickRef = this.game.ref(cell.x, cell.y);
@@ -125,12 +152,20 @@ export class UnitLayer implements Layer {
         this.eventBus.emit(
           new MoveWarshipIntentEvent(this.selectedUnit.id(), clickRef),
         );
+      } else if (this.selectedUnit.type() === UnitType.FighterJet) {
+        this.eventBus.emit(
+          new MoveFighterJetIntentEvent(this.selectedUnit.id(), clickRef),
+        );
       }
       // Deselect
       this.eventBus.emit(new UnitSelectionEvent(this.selectedUnit, false));
     } else if (nearbyWarships.length > 0) {
       // Toggle selection of the closest warship
       const clickedUnit = nearbyWarships[0];
+      this.eventBus.emit(new UnitSelectionEvent(clickedUnit, true));
+    } else if (nearbyFighterJets.length > 0) {
+      // Toggle selection of the closest fighter jet
+      const clickedUnit = nearbyFighterJets[0];
       this.eventBus.emit(new UnitSelectionEvent(clickedUnit, true));
     }
   }
@@ -287,6 +322,9 @@ export class UnitLayer implements Layer {
         break;
       case UnitType.Bomber:
         this.handleBomberEvent(unit);
+        break;
+      case UnitType.FighterJet:
+        this.handleFighterJetEvent(unit);
         break;
       case UnitType.AtomBomb:
       case UnitType.HydrogenBomb:
@@ -449,6 +487,14 @@ export class UnitLayer implements Layer {
 
   private handleBomberEvent(unit: UnitView) {
     this.drawSprite(unit);
+  }
+
+  private handleFighterJetEvent(unit: UnitView) {
+    if (unit.targetUnitId()) {
+      this.drawSprite(unit, colord({ r: 200, b: 0, g: 0 }));
+    } else {
+      this.drawSprite(unit);
+    }
   }
 
   private handleBoatEvent(unit: UnitView) {

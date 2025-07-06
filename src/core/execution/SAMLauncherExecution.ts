@@ -207,7 +207,7 @@ export class SAMLauncherExecution implements Execution {
     const potentialAirborneTargets = this.mg.nearbyUnits(
       this.sam!.tile(),
       this.cargoPlaneSearchRadius,
-      [UnitType.CargoPlane, UnitType.Bomber],
+      [UnitType.CargoPlane, UnitType.Bomber, UnitType.FighterJet],
     );
     if (!this.sam) return;
 

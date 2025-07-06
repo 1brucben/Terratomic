@@ -134,6 +134,7 @@ export interface Config {
   bomberSpawnInterval(): number;
   bomberTargetRange(): number;
   bomberExplosionRadius(): number;
+  fighterJetSpawnInterval(): number;
   safeFromPiratesCooldownMax(): number;
   defensePostRange(): number;
   SAMCooldown(): number;
@@ -147,6 +148,9 @@ export interface Config {
   warshipTargettingRange(): number;
   defensePostShellAttackRate(): number;
   defensePostTargettingRange(): number;
+  fighterJetPatrolRange(): number;
+  fighterJetTargettingRange(): number;
+  fighterJetAttackRate(): number;
   // 0-1
   traitorDefenseDebuff(): number;
   traitorDuration(): number;

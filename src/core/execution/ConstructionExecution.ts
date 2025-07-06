@@ -12,6 +12,7 @@ import { AcademyExecution } from "./AcademyExecution";
 import { AirfieldExecution } from "./AirfieldExecution";
 import { CityExecution } from "./CityExecution";
 import { DefensePostExecution } from "./DefensePostExecution";
+import { FighterJetExecution } from "./FighterJetExecution";
 import { HospitalExecution } from "./HospitalExecution";
 import { MirvExecution } from "./MIRVExecution";
 import { MissileSiloExecution } from "./MissileSiloExecution";
@@ -101,6 +102,11 @@ export class ConstructionExecution implements Execution {
       case UnitType.Warship:
         this.mg.addExecution(
           new WarshipExecution({ owner: player, patrolTile: this.tile }),
+        );
+        break;
+      case UnitType.FighterJet:
+        this.mg.addExecution(
+          new FighterJetExecution({ owner: player, patrolTile: this.tile }),
         );
         break;
       case UnitType.Port:

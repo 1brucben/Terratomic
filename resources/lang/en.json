@@ -230,7 +230,8 @@
     "mirv": "MIRV",
     "hospital": "Hospital",
     "academy": "Military Academy",
-    "airfield": "Airfield"
+    "airfield": "Airfield",
+    "fighter_jet": "Fighter Jet"
   },
   "user_setting": {
     "title": "User Settings",
@@ -374,7 +375,8 @@
       "city": "Increase max population",
       "hospital": "Lowers troop casualties from combat",
       "academy": "Increases troop speed and enemy losses in combat",
-      "airfield": "Sends bomber planes to bomb other players"
+      "airfield": "Sends bomber planes to bomb other players",
+      "fighter_jet": "Destroys bombers and fighters jets"
     },
     "not_enough_money": "Not enough money"
   },
@@ -414,6 +416,7 @@
     "missile_launchers": "Missile launchers",
     "sams": "SAMs",
     "warships": "Warships",
+    "fighter_jets": "Fighter Jets",
     "health": "Health",
     "attitude": "Attitude",
     "airfields": "Airfields"

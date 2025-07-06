@@ -2,6 +2,7 @@ import { Colord } from "colord";
 import atomBombSprite from "../../../resources/sprites/atombomb.png";
 import bomberSprite from "../../../resources/sprites/bomber.png";
 import cargoPlaneSprite from "../../../resources/sprites/cargoplane.png";
+import fighterJetSprite from "../../../resources/sprites/fighterJet.png";
 import hydrogenBombSprite from "../../../resources/sprites/hydrogenbomb.png";
 import mirvSprite from "../../../resources/sprites/mirv2.png";
 import samMissileSprite from "../../../resources/sprites/samMissile.png";
@@ -22,6 +23,7 @@ const SPRITE_CONFIG: Partial<Record<UnitType, string>> = {
   [UnitType.MIRV]: mirvSprite,
   [UnitType.CargoPlane]: cargoPlaneSprite,
   [UnitType.Bomber]: bomberSprite,
+  [UnitType.FighterJet]: fighterJetSprite,
 };
 
 const spriteMap: Map<UnitType, ImageBitmap> = new Map();

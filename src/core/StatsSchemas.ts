@@ -38,6 +38,7 @@ export const OtherUnitSchema = z.union([
   z.literal("silo"),
   z.literal("saml"),
   z.literal("airf"),
+  z.literal("fjet"),
 ]);
 export type OtherUnit = z.infer<typeof OtherUnitSchema>;
 export type OtherUnitType =
@@ -47,7 +48,8 @@ export type OtherUnitType =
   | UnitType.Port
   | UnitType.SAMLauncher
   | UnitType.Warship
-  | UnitType.Airfield;
+  | UnitType.Airfield
+  | UnitType.FighterJet;
 
 export const unitTypeToOtherUnit = {
   [UnitType.City]: "city",
@@ -57,6 +59,7 @@ export const unitTypeToOtherUnit = {
   [UnitType.SAMLauncher]: "saml",
   [UnitType.Warship]: "wshp",
   [UnitType.Airfield]: "airf",
+  [UnitType.FighterJet]: "fjet",
 } as const satisfies Record<OtherUnitType, OtherUnit>;
 
 // Attacks

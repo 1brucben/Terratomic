@@ -6,5 +6,7 @@ coverage/
 TODO.txt
 resources/images/.DS_Store
 resources/.DS_Store
+project_info.md
+errors.txt
 .env*
 .DS_Store

@@ -4,6 +4,7 @@ import airfieldIcon from "../../../../resources/images/AirfieldIcon.svg";
 import warshipIcon from "../../../../resources/images/BattleshipIconWhite.svg";
 import academyIcon from "../../../../resources/images/buildings/academy_icon.png";
 import cityIcon from "../../../../resources/images/CityIconWhite.svg";
+import fighterJetIcon from "../../../../resources/images/FighterJetIcon.svg";
 import goldCoinIcon from "../../../../resources/images/GoldCoinIcon.svg";
 import hospitalIcon from "../../../../resources/images/HospitalIconWhite.svg";
 import mirvIcon from "../../../../resources/images/MIRVIcon.svg";
@@ -58,6 +59,13 @@ const buildTable: BuildItemDisplay[][] = [
       icon: airfieldIcon,
       description: "build_menu.desc.airfield",
       key: "unit_type.airfield",
+      countable: true,
+    },
+    {
+      unitType: UnitType.FighterJet,
+      icon: fighterJetIcon,
+      description: "build_menu.desc.fighter_jet",
+      key: "unit_type.fighter_jet",
       countable: true,
     },
     {

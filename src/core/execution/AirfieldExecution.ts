@@ -4,6 +4,8 @@ import { PseudoRandom } from "../PseudoRandom";
 import { BomberExecution } from "./BomberExecution";
 import { CargoPlaneExecution } from "./CargoPlaneExecution";
 
+import { FighterJetExecution } from "./FighterJetExecution";
+
 export class AirfieldExecution implements Execution {
   private active = true;
   private mg: Game | null = null;
@@ -11,6 +13,7 @@ export class AirfieldExecution implements Execution {
   private random: PseudoRandom | null = null;
   private checkOffset: number | null = null;
   private spawnTicker = 0;
+  private fighterSpawnTicker = 0;
 
   constructor(
     private player: Player,
@@ -183,6 +186,42 @@ export class AirfieldExecution implements Execution {
 
     // 3.4b: Actually launch the Bomber
     mg.addExecution(new BomberExecution(this.player, airfieldUnit, targetTile));
+
+    // 3.5: Fighter Jet spawn chance
+    this.fighterSpawnTicker++;
+    if (this.fighterSpawnTicker < mg.config().fighterJetSpawnInterval()) {
+      return;
+    }
+    this.fighterSpawnTicker = 0;
+
+    const activeFighters = this.player.units(UnitType.FighterJet).length;
+    if (activeFighters >= totalAirfields) {
+      return; // already “one-per-field” in the air
+    }
+
+    const enemyAirUnits = mg
+      .nearbyUnits(
+        airfieldUnit.tile(),
+        mg.config().fighterJetTargettingRange(),
+        [UnitType.Bomber, UnitType.FighterJet],
+      )
+      .filter(({ unit }) => {
+        const o = this.mg!.owner(unit.tile());
+        return (
+          o.isPlayer() &&
+          o.id() !== this.player.id() &&
+          !this.player.isFriendly(o)
+        );
+      });
+
+    if (enemyAirUnits.length > 0) {
+      mg.addExecution(
+        new FighterJetExecution({
+          owner: this.player,
+          patrolTile: airfieldUnit.tile(),
+        }),
+      );
+    }
   }
 
   isActive(): boolean {

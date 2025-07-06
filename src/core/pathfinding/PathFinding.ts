@@ -4,6 +4,7 @@ import { PseudoRandom } from "../PseudoRandom";
 import { DistanceBasedBezierCurve } from "../utilities/Line";
 import { AStar, AStarResult, PathFindResultType } from "./AStar";
 import { MiniAStar } from "./MiniAStar";
+export { AStar, AStarResult, PathFindResultType };
 
 const parabolaMinHeight = 50;
 
@@ -205,6 +206,13 @@ export class PathFinder {
       default:
         throw new Error("unexpected compute result");
     }
+  }
+
+  public reconstructPath(): TileRef[] {
+    if (this.path === null) {
+      return [];
+    }
+    return this.path;
   }
 
   private shouldRecompute(curr: TileRef, dst: TileRef) {

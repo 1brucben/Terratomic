@@ -331,6 +331,10 @@ export class DefaultConfig implements Config {
     return 4;
   }
 
+  fighterJetSpawnInterval(): number {
+    return 10;
+  }
+
   unitInfo(type: UnitType): UnitInfo {
     switch (type) {
       case UnitType.TransportShip:
@@ -461,6 +465,7 @@ export class DefaultConfig implements Config {
                 ),
           territoryBound: true,
           constructionDuration: this.instantBuild() ? 0 : 2 * 10,
+          maxHealth: 1000,
         };
       case UnitType.Construction:
         return {
@@ -521,6 +526,21 @@ export class DefaultConfig implements Config {
         return {
           cost: () => 0n,
           territoryBound: false,
+          maxHealth: 500,
+        };
+      case UnitType.FighterJet:
+        return {
+          cost: (p: Player) =>
+            p.type() === PlayerType.Human && this.infiniteGold()
+              ? 0n
+              : BigInt(
+                  Math.min(
+                    1_000_000,
+                    (p.unitsOwned(UnitType.FighterJet) + 1) * 250_000,
+                  ),
+                ),
+          territoryBound: false,
+          maxHealth: 750,
         };
       default:
         assertNever(type);
@@ -889,6 +909,18 @@ export class DefaultConfig implements Config {
 
   defensePostTargettingRange(): number {
     return 75;
+  }
+
+  fighterJetPatrolRange(): number {
+    return 150;
+  }
+
+  fighterJetTargettingRange(): number {
+    return 180;
+  }
+
+  fighterJetAttackRate(): number {
+    return 15;
   }
 
   allianceExtensionPromptOffset(): number {

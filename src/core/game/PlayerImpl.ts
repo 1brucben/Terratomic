@@ -932,6 +932,8 @@ export class PlayerImpl implements Player {
       case UnitType.CargoPlane:
       case UnitType.Bomber:
         return this.cargoPlaneSpawn(targetTile);
+      case UnitType.FighterJet:
+        return this.fighterJetSpawn(targetTile);
       default:
         assertNever(unitType);
     }
@@ -1054,6 +1056,17 @@ export class PlayerImpl implements Player {
   cargoPlaneSpawn(targetTile: TileRef): TileRef | false {
     const spawns = this.units(UnitType.Airfield).filter(
       (u) => u.tile() === targetTile,
+    );
+    if (spawns.length === 0) {
+      return false;
+    }
+    return spawns[0].tile();
+  }
+  fighterJetSpawn(tile: TileRef): TileRef | false {
+    const spawns = this.units(UnitType.Airfield).sort(
+      (a, b) =>
+        this.mg.manhattanDist(a.tile(), tile) -
+        this.mg.manhattanDist(b.tile(), tile),
     );
     if (spawns.length === 0) {
       return false;
