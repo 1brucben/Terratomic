@@ -10,6 +10,10 @@ import {
 import { TileRef } from "../game/GameMap";
 import { StraightPathFinder } from "../pathfinding/PathFinding";
 
+/**
+ * Manages the behavior and lifecycle of a Cargo Plane.
+ * This includes spawning, flying between airfields, and facilitating trade.
+ */
 export class CargoPlaneExecution implements Execution {
   private active = true;
   private mg: Game;
@@ -17,18 +21,35 @@ export class CargoPlaneExecution implements Execution {
   private pathFinder: StraightPathFinder;
   private tilesTraveled = 0;
 
+  /**
+   * Initializes a new CargoPlaneExecution instance.
+   * @param origOwner The player who owns/spawned this cargo plane.
+   * @param sourceAirfield The Airfield unit where the cargo plane spawns.
+   * @param destinationAirfield The Airfield unit that is the destination for the cargo plane.
+   */
   constructor(
     private origOwner: Player,
     private sourceAirfield: Unit,
     private destinationAirfield: Unit,
   ) {}
 
+  /**
+   * Initializes the execution, setting up game references and the pathfinder.
+   * @param mg The game instance.
+   * @param ticks The current game tick.
+   */
   init(mg: Game, ticks: number): void {
     this.mg = mg;
     this.pathFinder = new StraightPathFinder(mg);
   }
 
+  /**
+   * Called every game tick to update the cargo plane's state and behavior.
+   * Handles spawning, movement, and trade completion.
+   * @param ticks The current game tick.
+   */
   tick(ticks: number): void {
+    // 1) SPAWN: Build the cargo plane unit if it hasn't been spawned yet.
     if (this.cargoPlane === undefined) {
       const spawn = this.origOwner.canBuild(
         UnitType.CargoPlane,
@@ -44,11 +65,13 @@ export class CargoPlaneExecution implements Execution {
       });
     }
 
+    // 2) STILL ALIVE: If the cargo plane is no longer active (e.g., destroyed), deactivate this execution.
     if (!this.cargoPlane.isActive()) {
       this.active = false;
       return;
     }
 
+    // 3) TRADE VALIDATION: If source and destination airfields are owned by the same player, delete the cargo plane.
     if (
       this.destinationAirfield.owner().id() === this.sourceAirfield.owner().id()
     ) {
@@ -57,6 +80,7 @@ export class CargoPlaneExecution implements Execution {
       return;
     }
 
+    // 4) TRADE VALIDATION: If destination airfield is inactive or trade is not possible, delete the cargo plane.
     if (
       !this.destinationAirfield.isActive() ||
       !this.cargoPlane.owner().canTrade(this.destinationAirfield.owner())
@@ -66,29 +90,38 @@ export class CargoPlaneExecution implements Execution {
       return;
     }
 
+    // 5) MOVEMENT: Calculate the next tile for the cargo plane's straight-line movement.
     const result = this.pathFinder.nextTile(
       this.cargoPlane.tile(),
       this.destinationAirfield.tile(),
       2,
     );
 
+    // 6) ARRIVAL HANDLING: If the destination is reached, complete the trade.
     if (result === true) {
       this.complete();
       return;
     } else {
+      // Move the cargo plane to the next tile and increment tiles traveled.
       this.cargoPlane.move(result);
       this.tilesTraveled++;
     }
   }
 
+  /**
+   * Completes the trade operation, transferring gold and deactivating the cargo plane.
+   */
   private complete() {
     this.active = false;
     this.cargoPlane!.delete(false);
+    // Calculate gold earned based on tiles traveled.
     const gold = this.mg.config().cargoPlaneGold(this.tilesTraveled);
 
+    // Add gold to both source and destination airfield owners.
     this.sourceAirfield.owner().addGold(gold);
     this.destinationAirfield.owner().addGold(gold);
 
+    // Display messages for trade completion.
     this.mg.displayMessage(
       `Received ${renderNumber(gold)} gold from trade using cargo plane with ${this.sourceAirfield.owner().displayName()}`,
       MessageType.RECEIVED_GOLD_FROM_TRADE,
@@ -104,14 +137,27 @@ export class CargoPlaneExecution implements Execution {
     return;
   }
 
+  /**
+   * Checks if the CargoPlaneExecution is currently active.
+   * @returns True if active, false otherwise.
+   */
   isActive(): boolean {
     return this.active;
   }
 
+  /**
+   * Indicates whether this execution should be active during the spawn phase.
+   * Cargo planes are not active during the spawn phase.
+   * @returns Always false.
+   */
   activeDuringSpawnPhase(): boolean {
     return false;
   }
 
+  /**
+   * Returns the TileRef of the destination airfield.
+   * @returns The TileRef of the destination airfield.
+   */
   dstAirfield(): TileRef {
     return this.destinationAirfield.tile();
   }

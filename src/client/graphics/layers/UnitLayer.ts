@@ -481,10 +481,18 @@ export class UnitLayer implements Layer {
     this.drawSprite(unit);
   }
 
+  /**
+   * Handles rendering for Cargo Plane units.
+   * @param unit The Cargo Plane UnitView.
+   */
   private handleCargoPlaneEvent(unit: UnitView) {
     this.drawSprite(unit);
   }
 
+  /**
+   * Handles rendering for Bomber units.
+   * @param unit The Bomber UnitView.
+   */
   private handleBomberEvent(unit: UnitView) {
     this.drawSprite(unit);
   }

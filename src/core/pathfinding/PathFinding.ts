@@ -8,10 +8,19 @@ export { AStar, AStarResult, PathFindResultType };
 
 const parabolaMinHeight = 50;
 
+/**
+ * PathFinder for units that move along a parabolic trajectory (e.g., shells).
+ */
 export class ParabolaPathFinder {
   constructor(private mg: GameMap) {}
   private curve: DistanceBasedBezierCurve | undefined;
 
+  /**
+   * Computes the control points for a Bezier curve to define the parabolic path.
+   * @param orig The origin tile.
+   * @param dst The destination tile.
+   * @param distanceBasedHeight Whether the height of the parabola should be based on distance.
+   */
   computeControlPoints(
     orig: TileRef,
     dst: TileRef,
@@ -25,7 +34,7 @@ export class ParabolaPathFinder {
     const maxHeight = distanceBasedHeight
       ? Math.max(distance / 3, parabolaMinHeight)
       : 0;
-    // Use a bezier curve always pointing up
+    // Use a bezier curve always pointing up.
     const p1 = {
       x: p0.x + (p3.x - p0.x) / 4,
       y: Math.max(p0.y + (p3.y - p0.y) / 4 - maxHeight, 0),
@@ -38,6 +47,11 @@ export class ParabolaPathFinder {
     this.curve = new DistanceBasedBezierCurve(p0, p1, p2, p3);
   }
 
+  /**
+   * Calculates the next tile along the parabolic path.
+   * @param speed The speed of movement.
+   * @returns The next TileRef in the path, or true if the destination is reached.
+   */
   nextTile(speed: number): TileRef | true {
     if (!this.curve) {
       throw new Error("ParabolaPathFinder not initialized");
@@ -50,12 +64,21 @@ export class ParabolaPathFinder {
   }
 }
 
+/**
+ * PathFinder for units that move directly through the air (e.g., SAM missiles).
+ */
 export class AirPathFinder {
   constructor(
     private mg: GameMap,
     private random: PseudoRandom,
   ) {}
 
+  /**
+   * Calculates the next tile for direct air movement.
+   * @param tile The current tile.
+   * @param dst The destination tile.
+   * @returns The next TileRef in the path, or true if the destination is reached.
+   */
   nextTile(tile: TileRef, dst: TileRef): TileRef | true {
     const x = this.mg.x(tile);
     const y = this.mg.y(tile);
@@ -66,7 +89,6 @@ export class AirPathFinder {
       return true;
     }
 
-    // Calculate next position
     let nextX = x;
     let nextY = y;
 
@@ -86,9 +108,19 @@ export class AirPathFinder {
   }
 }
 
+/**
+ * PathFinder for units that move in a straight line towards a target (e.g., Cargo Planes, Fighter Jets).
+ */
 export class StraightPathFinder {
   constructor(private mg: GameMap) {}
 
+  /**
+   * Calculates the next tile for straight-line movement.
+   * @param curr The current tile.
+   * @param dst The destination tile.
+   * @param speed The movement speed.
+   * @returns The next TileRef in the path, or true if the destination is reached.
+   */
   nextTile(curr: TileRef, dst: TileRef, speed: number): TileRef | true {
     const currX = this.mg.x(curr);
     const currY = this.mg.y(curr);
@@ -101,7 +133,7 @@ export class StraightPathFinder {
 
     const dist = Math.hypot(dx, dy);
 
-    // Snap to destination
+    // If the distance to destination is less than or equal to speed, snap to destination.
     if (dist <= speed) {
       return true;
     }
@@ -116,8 +148,8 @@ export class StraightPathFinder {
     const remainingDy = dstY - nextY;
     const remainingDist = Math.hypot(remainingDx, remainingDy);
 
+    // If the remaining distance is less than or equal to speed, snap to destination.
     if (remainingDist <= speed) {
-      // mark as reached
       return true;
     } else {
       return this.mg.ref(nextX, nextY);
@@ -125,6 +157,9 @@ export class StraightPathFinder {
   }
 }
 
+/**
+ * Generic PathFinder class that uses an A* algorithm for pathfinding.
+ */
 export class PathFinder {
   private curr: TileRef | null = null;
   private dst: TileRef | null = null;
@@ -137,6 +172,15 @@ export class PathFinder {
     private newAStar: (curr: TileRef, dst: TileRef) => AStar<TileRef>,
   ) {}
 
+  /**
+   * Static factory method to create a MiniAStar-based PathFinder.
+   * This is used for general pathfinding where terrain restrictions apply.
+   * @param game The game instance.
+   * @param iterations The maximum number of iterations for the A* algorithm.
+   * @param waterPath Whether to allow pathfinding over water (true for ships, false for land units).
+   * @param maxTries The maximum number of tries for pathfinding.
+   * @returns A new PathFinder instance.
+   */
   public static Mini(
     game: Game,
     iterations: number,
@@ -156,25 +200,34 @@ export class PathFinder {
     });
   }
 
+  /**
+   * Calculates the next tile in the path.
+   * @param curr The current tile.
+   * @param dst The destination tile.
+   * @param dist The distance to move in this step (default is 1).
+   * @returns An AStarResult indicating the pathfinding status and the next node.
+   */
   nextTile(
     curr: TileRef | null,
     dst: TileRef | null,
     dist: number = 1,
   ): AStarResult<TileRef> {
     if (curr === null) {
-      console.error("curr is null");
+      console.error("Current tile is null");
       return { type: PathFindResultType.PathNotFound };
     }
     if (dst === null) {
-      console.error("dst is null");
+      console.error("Destination tile is null");
       return { type: PathFindResultType.PathNotFound };
     }
 
+    // If close enough to destination, consider it reached.
     if (this.game.manhattanDist(curr, dst) < dist) {
       return { type: PathFindResultType.Completed, node: curr };
     }
 
     if (this.computeFinished) {
+      // Recompute path if necessary.
       if (this.shouldRecompute(curr, dst)) {
         this.curr = curr;
         this.dst = dst;
@@ -183,19 +236,21 @@ export class PathFinder {
         this.computeFinished = false;
         return this.nextTile(curr, dst);
       } else {
+        // Return the next tile from the precomputed path.
         const tile = this.path?.shift();
         if (tile === undefined) {
-          throw new Error("missing tile");
+          throw new Error("Missing tile in path");
         }
         return { type: PathFindResultType.NextTile, node: tile };
       }
     }
 
+    // Continue computing the A* path.
     switch (this.aStar.compute()) {
       case PathFindResultType.Completed:
         this.computeFinished = true;
         this.path = this.aStar.reconstructPath();
-        // Remove the start tile
+        // Remove the start tile from the path as it's the current position.
         this.path.shift();
 
         return this.nextTile(curr, dst);
@@ -204,10 +259,14 @@ export class PathFinder {
       case PathFindResultType.PathNotFound:
         return { type: PathFindResultType.PathNotFound };
       default:
-        throw new Error("unexpected compute result");
+        throw new Error("Unexpected compute result");
     }
   }
 
+  /**
+   * Reconstructs the full path found by the A* algorithm.
+   * @returns An array of TileRef representing the path.
+   */
   public reconstructPath(): TileRef[] {
     if (this.path === null) {
       return [];
@@ -215,6 +274,13 @@ export class PathFinder {
     return this.path;
   }
 
+  /**
+   * Determines if the path needs to be recomputed.
+   * Recomputation occurs if there's no current path, or if the destination has significantly changed.
+   * @param curr The current tile.
+   * @param dst The destination tile.
+   * @returns True if the path needs recomputation, false otherwise.
+   */
   private shouldRecompute(curr: TileRef, dst: TileRef) {
     if (this.path === null || this.curr === null || this.dst === null) {
       return true;

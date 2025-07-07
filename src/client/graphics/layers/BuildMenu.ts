@@ -1,10 +1,10 @@
 import { LitElement, css, html } from "lit";
 import { customElement, state } from "lit/decorators.js";
-import airfieldIcon from "../../../../resources/images/AirfieldIcon.svg";
+import airfieldIcon from "../../../../resources/images/AirfieldIcon.svg"; // Import for Airfield icon.
 import warshipIcon from "../../../../resources/images/BattleshipIconWhite.svg";
 import academyIcon from "../../../../resources/images/buildings/academy_icon.png";
 import cityIcon from "../../../../resources/images/CityIconWhite.svg";
-import fighterJetIcon from "../../../../resources/images/FighterJetIcon.svg";
+import fighterJetIcon from "../../../../resources/images/FighterJetIcon.svg"; // Import the icon for Fighter Jet.
 import goldCoinIcon from "../../../../resources/images/GoldCoinIcon.svg";
 import hospitalIcon from "../../../../resources/images/HospitalIconWhite.svg";
 import mirvIcon from "../../../../resources/images/MIRVIcon.svg";
@@ -31,6 +31,10 @@ interface BuildItemDisplay {
   countable?: boolean;
 }
 
+/**
+ * Defines the structure and content of the build menu, categorizing buildable units.
+ * Each entry includes the unit type, its icon, a description key for localization, and whether it's countable.
+ */
 const buildTable: BuildItemDisplay[][] = [
   [
     {
@@ -60,7 +64,8 @@ const buildTable: BuildItemDisplay[][] = [
       description: "build_menu.desc.airfield",
       key: "unit_type.airfield",
       countable: true,
-    },
+    }, // Entry for the Airfield unit, allowing players to build it.
+    // New Fighter Jet unit added to the build menu.
     {
       unitType: UnitType.FighterJet,
       icon: fighterJetIcon,
@@ -89,7 +94,6 @@ const buildTable: BuildItemDisplay[][] = [
       key: "unit_type.missile_silo",
       countable: true,
     },
-    // needs new icon
     {
       unitType: UnitType.SAMLauncher,
       icon: samlauncherIcon,

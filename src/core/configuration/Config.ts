@@ -126,14 +126,54 @@ export interface Config {
   unitInfo(type: UnitType): UnitInfo;
   tradeShipGold(dist: number): Gold;
   tradeShipSpawnRate(numberOfPorts: number): number;
+  /**
+   * Calculates the gold earned from a Cargo Plane trade based on distance.
+   * @param dist The distance traveled by the Cargo Plane.
+   */
+  /**
+   * Calculates the gold earned from a Cargo Plane trade based on distance.
+   * @param dist The distance traveled by the Cargo Plane.
+   */
   cargoPlaneGold(dist: number): Gold;
+  /**
+   * Determines the spawn rate of Cargo Planes based on the number of airfields.
+   * @param numberOfAirplanes The total number of airfields owned by the player.
+   */
+  /**
+   * Determines the spawn rate of Cargo Planes based on the number of airfields.
+   * @param numberOfAirplanes The total number of airfields owned by the player.
+   */
   cargoPlaneSpawnRate(numberOfAirplanes: number): number;
+  /**
+   * The maximum number of Cargo Planes a player can have active at one time.
+   */
+  /**
+   * The maximum number of Cargo Planes a player can have active at one time.
+   */
   cargoPlaneMaxNumber(): number;
+  /**
+   * The rate (in ticks) at which a Bomber drops its payload.
+   */
   bomberDropCadence(): number;
+  /**
+   * The number of bombs a Bomber can carry.
+   */
   bomberPayload(): number;
+  /**
+   * The interval (in ticks) at which airfields attempt to spawn new Bombers.
+   */
   bomberSpawnInterval(): number;
+  /**
+   * The maximum range (in tiles) a Bomber can target.
+   */
   bomberTargetRange(): number;
+  /**
+   * The radius of the explosion caused by a Bomber's bomb.
+   */
   bomberExplosionRadius(): number;
+  /**
+   * The interval (in ticks) at which airfields attempt to spawn new Fighter Jets.
+   */
   fighterJetSpawnInterval(): number;
   safeFromPiratesCooldownMax(): number;
   defensePostRange(): number;
@@ -148,9 +188,30 @@ export interface Config {
   warshipTargettingRange(): number;
   defensePostShellAttackRate(): number;
   defensePostTargettingRange(): number;
+  /**
+   * The maximum range (in tiles) a Fighter Jet will patrol from its assigned patrol tile.
+   */
   fighterJetPatrolRange(): number;
+  /**
+   * The maximum range (in tiles) a Fighter Jet will search for targets.
+   */
   fighterJetTargettingRange(): number;
+  /**
+   * The rate (in ticks) at which a Fighter Jet will attack its target.
+   */
   fighterJetAttackRate(): number;
+  /**
+   * The movement speed of a Fighter Jet (number of tiles per tick).
+   */
+  fighterJetSpeed(): number;
+  /**
+   * The amount of health a Fighter Jet heals per tick when at an airfield.
+   */
+  fighterJetHealingAmount(): number;
+  /**
+   * The distance at which a Fighter Jet is considered to have reached its target.
+   */
+  fighterJetTargetReachedDistance(): number;
   // 0-1
   traitorDefenseDebuff(): number;
   traitorDuration(): number;

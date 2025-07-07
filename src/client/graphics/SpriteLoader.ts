@@ -1,8 +1,8 @@
 import { Colord } from "colord";
 import atomBombSprite from "../../../resources/sprites/atombomb.png";
-import bomberSprite from "../../../resources/sprites/bomber.png";
-import cargoPlaneSprite from "../../../resources/sprites/cargoplane.png";
-import fighterJetSprite from "../../../resources/sprites/fighterJet.png";
+import bomberSprite from "../../../resources/sprites/bomber.png"; // Import for Bomber sprite.
+import cargoPlaneSprite from "../../../resources/sprites/cargoplane.png"; // Import for Cargo Plane sprite.
+import fighterJetSprite from "../../../resources/sprites/fighterJet.png"; // Import the Fighter Jet sprite image.
 import hydrogenBombSprite from "../../../resources/sprites/hydrogenbomb.png";
 import mirvSprite from "../../../resources/sprites/mirv2.png";
 import samMissileSprite from "../../../resources/sprites/samMissile.png";
@@ -13,6 +13,10 @@ import { Theme } from "../../core/configuration/Config";
 import { UnitType } from "../../core/game/Game";
 import { UnitView } from "../../core/game/GameView";
 
+/**
+ * Configuration mapping UnitType to their corresponding sprite image paths.
+ * This is used to load the correct visual representation for each unit in the game.
+ */
 const SPRITE_CONFIG: Partial<Record<UnitType, string>> = {
   [UnitType.TransportShip]: transportShipSprite,
   [UnitType.Warship]: warshipSprite,
@@ -21,14 +25,17 @@ const SPRITE_CONFIG: Partial<Record<UnitType, string>> = {
   [UnitType.HydrogenBomb]: hydrogenBombSprite,
   [UnitType.TradeShip]: tradeShipSprite,
   [UnitType.MIRV]: mirvSprite,
-  [UnitType.CargoPlane]: cargoPlaneSprite,
-  [UnitType.Bomber]: bomberSprite,
-  [UnitType.FighterJet]: fighterJetSprite,
+  [UnitType.CargoPlane]: cargoPlaneSprite, // Map CargoPlane UnitType to its sprite.
+  [UnitType.Bomber]: bomberSprite, // Map Bomber UnitType to its sprite.
+  [UnitType.FighterJet]: fighterJetSprite, // Map FighterJet UnitType to its sprite.
 };
 
 const spriteMap: Map<UnitType, ImageBitmap> = new Map();
 
-// preload all images
+/**
+ * Preloads all sprite images defined in SPRITE_CONFIG into ImageBitmap objects.
+ * This ensures that sprites are ready for rendering when needed, improving performance.
+ */
 export const loadAllSprites = async (): Promise<void> => {
   const entries = Object.entries(SPRITE_CONFIG);
   const totalSprites = entries.length;
@@ -67,10 +74,20 @@ export const loadAllSprites = async (): Promise<void> => {
   );
 };
 
+/**
+ * Retrieves a preloaded sprite (ImageBitmap) for a given unit type.
+ * @param unitType The type of unit for which to retrieve the sprite.
+ * @returns The ImageBitmap of the sprite, or null if not found.
+ */
 const getSpriteForUnit = (unitType: UnitType): ImageBitmap | null => {
   return spriteMap.get(unitType) ?? null;
 };
 
+/**
+ * Checks if a sprite for a given unit type has been successfully loaded.
+ * @param unitType The type of unit to check.
+ * @returns True if the sprite is ready, false otherwise.
+ */
 export const isSpriteReady = (unitType: UnitType): boolean => {
   return spriteMap.has(unitType);
 };
@@ -78,7 +95,14 @@ export const isSpriteReady = (unitType: UnitType): boolean => {
 const coloredSpriteCache: Map<string, HTMLCanvasElement> = new Map();
 
 /**
- * Load a canvas and replace grayscale with border colors
+ * Colors a grayscale canvas image based on provided color values.
+ * This function is used to apply player-specific colors to unit sprites.
+ * It targets specific grayscale RGB values (180, 70, 130) and replaces them with the given colors.
+ * @param source The source image (canvas or ImageBitmap) to colorize.
+ * @param colorA The primary color to apply (replaces RGB(180,180,180)).
+ * @param colorB The secondary color to apply (replaces RGB(70,70,70)).
+ * @param colorC The tertiary color to apply (replaces RGB(130,130,130)).
+ * @returns A new HTMLCanvasElement with the colorized image.
  */
 export const colorizeCanvas = (
   source: CanvasImageSource & { width: number; height: number },
@@ -124,6 +148,16 @@ export const colorizeCanvas = (
   return canvas;
 };
 
+/**
+ * Retrieves a colorized sprite for a given unit, based on its owner's theme colors.
+ * Caches generated colored sprites to improve performance.
+ * @param unit The UnitView object for which to get the colored sprite.
+ * @param theme The current game theme, providing color information.
+ * @param customTerritoryColor Optional custom territory color to override the default.
+ * @param customBorderColor Optional custom border color to override the default.
+ * @returns An HTMLCanvasElement containing the colorized sprite.
+ * @throws Error if the base sprite for the unit type cannot be loaded.
+ */
 export const getColoredSprite = (
   unit: UnitView,
   theme: Theme,
@@ -135,17 +169,21 @@ export const getColoredSprite = (
     customTerritoryColor ?? theme.territoryColor(owner);
   const borderColor: Colord = customBorderColor ?? theme.borderColor(owner);
   const spawnHighlightColor = theme.spawnHighlightColor();
+  // Generate a unique cache key based on unit type, owner ID, and colors.
   const key = `${unit.type()}-${owner.id()}-${territoryColor.toRgbString()}-${borderColor.toRgbString()}`;
 
+  // Return cached sprite if available.
   if (coloredSpriteCache.has(key)) {
     return coloredSpriteCache.get(key)!;
   }
 
+  // Get the base sprite for the unit type.
   const sprite = getSpriteForUnit(unit.type());
   if (sprite === null) {
     throw new Error(`Failed to load sprite for ${unit.type()}`);
   }
 
+  // Colorize the sprite and cache the result.
   const coloredCanvas = colorizeCanvas(
     sprite,
     territoryColor,

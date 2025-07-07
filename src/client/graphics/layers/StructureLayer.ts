@@ -7,7 +7,7 @@ import { Layer } from "./Layer";
 import { UnitInfoModal } from "./UnitInfoModal";
 
 import academyIcon from "../../../../resources/images/buildings/academy_icon.png";
-import airfieldIcon from "../../../../resources/images/buildings/airfield.png";
+import airfieldIcon from "../../../../resources/images/buildings/airfield.png"; // Icon for the Airfield structure.
 import cityIcon from "../../../../resources/images/buildings/cityAlt1.png";
 import shieldIcon from "../../../../resources/images/buildings/fortAlt2.png";
 import hospitalIcon from "../../../../resources/images/buildings/hospital.png";
@@ -67,7 +67,7 @@ export class StructureLayer implements Layer {
       borderRadius: 8.525,
       territoryRadius: 6.525,
       borderType: UnitBorderType.Square,
-    },
+    }, // Configuration for the Airfield unit, including its icon and rendering properties.
     [UnitType.City]: {
       icon: cityIcon,
       borderRadius: 8.525,

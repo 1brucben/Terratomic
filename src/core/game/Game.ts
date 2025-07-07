@@ -153,7 +153,7 @@ export enum UnitType {
   Airfield = "Air Field",
   CargoPlane = "Cargo Plane",
   Bomber = "Bomber",
-  FighterJet = "Fighter Jet",
+  FighterJet = "Fighter Jet", // Represents a Fighter Jet unit.
 }
 
 const _structureTypes: ReadonlySet<UnitType> = new Set([
@@ -234,6 +234,10 @@ export interface UnitParamsMap {
     targetTile: TileRef;
   };
 
+  /**
+   * Parameters for a Fighter Jet unit.
+   * @property patrolTile The tile where the Fighter Jet will patrol.
+   */
   [UnitType.FighterJet]: {
     patrolTile: TileRef;
   };

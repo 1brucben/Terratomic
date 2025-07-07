@@ -169,6 +169,10 @@ export class MoveWarshipIntentEvent implements GameEvent {
   ) {}
 }
 
+/**
+ * Event for moving a Fighter Jet unit.
+ * Dispatched when a user intends to move a Fighter Jet to a new tile.
+ */
 export class MoveFighterJetIntentEvent implements GameEvent {
   constructor(
     public readonly unitId: number,
@@ -253,6 +257,7 @@ export class Transport {
     this.eventBus.on(MoveWarshipIntentEvent, (e) => {
       this.onMoveWarshipEvent(e);
     });
+    // Register event listener for Fighter Jet movement.
     this.eventBus.on(MoveFighterJetIntentEvent, (e) => {
       this.onMoveFighterJetEvent(e);
     });
@@ -624,6 +629,11 @@ export class Transport {
     });
   }
 
+  /**
+   * Handles the MoveFighterJetIntentEvent by sending a 'move_fighter_jet' intent to the server.
+   * This intent informs the server to update the patrol location of a specific Fighter Jet unit.
+   * @param event The MoveFighterJetIntentEvent containing the unit ID and target tile.
+   */
   private onMoveFighterJetEvent(event: MoveFighterJetIntentEvent) {
     this.sendIntent({
       type: "move_fighter_jet",

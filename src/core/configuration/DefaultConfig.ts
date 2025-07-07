@@ -293,28 +293,49 @@ export class DefaultConfig implements Config {
   }
 
   // Cargoplanes (Turned off for now)
+  /**
+   * Calculates the gold earned from a Cargo Plane trade based on distance.
+   * Cargo planes are faster than trading ships and not blocked by land.
+   * @param distance The distance traveled by the Cargo Plane.
+   * @returns The amount of gold earned.
+   */
   cargoPlaneGold(distance: number): Gold {
     const tradeShipGold = this.tradeShipGold(distance);
-    // Cargo planes are faster than trading ships and not blocked by land
     return BigInt(Math.floor(Number(tradeShipGold) * 0.6));
   }
+  /**
+   * Determines the spawn rate of Cargo Planes based on the number of airfields.
+   * Currently turned off by returning Number.MAX_SAFE_INTEGER.
+   * @param numberOfAirfields The total number of airfields owned by the player.
+   * @returns The spawn rate (Number.MAX_SAFE_INTEGER if turned off).
+   */
   cargoPlaneSpawnRate(numberOfAirfields: number): number {
     // Turn Cargoplanes off for now.
     //return Math.min(50, Math.round(10 * Math.pow(numberOfAirfields, 0.6)));
     return Number.MAX_SAFE_INTEGER;
   }
+  /**
+   * The maximum number of Cargo Planes a player can have active at one time.
+   * @returns The maximum number of Cargo Planes.
+   */
   cargoPlaneMaxNumber(): number {
     return 3;
   }
 
   // Bombers
-  // How many ticks between each bomber spawn attempt per airfield.
-  // // 20 × 10 = 200 ticks
+  /**
+   * The interval (in ticks) at which airfields attempt to spawn new Bombers.
+   * (Keep in mind the airport only checks every 10 ticks so 20 ticks = every 20 seconds).
+   * @returns The bomber spawn interval in ticks.
+   */
   bomberSpawnInterval(): number {
     return 20;
   }
 
-  // A Bomber can carry x bombs.
+  /**
+   * The number of bombs a Bomber can carry.
+   * @returns The number of bombs.
+   */
   bomberPayload(): number {
     return 1;
   }
@@ -911,16 +932,49 @@ export class DefaultConfig implements Config {
     return 75;
   }
 
+  /**
+   * The maximum range (in tiles) a Fighter Jet will patrol from its assigned patrol tile.
+   */
   fighterJetPatrolRange(): number {
     return 150;
   }
 
+  /**
+   * The maximum range (in tiles) a Fighter Jet will search for targets.
+   */
   fighterJetTargettingRange(): number {
     return 180;
   }
 
+  /**
+   * The rate (in ticks) at which a Fighter Jet will attack its target.
+   */
   fighterJetAttackRate(): number {
     return 15;
+  }
+
+  /**
+   * The movement speed of a Fighter Jet (number of tiles per tick).
+   * @returns The speed of the Fighter Jet.
+   */
+  fighterJetSpeed(): number {
+    return 2;
+  }
+
+  /**
+   * The amount of health a Fighter Jet heals per tick when at an airfield.
+   * @returns The healing amount.
+   */
+  fighterJetHealingAmount(): number {
+    return 1;
+  }
+
+  /**
+   * The distance at which a Fighter Jet is considered to have reached its target.
+   * @returns The target reached distance.
+   */
+  fighterJetTargetReachedDistance(): number {
+    return 1;
   }
 
   allianceExtensionPromptOffset(): number {
