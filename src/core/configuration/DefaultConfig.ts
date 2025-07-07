@@ -379,7 +379,7 @@ export class DefaultConfig implements Config {
    * @returns The speed of the Fighter Jet.
    */
   fighterJetSpeed(): number {
-    return 3;
+    return 2;
   }
 
   /**
