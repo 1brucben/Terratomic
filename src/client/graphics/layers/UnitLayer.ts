@@ -148,17 +148,24 @@ export class UnitLayer implements Layer {
 
     if (this.selectedUnit) {
       const clickRef = this.game.ref(cell.x, cell.y);
-      if (this.game.isOcean(clickRef)) {
-        this.eventBus.emit(
-          new MoveWarshipIntentEvent(this.selectedUnit.id(), clickRef),
-        );
-      } else if (this.selectedUnit.type() === UnitType.FighterJet) {
+      // If the selected unit is a Fighter Jet, always generate a movement intent
+      if (this.selectedUnit.type() === UnitType.FighterJet) {
         this.eventBus.emit(
           new MoveFighterJetIntentEvent(this.selectedUnit.id(), clickRef),
         );
       }
+      // If the selected unit is a Warship and water was clicked
+      else if (
+        this.selectedUnit.type() === UnitType.Warship &&
+        this.game.isOcean(clickRef)
+      ) {
+        this.eventBus.emit(
+          new MoveWarshipIntentEvent(this.selectedUnit.id(), clickRef),
+        );
+      }
       // Deselect
       this.eventBus.emit(new UnitSelectionEvent(this.selectedUnit, false));
+      return;
     } else if (nearbyWarships.length > 0) {
       // Toggle selection of the closest warship
       const clickedUnit = nearbyWarships[0];
