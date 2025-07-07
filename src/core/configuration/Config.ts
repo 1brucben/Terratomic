@@ -171,10 +171,6 @@ export interface Config {
    * The radius of the explosion caused by a Bomber's bomb.
    */
   bomberExplosionRadius(): number;
-  /**
-   * The interval (in ticks) at which airfields attempt to spawn new Fighter Jets.
-   */
-  fighterJetSpawnInterval(): number;
   safeFromPiratesCooldownMax(): number;
   defensePostRange(): number;
   SAMCooldown(): number;

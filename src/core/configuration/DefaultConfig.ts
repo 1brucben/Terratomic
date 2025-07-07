@@ -352,10 +352,6 @@ export class DefaultConfig implements Config {
     return 4;
   }
 
-  fighterJetSpawnInterval(): number {
-    return 10;
-  }
-
   unitInfo(type: UnitType): UnitInfo {
     switch (type) {
       case UnitType.TransportShip:

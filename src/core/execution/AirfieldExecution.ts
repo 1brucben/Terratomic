@@ -4,8 +4,6 @@ import { PseudoRandom } from "../PseudoRandom";
 import { BomberExecution } from "./BomberExecution";
 import { CargoPlaneExecution } from "./CargoPlaneExecution";
 
-import { FighterJetExecution } from "./FighterJetExecution"; // Import for Fighter Jet execution.
-
 /**
  * Manages the behavior and lifecycle of an Airfield.
  * This includes building the airfield, spawning bomber planes, cargo planes, and fighter jets.
@@ -17,7 +15,6 @@ export class AirfieldExecution implements Execution {
   private random: PseudoRandom | null = null;
   private checkOffset: number | null = null;
   private spawnTicker = 0; // Ticker for bomber spawning.
-  private fighterSpawnTicker = 0; // Ticker for fighter jet spawning.
 
   constructor(
     private player: Player,
@@ -188,49 +185,8 @@ export class AirfieldExecution implements Execution {
 
     // If no target is found, give up for this tick.
     if (!targetTile) return;
-
     // 3.4b: Launch the Bomber towards the selected target.
     mg.addExecution(new BomberExecution(this.player, airfieldUnit, targetTile));
-
-    // 3.5: Fighter Jet spawn chance and logic.
-    this.fighterSpawnTicker++;
-    if (this.fighterSpawnTicker < mg.config().fighterJetSpawnInterval()) {
-      return;
-    }
-    this.fighterSpawnTicker = 0;
-
-    // Limit active Fighter Jets to one per airfield.
-    const activeFighters = this.player.units(UnitType.FighterJet).length;
-    if (activeFighters >= totalAirfields) {
-      return; // Already “one-per-field” in the air.
-    }
-
-    // Find enemy air units (Bombers, Fighter Jets) within targeting range.
-    const enemyAirUnits = mg
-      .nearbyUnits(
-        airfieldUnit.tile(),
-        mg.config().fighterJetTargettingRange(),
-        [UnitType.Bomber, UnitType.FighterJet],
-      )
-      .filter(({ unit }) => {
-        const o = this.mg!.owner(unit.tile());
-        // Only target enemy player units that are not friendly.
-        return (
-          o.isPlayer() &&
-          o.id() !== this.player.id() &&
-          !this.player.isFriendly(o)
-        );
-      });
-
-    // If enemy air units are detected, spawn a Fighter Jet.
-    if (enemyAirUnits.length > 0) {
-      mg.addExecution(
-        new FighterJetExecution({
-          owner: this.player,
-          patrolTile: airfieldUnit.tile(),
-        }),
-      );
-    }
   }
 
   /**
