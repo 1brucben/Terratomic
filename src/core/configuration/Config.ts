@@ -208,6 +208,22 @@ export interface Config {
    * The distance at which a Fighter Jet is considered to have reached its target.
    */
   fighterJetTargetReachedDistance(): number;
+  /**
+   * The distance at which a Fighter Jet will start circling its target instead of moving directly towards it.
+   */
+  fighterJetDogfightDistance(): number;
+  /**
+   * The minimum distance a Fighter Jet will maintain from its target when dogfighting.
+   */
+  fighterJetMinDogfightDistance(): number;
+  /**
+   * The minimum distance a Fighter Jet will maintain from its target when dogfighting.
+   */
+  fighterJetMinDogfightDistance(): number;
+  /**
+   * The minimum distance a Fighter Jet will maintain from its target when dogfighting.
+   */
+  fighterJetMinDogfightDistance(): number;
   // 0-1
   traitorDefenseDebuff(): number;
   traitorDuration(): number;

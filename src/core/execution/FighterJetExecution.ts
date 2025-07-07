@@ -171,48 +171,101 @@ export class FighterJetExecution implements Execution {
       return;
     }
 
-    // Determine if it's time to launch a shell based on attack rate.
-    const shellAttackRate = this.mg.config().fighterJetAttackRate();
-    if (this.mg.ticks() % shellAttackRate !== 0) {
-      return;
-    }
-
-    // Add a ShellExecution to the game to simulate an attack.
-    this.mg.addExecution(
-      new ShellExecution(
-        this.fighterJet.tile()!,
-        this.fighterJet.owner(),
-        this.fighterJet,
-        this.fighterJet.targetUnit()!,
-      ),
+    const targetUnit = this.fighterJet.targetUnit()!;
+    const distToTargetSquared = this.mg.euclideanDistSquared(
+      this.fighterJet.tile(),
+      targetUnit.tile(),
     );
+    const dogfightDistanceSquared =
+      this.mg.config().fighterJetDogfightDistance() ** 2;
+    const minDogfightDistanceSquared =
+      this.mg.config().fighterJetMinDogfightDistance() ** 2;
 
-    // If the target is destroyed, clear the target.
-    if (
-      this.mg.euclideanDistSquared(
-        this.fighterJet.tile(),
-        this.fighterJet.targetUnit()!.tile(),
-      ) <= this.mg.config().fighterJetTargetReachedDistance()
-    ) {
-      // The target is already dead, so we can stop attacking it
-      this.alreadySentShell.add(this.fighterJet.targetUnit()!);
-      this.fighterJet.setTargetUnit(undefined);
-      return;
+    let targetTileForMovement: TileRef;
+
+    // If within dogfight distance, circle the target.
+    if (distToTargetSquared <= dogfightDistanceSquared) {
+      const dogfightRange = this.mg.config().fighterJetDogfightDistance();
+      let newX: number;
+      let newY: number;
+      let attempts = 0;
+      const maxAttempts = 10; // Prevent infinite loops
+
+      do {
+        newX =
+          this.mg.x(targetUnit.tile()) +
+          this.random.nextInt(
+            Math.floor(-dogfightRange / 2),
+            Math.floor(dogfightRange / 2),
+          );
+        newY =
+          this.mg.y(targetUnit.tile()) +
+          this.random.nextInt(
+            Math.floor(-dogfightRange / 2),
+            Math.floor(dogfightRange / 2),
+          );
+        attempts++;
+        // Ensure the new point is not too close to the target
+      } while (
+        (newX === this.mg.x(targetUnit.tile()) &&
+          newY === this.mg.y(targetUnit.tile())) || // Ensure not on the exact target tile
+        !this.mg.isValidCoord(newX, newY) || // Ensure valid coordinates
+        (this.mg.euclideanDistSquared(
+          this.mg.map().ref(newX, newY),
+          targetUnit.tile(),
+        ) < minDogfightDistanceSquared && // Ensure minimum distance
+          attempts < maxAttempts)
+      );
+
+      if (this.mg.isValidCoord(newX, newY)) {
+        targetTileForMovement = this.mg.map().ref(newX, newY);
+      } else {
+        // Fallback to direct movement if a valid circling point cannot be found after attempts.
+        targetTileForMovement = targetUnit.tile();
+      }
+    } else {
+      // Otherwise, move directly towards the target.
+      targetTileForMovement = targetUnit.tile();
     }
 
-    // Move the fighter jet directly towards its target.
+    // Move the fighter jet towards its calculated movement target.
     const result = this.pathFinder.nextTile(
       this.fighterJet.tile(),
-      this.fighterJet.targetUnit()!.tile(),
+      targetTileForMovement,
       this.mg.config().fighterJetSpeed(),
     );
 
     if (result === true) {
-      // Reached target (no further movement needed in this tick).
+      // Target reached (no further movement needed in this tick).
     } else {
       this.fighterJet.move(result);
     }
     this.fighterJet.touch(); // Mark the unit as active.
+
+    // If the target is destroyed, clear the target.
+    if (
+      distToTargetSquared <=
+      this.mg.config().fighterJetTargetReachedDistance() ** 2
+    ) {
+      // The target is already dead, so we can stop attacking it
+      this.alreadySentShell.add(targetUnit);
+      this.fighterJet.setTargetUnit(undefined);
+      return;
+    }
+
+    // Determine if it's time to launch a shell based on attack rate.
+    const shellAttackRate = this.mg.config().fighterJetAttackRate();
+    if (this.mg.ticks() % shellAttackRate === 0) {
+      // Add a ShellExecution to the game to simulate an attack.
+      this.mg.addExecution(
+        new ShellExecution(
+          this.fighterJet.tile()!,
+          this.fighterJet.owner(),
+          this.fighterJet,
+          targetUnit,
+        ),
+      );
+    }
   }
 
   /**
@@ -261,14 +314,14 @@ export class FighterJetExecution implements Execution {
     const x =
       this.mg.x(this.fighterJet.patrolTile()!) +
       this.random.nextInt(
-        -fighterJetPatrolRange / 2,
-        fighterJetPatrolRange / 2,
+        Math.floor(-fighterJetPatrolRange / 2),
+        Math.floor(fighterJetPatrolRange / 2),
       );
     const y =
       this.mg.y(this.fighterJet.patrolTile()!) +
       this.random.nextInt(
-        -fighterJetPatrolRange / 2,
-        fighterJetPatrolRange / 2,
+        Math.floor(-fighterJetPatrolRange / 2),
+        Math.floor(fighterJetPatrolRange / 2),
       );
     // If the generated coordinates are outside the map, return undefined.
     if (!this.mg.isValidCoord(x, y)) {

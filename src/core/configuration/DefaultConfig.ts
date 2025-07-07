@@ -352,6 +352,66 @@ export class DefaultConfig implements Config {
     return 4;
   }
 
+  // Fighter Jets
+  /**
+   * The maximum range (in tiles) a Fighter Jet will patrol from its assigned patrol tile.
+   */
+  fighterJetPatrolRange(): number {
+    return 75;
+  }
+
+  /**
+   * The maximum range (in tiles) a Fighter Jet will search for targets.
+   */
+  fighterJetTargettingRange(): number {
+    return 130;
+  }
+
+  /**
+   * The rate (in ticks) at which a Fighter Jet will attack its target.
+   */
+  fighterJetAttackRate(): number {
+    return 15;
+  }
+
+  /**
+   * The movement speed of a Fighter Jet (number of tiles per tick).
+   * @returns The speed of the Fighter Jet.
+   */
+  fighterJetSpeed(): number {
+    return 3;
+  }
+
+  /**
+   * The amount of health a Fighter Jet heals per tick when at an airfield.
+   * @returns The healing amount.
+   */
+  fighterJetHealingAmount(): number {
+    return 1;
+  }
+
+  /**
+   * The distance at which a Fighter Jet is considered to have reached its target.
+   * @returns The target reached distance.
+   */
+  fighterJetTargetReachedDistance(): number {
+    return 1;
+  }
+
+  /**
+   * The distance at which a Fighter Jet will start circling its target instead of moving directly towards it.
+   */
+  fighterJetDogfightDistance(): number {
+    return 40;
+  }
+
+  /**
+   * The minimum distance a Fighter Jet will maintain from its target when dogfighting.
+   */
+  fighterJetMinDogfightDistance(): number {
+    return 10;
+  }
+
   unitInfo(type: UnitType): UnitInfo {
     switch (type) {
       case UnitType.TransportShip:
@@ -926,51 +986,6 @@ export class DefaultConfig implements Config {
 
   defensePostTargettingRange(): number {
     return 75;
-  }
-
-  /**
-   * The maximum range (in tiles) a Fighter Jet will patrol from its assigned patrol tile.
-   */
-  fighterJetPatrolRange(): number {
-    return 150;
-  }
-
-  /**
-   * The maximum range (in tiles) a Fighter Jet will search for targets.
-   */
-  fighterJetTargettingRange(): number {
-    return 180;
-  }
-
-  /**
-   * The rate (in ticks) at which a Fighter Jet will attack its target.
-   */
-  fighterJetAttackRate(): number {
-    return 15;
-  }
-
-  /**
-   * The movement speed of a Fighter Jet (number of tiles per tick).
-   * @returns The speed of the Fighter Jet.
-   */
-  fighterJetSpeed(): number {
-    return 2;
-  }
-
-  /**
-   * The amount of health a Fighter Jet heals per tick when at an airfield.
-   * @returns The healing amount.
-   */
-  fighterJetHealingAmount(): number {
-    return 1;
-  }
-
-  /**
-   * The distance at which a Fighter Jet is considered to have reached its target.
-   * @returns The target reached distance.
-   */
-  fighterJetTargetReachedDistance(): number {
-    return 1;
   }
 
   allianceExtensionPromptOffset(): number {
