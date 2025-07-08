@@ -74,36 +74,92 @@ export class AirfieldExecution implements Execution {
     }
 
     // Cargo-plane spawn logic.
-    if (this.random.chance(mg.config().cargoPlaneSpawnRate(totalAirfields))) {
-      const possiblePorts = this.player.airfields(airfieldUnit);
-      if (possiblePorts.length > 0) {
-        const destField = this.random.randElement(possiblePorts);
-        mg.addExecution(
-          new CargoPlaneExecution(this.player, airfieldUnit, destField),
-        );
+    if (mg.config().cargoPlanesEnabled()) {
+      if (this.random.chance(mg.config().cargoPlaneSpawnRate(totalAirfields))) {
+        const possiblePorts = this.player.airfields(airfieldUnit);
+        if (possiblePorts.length > 0) {
+          const destField = this.random.randElement(possiblePorts);
+          mg.addExecution(
+            new CargoPlaneExecution(this.player, airfieldUnit, destField),
+          );
+        }
       }
     }
 
     // 3.4: Bomber spawn chance and logic.
-    this.spawnTicker++;
-    if (this.spawnTicker < mg.config().bomberSpawnInterval()) {
-      return;
-    }
-    this.spawnTicker = 0;
+    if (mg.config().bombersEnabled()) {
+      this.spawnTicker++;
+      if (this.spawnTicker < mg.config().bomberSpawnInterval()) {
+        return;
+      }
+      this.spawnTicker = 0;
 
-    // Get tiles occupied by existing bombers to avoid targeting the same location.
-    const busyTargets = new Set<TileRef>(
-      this.mg
-        .units(UnitType.Bomber)
-        .map((u) => u.targetTile())
-        .filter((t): t is TileRef => t !== undefined),
-    );
+      // Get tiles occupied by existing bombers to avoid targeting the same location.
+      const busyTargets = new Set<TileRef>(
+        this.mg
+          .units(UnitType.Bomber)
+          .map((u) => u.targetTile())
+          .filter((t): t is TileRef => t !== undefined),
+      );
 
-    // 3.4a: Gather all enemy units in range that can be targeted by bombers.
-    const range = mg.config().bomberTargetRange();
-    type Near = { unit: Unit; dist2: number };
-    const enemies: Near[] = mg
-      .nearbyUnits(airfieldUnit.tile(), range, [
+      // 3.4a: Gather all enemy units in range that can be targeted by bombers.
+      const range = mg.config().bomberTargetRange();
+      type Near = { unit: Unit; dist2: number };
+      const enemies: Near[] = mg
+        .nearbyUnits(airfieldUnit.tile(), range, [
+          UnitType.SAMLauncher,
+          UnitType.Airfield,
+          UnitType.MissileSilo,
+          UnitType.Port,
+          UnitType.DefensePost,
+          UnitType.City,
+          UnitType.Academy,
+          UnitType.Hospital,
+        ])
+        .filter(({ unit, distSquared }) => {
+          const t = unit.tile();
+          const o = this.mg!.owner(t);
+
+          // Only target enemy units that are players and not friendly.
+          if (
+            !o.isPlayer() ||
+            o.id() === this.player.id() ||
+            this.player.isFriendly(o)
+          ) {
+            return false;
+          }
+
+          // Only target locations not already targeted by other bombers.
+          if (busyTargets.has(t)) {
+            return false;
+          }
+
+          return true;
+        })
+        .map(({ unit, distSquared }) => ({ unit, dist2: distSquared }));
+
+      if (enemies.length === 0) return;
+
+      // Group enemy units by owner.
+      const byPlayer = new Map<string, Near[]>();
+      for (const e of enemies) {
+        const pid = e.unit.owner().id();
+        const arr = byPlayer.get(pid) ?? [];
+        arr.push(e);
+        byPlayer.set(pid, arr);
+      }
+
+      // Sort players by the distance to their nearest targetable unit.
+      const playersByDist = Array.from(byPlayer.entries())
+        .map(([pid, list]) => ({
+          pid,
+          list,
+          minDist: Math.min(...list.map((e) => e.dist2)),
+        }))
+        .sort((a, b) => a.minDist - b.minDist);
+
+      // Define priority order for unit types to target.
+      const priority: UnitType[] = [
         UnitType.SAMLauncher,
         UnitType.Airfield,
         UnitType.MissileSilo,
@@ -112,81 +168,31 @@ export class AirfieldExecution implements Execution {
         UnitType.City,
         UnitType.Academy,
         UnitType.Hospital,
-      ])
-      .filter(({ unit, distSquared }) => {
-        const t = unit.tile();
-        const o = this.mg!.owner(t);
+      ];
 
-        // Only target enemy units that are players and not friendly.
-        if (
-          !o.isPlayer() ||
-          o.id() === this.player.id() ||
-          this.player.isFriendly(o)
-        ) {
-          return false;
+      // Iterate through players and unit types to find the best target tile.
+      let targetTile: TileRef | null = null;
+      for (const { list } of playersByDist) {
+        for (const type of priority) {
+          // Find units of the current type for the current player, sorted by distance.
+          const ofType = list
+            .filter((e) => e.unit.type() === type)
+            .sort((a, b) => a.dist2 - b.dist2);
+          if (ofType.length > 0) {
+            targetTile = ofType[0].unit.tile();
+            break;
+          }
         }
-
-        // Only target locations not already targeted by other bombers.
-        if (busyTargets.has(t)) {
-          return false;
-        }
-
-        return true;
-      })
-      .map(({ unit, distSquared }) => ({ unit, dist2: distSquared }));
-
-    if (enemies.length === 0) return;
-
-    // Group enemy units by owner.
-    const byPlayer = new Map<string, Near[]>();
-    for (const e of enemies) {
-      const pid = e.unit.owner().id();
-      const arr = byPlayer.get(pid) ?? [];
-      arr.push(e);
-      byPlayer.set(pid, arr);
-    }
-
-    // Sort players by the distance to their nearest targetable unit.
-    const playersByDist = Array.from(byPlayer.entries())
-      .map(([pid, list]) => ({
-        pid,
-        list,
-        minDist: Math.min(...list.map((e) => e.dist2)),
-      }))
-      .sort((a, b) => a.minDist - b.minDist);
-
-    // Define priority order for unit types to target.
-    const priority: UnitType[] = [
-      UnitType.SAMLauncher,
-      UnitType.Airfield,
-      UnitType.MissileSilo,
-      UnitType.Port,
-      UnitType.DefensePost,
-      UnitType.City,
-      UnitType.Academy,
-      UnitType.Hospital,
-    ];
-
-    // Iterate through players and unit types to find the best target tile.
-    let targetTile: TileRef | null = null;
-    for (const { list } of playersByDist) {
-      for (const type of priority) {
-        // Find units of the current type for the current player, sorted by distance.
-        const ofType = list
-          .filter((e) => e.unit.type() === type)
-          .sort((a, b) => a.dist2 - b.dist2);
-        if (ofType.length > 0) {
-          targetTile = ofType[0].unit.tile();
-          break;
-        }
+        if (targetTile) break;
       }
-      if (targetTile) break;
-    }
 
-    // If no target is found, give up for this tick.
-    if (!targetTile) return;
-    // 3.4b: Launch the Bomber towards the selected target.
-    mg.addExecution(new BomberExecution(this.player, airfieldUnit, targetTile));
+      // If no target is found, give up for this tick.
+      if (!targetTile) return;
+      // 3.4b: Launch the Bomber towards the selected target.
+      mg.addExecution(
+        new BomberExecution(this.player, airfieldUnit, targetTile),
+      );
+    }
   }
 
   /**

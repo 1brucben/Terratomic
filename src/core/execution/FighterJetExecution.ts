@@ -89,7 +89,11 @@ export class FighterJetExecution implements Execution {
 
     // Execute attack or patrol behavior based on whether a target is present.
     if (this.fighterJet.targetUnit() !== undefined) {
-      this.attack();
+      if (this.fighterJet.targetUnit()?.type() === UnitType.CargoPlane) {
+        this.captureCargoPlane();
+      } else {
+        this.attackTarget();
+      }
     } else {
       this.patrol();
     }
@@ -111,7 +115,7 @@ export class FighterJetExecution implements Execution {
     const closest = findClosest(
       this.fighterJet.tile()!,
       this.mg.config().fighterJetTargettingRange(),
-      [UnitType.Bomber, UnitType.FighterJet],
+      [UnitType.Bomber, UnitType.FighterJet, UnitType.CargoPlane],
       this.mg,
       (unit) => {
         // Do not target own units, friendly units, or units that are not targetable.
@@ -123,6 +127,23 @@ export class FighterJetExecution implements Execution {
         ) {
           return false;
         }
+        // If it's a CargoPlane, ensure the fighter jet's owner has an airfield
+        if (unit.type() === UnitType.CargoPlane) {
+          if (!hasAirfield) {
+            return false;
+          }
+          const cargoPlaneDestinationAirfield = unit.targetUnit();
+          if (cargoPlaneDestinationAirfield) {
+            const destinationOwner = cargoPlaneDestinationAirfield.owner();
+            // Do not target if heading to our own airfield or an allied airfield
+            if (
+              destinationOwner === this.fighterJet.owner() ||
+              destinationOwner.isFriendly(this.fighterJet.owner())
+            ) {
+              return false;
+            }
+          }
+        }
         return true;
       },
     );
@@ -131,7 +152,7 @@ export class FighterJetExecution implements Execution {
       return undefined;
     }
 
-    // Sort targets by distance and then by unit type (prioritize Fighter Jets).
+    // Sort targets by distance and then by unit type (prioritize Fighter Jets, then Bombers, then Cargo Planes).
     closest.sort((a, b) => {
       const distA = this.mg.euclideanDistSquared(
         this.fighterJet.tile()!,
@@ -142,19 +163,17 @@ export class FighterJetExecution implements Execution {
         b.tile()!,
       );
 
-      // Prioritize FighterJets over Bombers.
-      if (
-        a.type() === UnitType.FighterJet &&
-        b.type() !== UnitType.FighterJet
-      ) {
+      // Prioritize FighterJets
+      if (a.type() === UnitType.FighterJet && b.type() !== UnitType.FighterJet)
         return -1;
-      }
-      if (
-        a.type() !== UnitType.FighterJet &&
-        b.type() === UnitType.FighterJet
-      ) {
+      if (a.type() !== UnitType.FighterJet && b.type() === UnitType.FighterJet)
         return 1;
-      }
+
+      // Then Bombers (over Cargo Planes)
+      if (a.type() === UnitType.Bomber && b.type() === UnitType.CargoPlane)
+        return -1;
+      if (a.type() === UnitType.CargoPlane && b.type() === UnitType.Bomber)
+        return 1;
 
       return distA - distB;
     });
@@ -166,7 +185,7 @@ export class FighterJetExecution implements Execution {
    * Executes the attack behavior of the fighter jet.
    * Launches shells at the target unit and moves towards it.
    */
-  private attack() {
+  private attackTarget() {
     if (this.fighterJet.targetUnit() === undefined) {
       return;
     }
@@ -266,6 +285,41 @@ export class FighterJetExecution implements Execution {
         ),
       );
     }
+  }
+
+  private captureCargoPlane() {
+    if (this.fighterJet.targetUnit() === undefined) {
+      return;
+    }
+
+    const targetUnit = this.fighterJet.targetUnit()!;
+    const distToTargetSquared = this.mg.euclideanDistSquared(
+      this.fighterJet.tile(),
+      targetUnit.tile(),
+    );
+    const targetReachedDistanceSquared =
+      this.mg.config().fighterJetTargetReachedDistance() ** 2;
+
+    // If the fighter jet is close enough to the cargo plane, capture it.
+    if (distToTargetSquared <= targetReachedDistanceSquared) {
+      this.fighterJet.owner().captureUnit(targetUnit);
+      this.fighterJet.setTargetUnit(undefined);
+      return;
+    }
+
+    // Move towards the cargo plane.
+    const result = this.pathFinder.nextTile(
+      this.fighterJet.tile(),
+      targetUnit.tile(),
+      4, // Increased speed to 4 when hunting cargo planes
+    );
+
+    if (result === true) {
+      // Target reached (should have been captured by the above check).
+    } else {
+      this.fighterJet.move(result);
+    }
+    this.fighterJet.touch(); // Mark the unit as active.
   }
 
   /**

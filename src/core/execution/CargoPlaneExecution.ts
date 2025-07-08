@@ -20,6 +20,7 @@ export class CargoPlaneExecution implements Execution {
   private cargoPlane: Unit | undefined;
   private pathFinder: StraightPathFinder;
   private tilesTraveled = 0;
+  private isCaptured = false; // New flag to indicate capture
 
   /**
    * Initializes a new CargoPlaneExecution instance.
@@ -71,23 +72,73 @@ export class CargoPlaneExecution implements Execution {
       return;
     }
 
-    // 3) TRADE VALIDATION: If source and destination airfields are owned by the same player, delete the cargo plane.
-    if (
-      this.destinationAirfield.owner().id() === this.sourceAirfield.owner().id()
-    ) {
-      this.cargoPlane.delete(false);
-      this.active = false;
-      return;
+    // Handle capture: If the owner changes, redirect to the nearest friendly airfield.
+    if (this.cargoPlane.owner().id() !== this.origOwner.id()) {
+      this.isCaptured = true; // Set the captured flag
+      this.origOwner = this.cargoPlane.owner(); // Update original owner to the new owner
+      this.tilesTraveled = 0; // Reset tiles traveled for the new journey
+
+      const friendlyAirfields = this.origOwner.units(UnitType.Airfield);
+      if (friendlyAirfields.length > 0) {
+        // Find the closest friendly airfield
+        let closestAirfield: Unit | undefined;
+        let minDistSquared = Infinity;
+
+        for (const airfield of friendlyAirfields) {
+          const distSquared = this.mg.euclideanDistSquared(
+            this.cargoPlane.tile(),
+            airfield.tile(),
+          );
+          if (distSquared < minDistSquared) {
+            minDistSquared = distSquared;
+            closestAirfield = airfield;
+          }
+        }
+
+        if (closestAirfield) {
+          this.destinationAirfield = closestAirfield;
+          this.cargoPlane.setTargetUnit(closestAirfield);
+          this.mg.displayMessage(
+            `Cargo plane captured and redirected to ${closestAirfield.owner().displayName()}'s airfield!`,
+            MessageType.CAPTURED_ENEMY_UNIT,
+            this.origOwner.id(),
+          );
+        } else {
+          // If no friendly airfield found, delete the cargo plane (it has nowhere to go).
+          this.cargoPlane.delete(false);
+          this.active = false;
+          return;
+        }
+      } else {
+        // If no friendly airfield found, delete the cargo plane (it has nowhere to go).
+        this.cargoPlane.delete(false);
+        this.active = false;
+        return;
+      }
     }
 
-    // 4) TRADE VALIDATION: If destination airfield is inactive or trade is not possible, delete the cargo plane.
-    if (
-      !this.destinationAirfield.isActive() ||
-      !this.cargoPlane.owner().canTrade(this.destinationAirfield.owner())
-    ) {
-      this.cargoPlane.delete(false);
-      this.active = false;
-      return;
+    // Only perform trade validation if the plane has not been captured.
+    if (!this.isCaptured) {
+      // 3) TRADE VALIDATION: If source and destination airfields are owned by the same player, delete the cargo plane.
+      if (
+        this.destinationAirfield.owner().id() ===
+          this.sourceAirfield.owner().id() &&
+        this.cargoPlane.owner().id() === this.sourceAirfield.owner().id() // Only if still owned by original trader
+      ) {
+        this.cargoPlane.delete(false);
+        this.active = false;
+        return;
+      }
+
+      // 4) TRADE VALIDATION: If destination airfield is inactive or trade is not possible, delete the cargo plane.
+      if (
+        !this.destinationAirfield.isActive() ||
+        !this.cargoPlane.owner().canTrade(this.destinationAirfield.owner())
+      ) {
+        this.cargoPlane.delete(false);
+        this.active = false;
+        return;
+      }
     }
 
     // 5) MOVEMENT: Calculate the next tile for the cargo plane's straight-line movement.
@@ -114,6 +165,11 @@ export class CargoPlaneExecution implements Execution {
   private complete() {
     this.active = false;
     this.cargoPlane!.delete(false);
+
+    if (this.isCaptured) {
+      return;
+    }
+
     // Calculate gold earned based on tiles traveled.
     const gold = this.mg.config().cargoPlaneGold(this.tilesTraveled);
 

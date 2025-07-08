@@ -293,6 +293,11 @@ export class DefaultConfig implements Config {
   }
 
   // Cargoplanes (Turned off for now)
+
+  cargoPlanesEnabled(): boolean {
+    return false; // Change this to false to disable cargo planes
+  }
+
   /**
    * Calculates the gold earned from a Cargo Plane trade based on distance.
    * Cargo planes are faster than trading ships and not blocked by land.
@@ -305,14 +310,11 @@ export class DefaultConfig implements Config {
   }
   /**
    * Determines the spawn rate of Cargo Planes based on the number of airfields.
-   * Currently turned off by returning Number.MAX_SAFE_INTEGER.
    * @param numberOfAirfields The total number of airfields owned by the player.
-   * @returns The spawn rate (Number.MAX_SAFE_INTEGER if turned off).
+   * @returns The spawn rate
    */
   cargoPlaneSpawnRate(numberOfAirfields: number): number {
-    // Turn Cargoplanes off for now.
-    //return Math.min(50, Math.round(10 * Math.pow(numberOfAirfields, 0.6)));
-    return Number.MAX_SAFE_INTEGER;
+    return Math.min(50, Math.round(10 * Math.pow(numberOfAirfields, 0.6)));
   }
   /**
    * The maximum number of Cargo Planes a player can have active at one time.
@@ -322,7 +324,15 @@ export class DefaultConfig implements Config {
     return 3;
   }
 
-  // Bombers
+  // Bomber planes
+
+  /**
+   * Determines if Bombers are enabled in the game.
+   * @returns True if Bombers are enabled, false otherwise.
+   */
+  bombersEnabled(): boolean {
+    return true; // Change this to false to disable bombers
+  }
   /**
    * The interval (in ticks) at which airfields attempt to spawn new Bombers.
    * (Keep in mind the airport only checks every 10 ticks so 20 ticks = every 20 seconds).
@@ -395,7 +405,7 @@ export class DefaultConfig implements Config {
    * @returns The target reached distance.
    */
   fighterJetTargetReachedDistance(): number {
-    return 1;
+    return 10;
   }
 
   /**

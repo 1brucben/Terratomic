@@ -215,7 +215,11 @@ export class UnitImpl implements Unit {
     this._active = false;
     this.mg.addUpdate(this.toUpdate());
     this.mg.removeUnit(this);
-    if (displayMessage !== false && this._type !== UnitType.MIRVWarhead) {
+    if (
+      displayMessage !== false &&
+      this._type !== UnitType.MIRVWarhead &&
+      this._type !== UnitType.Bomber
+    ) {
       this.mg.displayMessage(
         `Your ${this._type} was destroyed`,
         MessageType.UNIT_DESTROYED,
