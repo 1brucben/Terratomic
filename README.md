@@ -2,18 +2,17 @@
 
 [![Join Discord](https://img.shields.io/discord/1380341945603330148?label=Join%20Us%20on%20Discord&logo=discord&style=for-the-badge)](https://discord.gg/JNZbp4pg5y)
 
-
 **Terratomic.io** is a fast-paced real-time strategy game focused on **territorial conquest**, **alliance-building**, and **resource management**.
 
 It is a fork of [OpenFront.io](https://github.com/openfrontio/OpenFrontIO), which itself is based on [WarFront.io](https://github.com/WarFrontIO).
 
 ## 💬 Why This Fork
 
-While OpenFront laid a strong foundation, Terratomic takes a different approach — placing community feedback and collaborative development at the core of its roadmap. 
+While OpenFront laid a strong foundation, Terratomic takes a different approach — placing community feedback and collaborative development at the core of its roadmap.
 
 This project aims to evolve based on what players actually want, with transparent priorities and active community input shaping the game's future.
 
-This is a game built *with* its players, not just *for* them.
+This is a game built _with_ its players, not just _for_ them.
 
 ## 🤝 Contributing
 
