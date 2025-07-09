@@ -37,6 +37,8 @@ export class UnitLayer implements Layer {
   private unitTrailContext: CanvasRenderingContext2D;
 
   private unitToTrail = new Map<UnitView, TileRef[]>();
+  // Stores the last known rotation angle for each unit, to ensure smooth clearing of rotated sprites.
+  private unitToLastAngle = new Map<UnitView, number>();
 
   private theme: Theme;
 
@@ -196,6 +198,8 @@ export class UnitLayer implements Layer {
     if (this.selectedUnit === unit && !unit.isActive()) {
       this.eventBus.emit(new UnitSelectionEvent(unit, false));
     }
+    // Clean up the last known angle when a unit is deactivated.
+    this.unitToLastAngle.delete(unit);
   }
 
   renderLayer(context: CanvasRenderingContext2D) {
@@ -269,15 +273,31 @@ export class UnitLayer implements Layer {
       .filter((unitView) => isSpriteReady(unitView.type()))
       .forEach((unitView) => {
         const sprite = getColoredSprite(unitView, this.theme);
-        const clearsize = sprite.width + 1;
+        // The clearing area needs to be larger than the sprite to account for rotation.
+        // A multiplier of 2 is a safe value to ensure the entire rotated sprite is cleared.
+        const clearsize = sprite.width * 2;
         const lastX = this.game.x(unitView.lastTile());
         const lastY = this.game.y(unitView.lastTile());
+
+        // Apply the same rotation when clearing as when drawing to prevent trails.
+        const angle = this.getUnitAngle(unitView);
+        if (angle !== null) {
+          this.context.save();
+          this.context.translate(lastX, lastY);
+          this.context.rotate(angle);
+          this.context.translate(-lastX, -lastY);
+        }
+
         this.context.clearRect(
           lastX - clearsize / 2,
           lastY - clearsize / 2,
           clearsize,
           clearsize,
         );
+
+        if (angle !== null) {
+          this.context.restore();
+        }
       });
   }
 
@@ -619,6 +639,16 @@ export class UnitLayer implements Layer {
         this.context.save();
         this.context.globalAlpha = 0.4;
       }
+
+      // Rotate the canvas to match the unit's direction of movement.
+      const angle = this.getUnitAngle(unit);
+      if (angle !== null) {
+        this.context.save();
+        this.context.translate(x, y);
+        this.context.rotate(angle);
+        this.context.translate(-x, -y);
+      }
+
       this.context.drawImage(
         sprite,
         Math.round(x - sprite.width / 2),
@@ -626,9 +656,53 @@ export class UnitLayer implements Layer {
         sprite.width,
         sprite.width,
       );
+
+      if (angle !== null) {
+        this.context.restore();
+      }
+
       if (!targetable) {
         this.context.restore();
       }
     }
+  }
+
+  /**
+   * Calculates the rotation angle for a unit based on its direction of movement.
+   * @param unit The unit to calculate the angle for.
+   * @returns The angle in radians, or null if the unit is not a type that should be rotated.
+   */
+  private getUnitAngle(unit: UnitView): number | null {
+    const lastTile = unit.lastTile();
+    const currentTile = unit.tile();
+
+    if (
+      lastTile &&
+      currentTile &&
+      (unit.type() === UnitType.Bomber ||
+        unit.type() === UnitType.FighterJet ||
+        unit.type() === UnitType.CargoPlane)
+    ) {
+      const lastPos = { x: this.game.x(lastTile), y: this.game.y(lastTile) };
+      const currentPos = {
+        x: this.game.x(currentTile),
+        y: this.game.y(currentTile),
+      };
+      const dx = currentPos.x - lastPos.x;
+      const dy = currentPos.y - lastPos.y;
+
+      if (dx === 0 && dy === 0) {
+        return this.unitToLastAngle.get(unit) ?? null;
+      }
+
+      let angle = Math.atan2(dy, dx);
+
+      if (unit.type() === UnitType.Bomber) {
+        angle += Math.PI / 2; // Adjust for north-facing sprite
+      }
+      this.unitToLastAngle.set(unit, angle);
+      return angle;
+    }
+    return null;
   }
 }
