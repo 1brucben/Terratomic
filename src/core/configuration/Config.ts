@@ -157,8 +157,6 @@ export interface Config {
   fighterJetTargetReachedDistance(): number;
   fighterJetDogfightDistance(): number;
   fighterJetMinDogfightDistance(): number;
-  fighterJetMinDogfightDistance(): number;
-  fighterJetMinDogfightDistance(): number;
   // 0-1
   traitorDefenseDebuff(): number;
   traitorDuration(): number;
