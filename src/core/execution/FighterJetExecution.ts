@@ -50,11 +50,6 @@ export class FighterJetExecution implements Execution {
     }
 
     this.fighterJet.setTargetUnit(this.findTargetUnit());
-    if (this.fighterJet.targetUnit()?.type() === UnitType.TradeShip) {
-      if (!hasAirfield) {
-        this.fighterJet.setTargetUnit(undefined);
-      }
-    }
 
     if (this.fighterJet.targetUnit() !== undefined) {
       if (this.fighterJet.targetUnit()?.type() === UnitType.CargoPlane) {
