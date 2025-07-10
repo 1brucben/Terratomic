@@ -215,17 +215,31 @@ export class StructureLayer implements Layer {
     borderColor: Colord,
     config: UnitRenderConfig,
     distanceFN: DistanceFunction,
+    healthPercentage: number,
   ) {
-    // Draw border and territory
-    for (const tile of this.game.bfs(
-      unit.tile(),
-      distanceFN(unit.tile(), config.borderRadius, true),
-    )) {
-      this.paintCell(
-        new Cell(this.game.x(tile), this.game.y(tile)),
-        borderColor,
-        255,
-      );
+    const borderTiles = Array.from(
+      this.game.bfs(
+        unit.tile(),
+        distanceFN(unit.tile(), config.borderRadius, true),
+      ),
+    );
+
+    // Sort tiles by Y-coordinate to simulate a bottom-up fill
+    borderTiles.sort((a, b) => this.game.y(a) - this.game.y(b));
+
+    const healthyTileCount = Math.floor(borderTiles.length * healthPercentage);
+
+    for (let i = 0; i < borderTiles.length; i++) {
+      const tile = borderTiles[i];
+      const cell = new Cell(this.game.x(tile), this.game.y(tile));
+
+      if (i >= borderTiles.length - healthyTileCount) {
+        // This is the healthy part of the border
+        this.paintCell(cell, borderColor, 255);
+      } else {
+        // This is the unhealthy part of the border
+        this.paintCell(cell, colord({ r: 128, g: 128, b: 128 }), 255);
+      }
     }
 
     for (const tile of this.game.bfs(
@@ -305,14 +319,14 @@ export class StructureLayer implements Layer {
       borderColor = selectedUnitColor;
     }
 
-    this.drawBorder(unit, borderColor, config, drawFunction);
-
-    const startX = this.game.x(unit.tile()) - Math.floor(icon.width / 2);
-    const startY = this.game.y(unit.tile()) - Math.floor(icon.height / 2);
-
     const healthPercentage = unit.hasHealth()
       ? unit.health() / (unit.info().maxHealth ?? 1)
       : 1;
+
+    this.drawBorder(unit, borderColor, config, drawFunction, healthPercentage);
+
+    const startX = this.game.x(unit.tile()) - Math.floor(icon.width / 2);
+    const startY = this.game.y(unit.tile()) - Math.floor(icon.height / 2);
 
     // Draw the icon
     this.renderIcon(
