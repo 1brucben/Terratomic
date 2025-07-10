@@ -398,6 +398,7 @@ export class DefaultConfig implements Config {
                 ),
           territoryBound: true,
           constructionDuration: this.instantBuild() ? 0 : 2 * 10,
+          maxHealth: 1000,
         };
       case UnitType.AtomBomb:
         return {
@@ -441,6 +442,7 @@ export class DefaultConfig implements Config {
               : 1_000_000n,
           territoryBound: true,
           constructionDuration: this.instantBuild() ? 0 : 10 * 10,
+          maxHealth: 1000,
         };
       case UnitType.DefensePost:
         return {
@@ -455,6 +457,7 @@ export class DefaultConfig implements Config {
                 ),
           territoryBound: true,
           constructionDuration: this.instantBuild() ? 0 : 5 * 10,
+          maxHealth: 1000,
         };
       case UnitType.SAMLauncher:
         return {
@@ -469,6 +472,7 @@ export class DefaultConfig implements Config {
                 ),
           territoryBound: true,
           constructionDuration: this.instantBuild() ? 0 : 30 * 10,
+          maxHealth: 1000,
         };
       case UnitType.City:
         return {
@@ -504,6 +508,7 @@ export class DefaultConfig implements Config {
                 ),
           territoryBound: true,
           constructionDuration: this.instantBuild() ? 0 : 2 * 10,
+          maxHealth: 1000,
         };
       case UnitType.Academy:
         return {
@@ -519,6 +524,7 @@ export class DefaultConfig implements Config {
                 ),
           territoryBound: true,
           constructionDuration: this.instantBuild() ? 0 : 2 * 10,
+          maxHealth: 1000,
         };
       case UnitType.Airfield:
         return {
@@ -534,6 +540,7 @@ export class DefaultConfig implements Config {
                 ),
           territoryBound: true,
           constructionDuration: this.instantBuild() ? 0 : 2 * 20,
+          maxHealth: 1000,
         };
       case UnitType.CargoPlane:
         return {

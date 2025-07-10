@@ -14,6 +14,7 @@ import {
   Game,
   GameMode,
   GameUpdates,
+  isStructureType,
   MessageType,
   Nation,
   Player,
@@ -588,24 +589,23 @@ export class GameImpl implements Game {
 
   public bomberExplosion(tile: TileRef, radius: number, owner: Player): void {
     const r2 = radius * radius;
-    const toClear: TileRef[] = [];
     this.forEachTile((t) => {
-      if (this.euclideanDistSquared(tile, t) <= r2) toClear.push(t);
-    });
-    for (const t of toClear) {
-      const unitList = this.units(UnitType.City)
-        .concat(this.units(UnitType.Port))
-        .concat(this.units(UnitType.DefensePost))
-        .filter((u) => u.tile() === t);
-      for (const u of unitList) {
-        const uowner = u.owner();
-        if (!uowner.isPlayer()) continue;
-        if (uowner.id() === owner.id()) continue;
-        if (owner.isFriendly(uowner)) continue;
-        u.delete(true, owner);
+      if (this.euclideanDistSquared(tile, t) <= r2) {
+        const units = this.unitsAt(t);
+        for (const u of units) {
+          const uowner = u.owner();
+          if (!uowner.isPlayer()) continue;
+          if (uowner.id() === owner.id()) continue;
+          if (owner.isFriendly(uowner)) continue;
+
+          if (isStructureType(u.type())) {
+            u.modifyHealth(-250);
+          } else {
+            u.delete(true, owner);
+          }
+        }
       }
-      const occ = this.owner(t);
-    }
+    });
   }
 
   sendEmojiUpdate(msg: EmojiMessage): void {
@@ -694,6 +694,9 @@ export class GameImpl implements Game {
 
   addUnit(u: Unit) {
     this.unitGrid.addUnit(u);
+  }
+  unitsAt(tile: TileRef): Unit[] {
+    return this.unitGrid.unitsAt(tile) as Unit[];
   }
   removeUnit(u: Unit) {
     this.unitGrid.removeUnit(u);

@@ -635,6 +635,7 @@ export interface Game extends GameMap {
 
   // Units
   units(...types: UnitType[]): Unit[];
+  unitsAt(tile: TileRef): Unit[];
   unitInfo(type: UnitType): UnitInfo;
   nearbyUnits(
     tile: TileRef,

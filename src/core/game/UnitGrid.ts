@@ -154,4 +154,12 @@ export class UnitGrid {
     }
     return false;
   }
+
+  unitsAt(tile: TileRef): (Unit | UnitView)[] {
+    const [gridX, gridY] = this.getGridCoords(this.gm.x(tile), this.gm.y(tile));
+    if (!this.isValidCell(gridX, gridY)) {
+      return [];
+    }
+    return Array.from(this.grid[gridY][gridX]).filter((u) => u.tile() === tile);
+  }
 }
