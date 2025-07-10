@@ -605,7 +605,6 @@ export class GameImpl implements Game {
         u.delete(true, owner);
       }
       const occ = this.owner(t);
-      if (occ.isPlayer()) occ.relinquish(t);
     }
   }
 
