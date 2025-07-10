@@ -932,7 +932,7 @@ export class PlayerImpl implements Player {
       case UnitType.CargoPlane:
       case UnitType.Bomber:
         return this.cargoPlaneSpawn(targetTile);
-      case UnitType.FighterJet: // Allow Fighter Jets to spawn.
+      case UnitType.FighterJet:
         return this.fighterJetSpawn(targetTile);
       default:
         assertNever(unitType);
@@ -1062,24 +1062,16 @@ export class PlayerImpl implements Player {
     }
     return spawns[0].tile();
   }
-  /**
-   * Determines the valid spawn tile for a Fighter Jet.
-   * Fighter Jets can spawn from any airfield, regardless of terrain.
-   * @param tile The target tile for spawning.
-   * @returns The tile of the closest airfield, or false if no airfields are available.
-   */
+
   fighterJetSpawn(tile: TileRef): TileRef | false {
-    // Find all airfields owned by the player and sort them by distance to the target tile.
     const spawns = this.units(UnitType.Airfield).sort(
       (a, b) =>
         this.mg.manhattanDist(a.tile(), tile) -
         this.mg.manhattanDist(b.tile(), tile),
     );
-    // If no airfields are found, spawning is not possible.
     if (spawns.length === 0) {
       return false;
     }
-    // Return the tile of the closest airfield as the spawn location.
     return spawns[0].tile();
   }
   lastTileChange(): Tick {
@@ -1230,8 +1222,6 @@ export class PlayerImpl implements Player {
     return ports;
   }
 
-  // It's a probability list, so if an element appears twice it's because it's
-  // twice more likely to be picked later.
   airfields(airfield: Unit): Unit[] {
     const airfields = this.mg
       .players()
@@ -1244,7 +1234,6 @@ export class PlayerImpl implements Player {
         );
       });
 
-    // Make close ports twice more likely by putting them again
     for (
       let i = 0;
       i < this.mg.config().proximityBonusAirfieldsNumber(airfields.length);
@@ -1253,7 +1242,6 @@ export class PlayerImpl implements Player {
       airfields.push(airfields[i]);
     }
 
-    // Make ally ports twice more likely by putting them again
     this.mg
       .players()
       .filter((p) => p !== airfield.owner() && p.canTrade(airfield.owner()))

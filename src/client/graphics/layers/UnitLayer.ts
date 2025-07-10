@@ -37,7 +37,7 @@ export class UnitLayer implements Layer {
   private unitTrailContext: CanvasRenderingContext2D;
 
   private unitToTrail = new Map<UnitView, TileRef[]>();
-  // Stores the last known rotation angle for each unit, to ensure smooth clearing of rotated sprites.
+
   private unitToLastAngle = new Map<UnitView, number>();
 
   private theme: Theme;
@@ -53,7 +53,7 @@ export class UnitLayer implements Layer {
 
   // Configuration for unit selection
   private readonly WARSHIP_SELECTION_RADIUS = 10; // Radius in game cells for warship selection hit zone
-  private readonly FIGHTER_JET_SELECTION_RADIUS = 10; // Radius in game cells for fighter jet selection hit zone
+  private readonly FIGHTER_JET_SELECTION_RADIUS = 10;
 
   constructor(
     private game: GameView,
@@ -150,14 +150,11 @@ export class UnitLayer implements Layer {
 
     if (this.selectedUnit) {
       const clickRef = this.game.ref(cell.x, cell.y);
-      // If the selected unit is a Fighter Jet, always generate a movement intent
       if (this.selectedUnit.type() === UnitType.FighterJet) {
         this.eventBus.emit(
           new MoveFighterJetIntentEvent(this.selectedUnit.id(), clickRef),
         );
-      }
-      // If the selected unit is a Warship and water was clicked
-      else if (
+      } else if (
         this.selectedUnit.type() === UnitType.Warship &&
         this.game.isOcean(clickRef)
       ) {
@@ -173,7 +170,6 @@ export class UnitLayer implements Layer {
       const clickedUnit = nearbyWarships[0];
       this.eventBus.emit(new UnitSelectionEvent(clickedUnit, true));
     } else if (nearbyFighterJets.length > 0) {
-      // Toggle selection of the closest fighter jet
       const clickedUnit = nearbyFighterJets[0];
       this.eventBus.emit(new UnitSelectionEvent(clickedUnit, true));
     }
@@ -198,7 +194,6 @@ export class UnitLayer implements Layer {
     if (this.selectedUnit === unit && !unit.isActive()) {
       this.eventBus.emit(new UnitSelectionEvent(unit, false));
     }
-    // Clean up the last known angle when a unit is deactivated.
     this.unitToLastAngle.delete(unit);
   }
 
@@ -273,13 +268,9 @@ export class UnitLayer implements Layer {
       .filter((unitView) => isSpriteReady(unitView.type()))
       .forEach((unitView) => {
         const sprite = getColoredSprite(unitView, this.theme);
-        // The clearing area needs to be larger than the sprite to account for rotation.
-        // A multiplier of 2 is a safe value to ensure the entire rotated sprite is cleared.
         const clearsize = sprite.width * 2;
         const lastX = this.game.x(unitView.lastTile());
         const lastY = this.game.y(unitView.lastTile());
-
-        // Apply the same rotation when clearing as when drawing to prevent trails.
         const angle = this.getUnitAngle(unitView);
         if (angle !== null) {
           this.context.save();
@@ -287,14 +278,12 @@ export class UnitLayer implements Layer {
           this.context.rotate(angle);
           this.context.translate(-lastX, -lastY);
         }
-
         this.context.clearRect(
           lastX - clearsize / 2,
           lastY - clearsize / 2,
           clearsize,
           clearsize,
         );
-
         if (angle !== null) {
           this.context.restore();
         }
@@ -508,18 +497,10 @@ export class UnitLayer implements Layer {
     this.drawSprite(unit);
   }
 
-  /**
-   * Handles rendering for Cargo Plane units.
-   * @param unit The Cargo Plane UnitView.
-   */
   private handleCargoPlaneEvent(unit: UnitView) {
     this.drawSprite(unit);
   }
 
-  /**
-   * Handles rendering for Bomber units.
-   * @param unit The Bomber UnitView.
-   */
   private handleBomberEvent(unit: UnitView) {
     this.drawSprite(unit);
   }
@@ -640,7 +621,6 @@ export class UnitLayer implements Layer {
         this.context.globalAlpha = 0.4;
       }
 
-      // Rotate the canvas to match the unit's direction of movement.
       const angle = this.getUnitAngle(unit);
       if (angle !== null) {
         this.context.save();
@@ -667,11 +647,6 @@ export class UnitLayer implements Layer {
     }
   }
 
-  /**
-   * Calculates the rotation angle for a unit based on its direction of movement.
-   * @param unit The unit to calculate the angle for.
-   * @returns The angle in radians, or null if the unit is not a type that should be rotated.
-   */
   private getUnitAngle(unit: UnitView): number | null {
     const lastTile = unit.lastTile();
     const currentTile = unit.tile();
@@ -698,7 +673,7 @@ export class UnitLayer implements Layer {
       let angle = Math.atan2(dy, dx);
 
       if (unit.type() === UnitType.Bomber) {
-        angle += Math.PI / 2; // Adjust for north-facing sprite
+        angle += Math.PI / 2;
       }
       this.unitToLastAngle.set(unit, angle);
       return angle;

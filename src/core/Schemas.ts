@@ -36,7 +36,7 @@ export type Intent =
   | EmbargoIntent
   | QuickChatIntent
   | MoveWarshipIntent
-  | MoveFighterJetIntent // Added for Fighter Jet movement.
+  | MoveFighterJetIntent
   | MarkDisconnectedIntent;
 
 export type AttackIntent = z.infer<typeof AttackIntentSchema>;
@@ -60,7 +60,7 @@ export type TargetTroopRatioIntent = z.infer<
 export type InvestmentRateIntent = z.infer<typeof InvestmentRateIntentSchema>;
 export type BuildUnitIntent = z.infer<typeof BuildUnitIntentSchema>;
 export type MoveWarshipIntent = z.infer<typeof MoveWarshipIntentSchema>;
-export type MoveFighterJetIntent = z.infer<typeof MoveFighterJetIntentSchema>; // Added for Fighter Jet movement intent.
+export type MoveFighterJetIntent = z.infer<typeof MoveFighterJetIntentSchema>;
 export type QuickChatIntent = z.infer<typeof QuickChatIntentSchema>;
 export type MarkDisconnectedIntent = z.infer<
   typeof MarkDisconnectedIntentSchema

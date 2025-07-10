@@ -199,18 +199,14 @@ export class SAMLauncherExecution implements Execution {
       }
     }
     if ((this.mg.ticks() + this.cargoPlaneCheckOffset) % 20 === 0) {
-      this.interceptCargoPlanes();
+      this.interceptPlanes();
     }
   }
-  /**
-   * Intercepts airborne targets such as Cargo Planes, Bombers, and Fighter Jets.
-   * SAMs will prioritize targeting these units if they are within range and are not friendly.
-   */
-  private interceptCargoPlanes() {
+
+  private interceptPlanes() {
     const potentialAirborneTargets = this.mg.nearbyUnits(
       this.sam!.tile(),
       this.cargoPlaneSearchRadius,
-      // SAMs target Cargo Planes, Bombers, and Fighter Jets.
       [UnitType.CargoPlane, UnitType.Bomber, UnitType.FighterJet],
     );
     if (!this.sam) return;
@@ -219,12 +215,9 @@ export class SAMLauncherExecution implements Execution {
       const unitOwner = unit.owner();
       const targetUnitOwner = unit.targetUnit()?.owner();
 
-      // Do not target own units.
       if (unitOwner === this.player) return false;
 
-      // Do not shoot friendly cargo planes or other friendly airborne units.
       if (this.player.isFriendly(unitOwner)) return false;
-      // Never shoot planes heading toward or belonging to you or your allies.
       if (
         targetUnitOwner === this.player ||
         (targetUnitOwner && targetUnitOwner.isFriendly(this.player))
@@ -232,7 +225,6 @@ export class SAMLauncherExecution implements Execution {
         return false;
       }
 
-      // Only target units that are not already targeted by another SAM.
       return !unit.targetedBySAM();
     });
 
@@ -247,9 +239,7 @@ export class SAMLauncherExecution implements Execution {
       );
 
       validAirborneTargets.forEach(({ unit: u }) => {
-        // Mark the unit as targeted by SAM to prevent other SAMs from targeting it.
         u.setTargetedBySAM(true);
-        // Add a SAMMissileExecution to simulate the missile launch.
         this.mg.addExecution(
           new SAMMissileExecution(
             this.sam!.tile(),

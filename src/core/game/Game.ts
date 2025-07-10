@@ -234,10 +234,6 @@ export interface UnitParamsMap {
     targetTile: TileRef;
   };
 
-  /**
-   * Parameters for a Fighter Jet unit.
-   * @property patrolTile The tile where the Fighter Jet will patrol.
-   */
   [UnitType.FighterJet]: {
     patrolTile: TileRef;
   };
@@ -676,15 +672,7 @@ export interface Game extends GameMap {
   numTilesWithFallout(): number;
   // Optional as it's not initialized before the end of spawn phase
   stats(): Stats;
-
-  /**
-   * Trigger a nuke‐style explosion at a given tile.
-   * @param tile        the epicenter of the blast
-   * @param radius      how many tiles out from center (euclidean radius)
-   * @param scale       fraction of normal nuke magnitude (e.g. 0.125 = 1/8th)
-   * @param owner       whose “ownership” counts for scoring/damage attribution
-   */
-  nukeExplosion(tile: TileRef, radius: number, owner: Player): void;
+  bomberExplosion(tile: TileRef, radius: number, owner: Player): void;
 }
 
 export interface PlayerActions {

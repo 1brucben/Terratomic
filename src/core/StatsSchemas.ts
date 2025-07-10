@@ -37,8 +37,8 @@ export const OtherUnitSchema = z.union([
   z.literal("wshp"),
   z.literal("silo"),
   z.literal("saml"),
-  z.literal("airf"), // Represents Airfield for stats.
-  z.literal("fjet"), // Added for Fighter Jet unit type.
+  z.literal("airf"),
+  z.literal("fjet"),
 ]);
 export type OtherUnit = z.infer<typeof OtherUnitSchema>;
 export type OtherUnitType =
@@ -48,8 +48,8 @@ export type OtherUnitType =
   | UnitType.Port
   | UnitType.SAMLauncher
   | UnitType.Warship
-  | UnitType.Airfield // Represents Airfield for stats.
-  | UnitType.FighterJet; // Added for Fighter Jet unit type.
+  | UnitType.Airfield
+  | UnitType.FighterJet;
 
 export const unitTypeToOtherUnit = {
   [UnitType.City]: "city",
@@ -58,8 +58,8 @@ export const unitTypeToOtherUnit = {
   [UnitType.Port]: "port",
   [UnitType.SAMLauncher]: "saml",
   [UnitType.Warship]: "wshp",
-  [UnitType.Airfield]: "airf", // Mapping for Airfield unit type.
-  [UnitType.FighterJet]: "fjet", // Mapping for Fighter Jet unit type.
+  [UnitType.Airfield]: "airf",
+  [UnitType.FighterJet]: "fjet",
 } as const satisfies Record<OtherUnitType, OtherUnit>;
 
 // Attacks

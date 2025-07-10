@@ -14,7 +14,6 @@ const unitOptions: { type: UnitType; translationKey: string }[] = [
   { type: UnitType.Port, translationKey: "unit_type.port" },
   { type: UnitType.Airfield, translationKey: "unit_type.airfield" },
   { type: UnitType.Warship, translationKey: "unit_type.warship" },
-  // Added FighterJet to the list of unit options for rendering.
   { type: UnitType.FighterJet, translationKey: "unit_type.fighter_jet" },
   { type: UnitType.MissileSilo, translationKey: "unit_type.missile_silo" },
   { type: UnitType.SAMLauncher, translationKey: "unit_type.sam_launcher" },

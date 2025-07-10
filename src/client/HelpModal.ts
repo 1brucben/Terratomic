@@ -441,7 +441,6 @@ export class HelpModal extends LitElement {
               <tr>
                 <td>${translateText("help_modal.build_airfield")}</td>
                 <td><div class="icon airfield-icon"></div></td>
-                <!-- Description for Airfield, explaining its role in deploying bombers. -->
                 <td>${translateText("help_modal.build_airfield_desc")}</td>
               </tr>
               <tr>

@@ -586,18 +586,12 @@ export class GameImpl implements Game {
     });
   }
 
-  /**
-   * Trigger a small blast at `tile`, with a given radius.  Owner is used for credit/damage attribution.
-   */
-  public nukeExplosion(tile: TileRef, radius: number, owner: Player): void {
-    // 1) collect all tiles within Euclidean radius
+  public bomberExplosion(tile: TileRef, radius: number, owner: Player): void {
     const r2 = radius * radius;
     const toClear: TileRef[] = [];
     this.forEachTile((t) => {
       if (this.euclideanDistSquared(tile, t) <= r2) toClear.push(t);
     });
-
-    // 2) for each tile, delete any structure and clear ownership
     for (const t of toClear) {
       const unitList = this.units(UnitType.City)
         .concat(this.units(UnitType.Port))
@@ -605,12 +599,11 @@ export class GameImpl implements Game {
         .filter((u) => u.tile() === t);
       for (const u of unitList) {
         const uowner = u.owner();
-        if (!uowner.isPlayer()) continue; // skip terra nullius
-        if (uowner.id() === owner.id()) continue; // skip yourself
-        if (owner.isFriendly(uowner)) continue; // skip your allies
+        if (!uowner.isPlayer()) continue;
+        if (uowner.id() === owner.id()) continue;
+        if (owner.isFriendly(uowner)) continue;
         u.delete(true, owner);
       }
-      // optional: make it terra nullius
       const occ = this.owner(t);
       if (occ.isPlayer()) occ.relinquish(t);
     }
