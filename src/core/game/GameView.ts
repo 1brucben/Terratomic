@@ -123,6 +123,10 @@ export class UnitView {
     if (this.data.ticksLeftInCooldown === undefined) return false;
     return this.data.ticksLeftInCooldown > 0;
   }
+
+  info(): UnitInfo {
+    return this.gameView.unitInfo(this.type());
+  }
 }
 
 export class PlayerView {
