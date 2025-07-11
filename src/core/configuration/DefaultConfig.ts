@@ -696,9 +696,9 @@ export class DefaultConfig implements Config {
       const baseTroopLoss = 10;
       const attackLossModifier = 1.35;
       const academyAttackModifier =
-        1.2 - 0.2 * 0.5 ** defender.units(UnitType.Academy).length;
+        1.2 - 0.2 * 0.5 ** defender.effectiveUnits(UnitType.Academy);
       const academyDefenseModifier =
-        1.2 - 0.2 * 0.5 ** attacker.units(UnitType.Academy).length;
+        1.2 - 0.2 * 0.5 ** attacker.effectiveUnits(UnitType.Academy);
       const baseTileCost = 45;
       const attackStandardSize = 10_000;
       return {
