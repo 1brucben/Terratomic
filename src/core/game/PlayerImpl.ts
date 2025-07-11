@@ -183,6 +183,20 @@ export class PlayerImpl implements Player {
       outgoingAllianceRequests: outgoingAllianceRequests,
       hasSpawned: this.hasSpawned(),
       betrayals: stats?.betrayals,
+      effectiveUnits: Object.values(UnitType).reduce(
+        (acc, type) => {
+          acc[type] = this.effectiveUnits(type);
+          return acc;
+        },
+        {} as Record<UnitType, number>,
+      ),
+      unitsOwned: Object.values(UnitType).reduce(
+        (acc, type) => {
+          acc[type] = this.unitsOwned(type);
+          return acc;
+        },
+        {} as Record<UnitType, number>,
+      ),
     };
   }
 
@@ -267,24 +281,18 @@ export class PlayerImpl implements Player {
   }
 
   effectiveUnits(type: UnitType): number {
-    // Als de waarde al in de cache zit, retourneer deze dan
     if (this._effectiveUnitsCache.has(type)) {
       return this._effectiveUnitsCache.get(type)!;
     }
 
-    // Bereken de waarde als deze niet in de cache zit
     const calculatedValue = this._units
-      .filter((u) => u.type() === type && u.isActive()) // Filter op type en actieve eenheden
+      .filter((u) => u.type() === type && u.isActive())
       .reduce((sum, u) => {
-        // Als de eenheid gezondheid heeft, voeg dan het gezondheidspercentage toe.
-        // Anders, behandel het als 1.0 (volledig effectief).
         const healthRatio = u.hasHealth()
           ? Number(u.health()) / (u.info().maxHealth ?? 1)
           : 1;
         return sum + healthRatio;
       }, 0);
-
-    // Sla de berekende waarde op in de cache
     this._effectiveUnitsCache.set(type, calculatedValue);
     return calculatedValue;
   }

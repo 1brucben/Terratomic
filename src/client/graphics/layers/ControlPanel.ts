@@ -248,9 +248,9 @@ export class ControlPanel extends LitElement implements Layer {
                   : "text-yellow-500"}"
                 translate="no"
               >
-                (+${renderTroops(
-                  this.popRate,
-                )}${`/ +${renderTroops(this._hospitalReturns)}`})
+                (+${renderTroops(this.popRate)}${this._hospitalReturns > 0
+                  ? `/ +${renderTroops(this._hospitalReturns)}`
+                  : ""})
               </span>
             </span>
           </div>

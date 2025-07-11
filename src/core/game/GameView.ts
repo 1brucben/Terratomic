@@ -181,9 +181,7 @@ export class PlayerView {
   }
 
   effectiveUnits(type: UnitType): number {
-    // This is a client-side view, so we don't have the full game state to calculate effective units.
-    // We'll return the unitsOwned for now, as a placeholder or until the server sends this data.
-    return this.unitsOwned(type);
+    return this.data.effectiveUnits[type];
   }
 
   invalidateEffectiveUnitsCache(type: UnitType): void {
@@ -230,9 +228,7 @@ export class PlayerView {
     return true;
   }
   unitsOwned(type: UnitType): number {
-    // This is a client-side view, so we don't have the full game state to calculate unitsOwned.
-    // We'll return 0 for now, as a placeholder or until the server sends this data.
-    return 0;
+    return this.data.unitsOwned[type];
   }
   numTilesOwned(): number {
     return this.data.tilesOwned;
