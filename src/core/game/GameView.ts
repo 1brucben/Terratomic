@@ -180,6 +180,16 @@ export class PlayerView {
       .filter((u) => u.owner().smallID() === this.smallID());
   }
 
+  effectiveUnits(type: UnitType): number {
+    // This is a client-side view, so we don't have the full game state to calculate effective units.
+    // We'll return the unitsOwned for now, as a placeholder or until the server sends this data.
+    return this.unitsOwned(type);
+  }
+
+  invalidateEffectiveUnitsCache(type: UnitType): void {
+    // No-op on the client-side view as the cache is managed server-side.
+  }
+
   nameLocation(): NameViewData {
     return this.nameData;
   }
@@ -218,6 +228,11 @@ export class PlayerView {
   }
   isPlayer(): this is Player {
     return true;
+  }
+  unitsOwned(type: UnitType): number {
+    // This is a client-side view, so we don't have the full game state to calculate unitsOwned.
+    // We'll return 0 for now, as a placeholder or until the server sends this data.
+    return 0;
   }
   numTilesOwned(): number {
     return this.data.tilesOwned;

@@ -520,6 +520,8 @@ export interface Player {
   units(...types: UnitType[]): Unit[];
   unitsConstructed(type: UnitType): number;
   unitsOwned(type: UnitType): number;
+  effectiveUnits(type: UnitType): number;
+  invalidateEffectiveUnitsCache(type: UnitType): void;
   buildableUnits(tile: TileRef): BuildableUnit[];
   canBuild(type: UnitType, targetTile: TileRef): TileRef | false;
   buildUnit<T extends UnitType>(

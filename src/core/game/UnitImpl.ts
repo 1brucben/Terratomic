@@ -217,9 +217,10 @@ export class UnitImpl implements Unit {
         0n,
         toInt(this.info().maxHealth ?? 1),
       );
-      this._accumulatedRegen = 0; // Reset accumulatie bij schade
+      this._accumulatedRegen = 0;
     }
     this.mg.addUpdate(this.toUpdate());
+    (this.owner() as PlayerImpl).invalidateEffectiveUnitsCache(this.type());
     if (this._health === 0n) {
       this.delete(true, attacker);
     }

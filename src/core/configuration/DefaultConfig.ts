@@ -779,7 +779,7 @@ export class DefaultConfig implements Config {
       player.type() === PlayerType.Human && this.infiniteTroops()
         ? 1_000_000_000
         : 1 * (player.numTilesOwned() * 30 + 50000) +
-          player.units(UnitType.City).length * this.cityPopulationIncrease();
+          player.effectiveUnits(UnitType.City) * this.cityPopulationIncrease();
 
     if (player.type() === PlayerType.Bot) {
       return maxPop / 2;

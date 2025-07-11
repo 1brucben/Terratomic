@@ -699,6 +699,7 @@ export class GameImpl implements Game {
     return this.unitGrid.unitsAt(tile) as Unit[];
   }
   removeUnit(u: Unit) {
+    u.owner().invalidateEffectiveUnitsCache(u.type()); // NIEUW: Cache ongeldig maken bij verwijdering
     this.unitGrid.removeUnit(u);
   }
 
