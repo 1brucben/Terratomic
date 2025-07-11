@@ -288,8 +288,9 @@ export class DefaultConfig implements Config {
   tradeShipGold(dist: number): Gold {
     return BigInt(Math.floor(10000 + 150 * Math.pow(dist, 1.1)));
   }
-  tradeShipSpawnRate(numberOfPorts: number): number {
-    return Math.round(10 * Math.pow(numberOfPorts, 0.37));
+  tradeShipSpawnRate(player: Player): number {
+    const effectivePorts = player.effectiveUnits(UnitType.Port);
+    return Math.round(10 * Math.pow(effectivePorts, 0.37));
   }
 
   // Cargoplanes (Turned off for now)

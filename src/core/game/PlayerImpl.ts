@@ -1242,7 +1242,10 @@ export class PlayerImpl implements Player {
     // Make close ports twice more likely by putting them again
     for (
       let i = 0;
-      i < this.mg.config().proximityBonusPortsNb(ports.length);
+      i <
+      this.mg
+        .config()
+        .proximityBonusPortsNb(this.effectiveUnits(UnitType.Port));
       i++
     ) {
       ports.push(ports[i]);

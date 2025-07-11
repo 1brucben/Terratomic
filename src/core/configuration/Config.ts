@@ -125,7 +125,7 @@ export interface Config {
   defaultDonationAmount(sender: Player): number;
   unitInfo(type: UnitType): UnitInfo;
   tradeShipGold(dist: number): Gold;
-  tradeShipSpawnRate(numberOfPorts: number): number;
+  tradeShipSpawnRate(player: Player): number;
   cargoPlaneGold(dist: number): Gold;
   cargoPlaneSpawnRate(numberOfAirplanes: number): number;
   cargoPlaneMaxNumber(): number;
