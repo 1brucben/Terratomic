@@ -1,0 +1,24 @@
+:root {
+  /* unchanged core variables … */
+  --boxBackgroundColor: #111827cc;
+  --fontColor: #202020;
+  --fontColorLight: #fff;
+  --transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+
+  /* Cold-War military palette */
+  /* ► Primary  (general-purpose buttons) = desaturated “battle-green” */
+  --primaryColor: #48553d; /* olive drab-600 */
+  --primaryColorHover: #36402c; /* olive drab-700 */
+  --primaryColorDisabled: linear-gradient(to right, #4a4a4a, #3d3d3d);
+
+  /* ► Secondary (outline / pale fills) = khaki-tint */
+  --secondaryColor: #e6e9d5; /* khaki-100 */
+  --secondaryColorHover: #d4d7c2; /* khaki-200 */
+
+  /* ► Alert / highlight (selected lobby, warnings) = muted crimson */
+  --alertColor: #7f1d1d; /* red-900 */
+  --alertColorHover: #991b1b; /* red-800 */
+
+  /* ► Accent text on pale backgrounds */
+  --accentTextColor: #374151; /* gray-700 */
+}

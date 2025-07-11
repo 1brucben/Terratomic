@@ -1,60 +1,66 @@
-import {Cell, Game, TerrainTypes} from "../Game";
-import {PseudoRandom} from "../PseudoRandom";
-import {SpawnIntent} from "../Schemas";
-import {getSpawnCells} from "./Util";
-
+import { Game, PlayerInfo, PlayerType } from "../game/Game";
+import { TileRef } from "../game/GameMap";
+import { PseudoRandom } from "../PseudoRandom";
+import { GameID } from "../Schemas";
+import { simpleHash } from "../Util";
+import { SpawnExecution } from "./SpawnExecution";
+import { BOT_NAME_PREFIXES, BOT_NAME_SUFFIXES } from "./utils/BotNames";
 
 export class BotSpawner {
-    private cellToIndex;
-    private freeTiles: Cell[];
-    private numFreeTiles;
-    private random = new PseudoRandom(123);
+  private random: PseudoRandom;
+  private bots: SpawnExecution[] = [];
 
-    constructor(private gs: Game) { }
+  constructor(
+    private gs: Game,
+    gameID: GameID,
+  ) {
+    this.random = new PseudoRandom(simpleHash(gameID));
+  }
 
-    spawnBots(numBots: number): SpawnIntent[] {
-        const bots: SpawnIntent[] = [];
-        this.cellToIndex = new Map<string, number>();
-        this.freeTiles = new Array();
-        this.numFreeTiles = 0;
-
-        this.gs.forEachTile(tile => {
-            if (tile.terrain() == TerrainTypes.Water) {
-                return;
-            }
-            if (tile.hasOwner()) {
-                return;
-            }
-
-            this.freeTiles.push(tile.cell());
-            this.cellToIndex.set(tile.cell().toString(), this.numFreeTiles);
-            this.numFreeTiles++;
-        });
-        for (let i = 0; i < numBots; i++) {
-            bots.push(this.spawnBot("Bot" + i));
-        }
-        return bots;
+  spawnBots(numBots: number): SpawnExecution[] {
+    let tries = 0;
+    while (this.bots.length < numBots) {
+      if (tries > 10000) {
+        console.log("too many retries while spawning bots, giving up");
+        return this.bots;
+      }
+      const botName = this.randomBotName();
+      const spawn = this.spawnBot(botName);
+      if (spawn !== null) {
+        this.bots.push(spawn);
+      } else {
+        tries++;
+      }
     }
+    return this.bots;
+  }
 
-    spawnBot(botName: string): SpawnIntent {
-        const rand = this.random.nextInt(0, this.numFreeTiles);
-        const spawn = this.freeTiles[rand];
-        const spawnCells = getSpawnCells(this.gs, spawn);
-        spawnCells.forEach(c => this.removeCell(c));
-        const spawnIntent: SpawnIntent = {
-            type: 'spawn',
-            name: botName,
-            isBot: true,
-            x: spawn.x,
-            y: spawn.y
-        };
-        return spawnIntent;
+  spawnBot(botName: string): SpawnExecution | null {
+    const tile = this.randTile();
+    if (!this.gs.isLand(tile)) {
+      return null;
     }
+    for (const spawn of this.bots) {
+      if (this.gs.manhattanDist(spawn.tile, tile) < 30) {
+        return null;
+      }
+    }
+    return new SpawnExecution(
+      new PlayerInfo("", botName, PlayerType.Bot, null, this.random.nextID()),
+      tile,
+    );
+  }
 
-    private removeCell(cell: Cell) {
-        const index = this.cellToIndex[cell.toString()];
-        this.freeTiles[index] = this.freeTiles[this.numFreeTiles - 1];
-        this.cellToIndex[this.freeTiles[index].toString()] = index;
-        this.numFreeTiles--;
-    }
+  private randomBotName(): string {
+    const prefixIndex = this.random.nextInt(0, BOT_NAME_PREFIXES.length);
+    const suffixIndex = this.random.nextInt(0, BOT_NAME_SUFFIXES.length);
+    return `${BOT_NAME_PREFIXES[prefixIndex]} ${BOT_NAME_SUFFIXES[suffixIndex]}`;
+  }
+
+  private randTile(): TileRef {
+    return this.gs.ref(
+      this.random.nextInt(0, this.gs.width()),
+      this.random.nextInt(0, this.gs.height()),
+    );
+  }
 }

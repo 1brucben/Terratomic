@@ -1,0 +1,289 @@
+<!doctype html>
+<html>
+  <head>
+    <title>Terrain Color Comparison</title>
+    <style>
+      .map-container {
+        display: flex;
+        flex-direction: row;
+        overflow-x: auto;
+        gap: 20px;
+        justify-content: center;
+      }
+
+      .map-block {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        width: 500px;
+        flex-shrink: 0;
+      }
+
+      canvas {
+        border: 1px solid black;
+        width: 100%;
+        height: auto;
+        image-rendering: pixelated;
+      }
+
+      pre {
+        font-family: monospace;
+        font-size: 12px;
+        white-space: pre-wrap;
+        word-break: break-word;
+        width: 100%;
+        margin-top: 8px;
+      }
+
+      .button-container {
+        margin-top: 20px;
+        text-align: center;
+      }
+
+      .phase-label {
+        text-align: center;
+        font-family: sans-serif;
+        font-size: 14px;
+        margin-top: 10px;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="map-container">
+      <div class="map-block">
+        <canvas id="canvasA"></canvas>
+        <pre id="settingsA"></pre>
+      </div>
+      <div class="map-block">
+        <canvas id="canvasB"></canvas>
+        <pre id="settingsB"></pre>
+      </div>
+    </div>
+
+    <div class="button-container">
+      <button onclick="vote('A')">Left is Better</button>
+      <button onclick="vote('B')">Right is Better</button>
+      <div class="phase-label" id="phaseLabel"></div>
+    </div>
+
+    <script>
+      const canvasA = document.getElementById("canvasA");
+      const canvasB = document.getElementById("canvasB");
+      const ctxA = canvasA.getContext("2d");
+      const ctxB = canvasB.getContext("2d");
+
+      let generation = 0;
+      let phase = 0;
+      const mutationTargets = ["mountainsBase"];
+      const maxPhase = mutationTargets.length - 1;
+
+      const IS_LAND_BIT = 1 << 7;
+      const SHORELINE_BIT = 1 << 6;
+      const OCEAN_BIT = 1 << 5;
+      const MAGNITUDE_MASK = 0b00011111;
+
+      function clamp(x, min, max) {
+        return Math.max(min, Math.min(max, x));
+      }
+
+      async function loadBinTerrain(url) {
+        const res = await fetch(url);
+        const buffer = await res.arrayBuffer();
+        const bytes = new Uint8Array(buffer);
+
+        const width = bytes[0] | (bytes[1] << 8);
+        const height = bytes[2] | (bytes[3] << 8);
+        const data = bytes.slice(4);
+
+        if (data.length !== width * height)
+          throw new Error("Wrong .bin dimensions");
+        return { width, height, data };
+      }
+
+      const defaultScheme = {
+        oceanBase: { r: 57, g: 74, b: 159 },
+        oceanSlope: { r: 1, g: 1, b: 1 },
+        shoreColor: { r: 204, g: 203, b: 158 },
+        plainsBase: { r: 196, g: 202, b: 130 },
+        plainsSlope: { r: 0, g: -2, b: 0 },
+        highlandsBase: { r: 192, g: 173, b: 143 },
+        highlandsSlope: { r: 2, g: 2, b: 2 },
+        mountainsBase: { r: 230, g: 230, b: 230 },
+      };
+
+      function getTerrainColor(byte, scheme) {
+        const isLand = (byte & IS_LAND_BIT) !== 0;
+        const isShoreline = (byte & SHORELINE_BIT) !== 0;
+        const isOcean = (byte & OCEAN_BIT) !== 0;
+        const magnitude = byte & MAGNITUDE_MASK;
+
+        if (isLand && isShoreline) return { ...scheme.shoreColor, a: 255 };
+
+        if (!isLand) {
+          if (isShoreline && isOcean) return { r: 100, g: 143, b: 255, a: 255 };
+          return {
+            r: clamp(
+              scheme.oceanBase.r - scheme.oceanSlope.r * magnitude,
+              0,
+              255,
+            ),
+            g: clamp(
+              scheme.oceanBase.g - scheme.oceanSlope.g * magnitude,
+              0,
+              255,
+            ),
+            b: clamp(
+              scheme.oceanBase.b - scheme.oceanSlope.b * magnitude,
+              0,
+              255,
+            ),
+            a: 255,
+          };
+        }
+
+        if (magnitude < 10) {
+          return {
+            r: clamp(
+              scheme.plainsBase.r + scheme.plainsSlope.r * magnitude,
+              0,
+              255,
+            ),
+            g: clamp(
+              scheme.plainsBase.g + scheme.plainsSlope.g * magnitude,
+              0,
+              255,
+            ),
+            b: clamp(
+              scheme.plainsBase.b + scheme.plainsSlope.b * magnitude,
+              0,
+              255,
+            ),
+            a: 255,
+          };
+        } else if (magnitude < 20) {
+          return {
+            r: clamp(
+              scheme.highlandsBase.r + scheme.highlandsSlope.r * magnitude,
+              0,
+              255,
+            ),
+            g: clamp(
+              scheme.highlandsBase.g + scheme.highlandsSlope.g * magnitude,
+              0,
+              255,
+            ),
+            b: clamp(
+              scheme.highlandsBase.b + scheme.highlandsSlope.b * magnitude,
+              0,
+              255,
+            ),
+            a: 255,
+          };
+        } else {
+          return {
+            r: clamp(scheme.mountainsBase.r + magnitude / 2, 0, 255),
+            g: clamp(scheme.mountainsBase.g + magnitude / 2, 0, 255),
+            b: clamp(scheme.mountainsBase.b + magnitude / 2, 0, 255),
+            a: 255,
+          };
+        }
+      }
+
+      function drawTerrain(canvas, ctx, { width, height, data }, scheme) {
+        canvas.width = width;
+        canvas.height = height;
+        const imageData = ctx.createImageData(width, height);
+
+        for (let i = 0; i < data.length; i++) {
+          const color = getTerrainColor(data[i], scheme);
+          const offset = i * 4;
+          imageData.data[offset] = color.r;
+          imageData.data[offset + 1] = color.g;
+          imageData.data[offset + 2] = color.b;
+          imageData.data[offset + 3] = color.a;
+        }
+
+        ctx.putImageData(imageData, 0, 0);
+      }
+
+      function mutate(scheme, generation = 0) {
+        const copy = structuredClone(scheme);
+        const key = mutationTargets[phase];
+        const initialDelta = 10;
+        const minDelta = 1;
+        const decay = Math.floor(generation / 5);
+        const maxDelta = Math.max(minDelta, initialDelta - decay);
+        const rand = () =>
+          Math.floor(Math.random() * (2 * maxDelta + 1)) - maxDelta;
+
+        if (typeof copy[key] === "object") {
+          for (let c in copy[key]) {
+            copy[key][c] = clamp(copy[key][c] + rand(), 0, 255);
+          }
+        } else {
+          copy[key] = clamp(copy[key] + rand(), 0, 255);
+        }
+
+        return copy;
+      }
+
+      function updateSettings() {
+        document.getElementById("settingsA").textContent = JSON.stringify(
+          schemeA,
+          null,
+          2,
+        );
+        document.getElementById("settingsB").textContent = JSON.stringify(
+          schemeB,
+          null,
+          2,
+        );
+        document.getElementById("phaseLabel").textContent =
+          "Now evolving: " + mutationTargets[phase];
+      }
+
+      let schemeA = structuredClone(defaultScheme);
+      let schemeB;
+      let terrainData;
+
+      function vote(winner) {
+        schemeA = winner === "A" ? schemeA : schemeB;
+        generation++;
+        schemeB = mutate(schemeA, generation);
+
+        // Check convergence every 10 generations
+        if (generation % 5 === 0 && phase < maxPhase) {
+          const key = mutationTargets[phase];
+          let change = 0;
+
+          if (typeof schemeA[key] === "object") {
+            for (let c in schemeA[key]) {
+              change += Math.abs(schemeA[key][c] - schemeB[key][c]);
+            }
+          } else {
+            change = Math.abs(schemeA[key] - schemeB[key]);
+          }
+
+          if (change < 5) {
+            phase++;
+            generation = 0;
+          }
+        }
+
+        drawTerrain(canvasA, ctxA, terrainData, schemeA);
+        drawTerrain(canvasB, ctxB, terrainData, schemeB);
+        updateSettings();
+      }
+
+      loadBinTerrain("Europe.bin")
+        .then((result) => {
+          terrainData = result;
+          schemeB = mutate(schemeA, generation);
+          drawTerrain(canvasA, ctxA, result, schemeA);
+          drawTerrain(canvasB, ctxB, result, schemeB);
+          updateSettings();
+        })
+        .catch((err) => console.error("Failed to load terrain:", err));
+    </script>
+  </body>
+</html>

@@ -1,21 +1,427 @@
-<!DOCTYPE html>
-<html lang="en">
+<!doctype html>
+<html lang="en" class="h-full">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Terratomic (ALPHA)</title>
+    <link
+      href="https://fonts.googleapis.com/css2?family=Anton&display=swap"
+      rel="stylesheet"
+    />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Bebas+Neue&display=swap"
+      rel="stylesheet"
+    />
 
-<head>
-	<meta charset="UTF-8">
-	<meta name="viewport" content="width=device-width, initial-scale=1.0">
-	<title>Warfront</title>
-</head>
+    <link rel="manifest" href="../../resources/manifest.json" />
 
-<body>
-	<h1>Warfront</h1>
-	<button id="startButton">Start Game</button>
-	<div id="game-setup">
-		<div id="lobbies-container">
-			<h2>Available Lobbies</h2>
-			<!-- Lobby buttons will be inserted here -->
-		</div>
-	</div>
-</body>
+    <!-- Critical CSS to prevent FOUC -->
+    <style>
+      .preload * {
+        -webkit-transition: none !important;
+        -moz-transition: none !important;
+        -ms-transition: none !important;
+        -o-transition: none !important;
+        transition: none !important;
+      }
 
+      html {
+        visibility: visible;
+        opacity: 1;
+      }
+
+      html.preload {
+        visibility: hidden;
+        opacity: 0;
+      }
+
+      .bg-image {
+        content: "";
+        background-image: url("/images/EuropeBackground.webp");
+        background-position: center;
+        background-attachment: fixed;
+        background-size: cover;
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        filter: blur(4px);
+        z-index: -1;
+      }
+
+      .dark .bg-image {
+        filter: blur(4px) brightness(0.7);
+      }
+
+      .left-gutter-ad {
+        position: fixed;
+        left: 0;
+        top: 200px;
+        /* Changed from top: 50% */
+        transform: none;
+        /* Removed translateY(-50%) since we don't need to center anymore */
+        z-index: 40;
+        width: 300px;
+        height: 600px;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        pointer-events: auto;
+      }
+
+      .left-gutter-ad google-ad {
+        width: 100%;
+        height: 100%;
+        display: block;
+      }
+
+      .right-gutter-ad {
+        position: fixed;
+        right: 0;
+        top: 200px;
+        /* Changed from top: 50% */
+        transform: none;
+        /* Removed translateY(-50%) since we don't need to center anymore */
+        z-index: 40;
+        width: 300px;
+        height: 600px;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        pointer-events: auto;
+      }
+
+      .right-gutter-ad google-ad {
+        width: 100%;
+        height: 100%;
+        display: block;
+      }
+
+      /* Media query to hide the gutter ad on smaller screens */
+      @media (max-width: 1280px) {
+        .left-gutter-ad {
+          display: none;
+        }
+
+        .right-gutter-ad {
+          display: none;
+        }
+      }
+
+      /* display:none if child has class parent-hidden since we can't use shadow DOM in Lit due to Tailwind */
+      .component-hideable:has(> .parent-hidden) {
+        display: none;
+      }
+    </style>
+
+    <!-- Immediate execution to prevent FOUC -->
+    <script>
+      document.documentElement.className = "preload";
+    </script>
+
+    <!-- Analytics -->
+    <script
+      async
+      src="https://www.googletagmanager.com/gtag/js?id=AW-16702609763"
+    ></script>
+    <script>
+      window.dataLayer = window.dataLayer || [];
+
+      function gtag() {
+        dataLayer.push(arguments);
+      }
+
+      gtag("js", new Date());
+      gtag("config", "AW-16702609763");
+    </script>
+    <!-- Google tag (gtag.js) -->
+    <script
+      async
+      src="https://www.googletagmanager.com/gtag/js?id=G-WQGQQ8RDN4"
+    ></script>
+    <script>
+      window.dataLayer = window.dataLayer || [];
+      function gtag() {
+        dataLayer.push(arguments);
+      }
+      gtag("js", new Date());
+
+      gtag("config", "G-WQGQQ8RDN4");
+    </script>
+  </head>
+
+  <body
+    class="h-full select-none font-sans min-h-screen bg-opacity-0 bg-cover bg-center bg-fixed transition-opacity duration-300 ease-in-out flex flex-col"
+  >
+    <header class="l-header">
+      <div
+        class="l-header__content"
+        style="
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          gap: 8px;
+        "
+      >
+        <img
+          src="../../resources/images/TerratomicLogoHorizontal.png"
+          alt="Terratomic Logo"
+          style="max-width: 260px; height: auto"
+        />
+        <div
+          class="l-header__highlightText"
+          style="
+            color: #e5c07b;
+            font-family: &quot;Bebas Neue&quot;, sans-serif;
+            font-size: 1.25rem;
+            letter-spacing: 0.05em;
+            text-shadow:
+              1px 1px 0 #000,
+              -1px -1px 0 #000;
+          "
+        >
+          v0.1.0
+        </div>
+      </div>
+    </header>
+    <div class="bg-image"></div>
+
+    <!-- Main container with responsive padding -->
+    <main class="flex justify-center flex-grow">
+      <div class="container pt-12">
+        <o-button
+          id="login-discord"
+          title="Initializing..."
+          disable="true"
+          block
+        ></o-button>
+
+        <o-button
+          id="logout-discord"
+          title="Log out"
+          translationKey="main.log_out"
+          visible="false"
+          block
+        ></o-button>
+
+        <div class="container__row">
+          <flag-input class="w-[20%] md:w-[15%]"></flag-input>
+          <username-input class="relative w-full"></username-input>
+          <news-button
+            class="w-[20%] md:w-[15%] component-hideable"
+          ></news-button>
+        </div>
+        <div></div>
+        <div>
+          <public-lobby class="block"></public-lobby>
+        </div>
+        <div class="container__row container__row--equal">
+          <o-button
+            id="host-lobby-button"
+            title="Create Lobby"
+            translationKey="main.create_lobby"
+            block
+            secondary
+          ></o-button>
+          <o-button
+            id="join-private-lobby-button"
+            title="Join Lobby"
+            translationKey="main.join_lobby"
+            block
+            secondary
+          ></o-button>
+          <!-- <o-button
+            id="chat-button"
+            title="Chat Test"
+            block
+            secondary
+          ></o-button> -->
+        </div>
+
+        <o-button
+          id="single-player"
+          title="Single Player"
+          translationKey="main.single_player"
+          block
+        ></o-button>
+
+        <o-button
+          id="help-button"
+          title="Instructions"
+          translationKey="main.instructions"
+          block
+          secondary
+        ></o-button>
+        <div class="container__row">
+          <lang-selector class="w-full"></lang-selector>
+        </div>
+      </div>
+    </main>
+
+    <!-- User Setting -->
+    <button
+      id="settings-button"
+      title="Settings"
+      class="fixed bottom-4 right-4 z-50 rounded-full p-2 shadow-lg transition-colors duration-300 flex items-center justify-center hover:bg-[var(--primaryColorHover)]"
+      style="width: 80px; height: 80px; background-color: var(--primaryColor)"
+    >
+      <img
+        src="../../resources/images/SettingIconWhite.svg"
+        alt="Settings"
+        style="width: 72px; height: 72px"
+      />
+    </button>
+
+    <!-- Game components -->
+    <div id="customMenu" class="mt-4 sm:mt-6 lg:mt-8">
+      <ul></ul>
+    </div>
+    <div id="app"></div>
+    <div id="radialMenu" class="radial-menu"></div>
+    <div class="flex gap-2 fixed right-[10px] top-[10px] z-50 flex-col">
+      <options-menu></options-menu>
+      <replay-panel></replay-panel>
+      <player-info-overlay></player-info-overlay>
+    </div>
+    <div
+      class="fixed bottom-[30px] sm:bottom-auto sm:top-[20px] z-50 mx-auto max-w-max inset-x-0 items-center"
+    >
+      <heads-up-message></heads-up-message>
+    </div>
+
+    <div
+      class="bottom-0 w-full flex-col-reverse sm:flex-row z-50"
+      style="position: fixed; pointer-events: none"
+    >
+      <div
+        class="w-full sm:w-2/3 sm:fixed sm:right-0 sm:bottom-0 sm:flex justify-end"
+        style="pointer-events: none"
+      >
+        <chat-display></chat-display>
+        <events-display></events-display>
+      </div>
+      <div class="w-full sm:w-1/3 md:max-w-72" style="pointer-events: auto">
+        <control-panel></control-panel>
+      </div>
+    </div>
+
+    <!-- Footer section -->
+    <footer class="l-footer">
+      <div class="l-footer__content">
+        <div class="l-footer__col">
+          <a
+            href="https://youtu.be/jvHEvbko3uw?si=znspkP84P76B1w5I"
+            data-i18n="main.how_to_play"
+            class="t-link"
+            target="_blank"
+          >
+            How to Play
+          </a>
+          <a
+            href="https://openfront.miraheze.org/wiki/Main_Page"
+            data-i18n="main.wiki"
+            class="t-link"
+            target="_blank"
+          >
+            Wiki
+          </a>
+          <a
+            target="_blank"
+            href="https://discord.gg/w8HXjhaBkU"
+            class="t-link"
+          >
+            <span data-i18n="main.join_discord"> Join the Discord! </span>
+          </a>
+        </div>
+        <div class="l-footer__col t-text-white">
+          <a
+            href="https://github.com/1brucben/Terratomic"
+            class="t-link inline-flex items-center space-x-2"
+            target="_blank"
+          >
+            ©2025 Terratomic™
+            <img
+              src="../../resources/icons/github-mark-white.svg"
+              alt="GitHub"
+              width="20"
+              height="20"
+              class="ml-2 mr-4"
+            />
+          </a>
+          <a href="/privacy-policy.html" class="t-link" target="_blank">
+            Privacy Policy
+          </a>
+          <a href="/terms-of-service.html" class="t-link" target="_blank">
+            Terms of Service
+          </a>
+          <p style="text-align: center">
+            <a
+              href="https://www.playwire.com/contact-direct-sales"
+              data-i18n="main.advertise"
+              class="t-link"
+              target="_blank"
+              rel="noopener"
+              >Advertise</a
+            >
+          </p>
+        </div>
+      </div>
+    </footer>
+    <!-- Game modals and overlays -->
+    <single-player-modal></single-player-modal>
+    <host-lobby-modal></host-lobby-modal>
+    <join-private-lobby-modal></join-private-lobby-modal>
+    <emoji-table></emoji-table>
+    <build-menu></build-menu>
+    <win-modal></win-modal>
+    <game-starting-modal></game-starting-modal>
+    <top-bar></top-bar>
+
+    <player-panel></player-panel>
+    <help-modal></help-modal>
+    <dark-mode-button></dark-mode-button>
+    <alert-frame></alert-frame>
+    <chat-modal></chat-modal>
+    <user-setting></user-setting>
+    <multi-tab-modal></multi-tab-modal>
+    <unit-info-modal></unit-info-modal>
+    <news-modal></news-modal>
+    <left-in-game-ad></left-in-game-ad>
+    <game-left-sidebar></game-left-sidebar>
+    <div
+      id="language-modal"
+      class="fixed inset-0 bg-black bg-opacity-50 z-50 hidden flex justify-center items-center"
+    >
+      <div class="bg-white rounded-lg shadow-lg p-6 w-96 max-w-full">
+        <h2 class="text-xl font-semibold mb-4">Select Language</h2>
+        <div
+          id="language-list"
+          class="space-y-2 max-h-80 overflow-y-auto"
+        ></div>
+        <button
+          class="mt-4 w-full bg-blue-600 hover:bg-blue-700 text-white py-2 px-4 rounded"
+          onclick="document.getElementById('language-modal').classList.add('hidden')"
+        >
+          Close
+        </button>
+      </div>
+    </div>
+    <!-- Scripts -->
+    <script>
+      // Remove preload class after everything is loaded
+      window.addEventListener("load", function () {
+        requestAnimationFrame(() => {
+          document.documentElement.classList.remove("preload");
+        });
+      });
+    </script>
+
+    <!-- Analytics -->
+    <script
+      defer
+      src="https://static.cloudflareinsights.com/beacon.min.js"
+      data-cf-beacon='{"token": "03d93e6fefb349c28ee69b408fa25a13"}'
+    ></script>
+  </body>
 </html>

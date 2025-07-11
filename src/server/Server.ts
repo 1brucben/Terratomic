@@ -1,70 +1,30 @@
-import express, {json} from 'express';
-import http from 'http';
-import {WebSocketServer} from 'ws';
-import path from 'path';
-import {fileURLToPath} from 'url';
-import {GameManager} from './GameManager';
-import {Client} from './Client';
-import {ClientMessage, ClientMessageSchema} from '../core/Schemas';
-import {Lobby} from './Lobby';
-import {defaultSettings} from '../core/Settings';
+import cluster from "cluster";
+import * as dotenv from "dotenv";
+import { GameEnv } from "../core/configuration/Config";
+import { getServerConfigFromServer } from "../core/configuration/ConfigLoader";
+import { startMaster } from "./Master";
+import { startWorker } from "./Worker";
+dotenv.config();
+const config = getServerConfigFromServer();
 
-
-
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
-
-const app = express();
-const server = http.createServer(app);
-const wss = new WebSocketServer({server});
-
-
-// Serve static files from the 'out' directory
-app.use(express.static(path.join(__dirname, '../../out')));
-app.use(express.json())
-
-const gm = new GameManager(defaultSettings)
-
-// New GET endpoint to list lobbies
-app.get('/lobbies', (req, res) => {
-    const lobbyList = Array.from(gm.lobbies()).map(lobby => ({
-        id: lobby.id,
-    }));
-
-    res.json({
-        lobbies: lobbyList,
-    });
-});
-
-wss.on('connection', (ws) => {
-
-    ws.on('message', (message: string) => {
-        console.log(`got message ${message}`)
-        const clientMsg: ClientMessage = ClientMessageSchema.parse(JSON.parse(message))
-        if (clientMsg.type == "join") {
-            if (gm.hasLobby(clientMsg.lobbyID)) {
-                gm.addClientToLobby(new Client(clientMsg.clientID, ws), clientMsg.lobbyID)
-            }
-        }
-        // TODO: send error message
-    })
-
-});
-
-function runGame() {
-    setInterval(() => tick(), 1000);
+// Main entry point of the application
+async function main() {
+  // Check if this is the primary (master) process
+  if (cluster.isPrimary) {
+    if (config.env() !== GameEnv.Dev) {
+      //await setupTunnels(); //TODO: Setup CF tunnels
+    }
+    console.log("Starting master process...");
+    await startMaster();
+  } else {
+    // This is a worker process
+    console.log("Starting worker process...");
+    await startWorker();
+  }
 }
 
-function tick() {
-    gm.tick()
-}
-
-const PORT = process.env.PORT || 3000;
-console.log(`Server will try to run on http://localhost:${PORT}`);
-
-server.listen(PORT, () => {
-    console.log(`Server is running on http://localhost:${PORT}`);
+// Start the application
+main().catch((error) => {
+  console.error("Failed to start server:", error);
+  process.exit(1);
 });
-
-runGame()
-

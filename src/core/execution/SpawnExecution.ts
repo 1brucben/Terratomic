@@ -1,42 +1,56 @@
-import {Cell, Execution, MutableGame, MutablePlayer, PlayerInfo} from "../Game"
-import {BotExecution} from "./BotExecution"
-import {PlayerExecution} from "./PlayerExecution"
-import {getSpawnCells} from "./Util"
+import { Execution, Game, Player, PlayerInfo, PlayerType } from "../game/Game";
+import { TileRef } from "../game/GameMap";
+import { BotExecution } from "./BotExecution";
+import { PlayerExecution } from "./PlayerExecution";
+import { getSpawnTiles } from "./Util";
 
 export class SpawnExecution implements Execution {
+  active: boolean = true;
+  private mg: Game;
 
-    active: boolean = true
-    private gs: MutableGame
+  constructor(
+    private playerInfo: PlayerInfo,
+    public readonly tile: TileRef,
+  ) {}
 
-    constructor(
-        private playerInfo: PlayerInfo,
-        private cell: Cell,
-    ) { }
+  init(mg: Game, ticks: number) {
+    this.mg = mg;
+  }
 
+  tick(ticks: number) {
+    this.active = false;
 
-    init(gs: MutableGame, ticks: number) {
-        this.gs = gs
+    if (!this.mg.inSpawnPhase()) {
+      this.active = false;
+      return;
     }
 
-    tick(ticks: number) {
-        if (!this.isActive()) {
-            return
-        }
-        const player = this.gs.addPlayer(this.playerInfo)
-        getSpawnCells(this.gs, this.cell).forEach(c => {
-            console.log('conquering cell')
-            player.conquer(c)
-        })
-        this.gs.addExecution(new PlayerExecution(player.id()))
-        if (player.info().isBot) {
-            this.gs.addExecution(new BotExecution(player))
-        }
-        this.active = false
+    let player: Player | null = null;
+    if (this.mg.hasPlayer(this.playerInfo.id)) {
+      player = this.mg.player(this.playerInfo.id);
+    } else {
+      player = this.mg.addPlayer(this.playerInfo);
     }
-    owner(): MutablePlayer {
-        return null
+
+    player.tiles().forEach((t) => player.relinquish(t));
+    getSpawnTiles(this.mg, this.tile).forEach((t) => {
+      player.conquer(t);
+    });
+
+    if (!player.hasSpawned()) {
+      this.mg.addExecution(new PlayerExecution(player));
+      if (player.type() === PlayerType.Bot) {
+        this.mg.addExecution(new BotExecution(player));
+      }
     }
-    isActive(): boolean {
-        return this.active
-    }
+    player.setHasSpawned(true);
+  }
+
+  isActive(): boolean {
+    return this.active;
+  }
+
+  activeDuringSpawnPhase(): boolean {
+    return true;
+  }
 }
