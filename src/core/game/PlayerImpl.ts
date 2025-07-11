@@ -864,7 +864,8 @@ export class PlayerImpl implements Player {
     return this._hospitalReturns;
   }
   addHospitalReturns(count: number): void {
-    this._hospitalReturns += count;
+    const effectiveHospitals = this.effectiveUnits(UnitType.Hospital);
+    this._hospitalReturns += count * effectiveHospitals;
   }
 
   resetHospitalReturns(): void {

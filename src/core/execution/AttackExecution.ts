@@ -287,10 +287,11 @@ export class AttackExecution implements Execution {
         targetPlayer.removeTroops(defenderTroopLoss);
       }
       const attackerMultiplier =
-        0.6 + 0.4 * Math.pow(0.75, this._owner.units(UnitType.Hospital).length);
+        0.6 +
+        0.4 * Math.pow(0.75, this._owner.effectiveUnits(UnitType.Hospital));
       const defenderMultiplier = targetPlayer
         ? 0.6 +
-          0.4 * Math.pow(0.75, this._owner.units(UnitType.Hospital).length)
+          0.4 * Math.pow(0.75, this._owner.effectiveUnits(UnitType.Hospital))
         : 1;
 
       const attackerReturns = attackerTroopLoss * (1 - attackerMultiplier);
