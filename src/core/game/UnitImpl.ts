@@ -325,6 +325,13 @@ export class UnitImpl implements Unit {
       }
     } else if (this.type() === UnitType.MissileSilo) {
       cooldownDuration = this.mg.config().SiloCooldown();
+      if (this.hasHealth()) {
+        const healthPercentage =
+          Number(this.health()) / (this.info().maxHealth ?? 1);
+        if (healthPercentage > 0) {
+          cooldownDuration /= healthPercentage;
+        }
+      }
     } else {
       return undefined;
     }
