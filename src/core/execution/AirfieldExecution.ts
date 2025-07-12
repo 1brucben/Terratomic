@@ -55,15 +55,21 @@ export class AirfieldExecution implements Execution {
     }
 
     const airfieldUnit = this.airfield;
-    const totalAirfields = mg.units(UnitType.Airfield).length;
+    const totalEffectiveAirfields = mg
+      .players()
+      .reduce((sum, p) => sum + p.effectiveUnits(UnitType.Airfield), 0);
     const activeBombers = this.player.units(UnitType.Bomber).length;
 
-    if (activeBombers >= totalAirfields) {
+    if (activeBombers >= totalEffectiveAirfields) {
       return;
     }
 
     if (mg.config().cargoPlanesEnabled()) {
-      if (this.random.chance(mg.config().cargoPlaneSpawnRate(totalAirfields))) {
+      if (
+        this.random.chance(
+          mg.config().cargoPlaneSpawnRate(totalEffectiveAirfields),
+        )
+      ) {
         const possiblePorts = this.player.airfields(airfieldUnit);
         if (possiblePorts.length > 0) {
           const destField = this.random.randElement(possiblePorts);

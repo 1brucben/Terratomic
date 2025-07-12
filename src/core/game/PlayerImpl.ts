@@ -1277,12 +1277,19 @@ export class PlayerImpl implements Player {
         );
       });
 
-    for (
-      let i = 0;
-      i < this.mg.config().proximityBonusAirfieldsNumber(airfields.length);
-      i++
-    ) {
-      airfields.push(airfields[i]);
+    if (airfields.length > 0) {
+      for (
+        let i = 0;
+        i <
+        this.mg
+          .config()
+          .proximityBonusAirfieldsNumber(
+            this.effectiveUnits(UnitType.Airfield),
+          );
+        i++
+      ) {
+        airfields.push(airfields[i]);
+      }
     }
 
     this.mg
