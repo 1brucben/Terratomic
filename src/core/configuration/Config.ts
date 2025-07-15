@@ -187,4 +187,6 @@ export interface Theme {
   allyColor(): Colord;
   enemyColor(): Colord;
   spawnHighlightColor(): Colord;
+  hotBorderColorRed(): Colord;
+  hotBorderColorBlack(): Colord;
 }

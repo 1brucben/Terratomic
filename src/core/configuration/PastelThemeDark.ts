@@ -163,4 +163,12 @@ export class PastelThemeDark implements Theme {
   spawnHighlightColor(): Colord {
     return this._spawnHighlightColor;
   }
+
+  hotBorderColorRed(): Colord {
+    return colord({ r: 255, g: 0, b: 0 });
+  }
+
+  hotBorderColorBlack(): Colord {
+    return colord({ r: 255, g: 0, b: 0 });
+  }
 }
