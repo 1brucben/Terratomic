@@ -11,6 +11,7 @@ export class OButton extends LitElement {
   @property({ type: Boolean }) block = false;
   @property({ type: Boolean }) blockDesktop = false;
   @property({ type: Boolean }) disable = false;
+  @property({ type: String }) iconSrc = "";
 
   createRenderRoot() {
     return this;
@@ -28,9 +29,18 @@ export class OButton extends LitElement {
         })}
         ?disabled=${this.disable}
       >
-        ${`${this.translationKey}` === ""
-          ? `${this.title}`
-          : `${translateText(this.translationKey)}`}
+        <span class="c-button__content">
+          ${this.iconSrc
+            ? html`<img
+                src="${this.iconSrc}"
+                alt="icon"
+                class="c-button__icon"
+              />`
+            : ""}
+          ${`${this.translationKey}` === ""
+            ? `${this.title}`
+            : `${translateText(this.translationKey)}`}
+        </span>
       </button>
     `;
   }

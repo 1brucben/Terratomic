@@ -3,7 +3,7 @@
   color: #fff;
   cursor: pointer;
   outline: none;
-  display: inline-block;
+  display: inline-block; /* Revert to inline-block for the button itself */
   font-size: 16px;
   border: 1px solid transparent;
   text-align: center;
@@ -14,6 +14,19 @@
   @media (min-width: 1024px) {
     font-size: 18px;
   }
+}
+
+.c-button__content {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.c-button__icon {
+  /* Styles for the icon */
+  width: 24px;
+  height: 24px;
+  margin-right: 8px;
 }
 
 .c-button:hover,

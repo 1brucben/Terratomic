@@ -107,6 +107,13 @@ class Client {
       "logout-discord",
     ) as OButton;
 
+    const joinDiscordButton = document.getElementById(
+      "join-discord-button",
+    ) as OButton;
+    joinDiscordButton.addEventListener("click", () => {
+      window.open("https://discord.gg/w8HXjhaBkU", "_blank");
+    });
+
     this.usernameInput = document.querySelector(
       "username-input",
     ) as UsernameInput;
