@@ -167,6 +167,6 @@ export class PastelTheme implements Theme {
   }
 
   hotBorderColorBlack(): Colord {
-    return colord({ r: 255, g: 0, b: 0 });
+    return colord({ r: 0, g: 0, b: 0 });
   }
 }
