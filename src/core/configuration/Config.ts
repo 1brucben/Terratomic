@@ -14,6 +14,7 @@ import {
   Tick,
   UnitInfo,
   UnitType,
+  UpgradeType,
 } from "../game/Game";
 import { GameMap, TileRef } from "../game/GameMap";
 import { PlayerView } from "../game/GameView";
@@ -60,6 +61,10 @@ export interface ServerConfig {
 export interface NukeMagnitude {
   inner: number;
   outer: number;
+}
+
+export interface UpgradeInfo {
+  cost: (player: Player | PlayerView) => Gold;
 }
 
 export interface Config {
@@ -125,8 +130,12 @@ export interface Config {
   donateCooldown(): Tick;
   defaultDonationAmount(sender: Player): number;
   unitInfo(type: UnitType): UnitInfo;
+  upgradeInfo(type: UpgradeType): UpgradeInfo;
   tradeShipGold(dist: number): Gold;
   tradeShipSpawnRate(numberOfPorts: number): number;
+  cargoTruckSpawnRate(numberOfStructures: number): number;
+  cargoTruckGold(distance: number): Gold;
+  roadUpdatesPerTick(): number;
   cargoPlaneGold(dist: number): Gold;
   cargoPlaneSpawnRate(numberOfAirplanes: number): number;
   cargoPlaneMaxNumber(): number;

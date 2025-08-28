@@ -8,6 +8,7 @@ import {
   Relation,
   TerrainType,
   Tick,
+  UpgradeType,
 } from "../game/Game";
 import { TileRef } from "../game/GameMap";
 import { PseudoRandom } from "../PseudoRandom";
@@ -15,6 +16,7 @@ import { GameID } from "../Schemas";
 import { flattenedEmojiTable, simpleHash } from "../Util";
 import { EmojiExecution } from "./EmojiExecution";
 import { NukeExecutionHelper } from "./NukeExecutionHelper";
+import { PurchaseUpgradeExecution } from "./PurchaseUpgradeExecution";
 import { SpawnExecution } from "./SpawnExecution";
 import { TransportShipExecution } from "./TransportShipExecution";
 import { UnitCreationHelper } from "./UnitCreationHelper";
@@ -179,6 +181,14 @@ export class FakeHumanExecution implements Execution {
       this.updateRelationsFromEmbargos();
       this.behavior.handleAllianceRequests();
       this.behavior.handleBombers();
+      if (
+        this.player.gold() > 1_000_000 &&
+        !this.player.hasUpgrade(UpgradeType.Roads)
+      ) {
+        this.mg.addExecution(
+          new PurchaseUpgradeExecution(this.player, UpgradeType.Roads),
+        );
+      }
       this.unitCreationHelper.handleUnits();
       this.handleEmbargoesToHostileNations();
     }

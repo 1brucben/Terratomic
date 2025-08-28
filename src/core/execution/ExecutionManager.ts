@@ -20,6 +20,7 @@ import { MarkDisconnectedExecution } from "./MarkDisconnectedExecution";
 import { MoveFighterJetExecution } from "./MoveFighterJetExecution";
 import { MoveWarshipExecution } from "./MoveWarshipExecution";
 import { NoOpExecution } from "./NoOpExecution";
+import { PurchaseUpgradeExecution } from "./PurchaseUpgradeExecution";
 import { QuickChatExecution } from "./QuickChatExecution";
 import { RetreatExecution } from "./RetreatExecution";
 import { SetAutoBombingExecution } from "./SetAutoBombingExecution";
@@ -119,6 +120,8 @@ export class Executor {
         return new EmbargoExecution(player, intent.targetID, intent.action);
       case "build_unit":
         return new ConstructionExecution(player, intent.unit, intent.tile);
+      case "purchase_upgrade":
+        return new PurchaseUpgradeExecution(player, intent.upgrade);
 
       case "quick_chat":
         return new QuickChatExecution(

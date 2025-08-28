@@ -3,6 +3,7 @@ import { AllPlayersStats, ClientID, Winner } from "../Schemas";
 import { simpleHash } from "../Util";
 import { AllianceImpl } from "./AllianceImpl";
 import { AllianceRequestImpl } from "./AllianceRequestImpl";
+import { CargoManager } from "./CargoManager";
 import {
   Alliance,
   AllianceRequest,
@@ -34,6 +35,7 @@ import {
 import { GameMap, TileRef, TileUpdate } from "./GameMap";
 import { GameUpdate, GameUpdateType } from "./GameUpdates";
 import { PlayerImpl } from "./PlayerImpl";
+import { Road, RoadManager } from "./RoadManager";
 import { Stats } from "./Stats";
 import { StatsImpl } from "./StatsImpl";
 import { assignTeams } from "./TeamAssignment";
@@ -76,6 +78,9 @@ export class GameImpl implements Game {
 
   private updates: GameUpdates = createGameUpdatesMap();
   private unitGrid: UnitGrid;
+  private roadManager: RoadManager;
+  private _roads = new Map<number, Road>();
+  private cargoManager: CargoManager;
 
   private playerTeams: Team[];
   private botTeam: Team = ColoredTeams.Bot;
@@ -92,6 +97,8 @@ export class GameImpl implements Game {
     this._width = _map.width();
     this._height = _map.height();
     this.unitGrid = new UnitGrid(this._map);
+    this.roadManager = new RoadManager(this);
+    this.cargoManager = new CargoManager(this, this.roadManager);
 
     const peaceDurationMinutes = this._config.peaceTimerDuration();
     if (peaceDurationMinutes > 0) {
@@ -356,6 +363,26 @@ export class GameImpl implements Game {
         hash: this.hash(),
       });
     }
+
+    const roadChanges = this.roadManager.update();
+    if (roadChanges.added.length > 0 || roadChanges.removed.length > 0) {
+      this.addUpdate({
+        type: GameUpdateType.Roads,
+        ...roadChanges,
+      });
+    }
+
+    const cargoChanges = this.cargoManager.tick();
+    if (
+      cargoChanges.added.length > 0 ||
+      cargoChanges.removed.length > 0 ||
+      cargoChanges.updated.length > 0
+    ) {
+      this.addUpdate({
+        ...cargoChanges,
+      });
+    }
+
     this._ticks++;
     return this.updates;
   }
@@ -900,6 +927,10 @@ export class GameImpl implements Game {
   }
   public alliances(): AllianceImpl[] {
     return this.alliances_;
+  }
+
+  public roads(): Road[] {
+    return this.roadManager.getRoads();
   }
 }
 

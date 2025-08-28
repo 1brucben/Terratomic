@@ -39,6 +39,7 @@ import {
   Unit,
   UnitParams,
   UnitType,
+  UpgradeType,
 } from "./Game";
 import { GameImpl } from "./GameImpl";
 import { andFN, manhattanDistFN, TileRef } from "./GameMap";
@@ -85,6 +86,7 @@ export class PlayerImpl implements Player {
   public _units: Unit[] = [];
   private _effectiveUnitsCache: Map<UnitType, number> = new Map();
   public _tiles: Set<TileRef> = new Set();
+  private _upgrades: Set<UpgradeType> = new Set();
 
   private _flag: string | undefined;
   private _name: string;
@@ -203,6 +205,7 @@ export class PlayerImpl implements Player {
         },
         {} as Record<UnitType, number>,
       ),
+      upgrades: Array.from(this._upgrades),
     };
   }
 
@@ -291,6 +294,14 @@ export class PlayerImpl implements Player {
       total++;
     }
     return total;
+  }
+
+  hasUpgrade(upgrade: UpgradeType): boolean {
+    return this._upgrades.has(upgrade);
+  }
+
+  addUpgrade(upgrade: UpgradeType): void {
+    this._upgrades.add(upgrade);
   }
 
   invalidateEffectiveUnitsCache(type: UnitType): void {

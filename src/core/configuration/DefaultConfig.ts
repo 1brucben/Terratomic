@@ -19,6 +19,7 @@ import {
   Trios,
   UnitInfo,
   UnitType,
+  UpgradeType,
 } from "../game/Game";
 import { TileRef } from "../game/GameMap";
 import { PlayerView } from "../game/GameView";
@@ -327,6 +328,18 @@ export class DefaultConfig implements Config {
     return Math.round(10 * Math.pow(numberOfPorts, 0.37));
   }
 
+  cargoTruckSpawnRate(numberOfStructures: number): number {
+    return Math.max(1, Math.floor(14 / Math.sqrt(numberOfStructures)));
+  }
+
+  cargoTruckGold(distance: number): Gold {
+    return BigInt(Math.floor((10000 + 150 * Math.pow(distance, 1.1)) * 0.125));
+  }
+
+  roadUpdatesPerTick(): number {
+    return 3;
+  }
+
   // Cargoplanes (Turned off for now)
   cargoPlanesEnabled(): boolean {
     return false;
@@ -601,6 +614,16 @@ export class DefaultConfig implements Config {
                 ),
           territoryBound: false,
           maxHealth: 750,
+        };
+      default:
+        assertNever(type);
+    }
+  }
+  upgradeInfo(type: UpgradeType): { cost: (player: Player) => Gold } {
+    switch (type) {
+      case UpgradeType.Roads:
+        return {
+          cost: () => 1_000_000n,
         };
       default:
         assertNever(type);

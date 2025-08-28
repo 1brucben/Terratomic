@@ -10,6 +10,7 @@ import {
   Team,
   Tick,
   UnitType,
+  UpgradeType,
 } from "./Game";
 import { TileRef, TileUpdate } from "./GameMap";
 
@@ -45,6 +46,29 @@ export enum GameUpdateType {
   AllianceExtensionPrompt,
   AllianceExtensionAccepted,
   BomberExplosion,
+  Roads,
+  CargoTrucks,
+}
+
+export interface SerializedCargoTruck {
+  id: number;
+  ownerID: number;
+  path: TileRef[];
+  progress: number;
+  position: [number, number];
+}
+
+export interface CargoTrucksUpdate {
+  type: GameUpdateType.CargoTrucks;
+  added: SerializedCargoTruck[];
+  removed: number[];
+  updated: { id: number; progress: number; position: [number, number] }[];
+}
+
+export interface RoadsUpdate {
+  type: GameUpdateType.Roads;
+  added: string[];
+  removed: string[];
 }
 
 export type GameUpdate =
@@ -63,7 +87,9 @@ export type GameUpdate =
   | WinUpdate
   | HashUpdate
   | UnitIncomingUpdate
-  | BomberExplosionUpdate;
+  | BomberExplosionUpdate
+  | RoadsUpdate
+  | CargoTrucksUpdate;
 
 export interface BomberExplosionUpdate {
   type: GameUpdateType.BomberExplosion;
@@ -145,6 +171,7 @@ export interface PlayerUpdate {
   betrayals?: bigint;
   effectiveUnits: Record<UnitType, number>;
   unitsOwned: Record<UnitType, number>;
+  upgrades: UpgradeType[];
 }
 
 export interface AllianceRequestUpdate {

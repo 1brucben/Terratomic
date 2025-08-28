@@ -1,12 +1,19 @@
 import { html, LitElement } from "lit";
 import { customElement, state } from "lit/decorators.js";
 import { EventBus } from "../../../core/EventBus";
-import { Gold, PlayerID, PlayerType, UnitType } from "../../../core/game/Game";
+import {
+  Gold,
+  PlayerID,
+  PlayerType,
+  UnitType,
+  UpgradeType,
+} from "../../../core/game/Game";
 import { GameView, PlayerView } from "../../../core/game/GameView";
 import { PlayerListChangedEvent } from "../../events/PlayerListChangedEvent";
 import { AttackRatioEvent } from "../../InputHandler";
 import {
   SendBomberIntentEvent,
+  SendPurchaseUpgradeIntentEvent,
   SendSetAutoBombingEvent,
   SendSetInvestmentRateEvent,
   SendSetTargetTroopRatioEvent,
@@ -888,8 +895,26 @@ export class ControlPanel2 extends LitElement implements Layer {
             ? html`
                 <div class="text-tan">
                   <h2 class="military-heading">Research</h2>
-                  <p class="military-label normal-case">
-                    This is where research-related options will go.
+                  ${this.game.myPlayer()?.hasUpgrade(UpgradeType.Roads)
+                    ? html`<p class="military-label">Road Network Unlocked</p>`
+                    : html`<button
+                        class="build-button"
+                        ?disabled=${(this.game.myPlayer()?.gold() ?? 0n) <
+                        1_000_000n}
+                        @click=${() => {
+                          this.eventBus.emit(
+                            new SendPurchaseUpgradeIntentEvent(
+                              UpgradeType.Roads,
+                            ),
+                          );
+                        }}
+                      >
+                        Purchase Road Network (1,000,000 Gold)
+                      </button>`}
+                  <p class="military-label normal-case opacity-70">
+                    Allows you to build roads over owned land between ports,
+                    cities and other structures. Roads are visible to all
+                    players.
                   </p>
                 </div>
               `

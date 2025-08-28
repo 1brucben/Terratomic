@@ -8,6 +8,7 @@ import {
   UnitUpdate,
 } from "./GameUpdates";
 import { PlayerView } from "./GameView";
+import { Road } from "./RoadManager";
 import { Stats } from "./Stats";
 
 export type PlayerID = string;
@@ -160,6 +161,10 @@ export enum UnitType {
   CargoPlane = "Cargo Plane",
   Bomber = "Bomber",
   FighterJet = "Fighter Jet", // Represents a Fighter Jet unit.
+}
+
+export enum UpgradeType {
+  Roads = "Roads",
 }
 
 const _structureTypes: ReadonlySet<UnitType> = new Set([
@@ -545,6 +550,10 @@ export interface Player {
     params: UnitParams<T>,
   ): Unit;
 
+  // Upgrades
+  hasUpgrade(upgrade: UpgradeType): boolean;
+  addUpgrade(upgrade: UpgradeType): void;
+
   captureUnit(unit: Unit): void;
 
   // Relations & Diplomacy
@@ -651,6 +660,9 @@ export interface Game extends GameMap {
   // Alliances
   alliances(): MutableAlliance[];
   expireAlliance(alliance: Alliance): void;
+
+  // Roads
+  roads(): Road[];
 
   // Game State
   ticks(): Tick;
