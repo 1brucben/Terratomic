@@ -620,11 +620,47 @@ export class DefaultConfig implements Config {
     }
   }
   upgradeInfo(type: UpgradeType): { cost: (player: Player) => Gold } {
+    const costForPlayer = (cost: bigint) => (p: Player) => {
+      if (p.type() === PlayerType.Human && this.infiniteGold()) {
+        return 0n;
+      }
+      return cost;
+    };
+
     switch (type) {
       case UpgradeType.Roads:
-        return {
-          cost: () => 1_000_000n,
-        };
+        return { cost: costForPlayer(1_000_000n) };
+
+      // Land
+      case UpgradeType.LandUpgrade2:
+        return { cost: costForPlayer(2_000_000n) };
+      case UpgradeType.LandUpgrade3:
+        return { cost: costForPlayer(3_000_000n) };
+
+      // Water
+      case UpgradeType.WaterUpgrade1:
+        return { cost: costForPlayer(1_000_000n) };
+      case UpgradeType.WaterUpgrade2:
+        return { cost: costForPlayer(2_000_000n) };
+      case UpgradeType.WaterUpgrade3:
+        return { cost: costForPlayer(3_000_000n) };
+
+      // Air
+      case UpgradeType.AirUpgrade1:
+        return { cost: costForPlayer(1_000_000n) };
+      case UpgradeType.AirUpgrade2:
+        return { cost: costForPlayer(2_000_000n) };
+      case UpgradeType.AirUpgrade3:
+        return { cost: costForPlayer(3_000_000n) };
+
+      // Economy
+      case UpgradeType.EconomyUpgrade1:
+        return { cost: costForPlayer(1_000_000n) };
+      case UpgradeType.EconomyUpgrade2:
+        return { cost: costForPlayer(2_000_000n) };
+      case UpgradeType.EconomyUpgrade3:
+        return { cost: costForPlayer(3_000_000n) };
+
       default:
         assertNever(type);
     }
