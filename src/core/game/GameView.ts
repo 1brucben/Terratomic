@@ -653,7 +653,7 @@ export class GameView implements GameMap {
   isBorder(ref: TileRef): boolean {
     return this._map.isBorder(ref);
   }
-  neighbors(ref: TileRef): TileRef[] {
+  neighbors(ref: TileRef): Uint32Array {
     return this._map.neighbors(ref);
   }
   isWater(ref: TileRef): boolean {

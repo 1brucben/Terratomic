@@ -9,7 +9,7 @@ export class GameMapAdapter implements GraphAdapter<TileRef> {
     private waterPath: boolean,
   ) {}
 
-  neighbors(node: TileRef): TileRef[] {
+  neighbors(node: TileRef): Iterable<TileRef> {
     return this.gameMap.neighbors(node);
   }
 

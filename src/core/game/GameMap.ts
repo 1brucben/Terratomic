@@ -29,7 +29,8 @@ export interface GameMap {
   setFallout(ref: TileRef, value: boolean): void;
   isOnEdgeOfMap(ref: TileRef): boolean;
   isBorder(ref: TileRef): boolean;
-  neighbors(ref: TileRef): TileRef[];
+  // Returns a typed-array view of up to 4 neighbors to avoid allocations
+  neighbors(ref: TileRef): Uint32Array;
   isWater(ref: TileRef): boolean;
   isLake(ref: TileRef): boolean;
   isShore(ref: TileRef): boolean;
@@ -62,6 +63,19 @@ export class GameMapImpl implements GameMap {
   private readonly refToX: number[];
   private readonly refToY: number[];
   private readonly yToRef: number[];
+  // Small pool of reusable buffers for neighbor calculations (max 4 neighbors per tile)
+  // A pool avoids clobbering when neighbors() is called re-entrantly (nested calls).
+  private readonly _neighborsBufs: ReadonlyArray<Uint32Array> = [
+    new Uint32Array(4),
+    new Uint32Array(4),
+    new Uint32Array(4),
+    new Uint32Array(4),
+    new Uint32Array(4),
+    new Uint32Array(4),
+    new Uint32Array(4),
+    new Uint32Array(4),
+  ];
+  private _neighborsBufIndex = 0;
 
   // Terrain bits (Uint8Array)
   private static readonly IS_LAND_BIT = 7;
@@ -261,17 +275,19 @@ export class GameMapImpl implements GameMap {
     return this.isOcean(ref) ? TerrainType.Ocean : TerrainType.Lake;
   }
 
-  neighbors(ref: TileRef): TileRef[] {
-    const neighbors: TileRef[] = [];
+  neighbors(ref: TileRef): Uint32Array {
+    let count = 0;
+    const buf = this._neighborsBufs[this._neighborsBufIndex++ & 7];
     const w = this.width_;
     const x = this.refToX[ref];
 
-    if (ref >= w) neighbors.push(ref - w);
-    if (ref < (this.height_ - 1) * w) neighbors.push(ref + w);
-    if (x !== 0) neighbors.push(ref - 1);
-    if (x !== w - 1) neighbors.push(ref + 1);
+    if (ref >= w) buf[count++] = ref - w;
+    if (ref < (this.height_ - 1) * w) buf[count++] = ref + w;
+    if (x !== 0) buf[count++] = ref - 1;
+    if (x !== w - 1) buf[count++] = ref + 1;
 
-    return neighbors;
+    // Return a view over the populated portion (no new backing buffer)
+    return buf.subarray(0, count);
   }
 
   forEachTile(fn: (tile: TileRef) => void): void {

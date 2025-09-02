@@ -5,7 +5,8 @@ import { AStar, PathFindResultType } from "./AStar";
  * Implement this interface with your graph to find paths with A*
  */
 export interface GraphAdapter<NodeType> {
-  neighbors(node: NodeType): NodeType[];
+  // Iterable to support arrays or typed array views
+  neighbors(node: NodeType): Iterable<NodeType>;
   cost(node: NodeType): number;
   position(node: NodeType): { x: number; y: number };
   isTraversable(from: NodeType, to: NodeType): boolean;
