@@ -49,6 +49,41 @@ export class NewsModal extends LitElement {
           <div class="options-section">
             <div class="news-container">
               <div class="news-content">
+                <h1>Release v0.1.9</h1>
+                <p>
+                  This release focuses on improving the user interface and user
+                  experience, with a particular focus on the military theme and
+                  hotkeys. We've also made some improvements to the build menu
+                  and radial menu to make them more intuitive and easier to use.
+                </p>
+                <h2>What's New</h2>
+                <ul>
+                  <li>
+                    <strong>UI Improvements to Radial and Build Menus:</strong>
+                    The radial menu now closes automatically when you select an
+                    item from the build menu, and the layout of the radial menu
+                    has been corrected to be symmetrical when there are only
+                    three items.
+                  </li>
+                  <li>
+                    <strong>Build Hotkeys:</strong> You can now use hotkeys to
+                    build units and structures, which should make it faster and
+                    easier to build up your forces.
+                  </li>
+                  <li>
+                    <strong>Military Theme Overhaul:</strong> The military theme
+                    has been updated to be less bulky, with less padding, lower
+                    heights, and a more opaque background. It also now fits
+                    better on smaller screens.
+                  </li>
+                  <li>
+                    <strong>Player Info Overlay:</strong> The Player Info
+                    Overlay has been revamped and moved to better fit the new
+                    military theme.
+                  </li>
+                </ul>
+              </div>
+              <div class="news-content">
                 <p>
                   This version (v0.1.8) introduces a complete visual overhaul of
                   the game and a more intuitive building process, all inspired
