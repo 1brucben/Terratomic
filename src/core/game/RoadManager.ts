@@ -147,6 +147,10 @@ export class RoadManager {
     }
   }
 
+  public hasRoadOnTile(tile: TileRef): boolean {
+    return this.roadTilesCache.has(tile);
+  }
+
   private getDistanceSquared(from: TileRef, to: TileRef): number {
     const cacheKey = this.getCanonicalSegment(from, to);
     let distance = this.distanceCache.get(cacheKey);

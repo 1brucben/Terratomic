@@ -344,7 +344,8 @@ export class AttackExecution implements Execution {
 
       const priority =
         (this.random.nextInt(0, 7) + 10) * (1 - numOwnedByMe * 0.5 + mag / 2) +
-        tickNow;
+        tickNow -
+        (this.mg.hasRoadOnTile(neighbor) ? 10 : 0); // Lower priority is better, so subtract for roads
 
       this.toConquer.enqueue(neighbor, priority);
     }

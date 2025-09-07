@@ -682,6 +682,7 @@ export interface Game extends GameMap {
 
   // Roads
   roads(): Road[];
+  hasRoadOnTile(tile: TileRef): boolean;
 
   // Game State
   ticks(): Tick;
