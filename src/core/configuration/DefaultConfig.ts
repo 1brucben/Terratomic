@@ -1083,4 +1083,22 @@ export class DefaultConfig implements Config {
   maxInvestmentRate(): number {
     return 0.5; // 50%
   }
+
+  // --- International Cargo Trucks ---
+
+  internationalCargoTrucksEnabled(): boolean {
+    return true;
+  }
+
+  internationalCargoTruckSpawnChance(): number {
+    return 5; // Represents a 5% chance
+  }
+
+  internationalCargoTruckGoldMultiplier(): number {
+    return 2.0;
+  }
+
+  internationalCargoTruckGoldSplitRatio(): number {
+    return 0.5; // 50/50 split
+  }
 }

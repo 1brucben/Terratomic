@@ -56,6 +56,8 @@ export interface SerializedCargoTruck {
   path: TileRef[];
   progress: number;
   position: [number, number];
+  isInternational?: boolean;
+  destinationOwnerID?: number;
 }
 
 export interface CargoTrucksUpdate {

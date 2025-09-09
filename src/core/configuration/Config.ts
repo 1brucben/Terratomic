@@ -136,6 +136,13 @@ export interface Config {
   cargoTruckSpawnRate(numberOfStructures: number): number;
   cargoTruckGold(distance: number): Gold;
   roadUpdatesPerTick(): number;
+
+  // International Cargo Trucks
+  internationalCargoTrucksEnabled(): boolean;
+  internationalCargoTruckSpawnChance(): number;
+  internationalCargoTruckGoldMultiplier(): number;
+  internationalCargoTruckGoldSplitRatio(): number;
+
   cargoPlaneGold(dist: number): Gold;
   cargoPlaneSpawnRate(numberOfAirplanes: number): number;
   cargoPlaneMaxNumber(): number;

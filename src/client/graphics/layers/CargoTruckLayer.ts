@@ -48,6 +48,7 @@ export class CargoTruckLayer implements Layer {
         for (const updatedTruck of cargoTruckUpdates.updated) {
           const existingTruck = this.trucks.get(updatedTruck.id);
           if (existingTruck) {
+            // Preserve new properties that don't come in the 'updated' payload
             existingTruck.position = updatedTruck.position;
             existingTruck.progress = updatedTruck.progress;
           }
@@ -60,20 +61,34 @@ export class CargoTruckLayer implements Layer {
     this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
     if (this.trucks.size === 0) return;
 
-    this.ctx.fillStyle = "#333333"; // Dark grey color for the truck
+    this.ctx.fillStyle = "#333333"; // Dark grey for all trucks
     const truckSize = 0.5; // Half a tile size
 
     for (const truck of this.trucks.values()) {
+      // Draw the main truck block
       const x = truck.position[0];
       const y = truck.position[1];
-
-      // Draw the truck centered on the tile
       this.ctx.fillRect(
         x + (1 - truckSize) / 2,
         y + (1 - truckSize) / 2,
         truckSize,
         truckSize,
       );
+
+      // If it's an international truck and not at the start of its path, draw a second "trailer" block.
+      if (truck.isInternational && truck.progress > 0) {
+        const trailerTile = truck.path[truck.progress - 1];
+        if (trailerTile) {
+          const trailerX = this.game.x(trailerTile);
+          const trailerY = this.game.y(trailerTile);
+          this.ctx.fillRect(
+            trailerX + (1 - truckSize) / 2,
+            trailerY + (1 - truckSize) / 2,
+            truckSize,
+            truckSize,
+          );
+        }
+      }
     }
 
     context.drawImage(
