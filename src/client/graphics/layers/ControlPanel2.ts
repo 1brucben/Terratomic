@@ -580,7 +580,7 @@ export class ControlPanel2 extends LitElement implements Layer {
 
       const buttonText = hasUpgrade
         ? html`${name} Unlocked`
-        : html`<div class="build-item-details flex flex-col items-start">
+        : html`<div class="build-item-details flex flex-col items-center">
             <span class="build-name">${name}</span>
             <span class="build-cost flex items-center gap-1" translate="no">
               ${(Number(cost) / 1_000_000).toFixed(0)}M
@@ -1059,8 +1059,8 @@ export class ControlPanel2 extends LitElement implements Layer {
                               1,
                             )}
                             ${renderUpgradeButton(
-                              UpgradeType.LandUpgrade2,
-                              "Land 2",
+                              UpgradeType.InternationalTrade,
+                              "International Trade",
                               2,
                             )}
                             ${renderUpgradeButton(

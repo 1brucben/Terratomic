@@ -632,7 +632,7 @@ export class DefaultConfig implements Config {
         return { cost: costForPlayer(1_000_000n) };
 
       // Land
-      case UpgradeType.LandUpgrade2:
+      case UpgradeType.InternationalTrade:
         return { cost: costForPlayer(2_000_000n) };
       case UpgradeType.LandUpgrade3:
         return { cost: costForPlayer(3_000_000n) };

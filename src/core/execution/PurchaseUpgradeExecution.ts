@@ -35,9 +35,6 @@ export class PurchaseUpgradeExecution implements Execution {
 
   public init(mg: GameImpl, ticks: number): void {
     this.mg = mg;
-  }
-
-  public tick(ticks: number): void {
     if (this.player.hasUpgrade(this.upgrade)) {
       this._isActive = false;
       return;
@@ -47,7 +44,11 @@ export class PurchaseUpgradeExecution implements Execution {
     if (this.player.gold() >= cost) {
       this.player.removeGold(cost);
       this.player.addUpgrade(this.upgrade);
-      this._isActive = false;
     }
+    this._isActive = false;
+  }
+
+  public tick(ticks: number): void {
+    // Logic moved to init()
   }
 }

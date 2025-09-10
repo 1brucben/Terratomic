@@ -166,8 +166,8 @@ export enum UnitType {
 export enum UpgradeType {
   Roads = "Roads",
 
-  // Dummy Land Upgrades
-  LandUpgrade2 = "LandUpgrade2",
+  // Land Upgrades
+  InternationalTrade = "InternationalTrade",
   LandUpgrade3 = "LandUpgrade3",
 
   // Dummy Water Upgrades

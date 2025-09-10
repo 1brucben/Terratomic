@@ -96,6 +96,7 @@ export class CargoManager {
       }
       // International
       if (
+        player.hasUpgrade(UpgradeType.InternationalTrade) &&
         this.game.config().internationalCargoTrucksEnabled() &&
         this.random.chance(
           this.game.config().internationalCargoTruckSpawnChance(),

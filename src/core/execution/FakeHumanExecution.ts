@@ -131,6 +131,7 @@ export class FakeHumanExecution implements Execution {
       if (this.player === null) {
         return;
       }
+      this.player.addUpgrade(UpgradeType.InternationalTrade);
     }
 
     if (!this.player.isAlive()) {
