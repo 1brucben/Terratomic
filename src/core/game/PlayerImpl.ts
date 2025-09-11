@@ -304,6 +304,10 @@ export class PlayerImpl implements Player {
     this._upgrades.add(upgrade);
   }
 
+  removeUpgrade(upgrade: UpgradeType): void {
+    this._upgrades.delete(upgrade);
+  }
+
   invalidateEffectiveUnitsCache(type: UnitType): void {
     this._effectiveUnitsCache.delete(type);
   }

@@ -634,7 +634,7 @@ export class DefaultConfig implements Config {
       // Land
       case UpgradeType.InternationalTrade:
         return { cost: costForPlayer(2_000_000n) };
-      case UpgradeType.LandUpgrade3:
+      case UpgradeType.ScorchedEarth:
         return { cost: costForPlayer(3_000_000n) };
 
       // Water

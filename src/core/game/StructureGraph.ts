@@ -49,6 +49,16 @@ export class StructureGraph {
     }
   }
 
+  public removeEdge(unit1: Unit, unit2: Unit): void {
+    const node1 = this.nodes.get(unit1.id());
+    const node2 = this.nodes.get(unit2.id());
+
+    if (node1 && node2) {
+      node1.connections.delete(unit2.id());
+      node2.connections.delete(unit1.id());
+    }
+  }
+
   public findPath(startUnit: Unit, endUnit: Unit): Unit[] | null {
     const startNode = this.nodes.get(startUnit.id());
     const endNode = this.nodes.get(endUnit.id());

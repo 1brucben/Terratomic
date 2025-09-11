@@ -44,6 +44,14 @@ export class PurchaseUpgradeExecution implements Execution {
     if (this.player.gold() >= cost) {
       this.player.removeGold(cost);
       this.player.addUpgrade(this.upgrade);
+
+      if (this.upgrade === UpgradeType.ScorchedEarth) {
+        this.mg.destroyPlayerRoads(this.player);
+        this.player.removeUpgrade(UpgradeType.Roads);
+        this.player.removeUpgrade(UpgradeType.ScorchedEarth);
+      } else if (this.upgrade === UpgradeType.Roads) {
+        this.mg.markPlayerNodesForReconnection(this.player);
+      }
     }
     this._isActive = false;
   }

@@ -556,7 +556,14 @@ export class ControlPanel2 extends LitElement implements Layer {
     };
 
     const canPurchaseUpgrade = (upgradeType: UpgradeType) => {
-      if (!player) return false;
+      if (!player) return true;
+
+      if (upgradeType === UpgradeType.ScorchedEarth) {
+        if (!player.hasUpgrade(UpgradeType.Roads)) {
+          return true;
+        }
+      }
+
       const cost = getUpgradeCost(upgradeType);
       const hasUpgrade = player.hasUpgrade(upgradeType);
       const canAfford = player.gold() >= cost;
@@ -567,6 +574,7 @@ export class ControlPanel2 extends LitElement implements Layer {
       upgradeType: UpgradeType,
       name: string,
       level: number,
+      tooltip: string = "",
     ) => {
       const cost = getUpgradeCost(upgradeType);
       const hasUpgrade = player?.hasUpgrade(upgradeType);
@@ -590,6 +598,7 @@ export class ControlPanel2 extends LitElement implements Layer {
       return html`
         <button
           class="build-button"
+          title=${tooltip}
           ?disabled=${canPurchaseUpgrade(upgradeType)}
           @click=${() => {
             if (!hasUpgrade) {
@@ -1064,9 +1073,10 @@ export class ControlPanel2 extends LitElement implements Layer {
                               2,
                             )}
                             ${renderUpgradeButton(
-                              UpgradeType.LandUpgrade3,
-                              "Land 3",
+                              UpgradeType.ScorchedEarth,
+                              "Scorched Earth",
                               3,
+                              "This upgrade will remove your road network",
                             )}
                           </div>
                         `

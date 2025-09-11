@@ -168,7 +168,7 @@ export enum UpgradeType {
 
   // Land Upgrades
   InternationalTrade = "InternationalTrade",
-  LandUpgrade3 = "LandUpgrade3",
+  ScorchedEarth = "ScorchedEarth",
 
   // Dummy Water Upgrades
   WaterUpgrade1 = "WaterUpgrade1",
@@ -572,6 +572,7 @@ export interface Player {
   // Upgrades
   hasUpgrade(upgrade: UpgradeType): boolean;
   addUpgrade(upgrade: UpgradeType): void;
+  removeUpgrade(upgrade: UpgradeType): void;
 
   captureUnit(unit: Unit): void;
 
@@ -683,6 +684,8 @@ export interface Game extends GameMap {
   // Roads
   roads(): Road[];
   hasRoadOnTile(tile: TileRef): boolean;
+  destroyPlayerRoads(player: Player): void;
+  markPlayerNodesForReconnection(player: Player): void;
 
   // Game State
   ticks(): Tick;

@@ -936,6 +936,14 @@ export class GameImpl implements Game {
   public roads(): Road[] {
     return this.roadManager.getRoads();
   }
+
+  public destroyPlayerRoads(player: Player): void {
+    this.roadManager.destroyPlayerRoads(player);
+  }
+
+  public markPlayerNodesForReconnection(player: Player): void {
+    this.roadManager.markPlayerNodesForReconnection(player);
+  }
 }
 
 // Or a more dynamic approach that will catch new enum values:

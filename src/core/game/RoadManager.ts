@@ -14,6 +14,7 @@ import { StructureGraph } from "./StructureGraph";
 export interface Road {
   id: number;
   path: TileRef[];
+  owner: PlayerID;
 }
 
 let nextRoadId = 0;
@@ -28,6 +29,7 @@ let nextRoadId = 0;
  */
 export class RoadManager {
   private roads = new Map<number, Road>();
+  private roadsByOwner = new Map<PlayerID, Set<number>>();
   private structureGraph = new StructureGraph();
   private nodes: Unit[] = [];
   private newNodesQueue: Unit[] = [];
@@ -214,7 +216,11 @@ export class RoadManager {
       if (this.pathfindingQueue.length > 0) {
         this.pathfindingQueue = [];
       }
-      return { added: [], removed: [] };
+      const added = this.pendingAddedSegments;
+      const removed = this.pendingRemovedSegments;
+      this.pendingAddedSegments = [];
+      this.pendingRemovedSegments = [];
+      return { added, removed };
     }
 
     const currentNodes = playersWithRoads.flatMap((p) => {
@@ -287,6 +293,12 @@ export class RoadManager {
       affectedRoads.forEach((roadId) => {
         const road = this.roads.get(roadId);
         if (road) {
+          // Remove from roadsByOwner map
+          const ownerRoads = this.roadsByOwner.get(road.owner);
+          if (ownerRoads) {
+            ownerRoads.delete(roadId);
+          }
+
           const startTile = road.path[0];
           const endTile = road.path[road.path.length - 1];
           // Track per-edge segment removals for UI redraw
@@ -356,8 +368,18 @@ export class RoadManager {
           if (!this.existingRoadSegments.has(segment)) {
             const path = this.getCachedPath(newNode.tile(), neighbor.tile());
             if (path) {
-              const newRoad = { id: nextRoadId++, path };
+              const newRoad: Road = {
+                id: nextRoadId++,
+                path,
+                owner: ownerOfNewNode.id(),
+              };
               this.roads.set(newRoad.id, newRoad);
+
+              // Add to the new roadsByOwner map
+              if (!this.roadsByOwner.has(newRoad.owner)) {
+                this.roadsByOwner.set(newRoad.owner, new Set());
+              }
+              this.roadsByOwner.get(newRoad.owner)!.add(newRoad.id);
               this.existingRoadSegments.add(segment);
               this.updateRoadTilesCache([newRoad], []);
 
@@ -439,25 +461,34 @@ export class RoadManager {
       if (!this.existingRoadSegments.has(canonicalSegment)) {
         const path = this.getCachedPath(from, to);
         if (path) {
-          const newRoad = { id: nextRoadId++, path };
-          this.roads.set(newRoad.id, newRoad);
-          this.existingRoadSegments.add(canonicalSegment);
-          this.updateRoadTilesCache([newRoad], []);
+          const owner = this.game.owner(from);
+          if (owner.isPlayer()) {
+            const newRoad: Road = { id: nextRoadId++, path, owner: owner.id() };
+            this.roads.set(newRoad.id, newRoad);
 
-          const startNode = this.findNodeByTile(path[0]);
-          const endNode = this.findNodeByTile(path[path.length - 1]);
-          if (startNode && endNode) {
-            this.structureGraph.addEdge(startNode, endNode, path);
-          }
+            // Add to the new roadsByOwner map
+            if (!this.roadsByOwner.has(newRoad.owner)) {
+              this.roadsByOwner.set(newRoad.owner, new Set());
+            }
+            this.roadsByOwner.get(newRoad.owner)!.add(newRoad.id);
+            this.existingRoadSegments.add(canonicalSegment);
+            this.updateRoadTilesCache([newRoad], []);
 
-          // Update road network
-          for (let i = 0; i < path.length - 1; i++) {
-            const a = path[i];
-            const b = path[i + 1];
-            const seg = this.getCanonicalSegment(a, b);
-            if (!this.segmentSet.has(seg)) {
-              this.segmentSet.add(seg);
-              this.pendingAddedSegments.push(seg);
+            const startNode = this.findNodeByTile(path[0]);
+            const endNode = this.findNodeByTile(path[path.length - 1]);
+            if (startNode && endNode) {
+              this.structureGraph.addEdge(startNode, endNode, path);
+            }
+
+            // Update road network for renderer
+            for (let i = 0; i < path.length - 1; i++) {
+              const a = path[i];
+              const b = path[i + 1];
+              const seg = this.getCanonicalSegment(a, b);
+              if (!this.segmentSet.has(seg)) {
+                this.segmentSet.add(seg);
+                this.pendingAddedSegments.push(seg);
+              }
             }
           }
         }
@@ -476,11 +507,11 @@ export class RoadManager {
     return { added, removed };
   }
 
-  private maybeReconcileSegments(): void {
+  private maybeReconcileSegments(force: boolean = false): void {
     const nowTick = this.game.ticks();
     if (
-      nowTick - this.lastSegmentReconcileTick <
-      this.RECONCILE_INTERVAL_TICKS
+      !force && // Check force parameter
+      nowTick - this.lastSegmentReconcileTick < this.RECONCILE_INTERVAL_TICKS
     ) {
       return;
     }
