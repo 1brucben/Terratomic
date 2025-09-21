@@ -328,6 +328,8 @@ export class DefaultConfig implements Config {
     return Math.round(10 * Math.pow(numberOfPorts, 0.37));
   }
 
+  // Roads and Cargo Trucks
+
   cargoTruckSpawnRate(numberOfStructures: number): number {
     return Math.max(1, Math.floor(14 / Math.sqrt(numberOfStructures)));
   }
@@ -337,7 +339,13 @@ export class DefaultConfig implements Config {
   }
 
   roadUpdatesPerTick(): number {
-    return 3;
+    return 2;
+  }
+
+  // This acts as a "max cost" for the A* pathfinder, not a strict tile length.
+  // A path over empty land has a cost of 2 per tile.
+  maxRoadLength(): number {
+    return 240;
   }
 
   // Cargoplanes (Turned off for now)

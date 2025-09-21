@@ -1,4 +1,4 @@
-import { Game, Player, PlayerID, Unit, UnitType, UpgradeType } from "./Game";
+import { Game, Player, PlayerID, Unit, UnitType } from "./Game";
 import { TileRef } from "./GameMap";
 import { PriorityQueue } from "./PriorityQueue";
 import { RoadCache } from "./RoadCache";
@@ -48,12 +48,6 @@ export class RoadManager {
   private nodeOwnerIds = new Map<number, PlayerID>();
   private nodesByOwner = new Map<PlayerID, Unit[]>();
   private roadCache: RoadCache;
-
-  // Performance optimization caches
-  private distanceCache = new Map<string, number>();
-  private readonly DISTANCE_CACHE_MAX_SIZE = 10000; // Prevent memory leaks
-  private lastDistanceCacheClean = 0;
-  private readonly CACHE_CLEAN_INTERVAL = 1000; // Clean cache every 1000 ticks
 
   // Performance optimization caches
   private roadTilesCache = new Set<TileRef>();
@@ -153,35 +147,6 @@ export class RoadManager {
     return this.roadTilesCache.has(tile);
   }
 
-  private getDistanceSquared(from: TileRef, to: TileRef): number {
-    const cacheKey = this.getCanonicalSegment(from, to);
-    let distance = this.distanceCache.get(cacheKey);
-
-    if (distance === undefined) {
-      distance = this.game.euclideanDistSquared(from, to);
-      this.distanceCache.set(cacheKey, distance);
-
-      // Clean cache periodically to prevent memory leaks
-      const currentTick = this.game.ticks();
-      if (
-        currentTick - this.lastDistanceCacheClean >
-        this.CACHE_CLEAN_INTERVAL
-      ) {
-        if (this.distanceCache.size > this.DISTANCE_CACHE_MAX_SIZE) {
-          // Clear half the cache when it gets too big
-          const entries = Array.from(this.distanceCache.entries());
-          entries.sort((a, b) => a[1] - b[1]); // Sort by distance
-          this.distanceCache = new Map(
-            entries.slice(0, this.DISTANCE_CACHE_MAX_SIZE / 2),
-          );
-        }
-        this.lastDistanceCacheClean = currentTick;
-      }
-    }
-
-    return distance;
-  }
-
   public updateLocalArea(center: TileRef, radius: number): void {
     // Queue local updates for roads within radius of the changed tile
     const nearbyNodes = this.spatialGrid.getNearby(
@@ -208,10 +173,10 @@ export class RoadManager {
     }
   }
 
-  public update(): { added: string[]; removed: string[] } {
-    const playersWithRoads = this.game
-      .players()
-      .filter((p) => p.hasUpgrade(UpgradeType.Roads));
+  public update(playersWithRoads: Player[]): {
+    added: string[];
+    removed: string[];
+  } {
     if (playersWithRoads.length === 0) {
       if (this.pathfindingQueue.length > 0) {
         this.pathfindingQueue = [];
@@ -562,9 +527,13 @@ export class RoadManager {
     const startOwner = this.game.owner(start);
     if (!startOwner.isPlayer()) return null;
 
-    // Check maximum road distance (100 tiles)
-    const maxRoadDistSquared = 100 * 100;
-    if (this.game.euclideanDistSquared(start, goal) > maxRoadDistSquared) {
+    const maxRoadLength = this.game.config().maxRoadLength();
+
+    // Check maximum road distance (as the crow flies)
+    if (
+      this.game.euclideanDistSquared(start, goal) >
+      maxRoadLength * maxRoadLength
+    ) {
       return null;
     }
 
@@ -599,6 +568,11 @@ export class RoadManager {
 
         const cost = this.roadTilesCache.has(neighbor) ? 1 : 2;
         const newCost = currentCost + cost;
+
+        // Stop exploring paths that are already too long
+        if (newCost > maxRoadLength) {
+          continue;
+        }
 
         if (newCost < (costs.get(neighbor) ?? Infinity)) {
           costs.set(neighbor, newCost);

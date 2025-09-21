@@ -31,6 +31,7 @@ import {
   Unit,
   UnitInfo,
   UnitType,
+  UpgradeType,
 } from "./Game";
 import { GameMap, TileRef, TileUpdate } from "./GameMap";
 import { GameUpdate, GameUpdateType } from "./GameUpdates";
@@ -364,7 +365,11 @@ export class GameImpl implements Game {
       });
     }
 
-    const roadChanges = this.roadManager.update();
+    const playersWithRoads = this.players().filter((p) =>
+      p.hasUpgrade(UpgradeType.Roads),
+    );
+
+    const roadChanges = this.roadManager.update(playersWithRoads);
     if (roadChanges.added.length > 0 || roadChanges.removed.length > 0) {
       this.addUpdate({
         type: GameUpdateType.Roads,
@@ -372,7 +377,7 @@ export class GameImpl implements Game {
       });
     }
 
-    const cargoChanges = this.cargoManager.tick();
+    const cargoChanges = this.cargoManager.tick(playersWithRoads);
     if (
       cargoChanges.added.length > 0 ||
       cargoChanges.removed.length > 0 ||

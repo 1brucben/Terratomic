@@ -38,7 +38,7 @@ export class CargoManager {
     this.random = new PseudoRandom(game.ticks());
   }
 
-  public tick(): CargoTruckUpdate {
+  public tick(playersWithRoads: Player[]): CargoTruckUpdate {
     const updates: CargoTruckUpdate = {
       type: GameUpdateType.CargoTrucks,
       added: [],
@@ -49,9 +49,6 @@ export class CargoManager {
     // --- Spawning Logic (Largely Unchanged) ---
     const BUCKET_SIZE = 10;
     const currentBucket = this.game.ticks() % BUCKET_SIZE;
-    const playersWithRoads = this.game
-      .players()
-      .filter((p) => p.hasUpgrade(UpgradeType.Roads));
 
     for (const player of playersWithRoads) {
       if (simpleHash(player.id()) % BUCKET_SIZE !== currentBucket) {
