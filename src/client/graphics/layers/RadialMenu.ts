@@ -12,6 +12,7 @@ import {
   PlayerActions,
   TerraNullius,
   UnitType,
+  UpgradeType,
 } from "../../../core/game/Game";
 import { TileRef } from "../../../core/game/GameMap";
 import { GameView, PlayerView } from "../../../core/game/GameView";
@@ -413,6 +414,9 @@ export class RadialMenu implements Layer {
   }
 
   private shouldShowAirAttack(player: PlayerView, tile: TileRef): boolean {
+    if (!player.hasUpgrade(UpgradeType.AirUpgrade1)) {
+      return false;
+    }
     if (player.units(UnitType.Airfield).length === 0) {
       return false;
     }

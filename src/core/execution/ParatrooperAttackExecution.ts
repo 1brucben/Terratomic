@@ -1,4 +1,11 @@
-import { Execution, Game, MessageType, Player, UnitType } from "../game/Game";
+import {
+  Execution,
+  Game,
+  MessageType,
+  Player,
+  UnitType,
+  UpgradeType,
+} from "../game/Game";
 
 import { TileRef } from "../game/GameMap";
 import { StraightPathFinder } from "../pathfinding/PathFinding";
@@ -36,6 +43,11 @@ export class ParatrooperAttackExecution implements Execution {
 
   init(game: Game, ticks: number): void {
     this.mg = game;
+
+    if (!this.attacker.hasUpgrade(UpgradeType.AirUpgrade1)) {
+      return;
+    }
+
     const airfields = this.attacker.units(UnitType.Airfield);
     if (airfields.length === 0) {
       console.warn("No airfields available to launch paratrooper attack.");

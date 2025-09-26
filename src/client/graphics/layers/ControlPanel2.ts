@@ -1107,7 +1107,7 @@ export class ControlPanel2 extends LitElement implements Layer {
                           <div class="grid grid-cols-3 gap-4">
                             ${renderUpgradeButton(
                               UpgradeType.AirUpgrade1,
-                              "Air 1",
+                              "Paratroopers",
                               1,
                             )}
                             ${renderUpgradeButton(

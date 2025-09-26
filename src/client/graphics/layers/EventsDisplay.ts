@@ -909,10 +909,12 @@ export class EventsDisplay extends LitElement implements Layer {
     return html`
       ${this.renderIncomingAttacks()} ${this.renderOutgoingAttacks()}
       ${this.renderOutgoingLandAttacks()} ${this.renderBoats()}
+      ${this.renderParatroopers()}
       ${this.incomingAttacks.length === 0 &&
       this.outgoingAttacks.length === 0 &&
       this.outgoingLandAttacks.length === 0 &&
-      this.outgoingBoats.length === 0
+      this.outgoingBoats.length === 0 &&
+      this.outgoingParatroopers.length === 0
         ? html`&nbsp;`
         : ""}
     `;
