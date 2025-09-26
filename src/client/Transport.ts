@@ -86,6 +86,14 @@ export class SendBoatAttackIntentEvent implements GameEvent {
   ) {}
 }
 
+export class SendParatrooperAttackIntentEvent implements GameEvent {
+  constructor(
+    public readonly targetID: PlayerID | null,
+    public readonly dst: TileRef,
+    public readonly troops: number,
+  ) {}
+}
+
 export class BuildUnitIntentEvent implements GameEvent {
   constructor(
     public readonly unit: UnitType,
@@ -142,6 +150,10 @@ export class CancelAttackIntentEvent implements GameEvent {
 }
 
 export class CancelBoatIntentEvent implements GameEvent {
+  constructor(public readonly unitID: number) {}
+}
+
+export class CancelParatrooperIntentEvent implements GameEvent {
   constructor(public readonly unitID: number) {}
 }
 
@@ -262,6 +274,9 @@ export class Transport {
     this.eventBus.on(SendPurchaseUpgradeIntentEvent, (e) =>
       this.onSendPurchaseUpgradeIntent(e),
     );
+    this.eventBus.on(SendParatrooperAttackIntentEvent, (e) =>
+      this.onSendParatrooperAttackIntent(e),
+    );
 
     this.eventBus.on(BuildUnitIntentEvent, (e) => this.onBuildUnitIntent(e));
 
@@ -273,6 +288,9 @@ export class Transport {
     );
     this.eventBus.on(CancelBoatIntentEvent, (e) =>
       this.onCancelBoatIntentEvent(e),
+    );
+    this.eventBus.on(CancelParatrooperIntentEvent, (e) =>
+      this.onCancelParatrooperIntentEvent(e),
     );
 
     this.eventBus.on(MoveWarshipIntentEvent, (e) => {
@@ -656,6 +674,14 @@ export class Transport {
     });
   }
 
+  private onCancelParatrooperIntentEvent(event: CancelParatrooperIntentEvent) {
+    this.sendIntent({
+      type: "cancel_paratrooper",
+      clientID: this.lobbyConfig.clientID,
+      unitID: event.unitID,
+    });
+  }
+
   private onMoveWarshipEvent(event: MoveWarshipIntentEvent) {
     this.sendIntent({
       type: "move_warship",
@@ -687,6 +713,18 @@ export class Transport {
       type: "set_auto_bombing",
       clientID: this.lobbyConfig.clientID,
       enabled: event.enabled,
+    });
+  }
+
+  private onSendParatrooperAttackIntent(
+    event: SendParatrooperAttackIntentEvent,
+  ) {
+    this.sendIntent({
+      type: "paratrooper_attack",
+      clientID: this.lobbyConfig.clientID,
+      targetID: event.targetID ?? null,
+      troops: event.troops,
+      dst: event.dst,
     });
   }
 

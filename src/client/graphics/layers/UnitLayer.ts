@@ -316,6 +316,7 @@ export class UnitLayer implements Layer {
 
     switch (unit.type()) {
       case UnitType.TransportShip:
+      case UnitType.Paratrooper:
         this.handleBoatEvent(unit);
         break;
       case UnitType.Warship:

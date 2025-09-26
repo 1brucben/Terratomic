@@ -198,6 +198,10 @@ export class StatsImpl implements Stats {
     this._addBoat(player, "trans", BOAT_INDEX_DESTROY, 1);
   }
 
+  paratrooperAttack(player: Player, troops: BigIntLike): void {
+    this._addBoat(player, "para", BOAT_INDEX_SENT, 1);
+  }
+
   bombLaunch(
     player: Player,
     target: Player | TerraNullius,

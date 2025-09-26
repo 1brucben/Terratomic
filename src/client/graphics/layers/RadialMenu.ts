@@ -1,4 +1,5 @@
 import * as d3 from "d3";
+import airAttackIcon from "../../../../resources/images/AirAttackIconWhite.svg";
 import allianceIcon from "../../../../resources/images/AllianceIconWhite.svg";
 import boatIcon from "../../../../resources/images/BoatIconWhite.svg";
 import disabledIcon from "../../../../resources/images/DisabledIcon.svg";
@@ -24,6 +25,7 @@ import {
   SendAttackIntentEvent,
   SendBoatAttackIntentEvent,
   SendBreakAllianceIntentEvent,
+  SendParatrooperAttackIntentEvent,
   SendSpawnIntentEvent,
 } from "../../Transport";
 import { TransformHandler } from "../TransformHandler";
@@ -37,6 +39,7 @@ enum Slot {
   Info,
   Boat,
   Ally,
+  AirAttack,
 }
 
 export class RadialMenu implements Layer {
@@ -60,6 +63,16 @@ export class RadialMenu implements Layer {
       Slot.Boat,
       {
         name: "boat",
+        disabled: true,
+        action: () => {},
+        color: null,
+        icon: null,
+      },
+    ],
+    [
+      Slot.AirAttack,
+      {
+        name: "airAttack",
         disabled: true,
         action: () => {},
         color: null,
@@ -380,9 +393,61 @@ export class RadialMenu implements Layer {
       this.enableCenterButton(true);
     }
 
+    if (this.shouldShowAirAttack(myPlayer, tile)) {
+      this.activateMenuElement(Slot.AirAttack, "#8B0000", airAttackIcon, () => {
+        if (this.clickedCell === null) return;
+        const dst = this.g.ref(this.clickedCell.x, this.clickedCell.y);
+        this.eventBus.emit(
+          new SendParatrooperAttackIntentEvent(
+            this.g.owner(tile).id(),
+            dst,
+            this.uiState.attackRatio * myPlayer.troops(),
+          ),
+        );
+      });
+    }
+
     if (!this.g.hasOwner(tile)) {
       return;
     }
+  }
+
+  private shouldShowAirAttack(player: PlayerView, tile: TileRef): boolean {
+    if (player.units(UnitType.Airfield).length === 0) {
+      return false;
+    }
+    if (!this.g.isLand(tile)) {
+      return false;
+    }
+    const owner = this.g.owner(tile);
+    if (owner === player) {
+      return false;
+    }
+    if (
+      owner.isPlayer &&
+      owner.isPlayer() &&
+      player.isFriendly(owner as PlayerView)
+    ) {
+      return false;
+    }
+
+    const airfields = player.units(UnitType.Airfield);
+    const closestAirfield = airfields.reduce(
+      (closest, airfield) => {
+        const dist = this.g.manhattanDist(airfield.tile(), tile);
+        if (dist < closest.dist) {
+          return { airfield, dist };
+        }
+        return closest;
+      },
+      { airfield: null, dist: Infinity },
+    );
+
+    if (closestAirfield.dist > this.g.config().paratrooperMaxRange()) {
+      return false;
+    }
+
+    return true;
   }
 
   private onPointerUp(event: MouseUpEvent) {

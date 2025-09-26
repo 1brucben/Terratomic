@@ -28,6 +28,7 @@ export class AttackExecution implements Execution {
   private mg: Game;
 
   private attack: Attack | null = null;
+  private isDeepStrike: boolean = false;
 
   constructor(
     private startTroops: number | null = null,
@@ -35,7 +36,9 @@ export class AttackExecution implements Execution {
     private _targetID: PlayerID | null,
     private sourceTile: TileRef | null = null,
     private removeTroops: boolean = true,
-  ) {}
+  ) {
+    this.isDeepStrike = sourceTile !== null;
+  }
 
   public targetID(): PlayerID | null {
     return this._targetID;
@@ -116,7 +119,7 @@ export class AttackExecution implements Execution {
     this._owner.removeTroops(penalty);
 
     if (this.sourceTile !== null) {
-      this.addNeighbors(this.sourceTile);
+      this.initializeConquestFromLandingTile(this.sourceTile);
     } else {
       this.refreshToConquer();
     }
@@ -157,6 +160,21 @@ export class AttackExecution implements Execution {
       }
       this.target.updateRelation(this._owner, -80);
     }
+  }
+
+  private initializeConquestFromLandingTile(tile: TileRef) {
+    if (this.attack === null) {
+      throw new Error("Attack not initialized");
+    }
+    this.toConquer.clear();
+    this.attack.clearBorder();
+
+    // Add the source tile itself to be conquered first
+    this.toConquer.enqueue(tile, 0); // High priority for the landing tile
+    this.attack.addBorderTile(tile);
+
+    // Then add its neighbors that are owned by the target
+    this.addNeighbors(tile);
   }
 
   private refreshToConquer() {
@@ -253,7 +271,9 @@ export class AttackExecution implements Execution {
       }
 
       if (this.toConquer.size() === 0) {
-        this.refreshToConquer();
+        if (!this.isDeepStrike) {
+          this.refreshToConquer();
+        }
         this.retreat();
         return;
       }
@@ -262,10 +282,14 @@ export class AttackExecution implements Execution {
       this.attack.removeBorderTile(tileToConquer);
 
       let onBorder = false;
-      for (const n of this.mg.neighbors(tileToConquer)) {
-        if (this.mg.owner(n) === this._owner) {
-          onBorder = true;
-          break;
+      if (this.isDeepStrike && tileToConquer === this.sourceTile) {
+        onBorder = true; // The landing tile is always considered "on border" for a deep strike
+      } else {
+        for (const n of this.mg.neighbors(tileToConquer)) {
+          if (this.mg.owner(n) === this._owner) {
+            onBorder = true;
+            break;
+          }
         }
       }
       if (this.mg.owner(tileToConquer) !== this.target || !onBorder) {
@@ -302,7 +326,7 @@ export class AttackExecution implements Execution {
       if (targetPlayer) {
         targetPlayer.addHospitalReturns(defenderReturns);
       }
-      this._owner.conquer(tileToConquer);
+      this.mg.conquer(this._owner, tileToConquer);
       this.handleDeadDefender();
     }
   }

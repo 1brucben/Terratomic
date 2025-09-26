@@ -14,9 +14,7 @@ export interface Rectangle {
 }
 
 export function placeName(game: Game, player: Player): NameViewData {
-  const boundingBox =
-    player.largestClusterBoundingBox ??
-    calculateBoundingBox(game, player.borderTiles());
+  const boundingBox = calculateBoundingBox(game, player.borderTiles());
 
   let scalingFactor = 1;
   const width = boundingBox.max.x - boundingBox.min.x;
