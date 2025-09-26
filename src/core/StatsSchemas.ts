@@ -21,7 +21,11 @@ export const unitTypeToBombUnit = {
   [UnitType.MIRVWarhead]: "mirvw",
 } as const satisfies Record<NukeType, BombUnit>;
 
-export const BoatUnitSchema = z.union([z.literal("trade"), z.literal("trans")]);
+export const BoatUnitSchema = z.union([
+  z.literal("trade"),
+  z.literal("trans"),
+  z.literal("para"),
+]);
 export type BoatUnit = z.infer<typeof BoatUnitSchema>;
 export type BoatUnitType = UnitType.TradeShip | UnitType.TransportShip;
 

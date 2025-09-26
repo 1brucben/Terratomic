@@ -157,6 +157,12 @@ export class TerritoryLayer implements Layer {
       });
     }
 
+    const tileOwnerChangedUpdates =
+      updates !== null ? updates[GameUpdateType.TileOwnerChanged] : [];
+    tileOwnerChangedUpdates.forEach((update) => {
+      this.enqueueTile(update.tile);
+    });
+
     const focusedPlayer = this.game.focusedPlayer();
     if (focusedPlayer !== this.lastFocusedPlayer) {
       if (this.lastFocusedPlayer) {

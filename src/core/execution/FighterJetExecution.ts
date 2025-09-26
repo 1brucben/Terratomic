@@ -69,7 +69,12 @@ export class FighterJetExecution implements Execution {
     const closest = this._findClosest(
       this.fighterJet.tile()!,
       this.mg.config().fighterJetTargettingRange(),
-      [UnitType.Bomber, UnitType.FighterJet, UnitType.CargoPlane],
+      [
+        UnitType.Bomber,
+        UnitType.FighterJet,
+        UnitType.CargoPlane,
+        UnitType.Paratrooper,
+      ],
       (unit) => {
         if (
           unit.owner() === this.fighterJet.owner() ||

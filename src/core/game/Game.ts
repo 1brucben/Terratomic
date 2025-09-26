@@ -163,6 +163,7 @@ export enum UnitType {
   Airfield = "Air Field",
   CargoPlane = "Cargo Plane",
   Bomber = "Bomber",
+  Paratrooper = "Paratrooper",
   FighterJet = "Fighter Jet", // Represents a Fighter Jet unit.
 }
 
@@ -277,6 +278,11 @@ export interface UnitParamsMap {
 
   [UnitType.Bomber]: {
     targetTile: TileRef;
+  };
+
+  [UnitType.Paratrooper]: {
+    troops?: number;
+    destination?: TileRef;
   };
 
   [UnitType.FighterJet]: {
@@ -536,7 +542,7 @@ export interface Player {
   isAlive(): boolean;
   isTraitor(): boolean;
   markTraitor(): void;
-  largestClusterBoundingBox: { min: Cell; max: Cell } | null;
+
   lastTileChange(): Tick;
 
   isDisconnected(): boolean;
@@ -798,6 +804,7 @@ export interface Game extends GameMap {
   // Optional as it's not initialized before the end of spawn phase
   stats(): Stats;
   bomberExplosion(tile: TileRef, radius: number, owner: Player): void;
+  conquer(newOwner: Player, tile: TileRef): void;
 }
 
 export interface PlayerActions {
@@ -851,6 +858,7 @@ export enum MessageType {
   NUKE_INBOUND,
   HYDROGEN_BOMB_INBOUND,
   NAVAL_INVASION_INBOUND,
+  PARATROOPER_INBOUND,
   SAM_MISS,
   SAM_HIT,
   CAPTURED_ENEMY_UNIT,
@@ -893,6 +901,7 @@ export const MESSAGE_TYPE_CATEGORIES: Record<MessageType, MessageCategory> = {
   [MessageType.NUKE_INBOUND]: MessageCategory.ATTACK,
   [MessageType.HYDROGEN_BOMB_INBOUND]: MessageCategory.ATTACK,
   [MessageType.NAVAL_INVASION_INBOUND]: MessageCategory.ATTACK,
+  [MessageType.PARATROOPER_INBOUND]: MessageCategory.ATTACK,
   [MessageType.SAM_MISS]: MessageCategory.ATTACK,
   [MessageType.SAM_HIT]: MessageCategory.ATTACK,
   [MessageType.CAPTURED_ENEMY_UNIT]: MessageCategory.ATTACK,

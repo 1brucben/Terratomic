@@ -60,6 +60,9 @@ export interface Stats {
     troops: number | bigint,
   ): void;
 
+  // Player launches a paratrooper attack
+  paratrooperAttack(player: Player, troops: number | bigint): void;
+
   // Player launches bomb at target
   bombLaunch(
     player: Player,

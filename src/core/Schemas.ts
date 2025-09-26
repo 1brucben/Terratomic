@@ -48,6 +48,8 @@ export type Intent =
   | MoveSubmarineIntent
   | MoveFighterJetIntent
   | BomberIntent
+  | ParatrooperAttackIntent
+  | CancelParatrooperIntent
   | MarkDisconnectedIntent
   | SetAutoBombingIntent
   | KickPlayerIntent;
@@ -86,6 +88,13 @@ export type MoveSubmarineIntent = z.infer<typeof MoveSubmarineIntentSchema>;
 export type MoveFighterJetIntent = z.infer<typeof MoveFighterJetIntentSchema>;
 export type BomberIntent = z.infer<typeof BomberIntentSchema>;
 export type SetAutoBombingIntent = z.infer<typeof SetAutoBombingIntentSchema>;
+export type ParatrooperAttackIntent = z.infer<
+  typeof ParatrooperAttackIntentSchema
+>;
+
+export type CancelParatrooperIntent = z.infer<
+  typeof CancelParatrooperIntentSchema
+>;
 
 export type QuickChatIntent = z.infer<typeof QuickChatIntentSchema>;
 export type MarkDisconnectedIntent = z.infer<
@@ -406,6 +415,18 @@ export const BomberIntentSchema = BaseIntentSchema.extend({
   structure: z.enum(UnitType).nullable(), // what to bomb
 });
 
+export const ParatrooperAttackIntentSchema = BaseIntentSchema.extend({
+  type: z.literal("paratrooper_attack"),
+  targetID: ID.nullable(),
+  troops: z.number(),
+  dst: z.number(),
+});
+
+export const CancelParatrooperIntentSchema = BaseIntentSchema.extend({
+  type: z.literal("cancel_paratrooper"),
+  unitID: z.number(),
+});
+
 export const QuickChatIntentSchema = BaseIntentSchema.extend({
   type: z.literal("quick_chat"),
   recipient: ID,
@@ -455,6 +476,8 @@ const IntentSchema = z.discriminatedUnion("type", [
   MoveSubmarineIntentSchema,
   MoveFighterJetIntentSchema,
   BomberIntentSchema,
+  ParatrooperAttackIntentSchema,
+  CancelParatrooperIntentSchema,
   QuickChatIntentSchema,
   SetAutoBombingIntentSchema,
   KickPlayerIntentSchema,

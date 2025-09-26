@@ -122,6 +122,14 @@ export interface Config {
   boatAttackAmount(attacker: Player, defender: Player | TerraNullius): number;
   shellLifetime(): number;
   boatMaxNumber(): number;
+  paratrooperAttackAmount(
+    attacker: Player,
+    defender: Player | TerraNullius,
+  ): number;
+  paratrooperMaxNumber(): number;
+  paratrooperSpeed(): number;
+  paratrooperMaxRange(): number;
+  paratrooperTroopCostPercentage(): number;
   allianceDuration(): Tick;
   allianceRequestCooldown(): Tick;
   temporaryEmbargoDuration(): Tick;

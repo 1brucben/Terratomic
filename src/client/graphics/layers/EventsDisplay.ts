@@ -32,6 +32,7 @@ import {
 import {
   CancelAttackIntentEvent,
   CancelBoatIntentEvent,
+  CancelParatrooperIntentEvent,
   SendAllianceExtensionIntentEvent,
   SendAllianceReplyIntentEvent,
 } from "../../Transport";
@@ -82,6 +83,7 @@ export class EventsDisplay extends LitElement implements Layer {
   @state() private outgoingAttacks: AttackUpdate[] = [];
   @state() private outgoingLandAttacks: AttackUpdate[] = [];
   @state() private outgoingBoats: UnitView[] = [];
+  @state() private outgoingParatroopers: UnitView[] = [];
   @state() private _hidden: boolean = false;
   @state() private _isVisible: boolean = false;
   @state() private newEvents: number = 0;
@@ -303,6 +305,10 @@ export class EventsDisplay extends LitElement implements Layer {
     this.outgoingBoats = myPlayer
       .units()
       .filter((u) => u.type() === UnitType.TransportShip);
+
+    this.outgoingParatroopers = myPlayer
+      .units()
+      .filter((u) => u.type() === UnitType.Paratrooper);
 
     this.requestUpdate();
   }
@@ -723,8 +729,22 @@ export class EventsDisplay extends LitElement implements Layer {
 
     const unitView = this.game.unit(event.unitID);
 
+    let translatedDescription = event.message;
+
+    if (event.messageType === MessageType.PARATROOPER_INBOUND) {
+      const match = event.message.match(/from (.*)/);
+      const attackerName = match ? match[1] : "Unknown Attacker";
+
+      translatedDescription = translateText(
+        "game_messages.incoming_paratrooper_attack",
+        {
+          attackerName: attackerName,
+        },
+      );
+    }
+
     this.addEvent({
-      description: event.message,
+      description: translatedDescription,
       type: event.messageType,
       unsafeDescription: false,
       highlight: true,
@@ -911,6 +931,40 @@ export class EventsDisplay extends LitElement implements Layer {
       this.outgoingLandAttacks.length === 0 &&
       this.outgoingBoats.length === 0
         ? html`&nbsp;`
+        : ""}
+    `;
+  }
+
+  private renderParatroopers() {
+    return html`
+      ${this.outgoingParatroopers.length > 0
+        ? html`
+            <div class="flex flex-wrap gap-y-1 gap-x-2">
+              ${this.outgoingParatroopers.map(
+                (paratrooper) => html`
+                  <div class="inline-flex items-center gap-1">
+                    ${this.renderButton({
+                      content: html`${translateText(
+                        "events_display.paratrooper_sent",
+                      )}:
+                      ${renderTroops(paratrooper.troops())}`,
+                      onClick: () => this.emitGoToUnitEvent(paratrooper),
+                      className: "text-left text-blue-400",
+                      translate: false,
+                    })}
+                    ${this.renderButton({
+                      content: "❌",
+                      onClick: () =>
+                        this.eventBus.emit(
+                          new CancelParatrooperIntentEvent(paratrooper.id()),
+                        ),
+                      className: "text-left flex-shrink-0",
+                    })}
+                  </div>
+                `,
+              )}
+            </div>
+          `
         : ""}
     `;
   }

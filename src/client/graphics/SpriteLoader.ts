@@ -5,6 +5,7 @@ import cargoPlaneSprite from "../../../resources/sprites/cargoplane.png";
 import fighterJetSprite from "../../../resources/sprites/fighterJet.png";
 import hydrogenBombSprite from "../../../resources/sprites/hydrogenbomb.png";
 import mirvSprite from "../../../resources/sprites/mirv2.png";
+import ParatrooperSprite from "../../../resources/sprites/paratrooper.png";
 import samMissileSprite from "../../../resources/sprites/samMissile.png";
 import submarineSprite from "../../../resources/sprites/submarine.png";
 import tradeShipSprite from "../../../resources/sprites/tradeship.png";
@@ -24,6 +25,7 @@ const SPRITE_CONFIG: Partial<Record<UnitType, string>> = {
   [UnitType.TradeShip]: tradeShipSprite,
   [UnitType.MIRV]: mirvSprite,
   [UnitType.CargoPlane]: cargoPlaneSprite,
+  [UnitType.Paratrooper]: ParatrooperSprite,
   [UnitType.Bomber]: bomberSprite,
   [UnitType.FighterJet]: fighterJetSprite,
 };

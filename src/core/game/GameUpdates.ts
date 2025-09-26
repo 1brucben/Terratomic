@@ -49,6 +49,7 @@ export enum GameUpdateType {
   BomberExplosion,
   Roads,
   CargoTrucks,
+  TileOwnerChanged,
 }
 
 export interface SerializedCargoTruck {
@@ -98,7 +99,8 @@ export type GameUpdate =
   | UnitIncomingUpdate
   | BomberExplosionUpdate
   | RoadsUpdate
-  | CargoTrucksUpdate;
+  | CargoTrucksUpdate
+  | TileOwnerChangedUpdate;
 
 export interface BomberExplosionUpdate {
   type: GameUpdateType.BomberExplosion;
@@ -279,6 +281,12 @@ export interface AllianceExtensionAcceptedUpdate {
   type: GameUpdateType.AllianceExtensionAccepted;
   playerID: number;
   allianceID: number;
+}
+
+export interface TileOwnerChangedUpdate {
+  type: GameUpdateType.TileOwnerChanged;
+  tile: TileRef;
+  newOwnerID: PlayerID;
 }
 
 export interface AllianceViewData {
