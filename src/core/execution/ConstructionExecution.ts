@@ -3,9 +3,11 @@ import {
   Game,
   Gold,
   Player,
+  PlayerType,
   Tick,
   Unit,
   UnitType,
+  UpgradeType,
 } from "../game/Game";
 import { TileRef } from "../game/GameMap";
 import { AcademyExecution } from "./AcademyExecution";
@@ -133,6 +135,12 @@ export class ConstructionExecution implements Execution {
         this.mg.addExecution(new DefensePostExecution(player, this.tile));
         break;
       case UnitType.SAMLauncher:
+        if (
+          player.type() === PlayerType.FakeHuman &&
+          player.unitsOwned(UnitType.SAMLauncher) === 0
+        ) {
+          player.addUpgrade(UpgradeType.CityAntiAir);
+        }
         this.mg.addExecution(new SAMLauncherExecution(player, this.tile));
         break;
       case UnitType.City:

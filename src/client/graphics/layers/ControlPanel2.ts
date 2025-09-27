@@ -1111,8 +1111,8 @@ export class ControlPanel2 extends LitElement implements Layer {
                               1,
                             )}
                             ${renderUpgradeButton(
-                              UpgradeType.AirUpgrade2,
-                              "Air 2",
+                              UpgradeType.CityAntiAir,
+                              "City Anti Air",
                               2,
                             )}
                             ${renderUpgradeButton(

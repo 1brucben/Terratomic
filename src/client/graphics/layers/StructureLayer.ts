@@ -1,6 +1,7 @@
 import { colord, Colord } from "colord";
 import { Theme } from "../../../core/configuration/Config";
 import { EventBus } from "../../../core/EventBus";
+import { UnitCooldownEndedEvent } from "../../events/UnitCooldownEndedEvent";
 import { MouseUpEvent } from "../../InputHandler";
 import { TransformHandler } from "../TransformHandler";
 import { Layer } from "./Layer";
@@ -207,6 +208,11 @@ export class StructureLayer implements Layer {
   init() {
     this.redraw();
     this.eventBus.on(MouseUpEvent, (e) => this.onMouseUp(e));
+    this.eventBus.on(UnitCooldownEndedEvent, (e) => {
+      if (e.unit.type() === UnitType.City) {
+        this.handleUnitRendering(e.unit);
+      }
+    });
   }
 
   redraw() {
@@ -342,6 +348,13 @@ export class StructureLayer implements Layer {
       borderColor = reloadingColor;
     } else if (unit.type() === UnitType.Construction) {
       borderColor = underConstructionColor;
+    }
+
+    if (
+      unitType === UnitType.City &&
+      this.game.isCitySamOnCooldown(unit.id())
+    ) {
+      borderColor = reloadingColor;
     }
 
     if (this.selectedStructureUnit === unit) {

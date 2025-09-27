@@ -157,6 +157,8 @@ export interface Config {
   bomberSpeed(): number;
   safeFromPiratesCooldownMax(): number;
   defensePostRange(): number;
+  citySamLaunchRange(): number;
+  citySamCooldown(): number;
   SAMNukeCooldown(): number;
   SAMPlaneCooldown(): number;
   SiloCooldown(): number;
@@ -192,6 +194,7 @@ export interface Config {
   isReplay(): boolean;
   allianceExtensionPromptOffset(): number;
   maxProductivity(): number;
+  forceCanBuildBomberInTests?(): boolean; // Change to optional method
 }
 
 export interface Theme {

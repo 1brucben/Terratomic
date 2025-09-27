@@ -13,6 +13,10 @@ export class TestConfig extends DefaultConfig {
   private _proximityBonusPortsNb: number = 0;
   private _defaultNukeSpeed: number = 4;
 
+  forceCanBuildBomberInTests(): boolean {
+    return true;
+  }
+
   samNukeHittingChance(): number {
     return 1;
   }

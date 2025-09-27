@@ -48,6 +48,7 @@ export enum GameUpdateType {
   BomberExplosion,
   Roads,
   CargoTrucks,
+  CitySamCooldown,
 }
 
 export interface SerializedCargoTruck {
@@ -91,7 +92,14 @@ export type GameUpdate =
   | UnitIncomingUpdate
   | BomberExplosionUpdate
   | RoadsUpdate
-  | CargoTrucksUpdate;
+  | CargoTrucksUpdate
+  | CitySamCooldownUpdate;
+
+export interface CitySamCooldownUpdate {
+  type: GameUpdateType.CitySamCooldown;
+  cityId: number;
+  cooldown: number;
+}
 
 export interface BomberExplosionUpdate {
   type: GameUpdateType.BomberExplosion;
