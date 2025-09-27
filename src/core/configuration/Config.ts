@@ -183,6 +183,8 @@ export interface Config {
   bomberSpeed(): number;
   safeFromPiratesCooldownMax(): number;
   defensePostRange(): number;
+  citySamLaunchRange(): number;
+  citySamCooldown(): number;
   SAMNukeCooldown(): number;
   SAMPlaneCooldown(): number;
   SiloCooldown(): number;
@@ -227,6 +229,7 @@ export interface Config {
   researchBeakerMax(): number; // inclusive
   // Server-side cadence for research innovation calculation (ticks)
   researchIntervalTicks(): number;
+  forceCanBuildBomberInTests?(): boolean; // Change to optional method
 }
 
 export interface Theme {

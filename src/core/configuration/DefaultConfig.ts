@@ -217,6 +217,10 @@ export class DefaultConfig implements Config {
     return this._isReplay;
   }
 
+  forceCanBuildBomberInTests(): boolean {
+    return false;
+  }
+
   traitorDefenseDebuff(): number {
     return 0.5;
   }
@@ -272,6 +276,12 @@ export class DefaultConfig implements Config {
   }
 
   //SAMs
+  citySamLaunchRange(): number {
+    return 50;
+  }
+  citySamCooldown(): number {
+    return 300;
+  }
   samNukeHittingChance(): number {
     return 1;
   }
@@ -737,7 +747,7 @@ export class DefaultConfig implements Config {
       // Air
       case UpgradeType.AirUpgrade1:
         return { cost: costForPlayer(1_000_000n) };
-      case UpgradeType.AirUpgrade2:
+      case UpgradeType.CityAntiAir:
         return { cost: costForPlayer(2_000_000n) };
       case UpgradeType.AirUpgrade3:
         return { cost: costForPlayer(3_000_000n) };

@@ -13,6 +13,7 @@ import { EventBus } from "../../../core/EventBus";
 import { Cell, PlayerID, UnitType } from "../../../core/game/Game";
 import { GameUpdateType } from "../../../core/game/GameUpdates";
 import { GameView, UnitView } from "../../../core/game/GameView";
+import { UnitCooldownEndedEvent } from "../../events/UnitCooldownEndedEvent";
 import { MouseUpEvent } from "../../InputHandler";
 import { TransformHandler } from "../TransformHandler";
 import { Layer } from "./Layer";
@@ -42,6 +43,7 @@ const ICON_SIZES: Record<BgShape, number> = {
 const ICON_GROW_ZOOM_THRESHOLD = 2;
 const UNDER_CONSTRUCTION_FILL = "rgb(198, 198, 198)";
 const UNDER_CONSTRUCTION_BORDER = "rgb(128, 127, 127)";
+const reloadingColor = "red";
 
 // Background shape per structure type
 type BgShape = "circle" | "square" | "triangle" | "pentagon" | "octagon";
@@ -123,6 +125,14 @@ export class StructureLayer implements Layer {
     await this.setupRenderer();
     this.redraw();
     this.eventBus.on(MouseUpEvent, (e) => this.onMouseUp(e));
+    this.eventBus.on(UnitCooldownEndedEvent, (e) => {
+      if (e.unit.type() === UnitType.City) {
+        const render = this.renders.find((r) => r.unit.id() === e.unit.id());
+        if (render) {
+          this.updateRenderState(render, e.unit);
+        }
+      }
+    });
   }
 
   async setupRenderer() {
@@ -263,6 +273,13 @@ export class StructureLayer implements Layer {
       ctx.fillStyle = "#c9dbff"; // semi-transparent white applied via globalAlpha
       const border = this.theme.borderColor(unit.owner());
       borderColor = border.darken(0.17).toRgbString();
+    }
+
+    if (
+      unit.type() === UnitType.City &&
+      this.game.isCitySamOnCooldown(unit.id())
+    ) {
+      borderColor = reloadingColor;
     }
 
     // Draw background shape

@@ -188,7 +188,7 @@ export enum UpgradeType {
 
   // Dummy Air Upgrades
   AirUpgrade1 = "AirUpgrade1",
-  AirUpgrade2 = "AirUpgrade2",
+  CityAntiAir = "CityAntiAir",
   AirUpgrade3 = "AirUpgrade3",
 
   // Dummy Economy Upgrades
@@ -760,6 +760,12 @@ export interface Game extends GameMap {
   setWinner(winner: Player | Team, allPlayersStats: AllPlayersStats): void;
   config(): Config;
   peaceTimerEndsAtTick: Tick | null;
+
+  // City SAM Cooldowns
+  citySamCooldowns: Map<number, number>;
+  setCitySamCooldown(cityId: number, ticks: number): void;
+  isCitySamOnCooldown(cityId: number): boolean;
+  tickCitySamCooldowns(): void;
 
   // Units
   units(...types: UnitType[]): Unit[];

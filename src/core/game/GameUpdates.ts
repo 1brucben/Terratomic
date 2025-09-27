@@ -50,6 +50,7 @@ export enum GameUpdateType {
   Roads,
   CargoTrucks,
   TileOwnerChanged,
+  CitySamCooldown,
 }
 
 export interface SerializedCargoTruck {
@@ -100,7 +101,14 @@ export type GameUpdate =
   | BomberExplosionUpdate
   | RoadsUpdate
   | CargoTrucksUpdate
-  | TileOwnerChangedUpdate;
+  | TileOwnerChangedUpdate
+  | CitySamCooldownUpdate;
+
+export interface CitySamCooldownUpdate {
+  type: GameUpdateType.CitySamCooldown;
+  cityId: number;
+  cooldown: number;
+}
 
 export interface BomberExplosionUpdate {
   type: GameUpdateType.BomberExplosion;
