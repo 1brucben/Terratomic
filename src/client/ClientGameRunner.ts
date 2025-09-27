@@ -286,6 +286,7 @@ export class ClientGameRunner {
         this.eventBus.emit(new SendHashEvent(hu.tick, hu.hash));
       });
       this.gameView.update(gu);
+      this.gameView.tick();
       this.renderer.tick();
 
       if (gu.updates[GameUpdateType.Win].length > 0) {

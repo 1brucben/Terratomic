@@ -12,6 +12,10 @@ import { TileRef } from "../game/GameMap";
 import { ParabolaPathFinder } from "../pathfinding/PathFinding";
 import { PseudoRandom } from "../PseudoRandom";
 import { NukeType } from "../StatsSchemas";
+import {
+  attemptInterception,
+  findEligibleCitiesForNuke,
+} from "./utils/CityAntiAirUtils";
 
 const SPRITE_RADIUS = 16;
 
@@ -20,6 +24,7 @@ export class NukeExecution implements Execution {
   private mg: Game;
   private nuke: Unit | null = null;
   private tilesToDestroyCache: Set<TileRef> | undefined;
+  private eligibleCities: Unit[] = [];
 
   private random: PseudoRandom;
   private pathFinder: ParabolaPathFinder;
@@ -155,6 +160,14 @@ export class NukeExecution implements Execution {
       if (launcher) {
         launcher.launch();
       }
+
+      if (
+        this.nuke.type() === UnitType.AtomBomb ||
+        this.nuke.type() === UnitType.HydrogenBomb
+      ) {
+        this.eligibleCities = findEligibleCitiesForNuke(this.nuke, this.mg);
+      }
+
       return;
     }
 
@@ -178,6 +191,28 @@ export class NukeExecution implements Execution {
     } else {
       this.updateNukeTargetable();
       this.nuke.move(nextTile);
+
+      if (this.nuke === null || this.nuke.targetedBySAM()) return;
+
+      const currentNuke = this.nuke;
+      const readyInterceptors = this.eligibleCities.filter(
+        (city) =>
+          !this.mg.isCitySamOnCooldown(city.id()) &&
+          this.mg.euclideanDistSquared(currentNuke.tile(), city.tile()) <=
+            this.mg.config().citySamLaunchRange() *
+              this.mg.config().citySamLaunchRange(),
+      );
+
+      if (readyInterceptors.length > 0) {
+        readyInterceptors.sort(
+          (a, b) =>
+            this.mg.euclideanDistSquared(currentNuke.tile(), a.tile()) -
+            this.mg.euclideanDistSquared(currentNuke.tile(), b.tile()),
+        );
+
+        const closestInterceptor = readyInterceptors[0];
+        attemptInterception(currentNuke, this.mg, closestInterceptor);
+      }
     }
   }
 

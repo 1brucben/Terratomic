@@ -5,6 +5,7 @@ import { Game, Player, UpgradeType } from "../game/Game";
 export const RESEARCH_TECH_IDS = {
   WWII_LESSONS: "Land-1",
   URBAN_PLANNING: "Land-2",
+  CITY_ANTI_AIR: "Air-2",
   SCORCHED_EARTH: "Land-2B",
   POST_WAR_RECONSTRUCTION: "Economy-1",
   INTERNATIONAL_TRADE: "Economy-2",
@@ -127,6 +128,25 @@ export const TECHS: Readonly<Record<string, TechDefinition>> = Object.freeze({
       onRevoke: (player) => {
         if (player.hasUpgrade?.(UpgradeType.UrbanPlanning)) {
           player.removeUpgrade?.(UpgradeType.UrbanPlanning);
+        }
+      },
+    },
+  },
+  [RESEARCH_TECH_IDS.CITY_ANTI_AIR]: {
+    meta: {
+      name: "City Anti-Air",
+      description:
+        "Allows cities to defend themselves against aerial threats. Does not defend against MIRVs.",
+    },
+    effects: {
+      onComplete: (player) => {
+        if (!player.hasUpgrade?.(UpgradeType.CityAntiAir)) {
+          player.addUpgrade?.(UpgradeType.CityAntiAir);
+        }
+      },
+      onRevoke: (player) => {
+        if (player.hasUpgrade?.(UpgradeType.CityAntiAir)) {
+          player.removeUpgrade?.(UpgradeType.CityAntiAir);
         }
       },
     },

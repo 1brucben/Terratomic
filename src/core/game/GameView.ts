@@ -1,4 +1,5 @@
 import { PlayerListChangedEvent } from "../../client/events/PlayerListChangedEvent";
+import { UnitCooldownEndedEvent } from "../../client/events/UnitCooldownEndedEvent";
 import { SpatialIndex } from "../../client/graphics/SpatialIndex";
 import { Config } from "../configuration/Config";
 import { EventBus } from "../EventBus";
@@ -32,6 +33,7 @@ import { GameMap, TileRef, TileUpdate } from "./GameMap";
 import {
   AllianceViewData,
   AttackUpdate,
+  CitySamCooldownUpdate,
   GameUpdateType,
   GameUpdateViewData,
   PlayerUpdate,
@@ -424,6 +426,7 @@ export class GameView implements GameMap {
   private _focusedPlayer: PlayerView | null = null;
   private _alliances: AllianceViewData[] = [];
   private _submarinePings: Map<number, number> = new Map();
+  private citySamCooldowns = new Map<number, number>();
 
   private unitGrid: UnitGrid;
   private structureIndex: SpatialIndex;
@@ -478,6 +481,18 @@ export class GameView implements GameMap {
     if (gu.alliances) {
       this._alliances = gu.alliances;
     }
+    gu.updates[GameUpdateType.SubmarinePing].forEach((update) => {
+      this._submarinePings.set(update.unitId, this.ticks());
+    });
+    (
+      gu.updates[GameUpdateType.CitySamCooldown] as CitySamCooldownUpdate[]
+    ).forEach((update) => {
+      if (update.cooldown > 0) {
+        this.citySamCooldowns.set(update.cityId, update.cooldown);
+      } else {
+        this.citySamCooldowns.delete(update.cityId);
+      }
+    });
     gu.updates[GameUpdateType.Player].forEach((pu) => {
       this.smallIDToID.set(pu.smallID, pu.id);
       const player = this._players.get(pu.id);
@@ -564,6 +579,24 @@ export class GameView implements GameMap {
 
   public alliances(): AllianceViewData[] {
     return this._alliances;
+  }
+
+  public isCitySamOnCooldown(cityId: number): boolean {
+    return (this.citySamCooldowns.get(cityId) ?? 0) > 0;
+  }
+
+  public tick(): void {
+    for (const [cityId, ticks] of this.citySamCooldowns.entries()) {
+      if (ticks > 0) {
+        this.citySamCooldowns.set(cityId, ticks - 1);
+      } else {
+        this.citySamCooldowns.delete(cityId);
+        const city = this.unit(cityId);
+        if (city) {
+          this.eventBus.emit(new UnitCooldownEndedEvent(city));
+        }
+      }
+    }
   }
 
   recentlyUpdatedTiles(): TileRef[] {
