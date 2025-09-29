@@ -178,7 +178,7 @@ export enum UpgradeType {
   // Dummy Air Upgrades
   AirUpgrade1 = "AirUpgrade1",
   AirUpgrade2 = "AirUpgrade2",
-  AirUpgrade3 = "AirUpgrade3",
+  FighterJetNavalTargeting = "FighterJetNavalTargeting",
 
   // Dummy Economy Upgrades
   EconomyUpgrade1 = "EconomyUpgrade1",

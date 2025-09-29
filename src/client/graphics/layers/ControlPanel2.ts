@@ -1116,9 +1116,10 @@ export class ControlPanel2 extends LitElement implements Layer {
                               2,
                             )}
                             ${renderUpgradeButton(
-                              UpgradeType.AirUpgrade3,
-                              "Air 3",
+                              UpgradeType.FighterJetNavalTargeting,
+                              "Fighter Anti-Ship",
                               3,
+                              "Allows Fighter Jets to target and attack naval units.",
                             )}
                           </div>
                         `

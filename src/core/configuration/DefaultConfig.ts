@@ -658,7 +658,7 @@ export class DefaultConfig implements Config {
         return { cost: costForPlayer(1_000_000n) };
       case UpgradeType.AirUpgrade2:
         return { cost: costForPlayer(2_000_000n) };
-      case UpgradeType.AirUpgrade3:
+      case UpgradeType.FighterJetNavalTargeting:
         return { cost: costForPlayer(3_000_000n) };
 
       // Economy
