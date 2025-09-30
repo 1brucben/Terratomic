@@ -1090,9 +1090,10 @@ export class ControlPanel2 extends LitElement implements Layer {
                               1,
                             )}
                             ${renderUpgradeButton(
-                              UpgradeType.WaterUpgrade2,
-                              "Water 2",
+                              UpgradeType.WarshipAntiAir,
+                              "Warship AA Defenses",
                               2,
+                              "Equips Warships with an Anti-Air missile system to defend against aircraft.",
                             )}
                             ${renderUpgradeButton(
                               UpgradeType.WaterUpgrade3,

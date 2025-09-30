@@ -330,7 +330,7 @@ export const BuildUnitIntentSchema = BaseIntentSchema.extend({
 
 export const PurchaseUpgradeIntentSchema = BaseIntentSchema.extend({
   type: z.literal("purchase_upgrade"),
-  upgrade: z.enum(UpgradeType),
+  upgrade: z.enum([UpgradeType.WarshipAntiAir, ...Object.values(UpgradeType)]),
 });
 
 export const CancelAttackIntentSchema = BaseIntentSchema.extend({
