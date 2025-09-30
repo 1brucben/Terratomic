@@ -269,9 +269,6 @@ export class FighterJetExecution implements Execution {
     switch (targetUnit.type()) {
       case UnitType.TransportShip:
       case UnitType.TradeShip:
-        targetUnit.delete();
-        this.fighterJet.setTargetUnit(undefined);
-        break;
       case UnitType.Warship:
         this.mg.addExecution(
           new ShellExecution(
