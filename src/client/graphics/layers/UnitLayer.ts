@@ -402,7 +402,7 @@ export class UnitLayer implements Layer {
       const isOnCooldown = unit.isCooldown();
 
       const isVisibleToEnemies =
-        isPeriodicallyVisible || isAttacking || isDetected || isOnCooldown;
+        isPeriodicallyVisible ?? isAttacking ?? isDetected ?? isOnCooldown;
 
       if (!isVisibleToEnemies) {
         // If hidden, draw it smaller and return early
