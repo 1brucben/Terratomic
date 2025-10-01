@@ -14,9 +14,10 @@ import atomBombIcon from "../../../../resources/images/NukeIconWhite.svg";
 import portIcon from "../../../../resources/images/PortIcon.svg";
 import samlauncherIcon from "../../../../resources/images/SamLauncherIconWhite.svg";
 import shieldIcon from "../../../../resources/images/ShieldIconWhite.svg";
+import submarineIcon from "../../../../resources/images/submarine.svg";
 import { translateText } from "../../../client/Utils";
 import { EventBus } from "../../../core/EventBus";
-import { Gold, UnitType } from "../../../core/game/Game";
+import { Gold, UnitType, UpgradeType } from "../../../core/game/Game";
 import { GameView } from "../../../core/game/GameView";
 import { CloseViewEvent } from "../../InputHandler";
 import { displayKey, renderNumber } from "../../Utils";
@@ -64,7 +65,13 @@ const buildTable: BuildItemDisplay[][] = [
       unitType: UnitType.Warship,
       icon: warshipIcon,
       description: "build_menu.desc.warship",
-      key: "unit_type.warship",
+      countable: true,
+    },
+    {
+      unitType: UnitType.Submarine,
+      icon: submarineIcon,
+      description: "build_menu.desc.submarine",
+      key: "unit_type.submarine",
       countable: true,
     },
     {
@@ -213,10 +220,22 @@ export class BuildMenu extends LitElement {
     }
 
     if (this.game?.config()) {
-      this.filteredBuildTable = current.map((row) =>
+      current = current.map((row) =>
         row.filter(
           (item) => !this.game!.config().isUnitDisabled(item.unitType),
         ),
+      );
+    }
+
+    if (this.game?.myPlayer()) {
+      const player = this.game.myPlayer()!;
+      this.filteredBuildTable = current.map((row) =>
+        row.filter((item) => {
+          if (item.unitType === UnitType.Submarine) {
+            return player.hasUpgrade(UpgradeType.SubmarineResearch);
+          }
+          return true;
+        }),
       );
     } else {
       this.filteredBuildTable = current;
@@ -384,6 +403,7 @@ export class BuildMenu extends LitElement {
     }
 
     switch (item.unitType) {
+      case UnitType.Submarine:
       case UnitType.Warship:
         return player.unitsOwned(UnitType.Port) > 0;
       case UnitType.FighterJet:

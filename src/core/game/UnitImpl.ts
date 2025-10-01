@@ -33,6 +33,9 @@ export class UnitImpl implements Unit {
   private _level: number = 1;
   private _targetable: boolean = true;
   private _accumulatedRegen: number = 0;
+  public lastVisibleTick?: number;
+  public isDetectedByNavalUnit?: boolean;
+  public isAttacking?: boolean;
 
   constructor(
     private _type: UnitType,
@@ -126,6 +129,8 @@ export class UnitImpl implements Unit {
       ticksLeftInCooldown: this.ticksLeftInCooldown() ?? undefined,
       cooldownDuration: this._cooldownDuration ?? undefined,
       returning: this.returning(),
+      isAttacking: this.isAttacking,
+      isDetectedByNavalUnit: this.isDetectedByNavalUnit,
     };
   }
 

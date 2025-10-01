@@ -18,6 +18,7 @@ import {
   PlayerInfo,
   PlayerProfile,
   PlayerType,
+  UnitType,
 } from "./game/Game";
 import { createGame } from "./game/GameImpl";
 import { TileRef } from "./game/GameMap";
@@ -187,6 +188,22 @@ export class GameRunner {
         this.playerViewData[p.id()] = placeName(this.game, p);
       });
     }
+
+    // Submarine periodic visibility ping
+    this.game.players().forEach((p) => {
+      p.units(UnitType.Submarine).forEach((submarine) => {
+        if (
+          this.game.ticks() - (submarine.lastVisibleTick ?? -Infinity) >
+          15 * (1000 / this.game.config().serverConfig().turnIntervalMs())
+        ) {
+          submarine.lastVisibleTick = this.game.ticks();
+          updates[GameUpdateType.SubmarinePing].push({
+            type: GameUpdateType.SubmarinePing,
+            unitId: submarine.id(),
+          });
+        }
+      });
+    });
 
     // Many tiles are updated to pack it into an array
     const packedTileUpdates = updates[GameUpdateType.Tile].map((u) => u.update);

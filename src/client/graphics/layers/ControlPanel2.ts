@@ -154,6 +154,7 @@ export class ControlPanel2 extends LitElement implements Layer {
     UnitType.HydrogenBomb,
     UnitType.FighterJet,
     UnitType.Warship,
+    UnitType.Submarine,
   ];
 
   private readonly StructureTypes: UnitType[] = [
@@ -1085,9 +1086,10 @@ export class ControlPanel2 extends LitElement implements Layer {
                       ? html`
                           <div class="grid grid-cols-3 gap-4">
                             ${renderUpgradeButton(
-                              UpgradeType.WaterUpgrade1,
-                              "Water 1",
+                              UpgradeType.SubmarineResearch,
+                              "Submarine",
                               1,
+                              "Unlocks the ability to build Submarines.",
                             )}
                             ${renderUpgradeButton(
                               UpgradeType.WaterUpgrade2,

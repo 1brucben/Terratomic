@@ -6,6 +6,7 @@ import fighterJetSprite from "../../../resources/sprites/fighterJet.png";
 import hydrogenBombSprite from "../../../resources/sprites/hydrogenbomb.png";
 import mirvSprite from "../../../resources/sprites/mirv2.png";
 import samMissileSprite from "../../../resources/sprites/samMissile.png";
+import submarineSprite from "../../../resources/sprites/submarine.png";
 import tradeShipSprite from "../../../resources/sprites/tradeship.png";
 import transportShipSprite from "../../../resources/sprites/transportship.png";
 import warshipSprite from "../../../resources/sprites/warship.png";
@@ -16,6 +17,7 @@ import { UnitView } from "../../core/game/GameView";
 const SPRITE_CONFIG: Partial<Record<UnitType, string>> = {
   [UnitType.TransportShip]: transportShipSprite,
   [UnitType.Warship]: warshipSprite,
+  [UnitType.Submarine]: submarineSprite,
   [UnitType.SAMMissile]: samMissileSprite,
   [UnitType.AtomBomb]: atomBombSprite,
   [UnitType.HydrogenBomb]: hydrogenBombSprite,
