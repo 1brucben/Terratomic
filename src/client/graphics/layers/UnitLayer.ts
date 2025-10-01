@@ -333,10 +333,26 @@ export class UnitLayer implements Layer {
       this.handleUnitDeactivation(unit);
     }
 
+    if (
+      unit.type() === UnitType.Submarine &&
+      unit.owner() !== this.game.myPlayer()
+    ) {
+      const isPeriodicallyVisible = this.game.isUnitPeriodicallyVisible(
+        unit.id(),
+      );
+      const isAttacking = unit.isAttacking();
+      const isDetected = unit.isDetectedByNavalUnit();
+
+      if (!isPeriodicallyVisible && !isAttacking && !isDetected) {
+        return; // Don't render the submarine
+      }
+    }
+
     switch (unit.type()) {
       case UnitType.TransportShip:
         this.handleBoatEvent(unit);
         break;
+      case UnitType.Submarine:
       case UnitType.Warship:
         this.handleWarShipEvent(unit, angleByUnit);
         break;

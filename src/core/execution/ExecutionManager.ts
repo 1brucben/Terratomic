@@ -18,6 +18,7 @@ import { EmojiExecution } from "./EmojiExecution";
 import { FakeHumanExecution } from "./FakeHumanExecution";
 import { MarkDisconnectedExecution } from "./MarkDisconnectedExecution";
 import { MoveFighterJetExecution } from "./MoveFighterJetExecution";
+import { MoveSubmarineExecution } from "./MoveSubmarineExecution";
 import { MoveWarshipExecution } from "./MoveWarshipExecution";
 import { NoOpExecution } from "./NoOpExecution";
 import { PeaceRequestExecution } from "./PeaceRequestExecution";
@@ -74,6 +75,8 @@ export class Executor {
         return new BoatRetreatExecution(player, intent.unitID);
       case "move_warship":
         return new MoveWarshipExecution(player, intent.unitId, intent.tile);
+      case "move_submarine":
+        return new MoveSubmarineExecution(player, intent.unitId, intent.tile);
       case "move_fighter_jet":
         return new MoveFighterJetExecution(player, intent.unitId, intent.tile);
       case "bomber_intent":

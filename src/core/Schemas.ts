@@ -45,6 +45,7 @@ export type Intent =
   | EmbargoIntent
   | QuickChatIntent
   | MoveWarshipIntent
+  | MoveSubmarineIntent
   | MoveFighterJetIntent
   | BomberIntent
   | MarkDisconnectedIntent
@@ -81,6 +82,7 @@ export type ResearchTreeSelectIntent = z.infer<
   typeof ResearchTreeSelectIntentSchema
 >;
 export type MoveWarshipIntent = z.infer<typeof MoveWarshipIntentSchema>;
+export type MoveSubmarineIntent = z.infer<typeof MoveSubmarineIntentSchema>;
 export type MoveFighterJetIntent = z.infer<typeof MoveFighterJetIntentSchema>;
 export type BomberIntent = z.infer<typeof BomberIntentSchema>;
 export type SetAutoBombingIntent = z.infer<typeof SetAutoBombingIntentSchema>;
@@ -387,6 +389,12 @@ export const MoveWarshipIntentSchema = BaseIntentSchema.extend({
   tile: z.number(),
 });
 
+export const MoveSubmarineIntentSchema = BaseIntentSchema.extend({
+  type: z.literal("move_submarine"),
+  unitId: z.number(),
+  tile: z.number(),
+});
+
 export const MoveFighterJetIntentSchema = BaseIntentSchema.extend({
   type: z.literal("move_fighter_jet"),
   unitId: z.number(),
@@ -444,6 +452,7 @@ const IntentSchema = z.discriminatedUnion("type", [
   ResearchTreeSelectIntentSchema,
   EmbargoIntentSchema,
   MoveWarshipIntentSchema,
+  MoveSubmarineIntentSchema,
   MoveFighterJetIntentSchema,
   BomberIntentSchema,
   QuickChatIntentSchema,

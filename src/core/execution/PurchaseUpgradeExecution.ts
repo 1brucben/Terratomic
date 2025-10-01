@@ -1,4 +1,4 @@
-import { Execution, Player, UpgradeType } from "../game/Game";
+import { Execution, Player, UnitType, UpgradeType } from "../game/Game";
 import { GameImpl } from "../game/GameImpl";
 import { RESEARCH_TECH_IDS } from "../tech/TechEffects";
 
@@ -34,7 +34,7 @@ export class PurchaseUpgradeExecution implements Execution {
     return true;
   }
 
-  public init(mg: GameImpl, ticks: number): void {
+  init(mg: GameImpl, ticks: number): void {
     this.mg = mg;
     if (this.player.hasUpgrade(this.upgrade)) {
       this._isActive = false;
@@ -54,6 +54,13 @@ export class PurchaseUpgradeExecution implements Execution {
     ) {
       this._isActive = false;
       return;
+    }
+
+    if (this.upgrade === UpgradeType.SubmarineResearch) {
+      if (this.player.unitCount(UnitType.Port) === 0) {
+        this._isActive = false;
+        return;
+      }
     }
 
     const cost = this.mg.config().upgradeInfo(this.upgrade).cost(this.player);

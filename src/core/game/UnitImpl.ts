@@ -40,6 +40,9 @@ export class UnitImpl implements Unit {
   private _insuredBy: Player | null = null;
   // Transport-ship specific: track intended target player for cancellation on peace
   private _boatTargetPlayerID: PlayerID | null = null;
+  public lastVisibleTick?: number;
+  public isDetectedByNavalUnit?: boolean;
+  public isAttacking?: boolean;
 
   constructor(
     private _type: UnitType,
@@ -139,6 +142,8 @@ export class UnitImpl implements Unit {
       ticksLeftInCooldown: this.ticksLeftInCooldown() ?? undefined,
       cooldownDuration: this._cooldownDuration ?? undefined,
       returning: this.returning(),
+      isAttacking: this.isAttacking,
+      isDetectedByNavalUnit: this.isDetectedByNavalUnit,
     };
   }
 

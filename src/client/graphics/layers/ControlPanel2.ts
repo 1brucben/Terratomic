@@ -171,6 +171,7 @@ export class ControlPanel2 extends LitElement implements Layer {
     UnitType.HydrogenBomb,
     UnitType.FighterJet,
     UnitType.Warship,
+    UnitType.Submarine,
   ];
 
   private readonly StructureTypes: UnitType[] = [

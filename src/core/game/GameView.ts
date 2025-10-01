@@ -140,6 +140,14 @@ export class UnitView {
   info(): UnitInfo {
     return this.gameView.unitInfo(this.type());
   }
+
+  isAttacking(): boolean {
+    return this.data.isAttacking ?? false;
+  }
+
+  isDetectedByNavalUnit(): boolean {
+    return this.data.isDetectedByNavalUnit ?? false;
+  }
 }
 
 export class PlayerView {
@@ -415,6 +423,7 @@ export class GameView implements GameMap {
   private _myPlayer: PlayerView | null = null;
   private _focusedPlayer: PlayerView | null = null;
   private _alliances: AllianceViewData[] = [];
+  private _submarinePings: Map<number, number> = new Map();
 
   private unitGrid: UnitGrid;
   private structureIndex: SpatialIndex;
@@ -513,6 +522,10 @@ export class GameView implements GameMap {
         // Wait until next tick to delete the unit.
         this.toDelete.add(unit.id());
       }
+    });
+
+    gu.updates[GameUpdateType.SubmarinePing].forEach((update) => {
+      this._submarinePings.set(update.unitId, this.ticks());
     });
 
     // Fingerprint AFTER the update
@@ -776,5 +789,14 @@ export class GameView implements GameMap {
   }
   setFocusedPlayer(player: PlayerView | null): void {
     this._focusedPlayer = player;
+  }
+
+  isUnitPeriodicallyVisible(unitId: number): boolean {
+    const lastPing = this._submarinePings.get(unitId);
+    if (lastPing === undefined) {
+      return false;
+    }
+    // Assumes 3 seconds visibility, 10 ticks per second
+    return this.ticks() - lastPing < 30;
   }
 }
