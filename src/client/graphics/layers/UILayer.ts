@@ -68,7 +68,8 @@ export class UILayer implements Layer {
     if (
       this.selectedUnit &&
       (this.selectedUnit.type() === UnitType.Warship ||
-        this.selectedUnit.type() === UnitType.FighterJet)
+        this.selectedUnit.type() === UnitType.FighterJet ||
+        this.selectedUnit.type() === UnitType.Submarine)
     ) {
       this.drawSelectionBox(this.selectedUnit);
     }
@@ -166,7 +167,8 @@ export class UILayer implements Layer {
       if (
         event.unit &&
         (event.unit.type() === UnitType.Warship ||
-          event.unit.type() === UnitType.FighterJet)
+          event.unit.type() === UnitType.FighterJet ||
+          event.unit.type() === UnitType.Submarine)
       ) {
         this.drawSelectionBox(event.unit);
       }
