@@ -504,6 +504,7 @@ export interface Unit {
   lastVisibleTick?: number;
   isDetectedByNavalUnit?: boolean;
   isAttacking?: boolean;
+  isPeriodicallyVisible(): boolean;
 }
 
 export interface TerraNullius {
