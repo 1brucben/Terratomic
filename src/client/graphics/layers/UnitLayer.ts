@@ -370,6 +370,29 @@ export class UnitLayer implements Layer {
       }
     }
 
+    // START: Custom rendering for owner's submarine visibility
+    if (
+      unit.type() === UnitType.Submarine &&
+      unit.owner() === this.game.myPlayer()
+    ) {
+      const isPeriodicallyVisible = this.game.isUnitPeriodicallyVisible(
+        unit.id(),
+      );
+      const isAttacking = unit.isAttacking();
+      const isDetected = unit.isDetectedByNavalUnit();
+      const isOnCooldown = unit.isCooldown();
+
+      const isVisibleToEnemies =
+        isPeriodicallyVisible || isAttacking || isDetected || isOnCooldown;
+
+      if (!isVisibleToEnemies) {
+        // If hidden, draw it smaller and return early
+        this.drawSprite(unit, undefined, 0.75);
+        return;
+      }
+    }
+    // END: Custom rendering
+
     switch (unit.type()) {
       case UnitType.TransportShip:
         this.handleBoatEvent(unit);
@@ -627,7 +650,11 @@ export class UnitLayer implements Layer {
     context.clearRect(x, y, 1, 1);
   }
 
-  drawSprite(unit: UnitView, customTerritoryColor?: Colord) {
+  drawSprite(
+    unit: UnitView,
+    customTerritoryColor?: Colord,
+    sizeMultiplier: number = 1.0,
+  ) {
     const x = this.game.x(unit.tile());
     const y = this.game.y(unit.tile());
 
@@ -686,12 +713,15 @@ export class UnitLayer implements Layer {
         this.context.translate(-x, -y);
       }
 
+      const newWidth = sprite.width * sizeMultiplier;
+      const newHeight = sprite.width * sizeMultiplier; // Keep aspect ratio square
+
       this.context.drawImage(
         sprite,
-        Math.round(x - sprite.width / 2),
-        Math.round(y - sprite.height / 2),
-        sprite.width,
-        sprite.width,
+        Math.round(x - newWidth / 2),
+        Math.round(y - newHeight / 2),
+        newWidth,
+        newHeight,
       );
 
       if (angle !== null) {
