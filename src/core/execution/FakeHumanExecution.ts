@@ -135,6 +135,7 @@ export class FakeHumanExecution implements Execution {
         return;
       }
       this.player.addUpgrade(UpgradeType.InternationalTrade);
+      this.player.addUpgrade(UpgradeType.SubmarineResearch);
 
       // Set research slider to 20% and set road investment to 20% at game start.
       // Do NOT set any research priority here so the AI leaves research priority null.

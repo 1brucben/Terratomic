@@ -83,7 +83,7 @@ export class UnitCreationHelper {
 
     return (
       this.maybeSpawnStructure(UnitType.Airfield, 1) ||
-      this.maybeSpawnWarship() ||
+      this.maybeSpawnNavalUnit() ||
       this.maybeSpawnSAMLauncher() ||
       this.maybeSpawnStructure(UnitType.MissileSilo, 1) ||
       this.maybeSpawnDefensePost()
@@ -228,36 +228,38 @@ export class UnitCreationHelper {
     return null;
   }
 
-  private maybeSpawnWarship(): boolean {
-    if (!this.random.chance(50)) {
-      return false;
-    }
+  private maybeSpawnNavalUnit(): boolean {
+    const warshipCount = this.player.units(UnitType.Warship).length;
+    const submarineCount = this.player.units(UnitType.Submarine).length;
+    const navalCombatUnitCount = warshipCount + submarineCount;
+
     const ports = this.player.units(UnitType.Port);
-    const ships = this.player.units(UnitType.Warship);
-    if (
-      ports.length > 0 &&
-      ships.length === 0 &&
-      this.player.gold() > this.cost(UnitType.Warship)
-    ) {
-      const port = this.random.randElement(ports);
-      const targetTile = this.warshipSpawnTile(port.tile());
-      if (targetTile === null) {
-        return false;
+    if (ports.length > 0 && navalCombatUnitCount === 0) {
+      const unitToBuild = this.random.chance(50)
+        ? UnitType.Submarine
+        : UnitType.Warship;
+
+      if (this.player.gold() > this.cost(unitToBuild)) {
+        const port = this.random.randElement(ports);
+        const targetTile = this.navalUnitSpawnTile(port.tile());
+        if (targetTile === null) {
+          return false;
+        }
+        const canBuild = this.player.canBuild(unitToBuild, targetTile);
+        if (canBuild === false) {
+          console.warn(`cannot spawn ${unitToBuild}`);
+          return false;
+        }
+        this.mg.addExecution(
+          new ConstructionExecution(this.player, unitToBuild, targetTile),
+        );
+        return true;
       }
-      const canBuild = this.player.canBuild(UnitType.Warship, targetTile);
-      if (canBuild === false) {
-        console.warn("cannot spawn destroyer");
-        return false;
-      }
-      this.mg.addExecution(
-        new ConstructionExecution(this.player, UnitType.Warship, targetTile),
-      );
-      return true;
     }
     return false;
   }
 
-  private warshipSpawnTile(portTile: TileRef): TileRef | null {
+  private navalUnitSpawnTile(portTile: TileRef): TileRef | null {
     const radius = 250;
     for (let attempts = 0; attempts < 50; attempts++) {
       const randX = this.random.nextInt(
