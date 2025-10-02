@@ -997,10 +997,10 @@ export class PlayerImpl implements Player {
         if (!this.mg.hasOwner(targetTile)) {
           return false;
         }
-        return this.nukeSpawn(targetTile);
+        return this.nukeSpawn(targetTile, unitType);
       case UnitType.AtomBomb:
       case UnitType.HydrogenBomb:
-        return this.nukeSpawn(targetTile);
+        return this.nukeSpawn(targetTile, unitType);
       case UnitType.MIRVWarhead:
         return targetTile;
       case UnitType.Port:
@@ -1034,7 +1034,7 @@ export class PlayerImpl implements Player {
     }
   }
 
-  nukeSpawn(tile: TileRef): TileRef | false {
+  nukeSpawn(tile: TileRef, nukeType: UnitType): TileRef | false {
     const owner = this.mg.owner(tile);
     if (owner.isPlayer()) {
       if (this.isOnSameTeam(owner)) {
@@ -1042,9 +1042,18 @@ export class PlayerImpl implements Player {
       }
     }
     // only get missilesilos that are not on cooldown
-    const spawns = this.units(UnitType.MissileSilo)
-      .filter((silo) => {
-        return !silo.isInCooldown();
+    const potentialSpawns: Unit[] = this.units(UnitType.MissileSilo);
+    if (
+      nukeType === UnitType.AtomBomb &&
+      this.hasUpgrade(UpgradeType.NuclearSubmarineResearch)
+    ) {
+      const nuclearSubmarines = this.units(UnitType.Submarine);
+      potentialSpawns.push(...nuclearSubmarines);
+    }
+
+    const spawns = potentialSpawns
+      .filter((unit) => {
+        return !unit.isInCooldown();
       })
       .sort(distSortUnit(this.mg, tile));
     if (spawns.length === 0) {

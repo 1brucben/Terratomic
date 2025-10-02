@@ -360,7 +360,12 @@ export class UnitLayer implements Layer {
       const isAttacking = unit.isAttacking();
       const isDetected = unit.isDetectedByNavalUnit();
 
-      if (!isPeriodicallyVisible && !isAttacking && !isDetected) {
+      if (
+        !isPeriodicallyVisible &&
+        !isAttacking &&
+        !isDetected &&
+        !unit.isCooldown()
+      ) {
         return; // Don't render the submarine
       }
     }

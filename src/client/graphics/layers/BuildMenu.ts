@@ -409,6 +409,11 @@ export class BuildMenu extends LitElement {
       case UnitType.FighterJet:
         return player.unitsOwned(UnitType.Airfield) > 0;
       case UnitType.AtomBomb:
+        return (
+          player.unitsOwned(UnitType.MissileSilo) > 0 ||
+          (player.hasUpgrade(UpgradeType.NuclearSubmarineResearch) &&
+            player.unitsOwned(UnitType.Submarine) > 0)
+        );
       case UnitType.HydrogenBomb:
       case UnitType.MIRV:
         return player.unitsOwned(UnitType.MissileSilo) > 0;

@@ -1097,9 +1097,10 @@ export class ControlPanel2 extends LitElement implements Layer {
                               2,
                             )}
                             ${renderUpgradeButton(
-                              UpgradeType.WaterUpgrade3,
-                              "Water 3",
+                              UpgradeType.NuclearSubmarineResearch,
+                              "Nuclear Submarine",
                               3,
+                              "Allows Submarines to launch nuclear missiles.",
                             )}
                           </div>
                         `
