@@ -48,7 +48,7 @@ export class SubmarineExecution implements Execution {
     }
   }
 
-  tick(ticks: number): void {
+  tick(ticks: number) {
     if (this.submarine.health() <= 0) {
       this.submarine.delete();
       return;
