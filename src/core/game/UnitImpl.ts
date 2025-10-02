@@ -103,6 +103,8 @@ export class UnitImpl implements Unit {
     return this._patrolTile;
   }
 
+  tick() {}
+
   isUnit(): this is Unit {
     return true;
   }
