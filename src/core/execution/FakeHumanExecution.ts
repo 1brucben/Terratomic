@@ -132,6 +132,7 @@ export class FakeHumanExecution implements Execution {
         return;
       }
       this.player.addUpgrade(UpgradeType.InternationalTrade);
+      this.player.addUpgrade(UpgradeType.SubmarineResearch);
     }
 
     if (!this.player.isAlive()) {
