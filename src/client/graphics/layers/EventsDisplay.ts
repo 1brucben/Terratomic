@@ -378,12 +378,18 @@ export class EventsDisplay extends LitElement implements Layer {
     }
 
     let description: string = event.message;
+    const params = event.params;
+
+    if (event.messageType === MessageType.INSURANCE_REFUND && params?.amount) {
+      params.amount = renderNumber(Number(params.amount));
+    }
+
     // Check if the message is a translation key (starts with "events_display." or "messages.")
     if (
       event.message.startsWith("events_display.") ||
       event.message.startsWith("messages.")
     ) {
-      description = translateText(event.message, event.params);
+      description = translateText(event.message, params);
     }
 
     this.addEvent({

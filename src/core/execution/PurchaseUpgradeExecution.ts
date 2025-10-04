@@ -45,6 +45,12 @@ export class PurchaseUpgradeExecution implements Execution {
       this.player.removeGold(cost);
       this.player.addUpgrade(this.upgrade);
 
+      if (this.upgrade === UpgradeType.StructureInsurance) {
+        this.player.units().forEach((unit) => {
+          unit.insure(this.player);
+        });
+      }
+
       if (this.upgrade === UpgradeType.ScorchedEarth) {
         this.mg.destroyPlayerRoads(this.player);
         this.player.removeUpgrade(UpgradeType.Roads);
