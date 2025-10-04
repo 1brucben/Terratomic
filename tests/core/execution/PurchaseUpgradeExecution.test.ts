@@ -1,5 +1,10 @@
 import { PurchaseUpgradeExecution } from "../../../src/core/execution/PurchaseUpgradeExecution";
-import { Gold, Player, UpgradeType } from "../../../src/core/game/Game";
+import {
+  Gold,
+  Player,
+  PlayerType,
+  UpgradeType,
+} from "../../../src/core/game/Game";
 import { GameImpl } from "../../../src/core/game/GameImpl";
 
 describe("PurchaseUpgradeExecution", () => {
@@ -13,6 +18,8 @@ describe("PurchaseUpgradeExecution", () => {
       addUpgrade: jest.fn(),
       removeUpgrade: jest.fn(),
       removeGold: jest.fn(),
+      type: jest.fn().mockReturnValue(PlayerType.Human), // Default to Human
+      units: jest.fn().mockReturnValue([]),
     } as unknown as jest.Mocked<Player>;
 
     mockGame = {
@@ -91,5 +98,26 @@ describe("PurchaseUpgradeExecution", () => {
     expect(mockGame.markPlayerNodesForReconnection).toHaveBeenCalledWith(
       mockPlayer,
     );
+  });
+
+  it("should grant economy upgrades to bots when they purchase Roads", () => {
+    mockPlayer.gold.mockReturnValue(1_000_000n as Gold);
+    mockPlayer.hasUpgrade.mockReturnValue(false);
+    mockPlayer.type.mockReturnValue(PlayerType.Bot); // Set player type to Bot for this test
+
+    const exec = new PurchaseUpgradeExecution(mockPlayer, UpgradeType.Roads);
+    exec.init(mockGame, 0);
+
+    // Check that the initial upgrade was added
+    expect(mockPlayer.addUpgrade).toHaveBeenCalledWith(UpgradeType.Roads);
+
+    // Check that the three economy upgrades were also granted
+    expect(mockPlayer.addUpgrade).toHaveBeenCalledWith(
+      UpgradeType.UrbanPlanning,
+    );
+    expect(mockPlayer.addUpgrade).toHaveBeenCalledWith(
+      UpgradeType.StructureInsurance,
+    );
+    expect(mockPlayer.addUpgrade).toHaveBeenCalledWith(UpgradeType.Automation);
   });
 });
