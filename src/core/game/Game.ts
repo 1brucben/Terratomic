@@ -180,10 +180,10 @@ export enum UpgradeType {
   AirUpgrade2 = "AirUpgrade2",
   AirUpgrade3 = "AirUpgrade3",
 
-  // Dummy Economy Upgrades
-  EconomyUpgrade1 = "EconomyUpgrade1",
-  EconomyUpgrade2 = "EconomyUpgrade2",
-  EconomyUpgrade3 = "EconomyUpgrade3",
+  // Economy Upgrades
+  UrbanPlanning = "UrbanPlanning",
+  StructureInsurance = "StructureInsurance",
+  Automation = "Automation",
 }
 
 const _structureTypes: ReadonlySet<UnitType> = new Set([

@@ -1127,19 +1127,22 @@ export class ControlPanel2 extends LitElement implements Layer {
                       ? html`
                           <div class="grid grid-cols-3 gap-4">
                             ${renderUpgradeButton(
-                              UpgradeType.EconomyUpgrade1,
-                              "Econ 1",
+                              UpgradeType.UrbanPlanning,
+                              "Urban Planning",
                               1,
+                              "Increases maximum population capacity by 25%",
                             )}
                             ${renderUpgradeButton(
-                              UpgradeType.EconomyUpgrade2,
-                              "Econ 2",
+                              UpgradeType.StructureInsurance,
+                              "Structure Insurance",
                               2,
+                              "Refunds 33% of a building's cost upon destruction",
                             )}
                             ${renderUpgradeButton(
-                              UpgradeType.EconomyUpgrade3,
-                              "Econ 3",
+                              UpgradeType.Automation,
+                              "Automation",
                               3,
+                              "Doubles internal trade income, but slows troop regeneration by 20%",
                             )}
                           </div>
                         `
