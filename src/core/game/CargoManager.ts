@@ -190,7 +190,16 @@ export class CargoManager {
           }
         } else {
           // --- REVISED: Domestic Arrival ---
-          const gold = this.game.config().cargoTruckGold(truck.path.length);
+          let gold = this.game.config().cargoTruckGold(truck.path.length);
+          if (truck.owner.hasUpgrade(UpgradeType.Automation)) {
+            const num = BigInt(
+              this.game.config().automationTradeIncomeMultiplierNum(),
+            );
+            const den = BigInt(
+              this.game.config().automationTradeIncomeMultiplierDen(),
+            );
+            gold = (gold * num) / den;
+          }
           truck.owner.addGold(gold);
           const currentGold =
             this.domesticGoldSinceLastMessage.get(truck.owner.id()) ?? 0n;
