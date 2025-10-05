@@ -79,7 +79,12 @@ export class WarshipExecution implements Execution {
     const ships = this.mg.nearbyUnits(
       this.warship.tile()!,
       this.mg.config().warshipTargettingRange(),
-      [UnitType.TransportShip, UnitType.Warship, UnitType.TradeShip],
+      [
+        UnitType.TransportShip,
+        UnitType.Warship,
+        UnitType.TradeShip,
+        UnitType.Submarine,
+      ],
     );
     const potentialTargets: { unit: Unit; distSquared: number }[] = [];
     for (const { unit, distSquared } of ships) {
@@ -111,6 +116,15 @@ export class WarshipExecution implements Execution {
           continue;
         }
       }
+      if (unit.type() === UnitType.Submarine) {
+        const isVisible =
+          (unit.isAttacking ?? false) ||
+          (unit.isDetectedByNavalUnit ?? false) ||
+          this.mg.ticks() - (unit.lastVisibleTick ?? -Infinity) < 30;
+        if (!isVisible) {
+          continue; // Don't target stealthed submarines
+        }
+      }
       potentialTargets.push({ unit: unit, distSquared });
     }
 
@@ -118,7 +132,19 @@ export class WarshipExecution implements Execution {
       const { unit: unitA, distSquared: distA } = a;
       const { unit: unitB, distSquared: distB } = b;
 
-      // Prioritize Warships
+      // Prioritize Submarines
+      if (
+        unitA.type() === UnitType.Submarine &&
+        unitB.type() !== UnitType.Submarine
+      )
+        return -1;
+      if (
+        unitA.type() !== UnitType.Submarine &&
+        unitB.type() === UnitType.Submarine
+      )
+        return 1;
+
+      // Then Warships
       if (
         unitA.type() === UnitType.Warship &&
         unitB.type() !== UnitType.Warship
