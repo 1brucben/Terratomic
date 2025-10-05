@@ -46,8 +46,37 @@ export class NewsModal extends LitElement {
     return html`
       <o-modal>
         <div class="options-layout">
+          <div class="flex justify-between items-center mb-4">
+            <h1 class="text-2xl font-ocr text-tan">Release Notes</h1>
+            <o-button title="Close" @click=${this.close}></o-button>
+          </div>
           <div class="options-section">
             <div class="news-container">
+              <div class="news-content">
+                <h1>Terratomic v0.1.11: Performance & Peace</h1>
+                <p>
+                  This version brings two major updates: a significant
+                  performance boost for games with many AI players and a new
+                  "Protected Start" option for a more relaxed early game.
+                </p>
+                <h2>Key Features</h2>
+                <ul>
+                  <li>
+                    <strong>AI Performance Boost:</strong> The game's AI has
+                    been significantly optimized to reduce lag and stutter,
+                    especially in large, late-game scenarios with many bots. You
+                    should experience much smoother gameplay.
+                  </li>
+                  <li>
+                    <strong>New! Protected Start:</strong> You can now add a
+                    peace timer (e.g., 5, 10, or 15 minutes) to single-player
+                    and private lobby games. During this time, no attacks are
+                    allowed, giving everyone a chance to build up their economy
+                    and defenses before the action starts. You can find the
+                    option in the game setup menu.
+                  </li>
+                </ul>
+              </div>
               <div class="news-content">
                 <h1>Terratomic v0.1.10 – Release Notes</h1>
                 <p>
@@ -215,8 +244,6 @@ export class NewsModal extends LitElement {
             </div>
           </div>
         </div>
-
-        <o-button title="Close" @click=${this.close} blockDesktop></o-button>
       </o-modal>
     `;
   }
