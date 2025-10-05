@@ -46,8 +46,90 @@ export class NewsModal extends LitElement {
     return html`
       <o-modal>
         <div class="options-layout">
+          <div class="flex justify-between items-center mb-4">
+            <h1 class="text-2xl font-ocr text-tan">Release Notes</h1>
+            <o-button title="Close" @click=${this.close}></o-button>
+          </div>
           <div class="options-section">
             <div class="news-container">
+              <div class="news-content">
+                <h1>Terratomic v0.1.11: Performance & Peace</h1>
+                <p>
+                  This version brings two major updates: a significant
+                  performance boost for games with many AI players and a new
+                  "Protected Start" option for a more relaxed early game.
+                </p>
+                <h2>Key Features</h2>
+                <ul>
+                  <li>
+                    <strong>AI Performance Boost:</strong> The game's AI has
+                    been significantly optimized to reduce lag and stutter,
+                    especially in large, late-game scenarios with many bots. You
+                    should experience much smoother gameplay.
+                  </li>
+                  <li>
+                    <strong>New! Protected Start:</strong> You can now add a
+                    peace timer (e.g., 5, 10, or 15 minutes) to single-player
+                    and private lobby games. During this time, no attacks are
+                    allowed, giving everyone a chance to build up their economy
+                    and defenses before the action starts. You can find the
+                    option in the game setup menu.
+                  </li>
+                </ul>
+              </div>
+              <div class="news-content">
+                <h1>Terratomic v0.1.10 – Release Notes</h1>
+                <p>
+                  We’re back with another quality update focused on UI
+                  improvements, smoother gameplay interactions, and better
+                  translations. This version tackles some long-standing
+                  usability issues and adds helpful touches to make the game
+                  more intuitive.
+                </p>
+                <h2>Gameplay & UI Fixes</h2>
+                <ul>
+                  <li>
+                    <strong>Fixed sticky map dragging:</strong> Dragging the map
+                    will now properly stop when your cursor moves over UI
+                    overlays, resolving the “endless drag” issue.
+                  </li>
+                  <li>
+                    <strong>Improved build panel behavior:</strong> Fixed a race
+                    condition where the build panel would immediately close if
+                    you clicked too quickly after hovering. Navigation between
+                    build options should now feel smooth and reliable.
+                  </li>
+                </ul>
+                <h2>Visual & Interaction Improvements</h2>
+                <ul>
+                  <li>
+                    <strong>Better cursor visibility in build mode:</strong> The
+                    build-mode crosshair cursor has been changed from black to
+                    white, making it far easier to spot against dark
+                    territories.
+                  </li>
+                  <li>
+                    <strong>Build menu hotkeys displayed:</strong> Each
+                    buildable item now shows its configured hotkey directly in
+                    the menu. No more guesswork—faster building at your
+                    fingertips!
+                  </li>
+                </ul>
+                <h2>Translation & Localization</h2>
+                <ul>
+                  <li>
+                    <strong>Corrected Airfield unit translation:</strong> The
+                    Airfield unit now properly displays as “Airfield” instead of
+                    a raw key value.
+                  </li>
+                  <li>
+                    <strong>Consolidated alliance event translations:</strong>
+                    Redundant and inconsistent alliance-related translations
+                    have been streamlined for better clarity and consistency
+                    across the UI.
+                  </li>
+                </ul>
+              </div>
               <div class="news-content">
                 <h1>Release v0.1.9</h1>
                 <p>
@@ -160,8 +242,6 @@ export class NewsModal extends LitElement {
             </div>
           </div>
         </div>
-
-        <o-button title="Close" @click=${this.close} blockDesktop></o-button>
       </o-modal>
     `;
   }
