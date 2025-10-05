@@ -55,7 +55,7 @@ export class FakeHumanExecution implements Execution {
     );
     this.attackRate = 40;
     this.attackTick = this.random.nextInt(0, this.attackRate);
-    this.diplomacyTick = this.random.nextInt(0, 10);
+    this.diplomacyTick = simpleHash(this.nation.playerInfo.id) % 100;
     this.triggerRatio = 70 / 100;
     this.reserveRatio = 50 / 100;
     this.heckleEmoji = ["🤡", "😡"].map((e) => flattenedEmojiTable.indexOf(e));
@@ -233,16 +233,30 @@ export class FakeHumanExecution implements Execution {
   private maybeSendBoatAttack(other: Player) {
     if (this.player === null) throw new Error("not initialized");
     if (this.player.isOnSameTeam(other)) return;
-    const closest = closestTwoTiles(
-      this.mg,
+
+    // Optimization: Use sampling to avoid O(N*M) of closestTwoTiles
+    const ourShores = this.random.sampleArray(
       Array.from(this.player.borderTiles()).filter((t) =>
         this.mg.isOceanShore(t),
       ),
-      Array.from(other.borderTiles()).filter((t) => this.mg.isOceanShore(t)),
+      10, // Sample at most 10 of our shore tiles
     );
+
+    if (!ourShores.length) return;
+
+    const theirShores = this.random.sampleArray(
+      Array.from(other.borderTiles()).filter((t) => this.mg.isOceanShore(t)),
+      10, // Sample at most 10 of their shore tiles
+    );
+
+    if (!theirShores.length) return;
+
+    const closest = closestTwoTiles(this.mg, ourShores, theirShores);
+
     if (closest === null) {
       return;
     }
+
     if (this.isTooCloseToExistingBoat(closest.y)) return;
     const troopsToSend = this.player.troops() / 5;
     this.mg.addExecution(

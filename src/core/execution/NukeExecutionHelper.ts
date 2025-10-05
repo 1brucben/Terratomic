@@ -1,5 +1,4 @@
 import {
-  Cell,
   Game,
   Gold,
   Player,
@@ -10,7 +9,6 @@ import {
 } from "../game/Game";
 import { euclDistFN, manhattanDistFN, TileRef } from "../game/GameMap";
 import { PseudoRandom } from "../PseudoRandom";
-import { calculateBoundingBox } from "../Util";
 import { NukeExecution } from "./NukeExecution";
 import { closestTwoTiles } from "./Util";
 
@@ -49,17 +47,24 @@ export class NukeExecutionHelper {
       UnitType.Hospital,
       UnitType.Academy,
     );
-    const structureTiles = structures.map((u) => u.tile());
-    const randomTiles: (TileRef | null)[] = new Array(10);
-    for (let i = 0; i < randomTiles.length; i++) {
-      randomTiles[i] = this.randTerritoryTile(other);
+
+    if (structures.length === 0) {
+      return;
     }
-    const allTiles = randomTiles.concat(structureTiles);
+
+    const structureTiles = structures.map((u) => u.tile());
+
+    // If there are many candidates, only check a small sample to prevent performance issues.
+    const sampleSize = 20;
+    const tilesToScore =
+      structureTiles.length > sampleSize
+        ? this.random.sampleArray(structureTiles, sampleSize)
+        : structureTiles;
 
     let bestTile: TileRef | null = null;
     let bestValue = -Infinity;
     this.removeOldNukeEvents();
-    outer: for (const tile of new Set(allTiles)) {
+    outer: for (const tile of new Set(tilesToScore)) {
       if (tile === null) continue;
       for (const t of this.mg.bfs(tile, manhattanDistFN(tile, 15))) {
         // Make sure we nuke at least 15 tiles in border
@@ -68,7 +73,7 @@ export class NukeExecutionHelper {
         }
       }
       if (!this.player.canBuild(UnitType.AtomBomb, tile)) continue;
-      const value = this.nukeTileScore(tile, silos, structures);
+      const value = this.nukeTileScore(tile, silos);
       if (value > bestValue) {
         bestTile = tile;
         bestValue = value;
@@ -98,12 +103,21 @@ export class NukeExecutionHelper {
     );
   }
 
-  private nukeTileScore(tile: TileRef, silos: Unit[], targets: Unit[]): number {
+  private nukeTileScore(tile: TileRef, silos: Unit[]): number {
     // Potential damage in a 25-tile radius
-    const dist = euclDistFN(tile, 25, false);
-    let tileValue = targets
-      .filter((unit) => dist(this.mg, unit.tile()))
-      .map((unit) => {
+    const blastRadius = 25;
+    const nearbyTargets = this.mg.nearbyUnits(tile, blastRadius, [
+      UnitType.City,
+      UnitType.DefensePost,
+      UnitType.MissileSilo,
+      UnitType.Port,
+      UnitType.Airfield,
+      UnitType.Hospital,
+      UnitType.Academy,
+    ]);
+
+    let tileValue = nearbyTargets
+      .map(({ unit }) => {
         switch (unit.type()) {
           case UnitType.City:
             return 25_000;
@@ -126,13 +140,13 @@ export class NukeExecutionHelper {
       .reduce((prev, cur) => prev + cur, 0);
 
     // Avoid areas defended by SAM launchers
-    const dist50 = euclDistFN(tile, 50, false);
-    tileValue -=
-      50_000 *
-      targets.filter(
-        (unit) =>
-          unit.type() === UnitType.SAMLauncher && dist50(this.mg, unit.tile()),
-      ).length;
+    const samCheckRadius = 50;
+    const nearbySAMs = this.mg.nearbyUnits(
+      tile,
+      samCheckRadius,
+      UnitType.SAMLauncher,
+    );
+    tileValue -= 50_000 * nearbySAMs.length;
 
     // Prefer tiles that are closer to a silo
     const siloTiles = silos.map((u) => u.tile());
@@ -144,6 +158,7 @@ export class NukeExecutionHelper {
     tileValue -= distanceToClosestSilo * 30;
 
     // Don't target near recent targets
+    const dist = euclDistFN(tile, 25, false);
     tileValue -= this.lastNukeSent
       .filter(([_tick, tile]) => dist(this.mg, tile))
       .map((_) => 1_000_000)
@@ -154,22 +169,5 @@ export class NukeExecutionHelper {
 
   private cost(type: UnitType): Gold {
     return this.mg.unitInfo(type).cost(this.player);
-  }
-
-  private randTerritoryTile(p: Player): TileRef | null {
-    const boundingBox = calculateBoundingBox(this.mg, p.borderTiles());
-    for (let i = 0; i < 100; i++) {
-      const randX = this.random.nextInt(boundingBox.min.x, boundingBox.max.x);
-      const randY = this.random.nextInt(boundingBox.min.y, boundingBox.max.y);
-      if (!this.mg.isOnMap(new Cell(randX, randY))) {
-        // Sanity check should never happen
-        continue;
-      }
-      const randTile = this.mg.ref(randX, randY);
-      if (this.mg.owner(randTile) === p) {
-        return randTile;
-      }
-    }
-    return null;
   }
 }
