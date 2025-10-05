@@ -562,6 +562,10 @@ export class GameView implements GameMap {
     if (this.lastUpdate === null) return 0;
     return this.lastUpdate.tick;
   }
+
+  peaceTimerEndsAtTick(): Tick | null {
+    return this.lastUpdate?.peaceTimerEndsAtTick ?? null;
+  }
   inSpawnPhase(): boolean {
     return this.ticks() <= this._config.numSpawnPhaseTurns();
   }

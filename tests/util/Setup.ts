@@ -12,7 +12,7 @@ import {
 import { createGame } from "../../src/core/game/GameImpl";
 import { genTerrainFromBin } from "../../src/core/game/TerrainMapLoader";
 import { UserSettings } from "../../src/core/game/UserSettings";
-import { GameConfig } from "../../src/core/Schemas";
+import { GameConfig, PeaceTimerDuration } from "../../src/core/Schemas";
 import { generateMap } from "../../src/scripts/TerrainMapGenerator";
 import { TestConfig } from "./TestConfig";
 import { TestServerConfig } from "./TestServerConfig";
@@ -46,6 +46,7 @@ export async function setup(
     infiniteGold: false,
     infiniteTroops: false,
     instantBuild: false,
+    peaceTimerDurationMinutes: PeaceTimerDuration.None,
     ..._gameConfig,
   };
   const config = new TestConfig(

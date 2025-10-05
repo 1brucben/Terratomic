@@ -90,6 +90,13 @@ export class AirfieldExecution implements Execution {
 
     if (!mg.config().bombersEnabled()) return;
 
+    const isPeaceTimerActive =
+      mg.peaceTimerEndsAtTick !== null && mg.ticks() < mg.peaceTimerEndsAtTick;
+
+    if (isPeaceTimerActive) {
+      return; // Block bomber launch
+    }
+
     this.spawnTicker++;
     if (this.spawnTicker < mg.config().bomberSpawnInterval()) return;
     this.spawnTicker = 0;

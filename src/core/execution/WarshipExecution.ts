@@ -148,6 +148,15 @@ export class WarshipExecution implements Execution {
   }
 
   private shootTarget() {
+    const isPeaceTimerActive =
+      this.mg.peaceTimerEndsAtTick !== null &&
+      this.mg.ticks() < this.mg.peaceTimerEndsAtTick;
+
+    if (isPeaceTimerActive) {
+      this.warship.setTargetUnit(undefined);
+      return; // Block attack
+    }
+
     const shellAttackRate = this.mg.config().warshipShellAttackRate();
     if (this.mg.ticks() - this.lastShellAttack > shellAttackRate) {
       this.lastShellAttack = this.mg.ticks();
@@ -169,6 +178,16 @@ export class WarshipExecution implements Execution {
   }
 
   private huntDownTradeShip() {
+    const isPeaceTimerActive =
+      this.mg.peaceTimerEndsAtTick !== null &&
+      this.mg.ticks() < this.mg.peaceTimerEndsAtTick;
+
+    if (isPeaceTimerActive) {
+      this.warship.setTargetUnit(undefined);
+      this.patrol(); // Continue patrolling
+      return; // Block capture
+    }
+
     for (let i = 0; i < 2; i++) {
       // target is trade ship so capture it.
       const result = this.pathfinder.nextTile(

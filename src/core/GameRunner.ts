@@ -210,6 +210,7 @@ export class GameRunner {
       updates: updates,
       playerNameViewData: this.playerViewData,
       alliances: alliances,
+      peaceTimerEndsAtTick: this.game.peaceTimerEndsAtTick,
     });
     this.isExecuting = false;
   }

@@ -253,7 +253,6 @@ label.option-card:hover {
   color: #fff;
   border: 1px solid rgba(255, 255, 255, 0.2);
 }
-
 #bots-count,
 #private-lobby-bots-count {
   width: 80%;
@@ -626,4 +625,17 @@ label.option-card:hover {
   font-size: 14px;
   color: #fff;
   border: 1px solid rgba(255, 255, 255, 0.2);
+}
+.peace-timer-select {
+  background-color: #1e1e1ee8;
+  color: #cccccc;
+  border: 1px solid #444;
+  border-radius: 4px;
+  padding: 2px 4px;
+  font-size: 12px;
+  margin-bottom: 8px;
+}
+.peace-timer-select option {
+  background-color: #1e1e1ee8;
+  color: #cccccc;
 }

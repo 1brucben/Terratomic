@@ -4,6 +4,7 @@ import {
   MessageType,
   Player,
   PlayerID,
+  PlayerType,
   TerraNullius,
   Unit,
   UnitType,
@@ -46,6 +47,29 @@ export class TransportShipExecution implements Execution {
   }
 
   init(mg: Game, ticks: number) {
+    this.target = this.targetID ? mg.player(this.targetID) : mg.terraNullius();
+    const isPeaceTimerActive =
+      mg.peaceTimerEndsAtTick !== null && mg.ticks() < mg.peaceTimerEndsAtTick;
+
+    if (isPeaceTimerActive && this.target.isPlayer()) {
+      const attackerType = this.attacker.type();
+      const defenderType = this.target.type();
+
+      if (
+        (attackerType === PlayerType.Human ||
+          attackerType === PlayerType.FakeHuman) &&
+        (defenderType === PlayerType.Human ||
+          defenderType === PlayerType.FakeHuman)
+      ) {
+        mg.displayMessage(
+          `Attack blocked: Peace timer is active.`,
+          MessageType.PEACE_TIMER_BLOCKED,
+          this.attacker.id(),
+        );
+        this.active = false;
+        return;
+      }
+    }
     if (this.targetID !== null && !mg.hasPlayer(this.targetID)) {
       console.warn(`TransportShipExecution: target ${this.targetID} not found`);
       this.active = false;

@@ -14,11 +14,12 @@ import {
 import { TileRef, TileUpdate } from "./GameMap";
 
 export interface GameUpdateViewData {
-  tick: number;
   updates: GameUpdates;
   packedTileUpdates: BigUint64Array;
-  playerNameViewData: Record<number, NameViewData>;
-  alliances?: AllianceViewData[];
+  playerNameViewData: Record<PlayerID, NameViewData>;
+  peaceTimerEndsAtTick: Tick | null;
+  alliances: AllianceViewData[];
+  tick: Tick;
 }
 
 export interface ErrorUpdate {

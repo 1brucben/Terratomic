@@ -152,7 +152,10 @@
     "player": "host_modal.player",
     "players": "host_modal.players",
     "waiting": "host_modal.waiting",
-    "start": "host_modal.start"
+    "start": "host_modal.start",
+    "peace_timer": "host_modal.peace_timer",
+    "peace_timer_none": "host_modal.peace_timer_none",
+    "peace_timer_minutes": "host_modal.peace_timer_minutes"
   },
   "game_starting_modal": {
     "title": "game_starting_modal.title",

@@ -10,7 +10,11 @@ import {
   Trios,
 } from "../core/game/Game";
 import { PseudoRandom } from "../core/PseudoRandom";
-import { GameConfig, TeamCountConfig } from "../core/Schemas";
+import {
+  GameConfig,
+  PeaceTimerDuration,
+  TeamCountConfig,
+} from "../core/Schemas";
 import { logger } from "./Logger";
 
 const log = logger.child({});
@@ -83,6 +87,7 @@ export class MapPlaylist {
       gameMode: mode,
       playerTeams,
       bots: 400,
+      peaceTimerDurationMinutes: PeaceTimerDuration.None,
     } satisfies GameConfig;
   }
 

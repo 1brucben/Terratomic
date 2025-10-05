@@ -212,6 +212,27 @@ export class BotBehavior {
 
   sendAttack(target: Player | TerraNullius) {
     if (target.isPlayer() && this.player.isOnSameTeam(target)) return;
+
+    if (target.isPlayer()) {
+      const isPeaceTimerActive =
+        this.game.peaceTimerEndsAtTick !== null &&
+        this.game.ticks() < this.game.peaceTimerEndsAtTick;
+
+      const attackerType = this.player.type();
+      const defenderType = target.type();
+
+      if (
+        isPeaceTimerActive &&
+        (attackerType === PlayerType.Human ||
+          attackerType === PlayerType.FakeHuman) &&
+        (defenderType === PlayerType.Human ||
+          defenderType === PlayerType.FakeHuman)
+      ) {
+        // Do not send attack if peace timer is active and both are protected types
+        return;
+      }
+    }
+
     const maxPop = this.game.config().maxPopulation(this.player);
     const maxTroops = maxPop * this.player.targetTroopRatio();
     const targetTroops = maxTroops * this.reserveRatio;

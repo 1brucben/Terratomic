@@ -14,7 +14,12 @@ import {
   mapCategories,
 } from "../core/game/Game";
 import { UserSettings } from "../core/game/UserSettings";
-import { GameConfig, GameInfo, TeamCountConfig } from "../core/Schemas";
+import {
+  GameConfig,
+  GameInfo,
+  PeaceTimerDuration,
+  TeamCountConfig,
+} from "../core/Schemas";
 import { generateID } from "../core/Util";
 import "./components/baseComponents/Modal";
 import "./components/Difficulties";
@@ -44,6 +49,8 @@ export class HostLobbyModal extends LitElement {
   @state() private useRandomMap: boolean = false;
   @state() private disabledUnits: UnitType[] = [];
   @state() private lobbyIdVisible: boolean = true;
+  @state() private selectedPeaceTimerDuration: PeaceTimerDuration =
+    PeaceTimerDuration.None;
 
   private playersInterval: NodeJS.Timeout | null = null;
   // Add a new timer for debouncing bot changes
@@ -371,6 +378,33 @@ export class HostLobbyModal extends LitElement {
                   </div>
                 </label>
 
+                <label for="peace-timer" class="option-card">
+                  <div class="option-card-title">
+                    ${translateText("host_modal.peace_timer")}
+                  </div>
+                  <select
+                    id="peace-timer"
+                    class="peace-timer-select"
+                    @change=${this.handlePeaceTimerChange}
+                    .value="${String(this.selectedPeaceTimerDuration)}"
+                  >
+                    ${Object.values(PeaceTimerDuration)
+                      .filter((value) => typeof value === "number")
+                      .map(
+                        (value) => html`
+                          <option value="${value}">
+                            ${value === PeaceTimerDuration.None
+                              ? translateText("host_modal.peace_timer_none")
+                              : translateText(
+                                  "host_modal.peace_timer_minutes",
+                                  { minutes: String(value) },
+                                )}
+                          </option>
+                        `,
+                      )}
+                  </select>
+                </label>
+
                 <hr style="width: 100%; border-top: 1px solid #444; margin: 16px 0;" />
 
                 <!-- Individual disables for structures/weapons -->
@@ -527,6 +561,13 @@ export class HostLobbyModal extends LitElement {
     this.putGameConfig();
   }
 
+  private handlePeaceTimerChange(e: Event) {
+    this.selectedPeaceTimerDuration = parseInt(
+      (e.target as HTMLSelectElement).value,
+    );
+    this.putGameConfig();
+  }
+
   private async handleDisableNPCsChange(e: Event) {
     this.disableNPCs = Boolean((e.target as HTMLInputElement).checked);
     console.log(`updating disable npcs to ${this.disableNPCs}`);
@@ -563,6 +604,7 @@ export class HostLobbyModal extends LitElement {
           gameMode: this.gameMode,
           disabledUnits: this.disabledUnits,
           playerTeams: this.teamCount,
+          peaceTimerDurationMinutes: this.selectedPeaceTimerDuration,
         } satisfies Partial<GameConfig>),
       },
     );

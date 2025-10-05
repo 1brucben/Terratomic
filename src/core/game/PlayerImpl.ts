@@ -955,6 +955,20 @@ export class PlayerImpl implements Player {
     targetTile: TileRef,
     validTiles: TileRef[] | null = null,
   ): TileRef | false {
+    const isPeaceTimerActive =
+      this.mg.peaceTimerEndsAtTick !== null &&
+      this.mg.ticks() < this.mg.peaceTimerEndsAtTick;
+
+    if (isPeaceTimerActive) {
+      if (
+        unitType === UnitType.AtomBomb ||
+        unitType === UnitType.HydrogenBomb ||
+        unitType === UnitType.MIRV
+      ) {
+        return false; // Cannot build nukes during peace timer
+      }
+    }
+
     if (this.mg.config().isUnitDisabled(unitType)) {
       return false;
     }
@@ -1215,6 +1229,25 @@ export class PlayerImpl implements Player {
   }
 
   public canAttack(tile: TileRef): boolean {
+    const isPeaceTimerActive =
+      this.mg.peaceTimerEndsAtTick !== null &&
+      this.mg.ticks() < this.mg.peaceTimerEndsAtTick;
+    const other = this.mg.owner(tile);
+
+    if (isPeaceTimerActive) {
+      const attackerType = this.type();
+      const defenderType = other.isPlayer() ? other.type() : null;
+
+      if (
+        (attackerType === PlayerType.Human ||
+          attackerType === PlayerType.FakeHuman) &&
+        (defenderType === PlayerType.Human ||
+          defenderType === PlayerType.FakeHuman)
+      ) {
+        return false; // Block attack if peace timer is active and both are protected types
+      }
+    }
+
     if (
       this.mg.hasOwner(tile) &&
       this.mg.config().numSpawnPhaseTurns() +
@@ -1227,7 +1260,7 @@ export class PlayerImpl implements Player {
     if (this.mg.owner(tile) === this) {
       return false;
     }
-    const other = this.mg.owner(tile);
+
     if (other.isPlayer()) {
       if (this.isFriendly(other)) {
         return false;

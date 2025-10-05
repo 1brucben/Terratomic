@@ -8,6 +8,7 @@ import {
   GameMode,
   GameType,
   Gold,
+  MessageType,
   Player,
   PlayerInfo,
   PlayerType,
@@ -22,7 +23,12 @@ import {
 import { TileRef } from "../game/GameMap";
 import { PlayerView } from "../game/GameView";
 import { UserSettings } from "../game/UserSettings";
-import { GameConfig, GameID, TeamCountConfig } from "../Schemas";
+import {
+  GameConfig,
+  GameID,
+  PeaceTimerDuration,
+  TeamCountConfig,
+} from "../Schemas";
 import { assertNever, simpleHash, within } from "../Util";
 import { Config, GameEnv, NukeMagnitude, ServerConfig, Theme } from "./Config";
 import { PastelTheme } from "./PastelTheme";
@@ -214,6 +220,12 @@ export class DefaultConfig implements Config {
   }
   spawnImmunityDuration(): Tick {
     return 5 * 10;
+  }
+
+  peaceTimerDuration(): number {
+    return (
+      this._gameConfig.peaceTimerDurationMinutes ?? PeaceTimerDuration.None
+    );
   }
 
   gameConfig(): GameConfig {
@@ -654,6 +666,36 @@ export class DefaultConfig implements Config {
     defenderTroopLoss: number;
     tilesPerTickUsed: number;
   } {
+    // Check if peace timer is active
+    const isPeaceTimerActive =
+      gm.peaceTimerEndsAtTick !== null && gm.ticks() < gm.peaceTimerEndsAtTick;
+
+    if (isPeaceTimerActive) {
+      const attackerType = attacker.type();
+      const defenderType = defender.isPlayer() ? defender.type() : null;
+
+      // If both attacker and defender are Human or FakeHuman, block the attack
+      if (
+        (attackerType === PlayerType.Human ||
+          attackerType === PlayerType.FakeHuman) &&
+        (defenderType === PlayerType.Human ||
+          defenderType === PlayerType.FakeHuman)
+      ) {
+        // Display a message to the players
+        gm.displayMessage(
+          `Attack blocked: Peace timer is active.`,
+          MessageType.PEACE_TIMER_BLOCKED,
+          attacker.id(),
+        );
+        // Return zero losses and zero tiles conquered to effectively block the attack
+        return {
+          attackerTroopLoss: 0,
+          defenderTroopLoss: 0,
+          tilesPerTickUsed: 0,
+        };
+      }
+    }
+
     const type = gm.terrainType(tileToConquer);
     const mod = TERRAIN_EFFECTS[type];
     if (!mod) {

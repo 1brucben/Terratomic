@@ -64,6 +64,9 @@ export class OptionsMenu extends LitElement implements Layer {
   private hasWinner = false;
 
   @state()
+  private _peaceTimerRemaining: string | null = null;
+
+  @state()
   private alternateView: boolean = false;
 
   private onTerrainButtonClick() {
@@ -151,6 +154,21 @@ export class OptionsMenu extends LitElement implements Layer {
     } else if (!this.hasWinner && this.game.ticks() % 10 === 0) {
       this.timer++;
     }
+
+    const peaceTimerEndsAtTick = this.game.peaceTimerEndsAtTick();
+    if (
+      peaceTimerEndsAtTick !== null &&
+      this.game.ticks() < peaceTimerEndsAtTick
+    ) {
+      const remainingTicks = peaceTimerEndsAtTick - this.game.ticks();
+      const seconds = Math.ceil(remainingTicks / 10);
+      const minutes = Math.floor(seconds / 60);
+      const remainingSeconds = seconds % 60;
+      this._peaceTimerRemaining = `Peace Treaty: ${minutes}m ${remainingSeconds}s`;
+    } else {
+      this._peaceTimerRemaining = null;
+    }
+
     this.isVisible = true;
     this.requestUpdate();
   }
@@ -192,14 +210,28 @@ export class OptionsMenu extends LitElement implements Layer {
               title: "Settings",
               children: "⚙️",
             })}
-          </div>
+          </div>     
+          ${
+            this._peaceTimerRemaining !== null
+              ? html`
+                  <div
+                    class="flex items-center justify-center mt-1 bg-opacity-50 bg-gray-700 text-opacity-90 text-white rounded p-1"
+                  >
+                    <span
+                      class="font-bold text-sm lg:text-base text-white whitespace-normal"
+                      >${this._peaceTimerRemaining}</span
+                    >
+                  </div>
+                `
+              : ""
+          }
         </div>
+      </div>
 
         <div
-          class="military-panel options-menu flex flex-col justify-around gap-y-3 mt-2 p-1 lg:p-2 ${!this
-            .showSettings
-            ? "hidden"
-            : ""}"
+          class="military-panel options-menu flex flex-col justify-around gap-y-3 mt-2 p-1 lg:p-2 ${
+            !this.showSettings ? "hidden" : ""
+          }"
           style="box-shadow: inset 0 0 10px rgba(0, 0, 0, 0.5), 0 2px 6px rgba(0, 0, 0, 0.4);"
         >
           ${button({

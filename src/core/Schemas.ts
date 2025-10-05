@@ -75,6 +75,16 @@ export type MarkDisconnectedIntent = z.infer<
 >;
 
 export type Turn = z.infer<typeof TurnSchema>;
+export enum PeaceTimerDuration {
+  None = 0,
+  FiveMinutes = 5,
+  TenMinutes = 10,
+  FifteenMinutes = 15,
+  TwentyMinutes = 20,
+  TwentyFiveMinutes = 25,
+  ThirtyMinutes = 30,
+}
+
 export type GameConfig = z.infer<typeof GameConfigSchema>;
 
 export type ClientMessage =
@@ -156,6 +166,9 @@ export const GameConfigSchema = z.object({
   maxPlayers: z.number().optional(),
   disabledUnits: z.enum(UnitType).array().optional(),
   playerTeams: TeamCountConfigSchema.optional(),
+  peaceTimerDurationMinutes: z
+    .nativeEnum(PeaceTimerDuration)
+    .default(PeaceTimerDuration.None),
 });
 
 export const TeamSchema = z.string();
