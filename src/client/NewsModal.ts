@@ -53,6 +53,129 @@ export class NewsModal extends LitElement {
           <div class="options-section">
             <div class="news-container">
               <div class="news-content">
+                <h1>Terratomic v0.2.0: The Research & Development Update</h1>
+                <p>
+                  Version 0.2.0 introduces a complete overhaul of the research
+                  system, organized into four distinct categories:
+                  <strong>Land, Air, Water, and Economy</strong>. This update
+                  adds deep strategic layers to the game, allowing players to
+                  specialize their nation’s strengths and unlock powerful new
+                  abilities.
+                </p>
+
+                <h2>⛰️ Land Upgrades</h2>
+                <ul>
+                  <li>
+                    <strong>Roads:</strong> Unlocks your logistics network.
+                    Roads are built automatically, connecting your cities and
+                    strategic buildings. This enables
+                    <strong>internal trade</strong> via Cargo Trucks that
+                    generate passive income, and also makes your infrastructure
+                    a strategic target, as invading armies will
+                    <strong>prioritize attacking along roads</strong>.
+                  </li>
+                  <li>
+                    <strong>International Trade:</strong> Allows your road
+                    network to connect with an ally’s, establishing lucrative
+                    international trade routes and generating shared profits via
+                    Cargo Trucks.
+                  </li>
+                  <li>
+                    <strong>Scorched Earth:</strong> A defensive last resort.
+                    This action allows you to instantly destroy your entire road
+                    network to deny its use to an invading enemy.
+                  </li>
+                </ul>
+
+                <h2>✈️ Air Upgrades</h2>
+                <ul>
+                  <li>
+                    <strong>Paratroopers:</strong> Launch airborne infantry
+                    attacks from your Airfields. Paratroopers can be deployed to
+                    any land tile on the map, allowing you to bypass enemy
+                    fronts and strike at their heartland.
+                  </li>
+                  <li>
+                    <strong>City Anti-Air:</strong> Provides your Cities with a
+                    built-in, light SAM defense. Each upgraded city can
+                    automatically shoot down one incoming nuke, bomber or
+                    paratrooper before its defenses go on a 30-second cooldown.
+                  </li>
+                  <li>
+                    <strong>Fighter Anti-Ship:</strong> Allows your Fighter Jets
+                    to engage and destroy enemy naval units, including Warships,
+                    Transports, and detected Submarines.
+                  </li>
+                </ul>
+
+                <h2>🌊 Water Upgrades</h2>
+                <ul>
+                  <li>
+                    <strong>Submarine Research:</strong> Unlocks the
+                    <strong>Submarine</strong>, a new stealth unit. It is
+                    invisible by default and is designed to hunt and destroy all
+                    other naval units.
+                  </li>
+                  <li>
+                    <strong>Warship Anti-Air:</strong> Equips your Warships with
+                    their own anti-air missile systems, allowing them to
+                    automatically defend themselves against nearby enemy
+                    aircraft. (Note: This system does not intercept nuclear
+                    missiles).
+                  </li>
+                  <li>
+                    <strong>Nuclear Submarine:</strong> Allows your entire
+                    submarine fleet to act as mobile launch platforms for Atomic
+                    Bombs, adding a new layer of nuclear deterrence to your
+                    naval strategy.
+                  </li>
+                </ul>
+
+                <h2>💰 Economy Upgrades</h2>
+                <ul>
+                  <li>
+                    <strong>Urban Planning:</strong> Increases your nation’s
+                    maximum population capacity by 25%.
+                  </li>
+                  <li>
+                    <strong>Structure Insurance:</strong> Provides a 33% gold
+                    refund for any of your buildings that are destroyed by the
+                    enemy or lost during conquest.
+                  </li>
+                  <li>
+                    <strong>Automation:</strong> Doubles the gold income from
+                    your road-based trade network (Cargo Trucks), but at the
+                    cost of a 20% reduction in your troop regeneration rate.
+                  </li>
+                </ul>
+
+                <h2>⚖️ General Balance Changes</h2>
+                <ul>
+                  <li>
+                    <strong>Cluster Surrendering Removed:</strong> The mechanic
+                    where fully encircled enemy territories would automatically
+                    be captured has been removed to better balance with the new
+                    Paratrooper feature, which allows for non-contiguous
+                    attacks.
+                  </li>
+                </ul>
+
+                <h2>🤖 AI & UI Improvements</h2>
+                <ul>
+                  <li>
+                    <strong>Upgraded AI:</strong> The nation bot AI has been
+                    significantly updated to intelligently use all the new
+                    economic and military features, making them more formidable
+                    opponents.
+                  </li>
+                  <li>
+                    <strong>Redesigned Research Panel:</strong> The UI for the
+                    Research panel has been completely redesigned with new
+                    categories to accommodate the new upgrades.
+                  </li>
+                </ul>
+              </div>
+              <div class="news-content">
                 <h1>Terratomic v0.1.11: Performance & Peace</h1>
                 <p>
                   This version brings two major updates: a significant
@@ -166,6 +289,7 @@ export class NewsModal extends LitElement {
                 </ul>
               </div>
               <div class="news-content">
+                <h1>Release v0.1.8</h1>
                 <p>
                   This version (v0.1.8) introduces a complete visual overhaul of
                   the game and a more intuitive building process, all inspired
@@ -216,6 +340,7 @@ export class NewsModal extends LitElement {
                 </p>
               </div>
               <div class="news-content">
+                <h1>Release v0.1.7</h1>
                 <p>
                   This test version introduces a new mechanic:
                   <strong>Investment</strong>.
