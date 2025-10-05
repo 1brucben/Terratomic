@@ -110,6 +110,9 @@ export class ControlPanel2 extends LitElement implements Layer {
   private _isAutoBombingEnabled: boolean = false;
 
   @state()
+  private _lastSelectedBomberTarget: PlayerID | null = null;
+
+  @state()
   private _multibuildEnabled: boolean = false;
 
   private unitIconMap: { [key: string]: string } = {
@@ -263,7 +266,7 @@ export class ControlPanel2 extends LitElement implements Layer {
     const currentAirfieldCount = player.units(UnitType.Airfield).length;
     this._hasAirfields = currentAirfieldCount > 0;
 
-    if (this.activeTab === "Bombers") {
+    if (this.activeTab === "Bombers" && this.game.ticks() % 10 === 0) {
       const currentReachablePlayersHash = this._getPlayersInAirfieldRange()
         .map((p) => p.id())
         .sort()
@@ -363,6 +366,7 @@ export class ControlPanel2 extends LitElement implements Layer {
         if (
           owner &&
           owner.isPlayer() &&
+          owner.id() !== myPlayer.id() && // Prevent self-targeting
           !myPlayer.isFriendly(owner) &&
           owner.type() !== PlayerType.Bot
         ) {
@@ -426,12 +430,24 @@ export class ControlPanel2 extends LitElement implements Layer {
     if (playersToDisplay.length === 0) {
       playerSelect.innerHTML = `<option value="" disabled selected>No building in bomber reach.</option>`;
       playerSelect.disabled = true;
+      this._lastSelectedBomberTarget = null; // Clear selection if no targets are available
     } else {
       const optsPlayers = playersToDisplay
         .map((p) => `<option value="${p.id()}">${p.name()}</option>`)
         .join("");
       playerSelect.innerHTML = optsPlayers;
       playerSelect.disabled = false;
+
+      const stillAValidTarget = playersToDisplay.some(
+        (p) => p.id() === this._lastSelectedBomberTarget,
+      );
+
+      if (stillAValidTarget) {
+        playerSelect.value = this._lastSelectedBomberTarget as string;
+      } else {
+        // If the last target is no longer valid, default to the first in the list and update the state
+        this._lastSelectedBomberTarget = playerSelect.value;
+      }
     }
   }
 
@@ -471,11 +487,15 @@ export class ControlPanel2 extends LitElement implements Layer {
     this.sendBomberIntent(null, null);
   }
 
-  _stopAutoBombing() {
+  async _stopAutoBombing() {
     this._isAutoBombingEnabled = false;
     this.eventBus.emit(new SendSetAutoBombingEvent(false));
     // Clear any manual target when auto-bombing is disabled
     this.sendBomberIntent(null, null);
+
+    await this.updateComplete; // Wait for the UI to update
+
+    this._refreshBomberPlayerLists(); // NOW refresh the list
   }
 
   handleStructureChange(e: Event) {
@@ -490,6 +510,11 @@ export class ControlPanel2 extends LitElement implements Layer {
         }
       });
     }
+  }
+
+  private _handleBomberTargetChange(e: Event) {
+    const select = e.target as HTMLSelectElement;
+    this._lastSelectedBomberTarget = select.value;
   }
 
   private _handleMultibuildToggle(event: Event) {
@@ -678,6 +703,7 @@ export class ControlPanel2 extends LitElement implements Layer {
                               <select
                                 id="bomber-player-select"
                                 class="ml-1 p-1 bg-gray-700 text-tan border border-gray-500 rounded-sm w-full truncate"
+                                @change=${this._handleBomberTargetChange}
                               ></select>
                             </label>
 
