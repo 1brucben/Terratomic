@@ -3,8 +3,9 @@ import rateLimit from "express-rate-limit";
 import http from "http";
 import ipAnonymize from "ip-anonymize";
 import path from "path";
+import UltimateWS from "ultimate-ws";
 import { fileURLToPath } from "url";
-import { WebSocket, WebSocketServer } from "ws";
+import type { WebSocket } from "ws";
 import { z } from "zod";
 import { GameEnv } from "../core/configuration/Config";
 import { getServerConfigFromServer } from "../core/configuration/ConfigLoader";
@@ -23,6 +24,7 @@ import { gatekeeper, LimiterType } from "./Gatekeeper";
 import { getUserMe, verifyClientToken } from "./jwt";
 import { logger } from "./Logger";
 import { initWorkerMetrics } from "./WorkerMetrics";
+const { WebSocketServer } = UltimateWS;
 
 const config = getServerConfigFromServer();
 
@@ -40,7 +42,9 @@ export function startWorker() {
   app.set("trust proxy", true);
 
   const server = http.createServer(app);
-  const wss = new WebSocketServer({ server });
+  const WS_PORT = config.workerPortByIndex(workerId) + 1000;
+  const wss = new WebSocketServer({ port: WS_PORT, path: `/w${workerId}` });
+  console.log(`ultimate-ws on ws://localhost:${WS_PORT}/w${workerId}`);
 
   const gm = new GameManager(config, log);
 

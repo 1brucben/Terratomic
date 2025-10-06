@@ -172,56 +172,60 @@ export default async (env, argv) => {
               changeOrigin: true,
               logLevel: "debug",
             },
-            // Worker WebSocket proxies - using direct paths without /socket suffix
+
+            // ===== Worker 0 =====
+            // WebSocket handshake for ws://.../w0
             {
-              context: ["/w0"],
-              target: "ws://localhost:3001",
+              context: (pathname) => pathname === "/w0",
+              target: "ws://localhost:4001",
               ws: true,
-              secure: false,
               changeOrigin: true,
               logLevel: "debug",
             },
+            // HTTP endpoints under /w0/api/*
             {
-              context: ["/w1"],
-              target: "ws://localhost:3002",
-              ws: true,
-              secure: false,
-              changeOrigin: true,
-              logLevel: "debug",
-            },
-            {
-              context: ["/w2"],
-              target: "ws://localhost:3003",
-              ws: true,
-              secure: false,
-              changeOrigin: true,
-              logLevel: "debug",
-            },
-            // Worker proxies for HTTP requests
-            {
-              context: ["/w0"],
+              context: ["/w0/api"],
               target: "http://localhost:3001",
-              pathRewrite: { "^/w0": "" },
-              secure: false,
+              ws: false,
+              changeOrigin: true,
+              pathRewrite: { "^/w0": "" }, // /w0/api/... -> /api/...
+              logLevel: "debug",
+            },
+
+            // ===== Worker 1 =====
+            {
+              context: (pathname) => pathname === "/w1",
+              target: "ws://localhost:4002",
+              ws: true,
               changeOrigin: true,
               logLevel: "debug",
             },
             {
-              context: ["/w1"],
+              context: ["/w1/api"],
               target: "http://localhost:3002",
+              ws: false,
+              changeOrigin: true,
               pathRewrite: { "^/w1": "" },
-              secure: false,
+              logLevel: "debug",
+            },
+
+            // ===== (Optional) Worker 2 =====
+            {
+              context: (pathname) => pathname === "/w2",
+              target: "ws://localhost:4003",
+              ws: true,
               changeOrigin: true,
               logLevel: "debug",
             },
             {
-              context: ["/w2"],
+              context: ["/w2/api"],
               target: "http://localhost:3003",
-              pathRewrite: { "^/w2": "" },
-              secure: false,
+              ws: false,
               changeOrigin: true,
+              pathRewrite: { "^/w2": "" },
               logLevel: "debug",
             },
+
             // Original API endpoints
             {
               context: [
@@ -239,6 +243,7 @@ export default async (env, argv) => {
               target: "http://localhost:3000",
               secure: false,
               changeOrigin: true,
+              logLevel: "debug",
             },
           ],
         },
