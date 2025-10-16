@@ -172,6 +172,15 @@ export class SubmarineExecution implements Execution {
   }
 
   private shootTarget() {
+    const isPeaceTimerActive =
+      this.mg.peaceTimerEndsAtTick !== null &&
+      this.mg.ticks() < this.mg.peaceTimerEndsAtTick;
+
+    if (isPeaceTimerActive) {
+      this.submarine.setTargetUnit(undefined);
+      return; // Block attack
+    }
+
     const shellAttackRate = this.mg.config().warshipShellAttackRate();
     if (this.mg.ticks() - this.lastShellAttack > shellAttackRate) {
       this.lastShellAttack = this.mg.ticks();
