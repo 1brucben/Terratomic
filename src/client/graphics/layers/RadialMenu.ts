@@ -10,6 +10,7 @@ import { EventBus } from "../../../core/EventBus";
 import {
   Cell,
   PlayerActions,
+  PlayerType,
   TerraNullius,
   UnitType,
   UpgradeType,
@@ -427,6 +428,25 @@ export class RadialMenu implements Layer {
     if (owner === player) {
       return false;
     }
+
+    const peaceTimerEndsAtTick = this.g.peaceTimerEndsAtTick();
+    const isPeaceTimerActive =
+      peaceTimerEndsAtTick !== null && this.g.ticks() < peaceTimerEndsAtTick;
+
+    if (isPeaceTimerActive && owner.isPlayer()) {
+      const attackerType = player.type();
+      const defenderType = (owner as PlayerView).type();
+
+      if (
+        (attackerType === PlayerType.Human ||
+          attackerType === PlayerType.FakeHuman) &&
+        (defenderType === PlayerType.Human ||
+          defenderType === PlayerType.FakeHuman)
+      ) {
+        return false;
+      }
+    }
+
     if (
       owner.isPlayer &&
       owner.isPlayer() &&

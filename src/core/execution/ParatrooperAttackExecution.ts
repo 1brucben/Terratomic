@@ -3,6 +3,7 @@ import {
   Game,
   MessageType,
   Player,
+  PlayerType,
   UnitType,
   UpgradeType,
 } from "../game/Game";
@@ -46,6 +47,27 @@ export class ParatrooperAttackExecution implements Execution {
 
     if (!this.attacker.hasUpgrade(UpgradeType.AirUpgrade1)) {
       return;
+    }
+
+    const target = this.targetPlayerID
+      ? game.player(this.targetPlayerID)
+      : game.terraNullius();
+    const isPeaceTimerActive =
+      game.peaceTimerEndsAtTick !== null &&
+      game.ticks() < game.peaceTimerEndsAtTick;
+
+    if (isPeaceTimerActive && target.isPlayer()) {
+      const attackerType = this.attacker.type();
+      const defenderType = target.type();
+
+      if (
+        (attackerType === PlayerType.Human ||
+          attackerType === PlayerType.FakeHuman) &&
+        (defenderType === PlayerType.Human ||
+          defenderType === PlayerType.FakeHuman)
+      ) {
+        return;
+      }
     }
 
     const airfields = this.attacker.units(UnitType.Airfield);
