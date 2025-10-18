@@ -290,95 +290,133 @@ export class RoadManager {
     const maxRoadDistSquared = 100 * 100;
 
     this.roadUpdateCredit += this.game.config().roadUpdatesPerTick();
-    const updatesToProcess = Math.floor(this.roadUpdateCredit);
-    this.roadUpdateCredit -= updatesToProcess;
 
-    for (
-      let i = 0;
-      i < updatesToProcess && this.newNodesQueue.length > 0;
-      i++
-    ) {
-      const newNode = this.newNodesQueue.shift()!;
-      const ownerOfNewNode = this.game.owner(newNode.tile());
-      if (!ownerOfNewNode.isPlayer()) continue;
+    if (this.roadUpdateCredit >= 1) {
+      if (this.newNodesQueue.length > 0) {
+        const newNode = this.newNodesQueue.shift()!;
 
-      const preFilterNearbyNodes = this.spatialGrid.getNearby(
-        newNode,
-        Math.sqrt(maxRoadDistSquared),
-      );
+        let roadBuiltFromThisNode = false;
 
-      const nearbyNodes = preFilterNearbyNodes
-        .filter((node) => {
-          if (node.id() === newNode.id()) return false;
-          const nodeOwner = this.game.owner(node.tile());
-          if (!nodeOwner.isPlayer()) return false;
+        const ownerOfNewNode = this.game.owner(newNode.tile());
 
-          const owner1ID = ownerOfNewNode.id();
-          const owner2ID = nodeOwner.id();
-          const areSameOwner = owner1ID === owner2ID;
+        if (ownerOfNewNode.isPlayer()) {
+          const preFilterNearbyNodes = this.spatialGrid.getNearby(
+            newNode,
 
-          return areSameOwner || ownerOfNewNode.isFriendly(nodeOwner as Player);
-        })
-        .sort(
-          (a, b) =>
-            this.game.euclideanDistSquared(newNode.tile(), a.tile()) -
-            this.game.euclideanDistSquared(newNode.tile(), b.tile()),
-        )
-        .slice(0, 5); // Consider up to 5 closest neighbors
-
-      for (const neighbor of nearbyNodes) {
-        const existingPath = this.structureGraph.findPath(newNode, neighbor);
-        const roadNetworkMaxRedundantPathLength = 5; // Making it configurable is a good idea for the future
-
-        if (
-          existingPath === null ||
-          existingPath.length > roadNetworkMaxRedundantPathLength
-        ) {
-          const segment = this.getCanonicalSegment(
-            newNode.tile(),
-            neighbor.tile(),
+            Math.sqrt(maxRoadDistSquared),
           );
-          if (!this.existingRoadSegments.has(segment)) {
-            const path = this.getCachedPath(newNode.tile(), neighbor.tile());
-            if (path) {
-              const newRoad: Road = {
-                id: nextRoadId++,
-                path,
-                owner: ownerOfNewNode.id(),
-              };
-              this.roads.set(newRoad.id, newRoad);
 
-              // Add to the new roadsByOwner map
-              if (!this.roadsByOwner.has(newRoad.owner)) {
-                this.roadsByOwner.set(newRoad.owner, new Set());
-              }
-              this.roadsByOwner.get(newRoad.owner)!.add(newRoad.id);
-              this.existingRoadSegments.add(segment);
-              this.updateRoadTilesCache([newRoad], []);
+          const nearbyNodes = preFilterNearbyNodes
 
-              const startNode = this.findNodeByTile(path[0]);
-              const endNode = this.findNodeByTile(path[path.length - 1]);
-              if (startNode && endNode) {
-                this.structureGraph.addEdge(startNode, endNode, path);
-              }
+            .filter((node) => {
+              if (node.id() === newNode.id()) return false;
 
-              // Update road network for renderer
-              for (let i = 0; i < path.length - 1; i++) {
-                const a = path[i];
-                const b = path[i + 1];
-                const seg = this.getCanonicalSegment(a, b);
-                if (!this.segmentSet.has(seg)) {
-                  this.segmentSet.add(seg);
-                  this.pendingAddedSegments.push(seg);
+              const nodeOwner = this.game.owner(node.tile());
+
+              if (!nodeOwner.isPlayer()) return false;
+
+              const owner1ID = ownerOfNewNode.id();
+
+              const owner2ID = nodeOwner.id();
+
+              const areSameOwner = owner1ID === owner2ID;
+
+              return (
+                areSameOwner || ownerOfNewNode.isFriendly(nodeOwner as Player)
+              );
+            })
+
+            .sort(
+              (a, b) =>
+                this.game.euclideanDistSquared(newNode.tile(), a.tile()) -
+                this.game.euclideanDistSquared(newNode.tile(), b.tile()),
+            )
+
+            .slice(0, 5);
+
+          for (const neighbor of nearbyNodes) {
+            const existingPath = this.structureGraph.findPath(
+              newNode,
+              neighbor,
+            );
+
+            const roadNetworkMaxRedundantPathLength = 5;
+
+            if (
+              existingPath === null ||
+              existingPath.length > roadNetworkMaxRedundantPathLength
+            ) {
+              const segment = this.getCanonicalSegment(
+                newNode.tile(),
+
+                neighbor.tile(),
+              );
+
+              if (!this.existingRoadSegments.has(segment)) {
+                const path = this.getCachedPath(
+                  newNode.tile(),
+                  neighbor.tile(),
+                );
+
+                if (path) {
+                  const newRoad: Road = {
+                    id: nextRoadId++,
+
+                    path,
+
+                    owner: ownerOfNewNode.id(),
+                  };
+
+                  this.roads.set(newRoad.id, newRoad);
+
+                  if (!this.roadsByOwner.has(newRoad.owner)) {
+                    this.roadsByOwner.set(newRoad.owner, new Set());
+                  }
+
+                  this.roadsByOwner.get(newRoad.owner)!.add(newRoad.id);
+
+                  this.existingRoadSegments.add(segment);
+
+                  this.updateRoadTilesCache([newRoad], []);
+
+                  const startNode = this.findNodeByTile(path[0]);
+
+                  const endNode = this.findNodeByTile(path[path.length - 1]);
+
+                  if (startNode && endNode) {
+                    this.structureGraph.addEdge(startNode, endNode, path);
+                  }
+
+                  for (let i = 0; i < path.length - 1; i++) {
+                    const a = path[i];
+
+                    const b = path[i + 1];
+
+                    const seg = this.getCanonicalSegment(a, b);
+
+                    if (!this.segmentSet.has(seg)) {
+                      this.segmentSet.add(seg);
+
+                      this.pendingAddedSegments.push(seg);
+                    }
+                  }
+
+                  roadBuiltFromThisNode = true;
+
+                  break;
                 }
               }
             }
           }
         }
+
+        if (roadBuiltFromThisNode) {
+          this.roadUpdateCredit -= 1;
+        } else {
+          this.newNodesQueue.push(newNode);
+        }
       }
     }
-
-    this.nodes = currentNodes;
 
     // Rebuild quick index by owner once per update call
     this.nodesByOwner.clear();
