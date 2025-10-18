@@ -13,6 +13,7 @@ describe("PurchaseUpgradeExecution", () => {
       addUpgrade: jest.fn(),
       removeUpgrade: jest.fn(),
       removeGold: jest.fn(),
+      setRoadInvestmentRate: jest.fn(),
     } as unknown as jest.Mocked<Player>;
 
     mockGame = {

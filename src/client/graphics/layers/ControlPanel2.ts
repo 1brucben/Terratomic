@@ -17,6 +17,7 @@ import {
   SendPurchaseUpgradeIntentEvent,
   SendSetAutoBombingEvent,
   SendSetInvestmentRateEvent,
+  SendSetRoadInvestmentRateEvent,
   SendSetTargetTroopRatioEvent,
 } from "../../Transport";
 import { UIState } from "../UIState";
@@ -87,8 +88,13 @@ export class ControlPanel2 extends LitElement implements Layer {
   private init_: boolean = false;
 
   @state()
-  private activeTab: "Build" | "Attack" | "Economy" | "Research" | "Bombers" =
-    "Build";
+  private activeTab:
+    | "Build"
+    | "Attack"
+    | "Economy"
+    | "Research"
+    | "Bombers"
+    | "Roads" = "Build";
 
   @state()
   private activeResearchTab: "Land" | "Water" | "Air" | "Economy" = "Land";
@@ -119,6 +125,9 @@ export class ControlPanel2 extends LitElement implements Layer {
 
   @state()
   private _isAutoBombingEnabled: boolean = false;
+
+  @state()
+  private roadInvestmentRate: number = 0;
 
   @state()
   private _lastSelectedBomberTarget: PlayerID | null = null;
@@ -315,6 +324,10 @@ export class ControlPanel2 extends LitElement implements Layer {
   }
   onInvestmentRateChange(newRate: number) {
     this.eventBus.emit(new SendSetInvestmentRateEvent(newRate));
+  }
+
+  onRoadInvestmentRateChange(newRate: number) {
+    this.eventBus.emit(new SendSetRoadInvestmentRateEvent(newRate));
   }
 
   renderLayer(context: CanvasRenderingContext2D) {
@@ -535,7 +548,7 @@ export class ControlPanel2 extends LitElement implements Layer {
   }
 
   private _changeTab(
-    tab: "Build" | "Attack" | "Economy" | "Research" | "Bombers",
+    tab: "Build" | "Attack" | "Economy" | "Research" | "Bombers" | "Roads",
   ) {
     this.activeTab = tab;
     if (this.uiState.pendingBuildUnitType) {
@@ -801,6 +814,19 @@ export class ControlPanel2 extends LitElement implements Layer {
           >
             Research
           </button>
+          ${player?.hasUpgrade(UpgradeType.Roads)
+            ? html`
+                <button
+                  class="py-2 px-4 text-center font-ocr uppercase ${this
+                    .activeTab === "Roads"
+                    ? "bg-gray-700 text-crt-green border border-crt-green"
+                    : "text-tan"}"
+                  @click=${() => this._changeTab("Roads")}
+                >
+                  Roads
+                </button>
+              `
+            : ""}
           ${this._hasAirfields
             ? html`
                 <button
@@ -819,6 +845,35 @@ export class ControlPanel2 extends LitElement implements Layer {
         </div>
 
         <div class="tab-content flex-grow overflow-y-auto max-w-full">
+          ${this.activeTab === "Roads"
+            ? html`
+                <div class="text-tan">
+                  <div class="relative">
+                    <label class="block military-label mb-1" translate="no">
+                      Roads Investment Rate:
+                      ${(this.roadInvestmentRate * 1000000).toFixed(0)}
+                      gold/tick
+                    </label>
+                    <div class="relative h-8">
+                      <input
+                        type="range"
+                        min="0"
+                        max="1000000"
+                        .value=${(this.roadInvestmentRate * 1000000).toString()}
+                        @input=${(e) => {
+                          this.roadInvestmentRate =
+                            parseInt(e.target.value) / 1000000;
+                          this.onRoadInvestmentRateChange(
+                            this.roadInvestmentRate,
+                          );
+                        }}
+                        class="absolute left-0 right-0 top-2 m-0 h-4 cursor-pointer military-slider"
+                      />
+                    </div>
+                  </div>
+                </div>
+              `
+            : ""}
           ${this.activeTab === "Bombers"
             ? html`
                 <div class="text-tan flex w-full">

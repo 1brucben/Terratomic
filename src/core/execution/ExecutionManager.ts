@@ -25,6 +25,7 @@ import { QuickChatExecution } from "./QuickChatExecution";
 import { RetreatExecution } from "./RetreatExecution";
 import { SetAutoBombingExecution } from "./SetAutoBombingExecution";
 import { SetInvestmentRateExecution } from "./SetInvestmentRateExecution";
+import { SetRoadInvestmentExecution } from "./SetRoadInvestmentExecution";
 import { SetTargetTroopRatioExecution } from "./SetTargetTroopRatioExecution";
 import { SpawnExecution } from "./SpawnExecution";
 import { TargetPlayerExecution } from "./TargetPlayerExecution";
@@ -116,6 +117,8 @@ export class Executor {
         return new SetTargetTroopRatioExecution(player, intent.ratio);
       case "investment_rate":
         return new SetInvestmentRateExecution(player, intent.rate);
+      case "road_investment_rate":
+        return new SetRoadInvestmentExecution(player, intent.rate);
       case "embargo":
         return new EmbargoExecution(player, intent.targetID, intent.action);
       case "build_unit":

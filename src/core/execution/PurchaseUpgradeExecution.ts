@@ -47,6 +47,7 @@ export class PurchaseUpgradeExecution implements Execution {
 
       if (this.upgrade === UpgradeType.ScorchedEarth) {
         this.mg.destroyPlayerRoads(this.player);
+        this.player.setRoadInvestmentRate(0);
         this.player.removeUpgrade(UpgradeType.Roads);
         this.player.removeUpgrade(UpgradeType.ScorchedEarth);
       } else if (this.upgrade === UpgradeType.Roads) {

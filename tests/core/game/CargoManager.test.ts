@@ -49,6 +49,7 @@ describe("CargoManager", () => {
 
     // Buy Roads via execution so RoadManager reconnects nodes immediately
     game.addExecution(new PurchaseUpgradeExecution(player, UpgradeType.Roads));
+    player.setRoadInvestmentRate(1);
 
     // Let roads form
     for (let i = 0; i < 200; i++) {

@@ -1,3 +1,4 @@
+import { PurchaseUpgradeExecution } from "../../../src/core/execution/PurchaseUpgradeExecution";
 import {
   Player,
   PlayerType,
@@ -24,7 +25,9 @@ describe("RoadManager", () => {
   });
 
   it("should form a road between two cities for a player with the Roads upgrade", () => {
-    playerA.addUpgrade(UpgradeType.Roads);
+    game.addExecution(new PurchaseUpgradeExecution(playerA, UpgradeType.Roads));
+    playerA.setRoadInvestmentRate(1);
+    playerA.addGold(10_000_000n);
 
     const tile1 = game.ref(0, 10);
     const tile2 = game.ref(0, 15);
@@ -66,7 +69,9 @@ describe("RoadManager", () => {
   });
 
   it("destroyPlayerRoads should clear all road state for a player", () => {
-    playerA.addUpgrade(UpgradeType.Roads);
+    game.addExecution(new PurchaseUpgradeExecution(playerA, UpgradeType.Roads));
+    playerA.setRoadInvestmentRate(1);
+    playerA.addGold(10_000_000n);
     const tile1 = game.ref(0, 10);
     const tile2 = game.ref(0, 15);
     for (let i = 10; i <= 15; i++) {
@@ -96,6 +101,8 @@ describe("RoadManager", () => {
 
   it("should rebuild the road network after using markPlayerNodesForReconnection", () => {
     playerA.addUpgrade(UpgradeType.Roads);
+    playerA.setRoadInvestmentRate(1);
+    playerA.addGold(10_000_000n);
     const tile1 = game.ref(0, 10);
     const tile2 = game.ref(0, 15);
     for (let i = 10; i <= 15; i++) {
@@ -110,8 +117,8 @@ describe("RoadManager", () => {
     roadManager.destroyPlayerRoads(playerA);
     expect((roadManager as any).roads.size).toBe(0);
 
-    // Re-add the upgrade before marking for reconnection
-    playerA.addUpgrade(UpgradeType.Roads);
+    game.addExecution(new PurchaseUpgradeExecution(playerA, UpgradeType.Roads));
+    playerA.setRoadInvestmentRate(1);
     roadManager.markPlayerNodesForReconnection(playerA);
     executeTicks(game, 15);
 

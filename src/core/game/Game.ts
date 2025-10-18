@@ -544,6 +544,8 @@ export interface Player {
   removeProductivity(amount: number): void;
   investmentRate(): number; // Returns the investment rate (0 to 1)
   setInvestmentRate(rate: number): void;
+  roadInvestmentRate(): number;
+  setRoadInvestmentRate(rate: number): void;
   addGold(toAdd: Gold): void;
   removeGold(toRemove: Gold): Gold;
   addWorkers(toAdd: number): void;

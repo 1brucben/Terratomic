@@ -73,6 +73,7 @@ export class PlayerImpl implements Player {
   // 0 to 100
   private _targetTroopRatio: bigint;
   private _investmentRate: number = 0.5;
+  private _roadInvestmentRate: number = 0;
   private _productivity = 1;
   private _productivityGrowthPerMinute = 0;
   private _maxproductivity = 1;
@@ -831,6 +832,14 @@ export class PlayerImpl implements Player {
       this.mg.config().maxInvestmentRate(),
       Math.max(0, rate),
     );
+  }
+
+  roadInvestmentRate(): number {
+    return this._roadInvestmentRate;
+  }
+
+  setRoadInvestmentRate(rate: number): void {
+    this._roadInvestmentRate = Math.min(1, Math.max(0, rate));
   }
 
   troops(): number {

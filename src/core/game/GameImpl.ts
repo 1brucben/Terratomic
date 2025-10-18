@@ -369,22 +369,25 @@ export class GameImpl implements Game {
       p.hasUpgrade(UpgradeType.Roads),
     );
 
-    const roadChanges = this.roadManager.update(playersWithRoads);
+    const roadInvestments = new Map<PlayerID, bigint>();
+    for (const player of this._players.values()) {
+      const goldToDeduct = BigInt(
+        Math.floor(player.roadInvestmentRate() * 1000000),
+      );
+      if (goldToDeduct > 0) {
+        const goldDeducted = player.removeGold(goldToDeduct);
+        roadInvestments.set(player.id(), goldDeducted);
+      }
+    }
+
+    const roadChanges = this.roadManager.update(
+      playersWithRoads,
+      roadInvestments,
+    );
     if (roadChanges.added.length > 0 || roadChanges.removed.length > 0) {
       this.addUpdate({
         type: GameUpdateType.Roads,
         ...roadChanges,
-      });
-    }
-
-    const cargoChanges = this.cargoManager.tick(playersWithRoads);
-    if (
-      cargoChanges.added.length > 0 ||
-      cargoChanges.removed.length > 0 ||
-      cargoChanges.updated.length > 0
-    ) {
-      this.addUpdate({
-        ...cargoChanges,
       });
     }
 

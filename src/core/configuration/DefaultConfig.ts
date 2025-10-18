@@ -339,7 +339,7 @@ export class DefaultConfig implements Config {
   }
 
   roadUpdatesPerTick(): number {
-    return 1 / 25;
+    return 0;
   }
 
   // This acts as a "max cost" for the A* pathfinder, not a strict tile length.
