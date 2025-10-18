@@ -48,6 +48,7 @@ export class RoadManager {
   private nodeOwnerIds = new Map<number, PlayerID>();
   private nodesByOwner = new Map<PlayerID, Unit[]>();
   private roadCache: RoadCache;
+  private roadUpdateCredit = 0;
 
   // Performance optimization caches
   private roadTilesCache = new Set<TileRef>();
@@ -287,9 +288,16 @@ export class RoadManager {
     });
 
     const maxRoadDistSquared = 100 * 100;
-    const updatesPerTick = this.game.config().roadUpdatesPerTick();
 
-    for (let i = 0; i < updatesPerTick && this.newNodesQueue.length > 0; i++) {
+    this.roadUpdateCredit += this.game.config().roadUpdatesPerTick();
+    const updatesToProcess = Math.floor(this.roadUpdateCredit);
+    this.roadUpdateCredit -= updatesToProcess;
+
+    for (
+      let i = 0;
+      i < updatesToProcess && this.newNodesQueue.length > 0;
+      i++
+    ) {
       const newNode = this.newNodesQueue.shift()!;
       const ownerOfNewNode = this.game.owner(newNode.tile());
       if (!ownerOfNewNode.isPlayer()) continue;
