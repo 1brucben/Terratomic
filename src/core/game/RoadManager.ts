@@ -279,18 +279,27 @@ export class RoadManager {
           const startTile = road.path[0];
           const endTile = road.path[road.path.length - 1];
           // Track per-edge segment removals for UI redraw
-          for (let i = 0; i < road.path.length - 1; i++) {
-            const seg = this.getCanonicalSegment(
-              road.path[i],
-              road.path[i + 1],
+          // Only remove segments if neither end is still owned by a player
+          const startOwned = this.game.owner(road.path[0]).isPlayer();
+          const endOwned = this.game
+            .owner(road.path[road.path.length - 1])
+            .isPlayer();
+
+          if (!startOwned && !endOwned) {
+            for (let i = 0; i < road.path.length - 1; i++) {
+              const seg = this.getCanonicalSegment(
+                road.path[i],
+                road.path[i + 1],
+              );
+              if (this.segmentSet.delete(seg)) {
+                this.pendingRemovedSegments.push(seg);
+              }
+            }
+            this.roads.delete(roadId);
+            this.existingRoadSegments.delete(
+              this.getCanonicalSegment(startTile, endTile),
             );
-            if (this.segmentSet.delete(seg))
-              this.pendingRemovedSegments.push(seg);
           }
-          this.roads.delete(roadId);
-          this.existingRoadSegments.delete(
-            this.getCanonicalSegment(startTile, endTile),
-          );
         }
       });
 
@@ -515,6 +524,7 @@ export class RoadManager {
     const added = this.pendingAddedSegments;
     const removed = this.pendingRemovedSegments;
     this.pendingAddedSegments = [];
+    this.pendingRemovedSegments = []; // Clear removed segments too
     this.nodes = currentNodes;
     return { added, removed };
   }
@@ -532,8 +542,17 @@ export class RoadManager {
     // Build current authoritative set from roads
     const current = new Set<string>();
     for (const road of this.roads.values()) {
+      // Only include road segments where the tiles are still valid
       for (let i = 0; i < road.path.length - 1; i++) {
-        current.add(this.getCanonicalSegment(road.path[i], road.path[i + 1]));
+        const from = road.path[i];
+        const to = road.path[i + 1];
+        // Add segments that still have valid ownership
+        if (
+          this.game.owner(from).isPlayer() ||
+          this.game.owner(to).isPlayer()
+        ) {
+          current.add(this.getCanonicalSegment(from, to));
+        }
       }
     }
 
