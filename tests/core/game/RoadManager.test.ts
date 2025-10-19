@@ -42,7 +42,7 @@ describe("RoadManager", () => {
 
     const city1 = playerA.buildUnit(UnitType.City, tile1, {});
     const city2 = playerA.buildUnit(UnitType.City, tile2, {});
-    executeTicks(game, 15);
+    executeTicks(game, 50);
 
     const roads = (roadManager as any).roads;
     expect(roads.size).toBeGreaterThan(0);
@@ -80,7 +80,7 @@ describe("RoadManager", () => {
 
     const city1 = playerA.buildUnit(UnitType.City, tile1, {});
     const city2 = playerA.buildUnit(UnitType.City, tile2, {});
-    executeTicks(game, 15);
+    executeTicks(game, 50);
     expect((roadManager as any).roads.size).toBeGreaterThan(0);
 
     const segment = (roadManager as any).getCanonicalSegment(
@@ -111,7 +111,7 @@ describe("RoadManager", () => {
 
     playerA.buildUnit(UnitType.City, tile1, {});
     playerA.buildUnit(UnitType.City, tile2, {});
-    executeTicks(game, 15);
+    executeTicks(game, 50);
     expect((roadManager as any).roads.size).toBeGreaterThan(0);
 
     roadManager.destroyPlayerRoads(playerA);
@@ -120,7 +120,7 @@ describe("RoadManager", () => {
     game.addExecution(new PurchaseUpgradeExecution(playerA, UpgradeType.Roads));
     playerA.setRoadInvestmentRate(1);
     roadManager.markPlayerNodesForReconnection(playerA);
-    executeTicks(game, 15);
+    executeTicks(game, 50);
 
     expect((roadManager as any).roads.size).toBeGreaterThan(0);
   });

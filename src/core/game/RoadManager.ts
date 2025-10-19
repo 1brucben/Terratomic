@@ -17,6 +17,14 @@ export interface Road {
   owner: PlayerID;
 }
 
+interface RoadConstructionProject {
+  id: number;
+  owner: PlayerID;
+  fullPath: TileRef[];
+  progress: number; // The number of tiles already built
+  lastBuildTick: number; // The tick on which the last tile was placed
+}
+
 let nextRoadId = 0;
 
 /**
@@ -30,6 +38,7 @@ let nextRoadId = 0;
 export class RoadManager {
   private roads = new Map<number, Road>();
   private roadsByOwner = new Map<PlayerID, Set<number>>();
+  private roadsUnderConstruction = new Map<number, RoadConstructionProject>();
   private structureGraph = new StructureGraph();
   private nodes: Unit[] = [];
   private newNodesQueue = new Map<PlayerID, PriorityQueue<Unit>>();
@@ -393,36 +402,22 @@ export class RoadManager {
                   );
 
                   if (path) {
-                    const newRoad: Road = {
+                    const newProject: RoadConstructionProject = {
                       id: nextRoadId++,
-                      path,
                       owner: ownerOfNewNode.id(),
+                      fullPath: path,
+                      progress: 0,
+                      lastBuildTick: this.game.ticks(),
                     };
-                    this.roads.set(newRoad.id, newRoad);
+                    this.roadsUnderConstruction.set(newProject.id, newProject);
 
-                    if (!this.roadsByOwner.has(newRoad.owner)) {
-                      this.roadsByOwner.set(newRoad.owner, new Set());
-                    }
-                    this.roadsByOwner.get(newRoad.owner)!.add(newRoad.id);
+                    this.structureGraph.addEdge(newNode, neighbor, path, {
+                      underConstruction: true,
+                    });
+
+                    // Mark the direct segment as "existing" to prevent other nodes from trying to build the same road.
                     this.existingRoadSegments.add(segment);
-                    this.updateRoadTilesCache([newRoad], []);
 
-                    const startNode = this.findNodeByTile(path[0]);
-                    const endNode = this.findNodeByTile(path[path.length - 1]);
-
-                    if (startNode && endNode) {
-                      this.structureGraph.addEdge(startNode, endNode, path);
-                    }
-
-                    for (let i = 0; i < path.length - 1; i++) {
-                      const a = path[i];
-                      const b = path[i + 1];
-                      const seg = this.getCanonicalSegment(a, b);
-                      if (!this.segmentSet.has(seg)) {
-                        this.segmentSet.add(seg);
-                        this.pendingAddedSegments.push(seg);
-                      }
-                    }
                     this.roadUpdateCredit.set(
                       playerID,
                       (this.roadUpdateCredit.get(playerID) ?? 1) - 1,
@@ -539,6 +534,7 @@ export class RoadManager {
     this.maybeReconcileSegments();
 
     // Produce incremental updates for the renderer
+    this.processConstructionProjects();
     const added = this.pendingAddedSegments;
     const removed = this.pendingRemovedSegments;
     this.pendingAddedSegments = [];
@@ -574,6 +570,18 @@ export class RoadManager {
       }
     }
 
+    // Also include segments from roads currently under construction
+    const inProgressSegments = new Set<string>();
+    for (const project of this.roadsUnderConstruction.values()) {
+      for (let i = 0; i < project.progress; i++) {
+        const seg = this.getCanonicalSegment(
+          project.fullPath[i],
+          project.fullPath[i + 1],
+        );
+        inProgressSegments.add(seg);
+      }
+    }
+
     // Compute differences
     const toAdd: string[] = [];
     const toRemove: string[] = [];
@@ -582,7 +590,9 @@ export class RoadManager {
       if (!this.segmentSet.has(seg)) toAdd.push(seg);
     }
     for (const seg of this.segmentSet) {
-      if (!current.has(seg)) toRemove.push(seg);
+      if (!current.has(seg) && !inProgressSegments.has(seg)) {
+        toRemove.push(seg);
+      }
     }
 
     if (toAdd.length === 0 && toRemove.length === 0) return;
@@ -685,7 +695,9 @@ export class RoadManager {
     startUnit: Unit,
     endUnit: Unit,
   ): TileRef[] | null {
-    const structurePath = this.structureGraph.findPath(startUnit, endUnit);
+    const structurePath = this.structureGraph.findPath(startUnit, endUnit, {
+      ignoreUnderConstruction: true,
+    });
     if (!structurePath || structurePath.length < 2) {
       return null;
     }
@@ -789,5 +801,82 @@ export class RoadManager {
     const currentCredit = this.roadUpdateCredit.get(player.id()) ?? 0;
     const newCredit = Math.min(this.MAX_ROAD_CREDIT, currentCredit + credit);
     this.roadUpdateCredit.set(player.id(), newCredit);
+  }
+
+  private processConstructionProjects(): void {
+    const interval = this.game.config().roadConstructionInterval();
+    for (const project of this.roadsUnderConstruction.values()) {
+      if (this.game.ticks() - project.lastBuildTick < interval) {
+        continue;
+      }
+
+      // The first tile is the node itself, so we start building from the second tile (index 1).
+      const nextTileIndex = project.progress + 1;
+      if (nextTileIndex >= project.fullPath.length) {
+        // This case should ideally not be hit if completion is handled correctly, but as a safeguard:
+        this.roadsUnderConstruction.delete(project.id);
+        continue;
+      }
+
+      const nextTile = project.fullPath[nextTileIndex];
+      const owner = this.game.player(project.owner);
+
+      // Validate ownership of the next tile in the path
+      if (!owner || this.game.owner(nextTile) !== owner) {
+        // Cancel the project if the territory was lost
+        const startNode = this.findNodeByTile(project.fullPath[0]);
+        const endNode = this.findNodeByTile(
+          project.fullPath[project.fullPath.length - 1],
+        );
+        if (startNode && endNode) {
+          this.structureGraph.removeEdge(startNode, endNode);
+        }
+        this.roadsUnderConstruction.delete(project.id);
+        const segment = this.getCanonicalSegment(
+          project.fullPath[0],
+          project.fullPath[project.fullPath.length - 1],
+        );
+        this.existingRoadSegments.delete(segment);
+        continue;
+      }
+
+      // Build the next segment
+      const prevTile = project.fullPath[project.progress];
+      const seg = this.getCanonicalSegment(prevTile, nextTile);
+      if (!this.segmentSet.has(seg)) {
+        this.segmentSet.add(seg);
+        this.pendingAddedSegments.push(seg);
+      }
+
+      project.progress++;
+      project.lastBuildTick = this.game.ticks();
+
+      // Check for completion (progress is now equal to the index of the last tile)
+      if (project.progress >= project.fullPath.length - 1) {
+        const newRoad: Road = {
+          id: project.id,
+          path: project.fullPath,
+          owner: project.owner,
+        };
+        this.roads.set(newRoad.id, newRoad);
+
+        if (!this.roadsByOwner.has(newRoad.owner)) {
+          this.roadsByOwner.set(newRoad.owner, new Set());
+        }
+        this.roadsByOwner.get(newRoad.owner)!.add(newRoad.id);
+        this.updateRoadTilesCache([newRoad], []);
+
+        const startNode = this.findNodeByTile(newRoad.path[0]);
+        const endNode = this.findNodeByTile(
+          newRoad.path[newRoad.path.length - 1],
+        );
+
+        if (startNode && endNode) {
+          this.structureGraph.addEdge(startNode, endNode, newRoad.path);
+        }
+
+        this.roadsUnderConstruction.delete(project.id);
+      }
+    }
   }
 }

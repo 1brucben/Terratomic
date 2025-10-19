@@ -352,6 +352,10 @@ export class DefaultConfig implements Config {
     return 240;
   }
 
+  roadConstructionInterval(): number {
+    return 2;
+  }
+
   // Cargoplanes (Turned off for now)
   cargoPlanesEnabled(): boolean {
     return false;

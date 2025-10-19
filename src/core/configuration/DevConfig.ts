@@ -80,4 +80,7 @@ export class DevConfig extends DefaultConfig {
   //   spawnNPCs(): boolean {
   //     return false;
   //   }
+  roadConstructionInterval(): number {
+    return 2;
+  }
 }

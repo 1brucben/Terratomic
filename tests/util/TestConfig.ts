@@ -76,4 +76,8 @@ export class TestConfig extends DefaultConfig {
   ): number {
     return 1;
   }
+
+  roadConstructionInterval(): number {
+    return 1;
+  }
 }

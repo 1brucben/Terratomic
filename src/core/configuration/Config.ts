@@ -138,6 +138,7 @@ export interface Config {
   roadUpdatesPerTick(): number;
   maxRoadCredit(): number;
   maxRoadLength(): number;
+  roadConstructionInterval(): number;
 
   // International Cargo Trucks
   internationalCargoTrucksEnabled(): boolean;

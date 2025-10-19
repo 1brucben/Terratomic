@@ -6,6 +6,7 @@ type UnitId = number;
 export interface RoadEdge {
   path: TileRef[];
   length: number;
+  underConstruction?: boolean;
 }
 
 export interface StructureNode {
@@ -38,12 +39,21 @@ export class StructureGraph {
     }
   }
 
-  public addEdge(unit1: Unit, unit2: Unit, path: TileRef[]): void {
+  public addEdge(
+    unit1: Unit,
+    unit2: Unit,
+    path: TileRef[],
+    options?: { underConstruction?: boolean },
+  ): void {
     const node1 = this.nodes.get(unit1.id());
     const node2 = this.nodes.get(unit2.id());
 
     if (node1 && node2) {
-      const edge: RoadEdge = { path, length: path.length };
+      const edge: RoadEdge = {
+        path,
+        length: path.length,
+        underConstruction: options?.underConstruction,
+      };
       node1.connections.set(unit2.id(), edge);
       node2.connections.set(unit1.id(), edge);
     }
@@ -59,7 +69,11 @@ export class StructureGraph {
     }
   }
 
-  public findPath(startUnit: Unit, endUnit: Unit): Unit[] | null {
+  public findPath(
+    startUnit: Unit,
+    endUnit: Unit,
+    options?: { ignoreUnderConstruction?: boolean },
+  ): Unit[] | null {
     const startNode = this.nodes.get(startUnit.id());
     const endNode = this.nodes.get(endUnit.id());
 
@@ -88,7 +102,10 @@ export class StructureGraph {
       }
 
       if (currentNode) {
-        for (const neighborId of currentNode.connections.keys()) {
+        for (const [neighborId, edge] of currentNode.connections.entries()) {
+          if (options?.ignoreUnderConstruction && edge.underConstruction) {
+            continue;
+          }
           if (!visited.has(neighborId)) {
             visited.add(neighborId);
             cameFrom.set(neighborId, currentId);
