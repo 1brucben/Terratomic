@@ -593,6 +593,7 @@ export interface Player {
   isFriendly(other: Player): boolean;
   team(): Team | null;
   clan(): string | null;
+  firstCityTile(): TileRef | null;
   incomingAllianceRequests(): AllianceRequest[];
   outgoingAllianceRequests(): AllianceRequest[];
   alliances(): MutableAlliance[];

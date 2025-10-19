@@ -175,6 +175,7 @@ export interface PlayerUpdate {
   effectiveUnits: Record<UnitType, number>;
   unitsOwned: Record<UnitType, number>;
   upgrades: UpgradeType[];
+  firstCityTile?: TileRef | null;
 }
 
 export interface AllianceRequestUpdate {

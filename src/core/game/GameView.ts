@@ -351,6 +351,10 @@ export class PlayerView {
   isDisconnected(): boolean {
     return this.data.isDisconnected;
   }
+
+  firstCityTile(): TileRef | null {
+    return this.data.firstCityTile ?? null;
+  }
 }
 
 export class GameView implements GameMap {

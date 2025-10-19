@@ -118,6 +118,8 @@ export class PlayerImpl implements Player {
   private _autoBombingEnabled: boolean = false;
   public bombersOnTarget = new Map<TileRef, number>();
 
+  private _firstCityTile: TileRef | null = null;
+
   constructor(
     private mg: GameImpl,
     private _smallID: number,
@@ -209,6 +211,7 @@ export class PlayerImpl implements Player {
         {} as Record<UnitType, number>,
       ),
       upgrades: Array.from(this._upgrades),
+      firstCityTile: this._firstCityTile,
     };
   }
 
@@ -963,6 +966,11 @@ export class PlayerImpl implements Player {
     this._units.push(b);
     this.recordUnitConstructed(type);
     this.removeGold(cost);
+
+    if (type === UnitType.City && this._firstCityTile === null) {
+      this._firstCityTile = spawnTile;
+    }
+
     this.removeTroops("troops" in params ? (params.troops ?? 0) : 0);
     this.mg.addUpdate(b.toUpdate());
     this.mg.addUnit(b);
@@ -1413,5 +1421,9 @@ export class PlayerImpl implements Player {
 
   public isAutoBombingEnabled(): boolean {
     return this._autoBombingEnabled;
+  }
+
+  public firstCityTile(): TileRef | null {
+    return this._firstCityTile;
   }
 }

@@ -32,7 +32,7 @@ export class RoadManager {
   private roadsByOwner = new Map<PlayerID, Set<number>>();
   private structureGraph = new StructureGraph();
   private nodes: Unit[] = [];
-  private newNodesQueue = new Map<PlayerID, Unit[]>();
+  private newNodesQueue = new Map<PlayerID, PriorityQueue<Unit>>();
   private spatialGrid: SpatialGrid;
   private pathfindingQueue: {
     from: TileRef;
@@ -237,9 +237,13 @@ export class RoadManager {
     for (const node of [...newNodes, ...ownerChangedNodes]) {
       const owner = node.owner();
       if (!this.newNodesQueue.has(owner.id())) {
-        this.newNodesQueue.set(owner.id(), []);
+        this.newNodesQueue.set(owner.id(), new PriorityQueue<Unit>());
       }
-      this.newNodesQueue.get(owner.id())!.push(node);
+      const firstCity = owner.firstCityTile();
+      const priority = firstCity
+        ? this.game.euclideanDistSquared(node.tile(), firstCity)
+        : 0;
+      this.newNodesQueue.get(owner.id())!.enqueue(priority, node);
     }
 
     const removedNodeIds = [...this.nodeOwnerIds.keys()].filter(
@@ -334,8 +338,8 @@ export class RoadManager {
 
       if (newCredit >= 1) {
         const playerQueue = this.newNodesQueue.get(playerID);
-        if (playerQueue && playerQueue.length > 0) {
-          const newNode = playerQueue.shift()!;
+        if (playerQueue && playerQueue.size > 0) {
+          const newNode = playerQueue.dequeue()!;
 
           let connectionMade = false;
 
@@ -433,7 +437,11 @@ export class RoadManager {
           }
 
           if (connectionMade) {
-            playerQueue.splice(6, 0, newNode);
+            const firstCity = newNode.owner().firstCityTile();
+            const priority = firstCity
+              ? this.game.euclideanDistSquared(newNode.tile(), firstCity)
+              : 0;
+            playerQueue.enqueue(priority, newNode);
           }
         }
       }
