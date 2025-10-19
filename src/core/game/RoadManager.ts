@@ -279,13 +279,14 @@ export class RoadManager {
           const startTile = road.path[0];
           const endTile = road.path[road.path.length - 1];
           // Track per-edge segment removals for UI redraw
-          // Only remove segments if neither end is still owned by a player
-          const startOwned = this.game.owner(road.path[0]).isPlayer();
-          const endOwned = this.game
-            .owner(road.path[road.path.length - 1])
-            .isPlayer();
+          const startNode = this.findNodeByTile(road.path[0]);
+          const endNode = this.findNodeByTile(road.path[road.path.length - 1]);
 
-          if (!startOwned && !endOwned) {
+          // A road is valid only if both its endpoints still exist as active nodes in the graph.
+          const isRoadStillValid =
+            startNode && endNode && startNode.isActive() && endNode.isActive();
+
+          if (!isRoadStillValid) {
             for (let i = 0; i < road.path.length - 1; i++) {
               const seg = this.getCanonicalSegment(
                 road.path[i],
