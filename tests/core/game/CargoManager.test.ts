@@ -56,6 +56,9 @@ describe("CargoManager", () => {
       game.executeNextTick();
     }
     expect(game.roads().length).toBeGreaterThan(0);
+
+    // Stop investing in roads so we can accurately measure cargo gold
+    player.setRoadInvestmentRate(0);
   });
 
   afterEach(() => {
