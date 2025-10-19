@@ -309,7 +309,14 @@ export class RoadManager {
 
     const maxRoadDistSquared = 100 * 100;
 
+    let roadsBuiltThisTick = 0;
+    const GLOBAL_MAX_ROADS_PER_TICK = 2;
+
     for (const player of playersWithRoads) {
+      if (roadsBuiltThisTick >= GLOBAL_MAX_ROADS_PER_TICK) {
+        break;
+      }
+
       const playerID = player.id();
       const investment = roadInvestments.get(playerID) ?? 0n;
       let roadUpdatesPerTick = 0;
@@ -416,6 +423,7 @@ export class RoadManager {
                       (this.roadUpdateCredit.get(playerID) ?? 1) - 1,
                     );
                     connectionMade = true;
+                    roadsBuiltThisTick++;
                     break;
                   }
                 }
