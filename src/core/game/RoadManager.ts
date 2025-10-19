@@ -326,11 +326,10 @@ export class RoadManager {
 
       if (newCredit >= 1) {
         const playerQueue = this.newNodesQueue.get(playerID);
-        console.log(`[${playerID}] playerQueue:`, playerQueue);
         if (playerQueue && playerQueue.length > 0) {
           const newNode = playerQueue.shift()!;
 
-          let roadBuiltFromThisNode = false;
+          let connectionMade = false;
 
           const ownerOfNewNode = this.game.owner(newNode.tile());
 
@@ -412,7 +411,11 @@ export class RoadManager {
                         this.pendingAddedSegments.push(seg);
                       }
                     }
-                    roadBuiltFromThisNode = true;
+                    this.roadUpdateCredit.set(
+                      playerID,
+                      (this.roadUpdateCredit.get(playerID) ?? 1) - 1,
+                    );
+                    connectionMade = true;
                     break;
                   }
                 }
@@ -420,10 +423,8 @@ export class RoadManager {
             }
           }
 
-          if (roadBuiltFromThisNode) {
-            this.roadUpdateCredit.set(playerID, newCredit - 1);
-          } else {
-            playerQueue.push(newNode);
+          if (connectionMade) {
+            playerQueue.splice(6, 0, newNode);
           }
         }
       }
