@@ -58,6 +58,7 @@ export class RoadManager {
   private nodesByOwner = new Map<PlayerID, Unit[]>();
   private roadCache: RoadCache;
   private roadUpdateCredit = new Map<PlayerID, number>();
+  private projectsInitiatedCount = new Map<number, number>();
 
   // Performance optimization caches
   private roadTilesCache = new Set<TileRef>();
@@ -415,6 +416,14 @@ export class RoadManager {
                       underConstruction: true,
                     });
 
+                    // Increment the count of projects initiated by this node
+                    const currentInitiatedCount =
+                      this.projectsInitiatedCount.get(newNode.id()) ?? 0;
+                    this.projectsInitiatedCount.set(
+                      newNode.id(),
+                      currentInitiatedCount + 1,
+                    );
+
                     // Mark the direct segment as "existing" to prevent other nodes from trying to build the same road.
                     this.existingRoadSegments.add(segment);
 
@@ -432,11 +441,14 @@ export class RoadManager {
           }
 
           if (connectionMade) {
-            const firstCity = newNode.owner().firstCityTile();
-            const priority = firstCity
-              ? this.game.euclideanDistSquared(newNode.tile(), firstCity)
-              : 0;
-            playerQueue.enqueue(priority, newNode);
+            // Only re-enqueue if it has initiated less than 2 projects
+            if ((this.projectsInitiatedCount.get(newNode.id()) ?? 0) < 2) {
+              const firstCity = newNode.owner().firstCityTile();
+              const priority = firstCity
+                ? this.game.euclideanDistSquared(newNode.tile(), firstCity)
+                : 0;
+              playerQueue.enqueue(priority, newNode);
+            }
           }
         }
       }
