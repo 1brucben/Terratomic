@@ -158,6 +158,7 @@ export interface PlayerUpdate {
   productivity: number;
   productivityGrowthPerMinute: number;
   investmentRate: number;
+  roadCredit: number;
   troops: number;
   attackingTroops: number;
   targetTroopRatio: number;

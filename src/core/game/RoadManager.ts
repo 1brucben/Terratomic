@@ -60,6 +60,8 @@ export class RoadManager {
   private lastSegmentReconcileTick = 0;
   private readonly RECONCILE_INTERVAL_TICKS = 600; // ~60s at 100ms per tick
 
+  private readonly MAX_ROAD_CREDIT = 25;
+
   private readonly eligible: UnitType[] = [
     UnitType.City,
     UnitType.Port,
@@ -303,15 +305,19 @@ export class RoadManager {
       const investment = roadInvestments.get(playerID) ?? 0n;
       let roadUpdatesPerTick = 0;
       if (investment > 0) {
-        const investmentRate = Number(investment) / 1000000;
-        roadUpdatesPerTick = 0.02 + investmentRate * 0.18;
+        const investmentRate = (Number(investment) * 600) / 500000;
+        roadUpdatesPerTick = (1 + investmentRate * 59) / 600;
       }
       const credit = this.roadUpdateCredit.get(playerID) ?? 0;
-      const newCredit = credit + roadUpdatesPerTick;
+      const newCredit = Math.min(
+        this.MAX_ROAD_CREDIT,
+        credit + roadUpdatesPerTick,
+      );
       this.roadUpdateCredit.set(playerID, newCredit);
 
       if (newCredit >= 1) {
         const playerQueue = this.newNodesQueue.get(playerID);
+        console.log(`[${playerID}] playerQueue:`, playerQueue);
         if (playerQueue && playerQueue.length > 0) {
           const newNode = playerQueue.shift()!;
 
@@ -509,8 +515,7 @@ export class RoadManager {
     const added = this.pendingAddedSegments;
     const removed = this.pendingRemovedSegments;
     this.pendingAddedSegments = [];
-    this.pendingRemovedSegments = [];
-
+    this.nodes = currentNodes;
     return { added, removed };
   }
 
@@ -731,5 +736,21 @@ export class RoadManager {
   // Expose current roads for external consumers (e.g., GameImpl/tests)
   public getRoads(): Road[] {
     return Array.from(this.roads.values());
+  }
+
+  public getRoadCredit(player: Player): number {
+    return this.roadUpdateCredit.get(player.id()) ?? 0;
+  }
+
+  public isAtCreditCap(player: Player): boolean {
+    return (
+      (this.roadUpdateCredit.get(player.id()) ?? 0) >= this.MAX_ROAD_CREDIT
+    );
+  }
+
+  public addRoadCredit(player: Player, credit: number): void {
+    const currentCredit = this.roadUpdateCredit.get(player.id()) ?? 0;
+    const newCredit = Math.min(this.MAX_ROAD_CREDIT, currentCredit + credit);
+    this.roadUpdateCredit.set(player.id(), newCredit);
   }
 }

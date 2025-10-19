@@ -287,6 +287,14 @@ export class PlayerView {
   investmentRate(): number {
     return this.data.investmentRate;
   }
+
+  isAtCreditCap(): boolean {
+    return this.roadCredit() >= this.game.config().maxRoadCredit();
+  }
+
+  roadCredit(): number {
+    return this.data.roadCredit;
+  }
   isAlliedWith(other: PlayerView): boolean {
     return this.data.allies.some((n) => other.smallID() === n);
   }

@@ -342,6 +342,10 @@ export class DefaultConfig implements Config {
     return 0;
   }
 
+  maxRoadCredit(): number {
+    return 25;
+  }
+
   // This acts as a "max cost" for the A* pathfinder, not a strict tile length.
   // A path over empty land has a cost of 2 per tile.
   maxRoadLength(): number {

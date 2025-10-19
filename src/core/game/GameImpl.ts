@@ -372,9 +372,9 @@ export class GameImpl implements Game {
     const roadInvestments = new Map<PlayerID, bigint>();
     for (const player of this._players.values()) {
       const goldToDeduct = BigInt(
-        Math.floor(player.roadInvestmentRate() * 1000000),
+        Math.floor((player.roadInvestmentRate() * 500000) / 600),
       );
-      if (goldToDeduct > 0) {
+      if (goldToDeduct > 0 && !this.roadManager.isAtCreditCap(player)) {
         const goldDeducted = player.removeGold(goldToDeduct);
         roadInvestments.set(player.id(), goldDeducted);
       }
@@ -384,10 +384,27 @@ export class GameImpl implements Game {
       playersWithRoads,
       roadInvestments,
     );
+
+    for (const player of this._players.values()) {
+      (player as PlayerImpl).setRoadCredit(
+        this.roadManager.getRoadCredit(player),
+      );
+    }
     if (roadChanges.added.length > 0 || roadChanges.removed.length > 0) {
       this.addUpdate({
         type: GameUpdateType.Roads,
         ...roadChanges,
+      });
+    }
+
+    const cargoChanges = this.cargoManager.tick(playersWithRoads);
+    if (
+      cargoChanges.added.length > 0 ||
+      cargoChanges.removed.length > 0 ||
+      cargoChanges.updated.length > 0
+    ) {
+      this.addUpdate({
+        ...cargoChanges,
       });
     }
 
@@ -951,6 +968,18 @@ export class GameImpl implements Game {
 
   public markPlayerNodesForReconnection(player: Player): void {
     this.roadManager.markPlayerNodesForReconnection(player);
+  }
+
+  public isAtCreditCap(player: Player): boolean {
+    return this.roadManager.isAtCreditCap(player);
+  }
+
+  public addRoadCredit(player: Player, credit: number): void {
+    this.roadManager.addRoadCredit(player, credit);
+  }
+
+  public getRoadCredit(player: Player): number {
+    return this.roadManager.getRoadCredit(player);
   }
 }
 

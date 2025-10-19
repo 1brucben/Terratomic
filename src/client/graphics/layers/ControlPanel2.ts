@@ -20,6 +20,7 @@ import {
   SendSetRoadInvestmentRateEvent,
   SendSetTargetTroopRatioEvent,
 } from "../../Transport";
+import { renderNumber } from "../../Utils";
 import { UIState } from "../UIState";
 import { ToggleBuildPanelEvent } from "./ControlPanel";
 import { Layer } from "./Layer";
@@ -91,10 +92,9 @@ export class ControlPanel2 extends LitElement implements Layer {
   private activeTab:
     | "Build"
     | "Attack"
-    | "Economy"
+    | "Investment"
     | "Research"
-    | "Bombers"
-    | "Roads" = "Build";
+    | "Bombers" = "Build";
 
   @state()
   private activeResearchTab: "Land" | "Water" | "Air" | "Economy" = "Land";
@@ -548,7 +548,7 @@ export class ControlPanel2 extends LitElement implements Layer {
   }
 
   private _changeTab(
-    tab: "Build" | "Attack" | "Economy" | "Research" | "Bombers" | "Roads",
+    tab: "Build" | "Attack" | "Investment" | "Research" | "Bombers",
   ) {
     this.activeTab = tab;
     if (this.uiState.pendingBuildUnitType) {
@@ -798,15 +798,6 @@ export class ControlPanel2 extends LitElement implements Layer {
           </button>
           <button
             class="py-2 px-4 text-center font-ocr uppercase ${this.activeTab ===
-            "Economy"
-              ? "bg-gray-700 text-crt-green border border-crt-green"
-              : "text-tan"}"
-            @click=${() => this._changeTab("Economy")}
-          >
-            Economy
-          </button>
-          <button
-            class="py-2 px-4 text-center font-ocr uppercase ${this.activeTab ===
             "Research"
               ? "bg-gray-700 text-crt-green border border-crt-green"
               : "text-tan"}"
@@ -814,19 +805,16 @@ export class ControlPanel2 extends LitElement implements Layer {
           >
             Research
           </button>
-          ${player?.hasUpgrade(UpgradeType.Roads)
-            ? html`
-                <button
-                  class="py-2 px-4 text-center font-ocr uppercase ${this
-                    .activeTab === "Roads"
-                    ? "bg-gray-700 text-crt-green border border-crt-green"
-                    : "text-tan"}"
-                  @click=${() => this._changeTab("Roads")}
-                >
-                  Roads
-                </button>
-              `
-            : ""}
+          <button
+            class="py-2 px-4 text-center font-ocr uppercase ${this.activeTab ===
+            "Investment"
+              ? "bg-gray-700 text-crt-green border border-crt-green"
+              : "text-tan"}"
+            @click=${() => this._changeTab("Investment")}
+          >
+            Investment
+          </button>
+
           ${this._hasAirfields
             ? html`
                 <button
@@ -845,35 +833,6 @@ export class ControlPanel2 extends LitElement implements Layer {
         </div>
 
         <div class="tab-content flex-grow overflow-y-auto max-w-full">
-          ${this.activeTab === "Roads"
-            ? html`
-                <div class="text-tan">
-                  <div class="relative">
-                    <label class="block military-label mb-1" translate="no">
-                      Roads Investment Rate:
-                      ${(this.roadInvestmentRate * 1000000).toFixed(0)}
-                      gold/tick
-                    </label>
-                    <div class="relative h-8">
-                      <input
-                        type="range"
-                        min="0"
-                        max="1000000"
-                        .value=${(this.roadInvestmentRate * 1000000).toString()}
-                        @input=${(e) => {
-                          this.roadInvestmentRate =
-                            parseInt(e.target.value) / 1000000;
-                          this.onRoadInvestmentRateChange(
-                            this.roadInvestmentRate,
-                          );
-                        }}
-                        class="absolute left-0 right-0 top-2 m-0 h-4 cursor-pointer military-slider"
-                      />
-                    </div>
-                  </div>
-                </div>
-              `
-            : ""}
           ${this.activeTab === "Bombers"
             ? html`
                 <div class="text-tan flex w-full">
@@ -1063,48 +1022,132 @@ export class ControlPanel2 extends LitElement implements Layer {
                 ></build-menu>
               `
             : ""}
-          ${this.activeTab === "Economy"
+          ${this.activeTab === "Investment"
             ? html`
-                <div class="text-tan">
-                  <div class="relative">
-                    <label class="block military-label mb-1" translate="no">
-                      Production Investment Rate:
-                      ${(this.investmentRate * 100).toFixed(0)}%
-                    </label>
-                    <div
-                      class="text-right text-xs opacity-60 mt-1 military-label normal-case"
-                      translate="no"
-                    >
-                      Prod: ${Math.round(this._productivity * 100)}%
-                      (${this._productivityGrowth >= 0 ? "+" : ""}${(
-                        this._productivityGrowth * 100
-                      ).toFixed(1)}%/min)
+                <div class="flex w-full">
+                  <div class="w-1/2 pr-2">
+                    <div class="text-tan">
+                      <div class="relative">
+                        <label class="block military-label mb-1" translate="no">
+                          Production Investment Rate:
+                          ${(this.investmentRate * 100).toFixed(0)}%
+                        </label>
+                        <div
+                          class="text-right text-xs opacity-60 mt-1 military-label normal-case"
+                          translate="no"
+                        >
+                          Prod: ${Math.round(this._productivity * 100)}%
+                          (${this._productivityGrowth >= 0 ? "+" : ""}${(
+                            this._productivityGrowth * 100
+                          ).toFixed(1)}%/min)
+                        </div>
+                        <div class="relative h-8">
+                          <div
+                            class="absolute left-0 right-0 top-3 h-2 rounded"
+                            style="background-color:#4E513A"
+                          ></div>
+                          <div
+                            class="absolute left-0 top-3 h-2 rounded transition-all duration-300"
+                            style="width:${(this.investmentRate /
+                              this.game.config().maxInvestmentRate()) *
+                            100}%; background-color: rgba(78,176,87,0.6);"
+                          ></div>
+                          <input
+                            type="range"
+                            min="0"
+                            max="${this.game?.config()?.maxInvestmentRate() *
+                            100}"
+                            .value=${(this.investmentRate * 100).toString()}
+                            @input=${(e: Event) => {
+                              this.investmentRate =
+                                parseInt((e.target as HTMLInputElement).value) /
+                                100;
+                              this.onInvestmentRateChange(this.investmentRate);
+                            }}
+                            class="absolute left-0 right-0 top-2 m-0 h-4 cursor-pointer military-slider"
+                          />
+                        </div>
+                      </div>
                     </div>
-                    <div class="relative h-8">
-                      <div
-                        class="absolute left-0 right-0 top-3 h-2 rounded"
-                        style="background-color:#4E513A"
-                      ></div>
-                      <div
-                        class="absolute left-0 top-3 h-2 rounded transition-all duration-300"
-                        style="width:${(this.investmentRate /
-                          this.game.config().maxInvestmentRate()) *
-                        100}%; background-color: rgba(78,176,87,0.6);"
-                      ></div>
-                      <input
-                        type="range"
-                        min="0"
-                        max="${this.game?.config()?.maxInvestmentRate() * 100}"
-                        .value=${(this.investmentRate * 100).toString()}
-                        @input=${(e: Event) => {
-                          this.investmentRate =
-                            parseInt((e.target as HTMLInputElement).value) /
-                            100;
-                          this.onInvestmentRateChange(this.investmentRate);
-                        }}
-                        class="absolute left-0 right-0 top-2 m-0 h-4 cursor-pointer military-slider"
-                      />
-                    </div>
+                  </div>
+                  <div class="w-1/2 pl-2">
+                    ${player?.hasUpgrade(UpgradeType.Roads)
+                      ? html`
+                          <div class="text-tan">
+                            <div class="relative">
+                              <label
+                                class="block military-label mb-1"
+                                translate="no"
+                              >
+                                Roads Investment Rate:
+                              </label>
+                              <div
+                                class="flex justify-between text-xs opacity-60 mt-1 military-label normal-case"
+                              >
+                                <span
+                                  >${renderNumber(
+                                    this.roadInvestmentRate * 500000,
+                                  )}
+                                  gold/minute</span
+                                >
+                                <span
+                                  >${this.roadInvestmentRate > 0
+                                    ? `~${(1 + this.roadInvestmentRate * 59).toFixed(1)} roads/min`
+                                    : "No roads will be built"}</span
+                                >
+                              </div>
+                              <div class="relative h-8">
+                                <div
+                                  class="absolute left-0 right-0 top-3 h-2 rounded"
+                                  style="background-color:#4E513A"
+                                ></div>
+                                <div
+                                  class="absolute left-0 top-3 h-2 rounded transition-all duration-300"
+                                  style="width:${this.roadInvestmentRate *
+                                  100}%; background-color: rgba(78,176,87,0.6);"
+                                ></div>
+                                <input
+                                  type="range"
+                                  min="0"
+                                  max="500000"
+                                  .value=${(
+                                    this.roadInvestmentRate * 500000
+                                  ).toString()}
+                                  @input=${(e) => {
+                                    this.roadInvestmentRate =
+                                      parseInt(e.target.value) / 500000;
+                                    this.onRoadInvestmentRateChange(
+                                      this.roadInvestmentRate,
+                                    );
+                                  }}
+                                  class="absolute left-0 right-0 top-2 m-0 h-4 cursor-pointer military-slider"
+                                />
+                              </div>
+
+                              <div
+                                class="text-xs mt-1 military-label normal-case"
+                              >
+                                Accumulated road resources:
+                                ${this.game.myPlayer()?.roadCredit().toFixed(1)}
+                                roads
+                              </div>
+                              ${this.game.myPlayer()?.isAtCreditCap()
+                                ? html`<div
+                                    class="text-xs text-yellow-400 mt-1 military-label normal-case"
+                                  >
+                                    Road supply storage at capacity. Investment
+                                    paused.
+                                  </div>`
+                                : ""}
+                            </div>
+                          </div>
+                        `
+                      : html`
+                          <div class="text-tan text-center opacity-50">
+                            Unlock the Roads upgrade in the Research tab to
+                            enable road investment.
+                          </div>
+                        `}
                   </div>
                 </div>
               `

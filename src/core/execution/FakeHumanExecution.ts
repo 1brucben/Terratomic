@@ -189,6 +189,8 @@ export class FakeHumanExecution implements Execution {
         this.mg.addExecution(
           new PurchaseUpgradeExecution(this.player, UpgradeType.Roads),
         );
+        this.player.setRoadInvestmentRate(0.05);
+        this.mg.addRoadCredit(this.player, 2);
       }
       this.unitCreationHelper.handleUnits();
       this.handleEmbargoesToHostileNations();

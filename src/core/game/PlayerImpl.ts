@@ -74,6 +74,7 @@ export class PlayerImpl implements Player {
   private _targetTroopRatio: bigint;
   private _investmentRate: number = 0.5;
   private _roadInvestmentRate: number = 0;
+  private _roadCredit: number = 0;
   private _productivity = 1;
   private _productivityGrowthPerMinute = 0;
   private _maxproductivity = 1;
@@ -166,6 +167,7 @@ export class PlayerImpl implements Player {
       productivity: this.productivity(),
       productivityGrowthPerMinute: this.productivityGrowthPerMinute(),
       investmentRate: this.investmentRate(),
+      roadCredit: this.roadCredit(),
       allies: this.alliances().map((a) => a.other(this).smallID()),
       embargoes: new Set([...this.embargoes.keys()].map((p) => p.toString())),
       isTraitor: this.isTraitor(),
@@ -840,6 +842,14 @@ export class PlayerImpl implements Player {
 
   setRoadInvestmentRate(rate: number): void {
     this._roadInvestmentRate = Math.min(1, Math.max(0, rate));
+  }
+
+  roadCredit(): number {
+    return this._roadCredit;
+  }
+
+  setRoadCredit(credit: number): void {
+    this._roadCredit = credit;
   }
 
   troops(): number {

@@ -546,6 +546,7 @@ export interface Player {
   setInvestmentRate(rate: number): void;
   roadInvestmentRate(): number;
   setRoadInvestmentRate(rate: number): void;
+  roadCredit(): number;
   addGold(toAdd: Gold): void;
   removeGold(toRemove: Gold): Gold;
   addWorkers(toAdd: number): void;
@@ -690,6 +691,9 @@ export interface Game extends GameMap {
   hasRoadOnTile(tile: TileRef): boolean;
   destroyPlayerRoads(player: Player): void;
   markPlayerNodesForReconnection(player: Player): void;
+  isAtCreditCap(player: Player): boolean;
+  addRoadCredit(player: Player, credit: number): void;
+  getRoadCredit(player: Player): number;
 
   // Game State
   ticks(): Tick;
