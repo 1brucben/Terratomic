@@ -133,6 +133,11 @@ export default async (env, argv) => {
               ignore: ["resources/maps/**/*"],
             },
           },
+          {
+            from: path.resolve(__dirname, "proprietary", "images"),
+            to: path.resolve(__dirname, "static", "images"),
+            noErrorOnMissing: true,
+          },
         ],
         options: { concurrency: 100 },
       }),

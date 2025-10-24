@@ -105,22 +105,22 @@
   <body
     class="h-full select-none font-military min-h-screen t-body-base bg-opacity-0.3 bg-cover bg-center bg-fixed transition-opacity duration-300 ease-in-out flex flex-col"
   >
-    <header class="l-header">
-      <div class="l-header__content flex flex-col items-center gap-2">
-        <img
-          src="../../resources/images/TerratomicLogoMagic2.png"
-          alt="Terratomic Logo"
-          class="max-w-xs h-auto filter drop-shadow-glow"
-        />
-        <div class="l-header__highlightText font-ocr text-lg tracking-wider">
-          v0.1.10
-        </div>
-      </div>
-    </header>
+    <div
+      class="l-header__highlightText font-ocr text-lg tracking-wider"
+      style="
+        position: absolute;
+        top: 10px;
+        left: 10px;
+        color: white;
+        z-index: 100;
+      "
+    >
+      v0.1.10
+    </div>
     <div class="bg-image"></div>
 
     <!-- Main container with responsive padding -->
-    <main class="flex justify-center flex-grow">
+    <main class="flex justify-center flex-grow pt-8">
       <div
         class="container p-[25px] flex flex-col flex-grow military-panel submarine-panel"
         style="
@@ -129,6 +129,12 @@
             0 2px 6px rgba(0, 0, 0, 0.4);
         "
       >
+        <img
+          src="../../proprietary/images/TerratomicLogoMagic2.png"
+          alt="Terratomic Logo"
+          class="mx-auto h-auto filter drop-shadow-glow"
+          style="max-width: 20rem"
+        />
         <!--
         <o-button
           id="login-discord"
