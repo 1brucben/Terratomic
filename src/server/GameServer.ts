@@ -110,6 +110,11 @@ export class GameServer {
     if (gameConfig.playerTeams !== undefined) {
       this.gameConfig.playerTeams = gameConfig.playerTeams;
     }
+
+    if (gameConfig.peaceTimerDurationMinutes !== undefined) {
+      this.gameConfig.peaceTimerDurationMinutes =
+        gameConfig.peaceTimerDurationMinutes;
+    }
   }
 
   public addClient(client: Client, lastTurn: number) {
