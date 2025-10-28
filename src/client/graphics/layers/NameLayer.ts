@@ -114,7 +114,8 @@ export class NameLayer implements Layer {
     this.container.style.left = "50%";
     this.container.style.top = "50%";
     this.container.style.pointerEvents = "none";
-    this.container.style.zIndex = "2";
+    // Ensure player names render above the gameplay canvas (z-30) but below HUD overlays (z-50)
+    this.container.style.zIndex = "40";
     document.body.appendChild(this.container);
 
     this.eventBus.on(AlternateViewEvent, (e) => this.onAlternateViewChange(e));
