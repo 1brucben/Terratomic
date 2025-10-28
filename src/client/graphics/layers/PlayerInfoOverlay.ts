@@ -167,6 +167,7 @@ export class PlayerInfoOverlay extends LitElement implements Layer {
     const myPlayer = this.game.myPlayer();
     const isFriendly = myPlayer?.isFriendly(player);
     let relationHtml: TemplateResult | null = null;
+    let relationClassForType = "";
     const attackingTroops = player
       .outgoingAttacks()
       .map((a) => a.troops)
@@ -193,6 +194,7 @@ export class PlayerInfoOverlay extends LitElement implements Layer {
         relationHtml = html`
           <span class="${relationClass}">${relationName}</span>
         `;
+        relationClassForType = relationClass;
       }
     }
     let playerType = "";
@@ -253,9 +255,14 @@ export class PlayerInfoOverlay extends LitElement implements Layer {
               : ""}
             ${player.name()}
           </div>
-          <div class="text-sm opacity-80">
+          <div class="text-sm opacity-80 relative top-[1px]">
             ${relationHtml}
-            <span class="${isFriendly ? "text-green-500" : ""}"
+            <span
+              class="${relationHtml
+                ? relationClassForType
+                : isFriendly
+                  ? "text-green-500"
+                  : ""}"
               >${playerType}</span
             >
           </div>
