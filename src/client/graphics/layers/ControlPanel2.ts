@@ -816,7 +816,8 @@ export class ControlPanel2 extends LitElement implements Layer {
           width: 100%; /* Full width of the column */
           height: 50px;
           border: 2px solid #2d3748;
-          background-color: #2d3748;
+          /* Darker idle surface */
+          background-color: #232d40;
           color: #e2e8f0;
           border-radius: 6px;
           box-shadow: inset 0 0 10px rgba(0, 0, 0, 0.5);

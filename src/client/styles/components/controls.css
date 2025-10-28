@@ -105,18 +105,18 @@
     inset 0 0 10px rgba(0, 0, 0, 0.5),
     0 2px 6px rgba(0, 0, 0, 0.4);
   padding: 2px;
-  color: #dbe7ff; /* soft desaturated light-blue text */
+  color: #e9f2ff; /* brighten default text for submarine panels */
   font-family: monospace;
   /* Default downscale for panels without affecting transforms used elsewhere */
   zoom: var(--ui-panel-zoom, 0.9);
 }
 /* Typography inside submarine panels */
 .submarine-panel .military-heading {
-  color: #e3edff; /* slightly brighter for headings */
+  color: #f2f7ff; /* brighter headings */
 }
 .submarine-panel .military-label {
-  /* tone down saturation for better readability */
-  color: #d6dbe6; /* muted light-gray-blue */
+  /* tone down saturation but brighten value for readability */
+  color: #e4ecff; /* brighter label */
 }
 
 /* Default slider look in submarine panels */

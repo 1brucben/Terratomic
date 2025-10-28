@@ -257,7 +257,8 @@ export class BuildMenu extends LitElement {
       width: 120px;
       height: 50px;
       border: 2px solid #0e1a33;
-      background: linear-gradient(to bottom, #0b1220, #101b33);
+      /* Darker idle surface to improve separation */
+      background: linear-gradient(to bottom, #070f1f, #0a1529);
       color: #c9dbff; /* submarine palette light blue */
       border-radius: 6px;
       box-shadow:
