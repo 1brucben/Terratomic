@@ -6,7 +6,7 @@
       "type": "shell",
       "command": "npm",
       "args": ["test"],
-      "problemMatcher": ["$tsc", "$eslint - stylish"],
+      "problemMatcher": ["$tsc", "$eslint-stylish"],
       "group": "build"
     },
     {
@@ -14,7 +14,7 @@
       "type": "shell",
       "command": "npm",
       "args": ["run", "lint"],
-      "problemMatcher": ["$tsc", "$eslint - stylish"],
+      "problemMatcher": ["$tsc", "$eslint-stylish"],
       "group": "build"
     },
     {
@@ -22,7 +22,7 @@
       "type": "shell",
       "command": "npm",
       "args": ["test"],
-      "problemMatcher": ["$tsc", "$eslint - stylish"],
+      "problemMatcher": ["$tsc", "$eslint-stylish"],
       "group": "build"
     },
     {
@@ -30,7 +30,61 @@
       "type": "shell",
       "command": "npm",
       "args": ["run", "lint"],
-      "problemMatcher": ["$tsc", "$eslint - stylish"],
+      "problemMatcher": ["$tsc", "$eslint-stylish"],
+      "group": "build"
+    },
+    {
+      "label": "npm lint",
+      "type": "shell",
+      "command": "npm",
+      "args": ["run", "lint"],
+      "isBackground": false,
+      "problemMatcher": ["$eslint-stylish"],
+      "group": "build"
+    },
+    {
+      "label": "npm lint",
+      "type": "shell",
+      "command": "npm",
+      "args": ["run", "lint"],
+      "isBackground": false,
+      "problemMatcher": ["$eslint-stylish"],
+      "group": "build"
+    },
+    {
+      "label": "npm lint",
+      "type": "shell",
+      "command": "npm",
+      "args": ["run", "lint"],
+      "isBackground": false,
+      "problemMatcher": ["$eslint-stylish"],
+      "group": "build"
+    },
+    {
+      "label": "npm lint",
+      "type": "shell",
+      "command": "npm",
+      "args": ["run", "lint"],
+      "isBackground": false,
+      "problemMatcher": ["$eslint-stylish"],
+      "group": "build"
+    },
+    {
+      "label": "npm lint",
+      "type": "shell",
+      "command": "npm",
+      "args": ["run", "lint"],
+      "isBackground": false,
+      "problemMatcher": ["$eslint-stylish"],
+      "group": "build"
+    },
+    {
+      "label": "npm lint",
+      "type": "shell",
+      "command": "npm",
+      "args": ["run", "lint"],
+      "isBackground": false,
+      "problemMatcher": ["$eslint-stylish"],
       "group": "build"
     }
   ]

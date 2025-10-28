@@ -1,4 +1,5 @@
 import * as d3 from "d3";
+import doveIcon from "../../../../proprietary/images/dove.png";
 import allianceIcon from "../../../../resources/images/AllianceIconWhite.svg";
 import boatIcon from "../../../../resources/images/BoatIconWhite.svg";
 import disabledIcon from "../../../../resources/images/DisabledIcon.svg";
@@ -37,6 +38,7 @@ enum Slot {
   Info,
   Boat,
   Ally,
+  Peace,
 }
 
 export class RadialMenu implements Layer {
@@ -66,7 +68,14 @@ export class RadialMenu implements Layer {
         icon: null,
       },
     ],
-    [Slot.Ally, { name: "ally", disabled: true, action: () => {} }],
+    [
+      Slot.Ally,
+      {
+        name: "ally",
+        disabled: true,
+        action: () => {},
+      },
+    ],
 
     [
       Slot.Info,
@@ -78,6 +87,18 @@ export class RadialMenu implements Layer {
         icon: null,
       },
     ],
+    [
+      Slot.Peace,
+      {
+        name: "peace",
+        // Keep enabled so we can style it with our custom color, but it won't perform any action
+        disabled: false,
+        action: () => {},
+        // Slightly gray, not pure white
+        color: "#e5e7eb", // Tailwind gray-200
+        icon: doveIcon,
+      },
+    ],
   ]);
 
   private readonly menuSize = 190;
@@ -85,6 +106,8 @@ export class RadialMenu implements Layer {
   private readonly iconSize = 32;
   private readonly centerIconSize = 48;
   private readonly disabledColor = d3.rgb(128, 128, 128).toString();
+  // Scale factor specifically for the Peace (dove) icon relative to iconSize
+  private readonly peaceIconScale = 1.2;
 
   private isCenterButtonEnabled = false;
 
@@ -197,12 +220,34 @@ export class RadialMenu implements Layer {
     arcs
       .append("image")
       .attr("xlink:href", (d) => d.data.icon)
-      .attr("width", this.iconSize)
-      .attr("height", this.iconSize)
-      .attr("x", (d) => arc.centroid(d)[0] - this.iconSize / 2)
-      .attr("y", (d) => arc.centroid(d)[1] - this.iconSize / 2)
+      .attr("width", (d) =>
+        d.data.name === "peace"
+          ? this.iconSize * this.peaceIconScale
+          : this.iconSize,
+      )
+      .attr("height", (d) =>
+        d.data.name === "peace"
+          ? this.iconSize * this.peaceIconScale
+          : this.iconSize,
+      )
+      .attr("x", (d) => {
+        const w =
+          d.data.name === "peace"
+            ? this.iconSize * this.peaceIconScale
+            : this.iconSize;
+        return arc.centroid(d)[0] - w / 2;
+      })
+      .attr("y", (d) => {
+        const h =
+          d.data.name === "peace"
+            ? this.iconSize * this.peaceIconScale
+            : this.iconSize;
+        return arc.centroid(d)[1] - h / 2;
+      })
       .style("pointer-events", "none")
       .attr("data-name", (d) => d.data.name);
+
+    // (Removed text label rendering for radial items)
 
     // Add glow filter
     const defs = svg.append("defs");
@@ -435,7 +480,13 @@ export class RadialMenu implements Layer {
 
   private disableAllButtons() {
     this.enableCenterButton(false);
-    for (const item of this.menuItems.values()) {
+    for (const [slot, item] of this.menuItems.entries()) {
+      // Keep Peace enabled and styled; it is a passive no-op but should not look disabled
+      if (slot === Slot.Peace) {
+        item.disabled = false;
+        this.updateMenuItemState(item);
+        continue;
+      }
       item.disabled = true;
       this.updateMenuItemState(item);
     }
