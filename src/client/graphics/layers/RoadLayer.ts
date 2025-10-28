@@ -152,7 +152,7 @@ export class RoadLayer implements Layer {
     context.stroke(this.path);
 
     // Inner semi-transparent white stroke similar to structure icon fill
-    context.strokeStyle = "rgba(255, 255, 255, 1)";
+    context.strokeStyle = "#A8A8A8";
     context.lineWidth = innerWorldWidth;
     context.stroke(this.path);
   }
