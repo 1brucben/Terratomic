@@ -267,7 +267,7 @@ export class StructureLayer implements Layer {
       ctx.fillStyle = UNDER_CONSTRUCTION_FILL;
       borderColor = UNDER_CONSTRUCTION_BORDER;
     } else {
-      ctx.fillStyle = "#FFFFFF"; // semi-transparent white applied via globalAlpha
+      ctx.fillStyle = "#eff6ffff"; // semi-transparent white applied via globalAlpha
       const border = this.theme.borderColor(unit.owner());
       borderColor = border.darken(0.17).toRgbString();
     }
