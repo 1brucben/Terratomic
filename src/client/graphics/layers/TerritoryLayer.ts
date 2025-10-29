@@ -45,6 +45,8 @@ export class TerritoryLayer implements Layer {
   private lastRefresh = 0;
 
   private lastFocusedPlayer: PlayerView | null = null;
+  // Track my active wars to redraw only affected territories on change
+  private lastMyWars: Set<string> | null = null;
 
   constructor(
     private game: GameView,
@@ -113,6 +115,45 @@ export class TerritoryLayer implements Layer {
             this.redrawTerritory(territory);
           }
         }
+      });
+
+      // Diff my war set on Player updates to selectively redraw changed territories
+      updates?.[GameUpdateType.Player]?.forEach((pu) => {
+        if (pu.smallID !== myPlayer.smallID()) return;
+        // Map wars (smallIDs) to PlayerIDs for comparison against PlayerView.id()
+        const ids = new Set<string>();
+        for (const small of pu.wars ?? []) {
+          try {
+            const p = this.game.playerBySmallID(small) as PlayerView;
+            ids.add(p.id());
+          } catch {
+            // ignore if player not found yet
+          }
+        }
+        const current = ids;
+        if (this.lastMyWars === null) {
+          this.lastMyWars = current;
+          return;
+        }
+        const changed: string[] = [];
+        // Added wars
+        current.forEach((id) => {
+          if (!this.lastMyWars!.has(id)) changed.push(id);
+        });
+        // Removed wars (peace)
+        this.lastMyWars.forEach((id) => {
+          if (!current.has(id)) changed.push(id);
+        });
+        if (changed.length > 0) {
+          const changedPlayers: PlayerView[] = [];
+          const allPlayers = this.game.playerViews();
+          for (const pid of changed) {
+            const p = allPlayers.find((pv) => pv.id() === pid);
+            if (p) changedPlayers.push(p);
+          }
+          if (changedPlayers.length > 0) this.redrawTerritory(changedPlayers);
+        }
+        this.lastMyWars = current;
       });
     }
 
@@ -401,11 +442,20 @@ export class TerritoryLayer implements Layer {
     if (this.game.isBorder(tile)) {
       const playerIsFocused = owner && this.game.focusedPlayer() === owner;
       if (myPlayer) {
-        let alternativeColor = owner.isFriendly(myPlayer)
-          ? this.theme.allyColor()
-          : this.theme.enemyColor();
-        if (owner.smallID() === myPlayer.smallID()) {
-          alternativeColor = this.theme.selfColor();
+        // Diplomacy alternate view colors:
+        // - Red (enemyColor) for bots and players at war
+        // - Green (selfColor) for self and allies
+        // - Yellow (allyColor) for neutral/peace
+        let alternativeColor = this.theme.allyColor(); // default: neutral/peace (yellow)
+        if (owner.type() === PlayerType.Bot) {
+          alternativeColor = this.theme.enemyColor(); // bots always red
+        } else if (
+          owner.smallID() === myPlayer.smallID() ||
+          owner.isFriendly(myPlayer)
+        ) {
+          alternativeColor = this.theme.selfColor(); // self and allies (green)
+        } else if (myPlayer.isAtWarWith(owner)) {
+          alternativeColor = this.theme.enemyColor(); // at war (red)
         }
         this.paintTile(this.alternativeImageData, tile, alternativeColor, 255);
       }
@@ -432,14 +482,21 @@ export class TerritoryLayer implements Layer {
       }
     } else {
       if (myPlayer) {
-        let alternativeColor = owner.isFriendly(myPlayer)
-          ? this.theme.allyColor()
-          : this.theme.enemyColor();
-        // If the current player is the owner
-        if (owner.smallID() === myPlayer.smallID()) {
-          alternativeColor = this.theme.selfColor();
+        // Diplomacy alternate view colors:
+        // - Red (enemyColor) for bots and players at war
+        // - Green (selfColor) for self and allies
+        // - Yellow (allyColor) for neutral/peace
+        let alternativeColor = this.theme.allyColor(); // default: neutral/peace (yellow)
+        if (owner.type() === PlayerType.Bot) {
+          alternativeColor = this.theme.enemyColor(); // bots always red
+        } else if (
+          owner.smallID() === myPlayer.smallID() ||
+          owner.isFriendly(myPlayer)
+        ) {
+          alternativeColor = this.theme.selfColor(); // self and allies (green)
+        } else if (myPlayer.isAtWarWith(owner)) {
+          alternativeColor = this.theme.enemyColor(); // at war (red)
         }
-        // If the tile is on a ally territory, use the ally color
         this.paintTile(
           this.alternativeImageData,
           tile,

@@ -323,6 +323,11 @@ export class PlayerView {
     return this.isAlliedWith(other) || this.isOnSameTeam(other);
   }
 
+  // Diplomacy: client-side war check. Backed by the server-provided set used for war state.
+  isAtWarWith(other: PlayerView): boolean {
+    return (this.data.wars ?? []).some((n) => other.smallID() === n);
+  }
+
   isRequestingAllianceWith(other: PlayerView) {
     return this.data.outgoingAllianceRequests.some((id) => other.id() === id);
   }

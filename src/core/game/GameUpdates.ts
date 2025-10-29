@@ -169,6 +169,8 @@ export interface PlayerUpdate {
   attackingTroops: number;
   targetTroopRatio: number;
   allies: number[];
+  // Diplomacy: explicit wars (smallIDs), separate from trade embargoes
+  wars?: number[];
   embargoes: Set<PlayerID>;
   isTraitor: boolean;
   targets: number[];

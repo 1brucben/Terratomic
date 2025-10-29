@@ -184,6 +184,7 @@ export class PlayerImpl implements Player {
       productivityGrowthPerMinute: this.productivityGrowthPerMinute(),
       investmentRate: this.investmentRate(),
       allies: this.alliances().map((a) => a.other(this).smallID()),
+      wars: Array.from(this._wars).map((pid) => this.mg.player(pid).smallID()),
       embargoes: new Set([...this.embargoes.keys()].map((p) => p.toString())),
       isTraitor: this.isTraitor(),
       targets: this.targets().map((p) => p.smallID()),
@@ -606,6 +607,10 @@ export class PlayerImpl implements Player {
 
   setWarWith(other: Player): void {
     if (other === this) return;
+    // Disable war mechanism for bots: never enter war state if either side is a Bot
+    if (this.type() === PlayerType.Bot || other.type() === PlayerType.Bot) {
+      return;
+    }
     if (this._wars.has(other.id())) return;
     this._wars.add(other.id());
     // Auto-embargo while at war
