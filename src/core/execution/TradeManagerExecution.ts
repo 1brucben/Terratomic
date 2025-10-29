@@ -34,8 +34,12 @@ export class TradeManagerExecution implements Execution {
   private lastDemandTick: Tick = -1;
   private demand: Map<PairKey, number> = new Map();
   private queue: DemandRoute[] = [];
+  // Periodic logger for queue length
+  private queueLogIntervalId: any;
   // Port -> replacement due tick (if scheduled)
   private replacementDueAt: Map<number /*portUnitID*/, Tick> = new Map();
+  // Track last-known owner for each port to detect captures
+  private portOwnerById: Map<number /*portUnitID*/, Player> = new Map();
   // Track trade ships to detect losses (capture/deletion) and their home ports
   private shipOwnerById: Map<number, Player> = new Map();
   private shipHomePortById: Map<number, number /*portUnitID*/> = new Map();
@@ -43,6 +47,13 @@ export class TradeManagerExecution implements Execution {
 
   init(mg: Game, _ticks: number): void {
     this.mg = mg;
+    // Start periodic queue length logging (every 5 seconds)
+    if (!this.queueLogIntervalId) {
+      this.queueLogIntervalId = setInterval(() => {
+        // Keep lightweight and consistent with other [TRADE] logs
+        console.log(`[TRADE] queue length=${this.queue.length}`);
+      }, 5000);
+    }
   }
 
   isActive(): boolean {
@@ -85,7 +96,8 @@ export class TradeManagerExecution implements Execution {
   }
 
   private pruneEmbargoedRoutes(): void {
-    if (this.queue.length === 0) return;
+    const before = this.queue.length;
+    if (before === 0) return;
     this.queue = this.queue.filter(({ from, to }) => {
       // Remove routes where either side embargoes the other
       return !(from.hasEmbargoAgainst(to) || to.hasEmbargoAgainst(from));
@@ -98,6 +110,11 @@ export class TradeManagerExecution implements Execution {
 
   private accumulateDemand(): void {
     const K = this.mg.config().tradeGravityK();
+    // World GDP = sum of all alive players' GDPs (bots and humans)
+    const worldGDP = this.mg
+      .players()
+      .filter((p) => p.isAlive())
+      .reduce((sum, p) => sum + p.gdp(), 0);
     const players = this.playersForTrade();
     for (let i = 0; i < players.length; i++) {
       for (let j = 0; j < players.length; j++) {
@@ -116,7 +133,11 @@ export class TradeManagerExecution implements Execution {
 
         const dist = this.capitalDistance(capA, capB);
         if (dist <= 0) continue;
-        const demandDelta = (K * a.gdp() * b.gdp()) / dist;
+        // New gravity model scaling:
+        // demand += K * gdp_i * gdp_j / distance / world_gdp
+        // Safeguard zero world GDP
+        const demandDelta =
+          worldGDP > 0 ? (K * a.gdp() * b.gdp()) / dist / worldGDP : 0;
         const k = this.key(a, b);
         const prev = this.demand.get(k) ?? 0;
         const next = prev + demandDelta;
@@ -140,13 +161,26 @@ export class TradeManagerExecution implements Execution {
     return Math.sqrt(this.mg.euclideanDistSquared(refA, refB));
   }
 
+  // (removed) nearestOceanWithin helper was unused after direct undocking implementation
+
   private processPortSupply(ticks: Tick): void {
     const perPort = this.mg.config().tradeShipPerPortSupply();
     const delay = this.mg.config().tradeShipReplacementDelayTicks();
 
     // 1) Update current home-port assignments and track current owners
     const currentShipIds = new Set<number>();
-    for (const ship of this.mg.units(UnitType.TradeShip)) {
+    const shipsSnapshot = [...this.mg.units(UnitType.TradeShip)];
+    for (const ship of shipsSnapshot) {
+      // Remove trade ships owned by eliminated players
+      if (!ship.owner().isAlive()) {
+        // Delete without messages; considered a consequence of elimination
+        ship.delete(false);
+        // Clean up tracking
+        const sid = ship.id();
+        this.shipOwnerById.delete(sid);
+        this.shipHomePortById.delete(sid);
+        continue;
+      }
       if (!ship.isActive()) continue;
       const sid = ship.id();
       currentShipIds.add(sid);
@@ -170,14 +204,14 @@ export class TradeManagerExecution implements Execution {
       }
       this.shipOwnerById.set(sid, currOwner);
 
-      // If idle and docked at own port, assign/update home port
+      // If idle and docked at own port (on the port tile), assign/update home port
       if (ship.targetUnit() === undefined) {
         const dockPort = this.mg
           .unitsAt(ship.tile())
-          .find((u) => u.type() === UnitType.Port && u.owner() === currOwner);
-        if (dockPort) {
-          this.shipHomePortById.set(sid, dockPort.id());
-        }
+          .find(
+            (u) => u.type() === UnitType.Port && u.owner() === currOwner,
+          ) as Unit | undefined;
+        if (dockPort) this.shipHomePortById.set(sid, dockPort.id());
       }
     }
     // Detect deletions (sunk etc.) -> schedule replacement at last known home port
@@ -204,6 +238,18 @@ export class TradeManagerExecution implements Execution {
     for (const port of this.mg.units(UnitType.Port)) {
       if (!port.isActive()) continue;
       currentPortIds.add(port.id());
+      // Detect ownership change of an existing port
+      const prevOwner = this.portOwnerById.get(port.id());
+      if (prevOwner && prevOwner !== port.owner()) {
+        // Port captured: ensure new owner can reach per-port supply target
+        if (this.activeHomeSupplyCount(port) < perPort) {
+          if (!this.replacementDueAt.has(port.id())) {
+            this.replacementDueAt.set(port.id(), ticks + delay);
+          }
+        }
+      }
+      // Track current owner
+      this.portOwnerById.set(port.id(), port.owner());
       if (!this.knownPortIds.has(port.id())) {
         // New port detected
         if (this.activeHomeSupplyCount(port) < perPort) {
@@ -216,7 +262,10 @@ export class TradeManagerExecution implements Execution {
     }
     // Clear ports that no longer exist
     for (const pid of Array.from(this.knownPortIds)) {
-      if (!currentPortIds.has(pid)) this.knownPortIds.delete(pid);
+      if (!currentPortIds.has(pid)) {
+        this.knownPortIds.delete(pid);
+        this.portOwnerById.delete(pid);
+      }
     }
 
     // 3) Spawn replacements that are due (but only if still below target supply)
@@ -229,22 +278,29 @@ export class TradeManagerExecution implements Execution {
         this.replacementDueAt.delete(portID);
         continue;
       }
+      // No adjacency restriction: ships will undock directly to the nearest ocean
       if (this.activeHomeSupplyCount(port) >= perPort) {
         // Supply already satisfied; drop schedule
         this.replacementDueAt.delete(portID);
         continue;
       }
       const owner = port.owner();
-      const spawn = owner.canBuild(UnitType.TradeShip, port.tile());
+      const requested = port.tile();
+      const spawn = owner.canBuild(UnitType.TradeShip, requested);
       if (spawn !== false) {
-        const newShip = owner.buildUnit(UnitType.TradeShip, spawn, {
-          targetUnit: port,
-        });
-        // Immediately clear target to mark the ship as idle/available at the port
-        newShip.setTargetUnit(undefined);
-        // Assign home to this port
-        this.shipOwnerById.set(newShip.id(), newShip.owner());
-        this.shipHomePortById.set(newShip.id(), portID);
+        const hasPortAtSpawn = this.mg
+          .unitsAt(spawn)
+          .some((u) => u.type() === UnitType.Port);
+        if (hasPortAtSpawn) {
+          const newShip = owner.buildUnit(UnitType.TradeShip, spawn, {
+            targetUnit: port,
+          });
+          // Immediately clear target to mark the ship as idle/available at the port
+          newShip.setTargetUnit(undefined);
+          // Assign home to this port
+          this.shipOwnerById.set(newShip.id(), newShip.owner());
+          this.shipHomePortById.set(newShip.id(), portID);
+        }
       }
       // Whether it succeeded or not, reset timer to avoid spamming
       this.replacementDueAt.delete(portID);
@@ -262,13 +318,15 @@ export class TradeManagerExecution implements Execution {
     const ships: Unit[] = [];
     for (const ship of this.mg.units(UnitType.TradeShip)) {
       if (!ship.isActive()) continue;
+      // Do not consider ships that are flagged as returning
+      if (ship.returning()) continue;
       // Idle and docked: considered available
       if (ship.targetUnit() !== undefined) continue;
-      // Only when docked at a port owned by the ship owner
-      const isDockedAtOwnPort = this.mg
+      // Consider available if docked at ANY port tile (regardless of owner)
+      const isDockedAtAnyPort = this.mg
         .unitsAt(ship.tile())
-        .some((u) => u.type() === UnitType.Port && u.owner() === ship.owner());
-      if (!isDockedAtOwnPort) continue;
+        .some((u) => u.type() === UnitType.Port);
+      if (!isDockedAtAnyPort) continue;
       ships.push(ship);
     }
     return ships;
@@ -290,22 +348,28 @@ export class TradeManagerExecution implements Execution {
     const available = this.availableShips();
     if (available.length === 0) return;
 
-    // Take the next route in FIFO order but only if both endpoints have ports
-    // If not possible, keep it in queue for later.
-    const next = this.queue[0];
-    const startPort = this.selectRandomPort(next.from);
-    const endPort = this.selectRandomPort(next.to);
-    if (!startPort || !endPort) return;
+    // Assign as many routes as possible this tick while ships and routes are available
+    while (this.queue.length > 0 && available.length > 0) {
+      // Peek next route; if endpoints invalid, skip it (drop) to avoid blocking
+      const next = this.queue[0];
+      const startPort = this.selectRandomPort(next.from);
+      const endPort = this.selectRandomPort(next.to);
+      if (!startPort || !endPort) {
+        // Can't satisfy this route right now (no ports); drop it
+        this.queue.shift();
+        continue;
+      }
 
-    // Pick a random available ship (uniform across ships) — equivalent to
-    // weighting owners by number of ships, but simpler and less redundant.
-    const ship = available[Math.floor(Math.random() * available.length)];
+      // Pick a random available ship (uniform) and remove it from availability for this tick
+      const idx = Math.floor(Math.random() * available.length);
+      const [ship] = available.splice(idx, 1);
 
-    // Assign: set target to start port if not already there; an execution will handle move
-    this.queue.shift();
-    this.mg.addExecution(
-      new AssignedTradeRouteExecution(ship, startPort, endPort),
-    );
+      // Assign: set target to start port if not already there; execution will handle moves
+      this.queue.shift();
+      this.mg.addExecution(
+        new AssignedTradeRouteExecution(ship, startPort, endPort),
+      );
+    }
   }
 }
 
@@ -327,47 +391,20 @@ export class AssignedTradeRouteExecution implements Execution {
     this.mg = mg;
     this.path = PathFinder.Mini(mg, 2500);
     this.lastMoveTick = ticks;
+    // Ensure ship is not in a stale 'returning' state from a prior turnaround
+    this.ship.setReturning(false);
     // Store route owners on the ship for warship logic
     this.ship.setTradeRouteOwners(this.startPort.owner(), this.endPort.owner());
     // Load cargo equal to the route's fixed income; used if captured and returned
     this.ship.setCargoGold(this.mg.config().tradeIncomeFixed());
-    // Record last port visited at assignment time (if currently docked)
+    // Record last port visited at assignment time (only if currently on a port tile)
     const dockPort = this.mg
       .unitsAt(this.ship.tile())
       .find((u) => u.type() === UnitType.Port) as Unit | undefined;
     this.lastPort = dockPort ?? null;
 
-    // Log assignment for human-owned trade ships
-    if (this.ship.owner().type() === PlayerType.Human) {
-      const ownerName = this.ship.owner().displayName();
-      const fromOwner = this.startPort.owner().displayName();
-      const toOwner = this.endPort.owner().displayName();
-      const startId = this.startPort.id();
-      const endId = this.endPort.id();
-      const shipId = this.ship.id();
-      console.log(
-        `[TRADE] Ship #${shipId} (${ownerName}) ASSIGNED: from ${fromOwner} (Port #${startId}) to ${toOwner} (Port #${endId})`,
-      );
-    }
-
-    if (this.ship.tile() !== this.startPort.tile()) {
-      this.ship.setTargetUnit(this.startPort);
-      this.phase = "toStart";
-    } else {
-      // If already at start, note it for human debugging
-      if (this.ship.owner().type() === PlayerType.Human) {
-        const ownerName = this.ship.owner().displayName();
-        const fromOwner = this.startPort.owner().displayName();
-        const shipId = this.ship.id();
-        console.log(
-          `[TRADE] Ship #${shipId} (${ownerName}) already at START port (${fromOwner}); departing towards destination...`,
-        );
-      }
-      this.ship.setTargetUnit(this.endPort);
-      this.phase = "toEnd";
-    }
+    // (removed) assignment-time debug logs
   }
-
   isActive(): boolean {
     return this.active;
   }
@@ -388,9 +425,40 @@ export class AssignedTradeRouteExecution implements Execution {
     if (this.ship.returning()) {
       expectedTargetUnit = this.lastPort ?? this.startPort;
     }
+    // If the DESTINATION (expected target) was destroyed:
+    // - If not already returning, turn around (return to last port if valid; else any domestic port).
+    // - If already returning and that port is gone, pick a different domestic port.
+    if (!expectedTargetUnit.isActive()) {
+      const domesticFallback = this.selectRandomDomesticPort(this.ship.owner());
+      if (!this.ship.returning()) {
+        const fallback =
+          this.lastPort && this.lastPort.isActive()
+            ? this.lastPort
+            : domesticFallback;
+        if (fallback) {
+          this.ship.setReturning(true);
+          this.ship.setTargetUnit(fallback);
+        } else {
+          // Nowhere sensible to return to -> scuttle the ship
+          this.ship.delete(false);
+          this.active = false;
+        }
+      } else {
+        if (domesticFallback) {
+          this.ship.setTargetUnit(domesticFallback);
+        } else {
+          // Already returning but no valid fallback -> scuttle the ship
+          this.ship.delete(false);
+          this.active = false;
+        }
+      }
+      return;
+    }
     // If some external order changed the target while not returning, stop this assignment
+    // Allow initial assignment where target is still undefined; we'll set it below.
     if (
       !this.ship.returning() &&
+      this.ship.targetUnit() !== undefined &&
       this.ship.targetUnit() !== expectedTargetUnit
     ) {
       this.active = false;
@@ -415,28 +483,10 @@ export class AssignedTradeRouteExecution implements Execution {
         .unitsAt(targetTile)
         .find((u) => u.type() === UnitType.Port) as Unit | undefined;
       if (portHere) this.lastPort = portHere;
-      // Log arrival for human-owned trade ships
-      if (this.ship.owner().type() === PlayerType.Human && portHere) {
-        const ownerName = this.ship.owner().displayName();
-        const shipId = this.ship.id();
-        const portOwner = portHere.owner().displayName();
-        const portId = portHere.id();
-        if (this.ship.returning()) {
-          console.log(
-            `[TRADE] Ship #${shipId} (${ownerName}) RETURNED to ${portOwner} (Port #${portId}) after turnaround`,
-          );
-        } else if (this.phase === "toStart") {
-          const toOwner = this.endPort.owner().displayName();
-          console.log(
-            `[TRADE] Ship #${shipId} (${ownerName}) ARRIVED at START port ${portOwner} (Port #${portId}); heading to ${toOwner}`,
-          );
-        } else {
-          console.log(
-            `[TRADE] Ship #${shipId} (${ownerName}) ARRIVED at END port ${portOwner} (Port #${portId}); trade completed`,
-          );
-        }
-      }
+      // (removed) arrival logs for human-owned trade ships
       if (this.ship.returning()) {
+        // Clear returning state upon successful return dock
+        this.ship.setReturning(false);
         // Cancel route on return to last port
         this.ship.setTargetUnit(undefined);
         this.ship.setTradeRouteOwners(null, null);
@@ -458,18 +508,37 @@ export class AssignedTradeRouteExecution implements Execution {
     // Compute a navigable water target near the destination port
     const navTarget = this.navTargetForPort(targetTile);
     if (navTarget === null) {
-      // Cannot navigate to this port (no adjacent water). Cancel.
+      // Cannot navigate to this port (no adjacent ocean). End assignment.
       this.active = false;
       return;
     }
 
-    // If on land (port tile), step into adjacent ocean first
+    // If on land (port tile), leave port directly onto ocean: prefer adjacent ocean; otherwise jump to nearest ocean within a small radius.
     if (!this.mg.isOcean(this.ship.tile())) {
-      const step = this.stepIntoOceanTowards(navTarget);
-      if (step !== null) {
-        this.ship.move(step);
+      const here = this.ship.tile();
+      // Must be docked at a port to undock
+      const dockPort = this.mg
+        .unitsAt(here)
+        .find((u) => u.type() === UnitType.Port) as Unit | undefined;
+      if (!dockPort) {
+        // On land without a port; do not move. End assignment.
+        this.active = false;
         return;
       }
+      // Try an adjacent ocean step first
+      const adjOcean = this.mg
+        .neighbors(here)
+        .filter((t) => this.mg.isOcean(t))
+        .sort(
+          (a, b) =>
+            this.mg.manhattanDist(a, navTarget) -
+            this.mg.manhattanDist(b, navTarget),
+        );
+      if (adjOcean.length > 0) {
+        this.ship.move(adjOcean[0]);
+        return;
+      }
+      // No adjacent ocean: do not jump; end assignment
       this.active = false;
       return;
     }
@@ -482,28 +551,10 @@ export class AssignedTradeRouteExecution implements Execution {
           .find((u) => u.type() === UnitType.Port) as Unit | undefined;
         if (portHere) this.lastPort = portHere;
       }
-      // Log arrival for human-owned ships even if already on tile (edge case)
-      if (this.ship.owner().type() === PlayerType.Human && this.lastPort) {
-        const ownerName = this.ship.owner().displayName();
-        const shipId = this.ship.id();
-        const portOwner = this.lastPort.owner().displayName();
-        const portId = this.lastPort.id();
-        if (this.ship.returning()) {
-          console.log(
-            `[TRADE] Ship #${shipId} (${ownerName}) RETURNED to ${portOwner} (Port #${portId}) after turnaround`,
-          );
-        } else if (this.phase === "toStart") {
-          const toOwner = this.endPort.owner().displayName();
-          console.log(
-            `[TRADE] Ship #${shipId} (${ownerName}) ARRIVED at START port ${portOwner} (Port #${portId}); heading to ${toOwner}`,
-          );
-        } else {
-          console.log(
-            `[TRADE] Ship #${shipId} (${ownerName}) ARRIVED at END port ${portOwner} (Port #${portId}); trade completed`,
-          );
-        }
-      }
+      // (removed) arrival logs when already on port tile
       if (this.ship.returning()) {
+        // Clear returning state upon successful return dock
+        this.ship.setReturning(false);
         this.ship.setTargetUnit(undefined);
         this.active = false;
         return;
@@ -529,6 +580,7 @@ export class AssignedTradeRouteExecution implements Execution {
         this.ship.move(res.node);
         break;
       case PathFindResultType.PathNotFound:
+        // Path cannot be found; end assignment
         this.active = false;
         break;
     }
@@ -567,17 +619,24 @@ export class AssignedTradeRouteExecution implements Execution {
     return candidates[0];
   }
 
-  // If the ship is on land (port tile), take one step into ocean toward navTarget
-  private stepIntoOceanTowards(navTarget: TileRef): TileRef | null {
-    const oceanNeighbors = this.mg
-      .neighbors(this.ship.tile())
-      .filter((t) => this.mg.isOcean(t));
-    if (oceanNeighbors.length === 0) return null;
-    oceanNeighbors.sort(
-      (a, b) =>
-        this.mg.manhattanDist(a, navTarget) -
-        this.mg.manhattanDist(b, navTarget),
-    );
-    return oceanNeighbors[0];
+  // Removed unused shoreline stepping helpers
+
+  // Pick any active port owned by the given owner
+  private selectRandomDomesticPort(owner: Player): Unit | null {
+    const ports = this.mg
+      .units(UnitType.Port)
+      .filter((p) => p.isActive() && p.owner() === owner);
+    if (ports.length === 0) return null;
+    const idx = Math.floor(Math.random() * ports.length);
+    return ports[idx];
+  }
+
+  // Abort this trade assignment: clear any route metadata and leave ship idle
+  private abort(): void {
+    this.ship.setTargetUnit(undefined);
+    this.ship.setTradeRouteOwners(null, null);
+    this.ship.setCargoGold(0n);
+    this.ship.setReturning(false);
+    this.active = false;
   }
 }

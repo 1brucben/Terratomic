@@ -153,7 +153,7 @@ export interface Config {
   tradeShipGold(dist: number): Gold;
   tradeShipSpawnRate(numberOfPorts: number): number;
   // Trade rework: gravity-based demand and port-supplied ships
-  tradeGravityK(): number; // Coefficient K in K * gdp_i * gdp_j / distance
+  tradeGravityK(): number; // Coefficient K in K * gdp_i * gdp_j / distance / world_gdp
   tradeDemandTickInterval(): number; // Ticks between gravity accumulation (default 10)
   tradeShipPerPortSupply(): number; // Number of trade ships each port supplies (default 1)
   tradeIncomeFixed(): Gold; // Fixed income per completed trade (default 10k)

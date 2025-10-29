@@ -67,6 +67,7 @@ export class MiniAStar implements AStar<TileRef> {
   }
 
   reconstructPath(): TileRef[] {
+    // Build start and destination cells at full resolution
     let cellSrc: Cell | undefined;
     if (!Array.isArray(this.src)) {
       cellSrc = new Cell(this.gameMap.x(this.src), this.gameMap.y(this.src));
@@ -75,16 +76,104 @@ export class MiniAStar implements AStar<TileRef> {
       this.gameMap.x(this.dst),
       this.gameMap.y(this.dst),
     );
-    const upscaled = fixExtremes(
-      upscalePath(
-        this.aStar
-          .reconstructPath()
-          .map((tr) => new Cell(this.miniMap.x(tr), this.miniMap.y(tr))),
-      ),
-      cellDst,
-      cellSrc,
+
+    // Get path in mini-map coords, upscale to full grid coordinates
+    const coarseCells = this.aStar
+      .reconstructPath()
+      .map((tr) => new Cell(this.miniMap.x(tr), this.miniMap.y(tr)));
+    const upscaled = fixExtremes(upscalePath(coarseCells), cellDst, cellSrc);
+
+    // Convert to an orthogonal, water-preferred path on the full grid
+    const waterOrthogonal: Cell[] = [];
+    if (upscaled.length > 0) {
+      let curr = upscaled[0];
+      waterOrthogonal.push(curr);
+      for (let i = 1; i < upscaled.length; i++) {
+        const target = upscaled[i];
+        while (curr.x !== target.x || curr.y !== target.y) {
+          const stepX = Math.sign(target.x - curr.x);
+          const stepY = Math.sign(target.y - curr.y);
+          const candidates: Cell[] = [];
+          if (stepX !== 0) candidates.push(new Cell(curr.x + stepX, curr.y));
+          if (stepY !== 0) candidates.push(new Cell(curr.x, curr.y + stepY));
+
+          // Prefer candidates that are water and reduce manhattan distance
+          let best: Cell | null = null;
+          let bestScore = Number.POSITIVE_INFINITY;
+          for (const cand of candidates) {
+            const ref = this.gameMap.ref(cand.x, cand.y);
+            const isWater = this.gameMap.isWater(ref);
+            const dist =
+              Math.abs(target.x - cand.x) + Math.abs(target.y - cand.y);
+            const score = (isWater ? 0 : 1000) + dist; // strong preference for water
+            if (score < bestScore) {
+              best = cand;
+              bestScore = score;
+            }
+          }
+          // If no candidates (shouldn't happen), break to avoid infinite loop
+          if (best === null) break;
+          curr = best;
+          waterOrthogonal.push(curr);
+        }
+      }
+    }
+
+    // Remove any residual non-water cells if present (belt-and-suspenders)
+    let finalCells = waterOrthogonal.filter((c) =>
+      this.gameMap.isWater(this.gameMap.ref(c.x, c.y)),
     );
-    return upscaled.map((c) => this.gameMap.ref(c.x, c.y));
+
+    // Robustness: ensure path includes src and dst and has at least 2 cells
+    const srcCell = cellSrc ?? (upscaled.length > 0 ? upscaled[0] : undefined);
+    if (finalCells.length === 0) {
+      // Fallback to upscaled (pre-orthogonal) if filtering removed everything
+      finalCells = [...upscaled];
+    }
+    if (srcCell) {
+      const first = finalCells[0];
+      if (!first || first.x !== srcCell.x || first.y !== srcCell.y) {
+        finalCells.unshift(srcCell);
+      }
+    }
+    const last = finalCells[finalCells.length - 1];
+    if (!last || last.x !== cellDst.x || last.y !== cellDst.y) {
+      finalCells.push(cellDst);
+    }
+    if (finalCells.length < 2) {
+      // Create a single orthogonal step toward dst
+      const start = finalCells[0];
+      if (!start) {
+        finalCells = [cellDst];
+      } else if (start.x !== cellDst.x || start.y !== cellDst.y) {
+        const stepX = Math.sign(cellDst.x - start.x);
+        const stepY = Math.sign(cellDst.y - start.y);
+        const candidates: Cell[] = [];
+        if (stepX !== 0) candidates.push(new Cell(start.x + stepX, start.y));
+        if (stepY !== 0) candidates.push(new Cell(start.x, start.y + stepY));
+        let best: Cell | null = null;
+        let bestScore = Number.POSITIVE_INFINITY;
+        for (const cand of candidates) {
+          const ref = this.gameMap.ref(cand.x, cand.y);
+          const isWater = this.gameMap.isWater(ref);
+          const dist =
+            Math.abs(cellDst.x - cand.x) + Math.abs(cellDst.y - cand.y);
+          const score = (isWater ? 0 : 1000) + dist;
+          if (score < bestScore) {
+            best = cand;
+            bestScore = score;
+          }
+        }
+        if (best) finalCells.push(best);
+      }
+      if (finalCells.length < 2) {
+        // As a final guard, ensure there are at least two cells
+        finalCells.push(cellDst);
+      }
+    }
+
+    // Map to tile refs
+    return finalCells.map((c) => this.gameMap.ref(c.x, c.y));
   }
 }
 
