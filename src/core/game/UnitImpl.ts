@@ -57,6 +57,12 @@ export class UnitImpl implements Unit {
   private _trajectoryIndex: number = 0;
   private _trajectory: TrajectoryTile[];
 
+  // Trade-ship specific: route owners for warship consideration
+  private _tradeRouteStartOwner: PlayerImpl | null = null;
+  private _tradeRouteEndOwner: PlayerImpl | null = null;
+  // Trade-ship specific: cargo carried (gold)
+  private _cargoGold: bigint = 0n;
+
   constructor(
     private _type: UnitType,
     private mg: GameImpl,
@@ -648,5 +654,27 @@ export class UnitImpl implements Unit {
       this.mg.ticks() - this._lastSetSafeFromPirates <
       this.mg.config().safeFromPiratesCooldownMax()
     );
+  }
+
+  // Trade route metadata API
+  setTradeRouteOwners(
+    startOwner: PlayerImpl | null,
+    endOwner: PlayerImpl | null,
+  ): void {
+    this._tradeRouteStartOwner = startOwner;
+    this._tradeRouteEndOwner = endOwner;
+  }
+  tradeRouteStartOwner(): PlayerImpl | null {
+    return this._tradeRouteStartOwner;
+  }
+  tradeRouteEndOwner(): PlayerImpl | null {
+    return this._tradeRouteEndOwner;
+  }
+
+  setCargoGold(amount: bigint): void {
+    this._cargoGold = amount;
+  }
+  cargoGold(): bigint {
+    return this._cargoGold;
   }
 }

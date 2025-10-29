@@ -29,7 +29,8 @@ export class TestServerConfig implements ServerConfig {
     return "test";
   }
   turnIntervalMs(): number {
-    throw new Error("Method not implemented.");
+    // Keep tests fast; ~10 ticks/second
+    return 100;
   }
   gameCreationRate(): number {
     throw new Error("Method not implemented.");

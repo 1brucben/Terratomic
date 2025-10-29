@@ -514,6 +514,15 @@ export interface Unit {
   setSafeFromPirates(): void; // Only for trade ships
   isSafeFromPirates(): boolean; // Only for trade ships
 
+  // Trade route metadata (used primarily by trade ships)
+  setTradeRouteOwners(startOwner: Player | null, endOwner: Player | null): void;
+  tradeRouteStartOwner(): Player | null;
+  tradeRouteEndOwner(): Player | null;
+
+  // Trade ship cargo (gold carried during a route; awarded on capture return)
+  setCargoGold(amount: Gold): void;
+  cargoGold(): Gold;
+
   // Construction
   constructionType(): UnitType | null;
   setConstructionType(type: UnitType): void;

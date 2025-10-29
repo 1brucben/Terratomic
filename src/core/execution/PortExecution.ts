@@ -1,7 +1,6 @@
 import { Execution, Game, Player, Unit, UnitType } from "../game/Game";
 import { TileRef } from "../game/GameMap";
 import { PseudoRandom } from "../PseudoRandom";
-import { TradeShipExecution } from "./TradeShipExecution";
 
 export class PortExecution implements Execution {
   private active = true;
@@ -56,26 +55,10 @@ export class PortExecution implements Execution {
       return;
     }
 
-    const totalEffectivePorts = this.mg
-      .players()
-      .reduce((sum, p) => sum + p.effectiveUnits(UnitType.Port), 0);
-
-    if (
-      !this.random.chance(
-        this.mg.config().tradeShipSpawnRate(totalEffectivePorts),
-      )
-    ) {
-      return;
-    }
-
-    const ports = this.player.tradingPorts(this.port);
-
-    if (ports.length === 0) {
-      return;
-    }
-
-    const port = this.random.randElement(ports);
-    this.mg.addExecution(new TradeShipExecution(this.player, this.port, port));
+    // Trade rework: trade ships are assigned by TradeManager; ports no longer
+    // spawn spontaneous trade routes here. Keep this execution responsible for
+    // ensuring the port exists and remains active.
+    return;
   }
 
   isActive(): boolean {

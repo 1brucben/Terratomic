@@ -3,6 +3,7 @@ import {
   Game,
   isUnit,
   OwnerComp,
+  Player,
   Unit,
   UnitParams,
   UnitType,
@@ -111,19 +112,40 @@ export class WarshipExecution implements Execution {
       ) {
         continue;
       }
-      // Only engage if at war with the target's owner
-      if (!this.warship.owner().isAtWarWith(unit.owner())) {
-        continue;
-      }
+      // Decide engagement rules per unit type
       if (unit.type() === UnitType.TradeShip) {
-        if (
-          !hasPort ||
-          unit.isSafeFromPirates() ||
-          unit.targetUnit()?.owner() === this.warship.owner() || // trade ship is coming to my port
-          unit.targetUnit()?.owner().isFriendly(this.warship.owner()) // trade ship is coming to my ally
-        ) {
+        const shipOwner = unit.owner();
+        const myOwner = this.warship.owner();
+        const startOwner = unit.tradeRouteStartOwner();
+        const endOwner = unit.tradeRouteEndOwner();
+        const atWarWithAnyEndpoint = [startOwner, endOwner]
+          .filter((p): p is Player => !!p)
+          .some((p) => myOwner.isAtWarWith(p));
+
+        const embargoAgainstAnyEndpoint = [startOwner, endOwner]
+          .filter((p): p is Player => !!p)
+          .some(
+            (p) => myOwner.hasEmbargoAgainst(p) || p.hasEmbargoAgainst(myOwner),
+          );
+
+        const canTargetTrade =
+          myOwner.isAtWarWith(shipOwner) ||
+          ((atWarWithAnyEndpoint || embargoAgainstAnyEndpoint) &&
+            !myOwner.isFriendly(shipOwner));
+        if (!canTargetTrade) {
           continue;
         }
+      } else {
+        // Non-trade ships: only target if at war with owner
+        if (!this.warship.owner().isAtWarWith(unit.owner())) {
+          continue;
+        }
+      }
+      if (unit.type() === UnitType.TradeShip) {
+        if (!hasPort || unit.isSafeFromPirates()) {
+          continue;
+        }
+        // Keep patrol range constraint for trade ships
         if (
           this.mg.euclideanDistSquared(
             this.warship.patrolTile()!,
@@ -241,11 +263,49 @@ export class WarshipExecution implements Execution {
         5,
       );
       switch (result.type) {
-        case PathFindResultType.Completed:
-          this.warship.owner().captureUnit(this.warship.targetUnit()!);
+        case PathFindResultType.Completed: {
+          const targetShip = this.warship.targetUnit()!;
+          const myOwner = this.warship.owner();
+          const shipOwner = targetShip.owner();
+          if (myOwner.isAtWarWith(shipOwner)) {
+            // Enemy trade ship -> capture
+            this.warship.owner().captureUnit(targetShip);
+            // Clear any trade route metadata on the captured ship
+            targetShip.setTradeRouteOwners(null, null);
+            // Send captured ship back to a home port of the new owner; cargo will be awarded on arrival
+            this.mg.addExecution(
+              new CapturedTradeShipReturnExecution(targetShip),
+            );
+            this.warship.setTargetUnit(undefined);
+            this.warship.move(this.warship.tile());
+            return;
+          }
+          // Neutral trade ship headed to/from my enemy -> turn around upon contact
+          const startOwner = targetShip.tradeRouteStartOwner();
+          const endOwner = targetShip.tradeRouteEndOwner();
+          const atWarWithAnyEndpoint = [startOwner, endOwner]
+            .filter((p): p is Player => !!p)
+            .some((p) => myOwner.isAtWarWith(p));
+          const embargoAgainstAnyEndpoint = [startOwner, endOwner]
+            .filter((p): p is Player => !!p)
+            .some(
+              (p) =>
+                myOwner.hasEmbargoAgainst(p) || p.hasEmbargoAgainst(myOwner),
+            );
+          if (
+            (atWarWithAnyEndpoint || embargoAgainstAnyEndpoint) &&
+            !myOwner.isFriendly(shipOwner)
+          ) {
+            targetShip.setReturning(true);
+            this.warship.setTargetUnit(undefined);
+            this.warship.move(this.warship.tile());
+            return;
+          }
+          // Otherwise, disengage
           this.warship.setTargetUnit(undefined);
           this.warship.move(this.warship.tile());
           return;
+        }
         case PathFindResultType.NextTile:
           this.warship.move(result.node);
           break;
@@ -418,5 +478,148 @@ export class WarshipExecution implements Execution {
       this.nextAAMissileFireTick =
         this.mg.ticks() + this.mg.config().warshipAACooldown();
     }
+  }
+}
+
+class CapturedTradeShipReturnExecution implements Execution {
+  private mg!: Game;
+  private pathfinder!: PathFinder;
+  private active = true;
+  private lastMoveTick = 0;
+  private destPort: Unit | null = null;
+
+  constructor(private ship: Unit) {}
+
+  init(mg: Game, ticks: number): void {
+    this.mg = mg;
+    this.pathfinder = PathFinder.Mini(mg, 2500);
+    this.lastMoveTick = ticks;
+    // Pick nearest active port owned by the ship's owner
+    this.destPort = this.selectNearestPort(this.ship.owner());
+    if (this.destPort) {
+      this.ship.setTargetUnit(this.destPort);
+    } else {
+      // No port to return to; cancel
+      this.active = false;
+    }
+  }
+
+  isActive(): boolean {
+    return this.active;
+  }
+
+  activeDuringSpawnPhase(): boolean {
+    return false;
+  }
+
+  tick(ticks: number): void {
+    if (!this.active) return;
+    if (!this.ship.isActive()) {
+      this.active = false;
+      return;
+    }
+    if (!this.destPort || !this.destPort.isActive()) {
+      // Destination no longer valid; try to pick another
+      this.destPort = this.selectNearestPort(this.ship.owner());
+      if (!this.destPort) {
+        this.active = false;
+        return;
+      }
+      this.ship.setTargetUnit(this.destPort);
+    }
+
+    if (ticks - this.lastMoveTick < 1) return;
+    this.lastMoveTick = ticks;
+
+    const targetTile = this.destPort.tile();
+    if (this.mg.manhattanDist(this.ship.tile(), targetTile) === 1) {
+      // Dock
+      this.ship.move(targetTile);
+      const cargo = this.ship.cargoGold();
+      if (cargo > 0n) {
+        this.ship.owner().addGold(cargo);
+        this.ship.setCargoGold(0n);
+      }
+      this.ship.setTargetUnit(undefined);
+      this.active = false;
+      return;
+    }
+
+    const navTarget = this.navTargetForPort(targetTile);
+    if (navTarget === null) {
+      this.active = false;
+      return;
+    }
+
+    // If on land (port tile), step into adjacent ocean first
+    if (!this.mg.isOcean(this.ship.tile())) {
+      const step = this.stepIntoOceanTowards(navTarget);
+      if (step !== null) {
+        this.ship.move(step);
+        return;
+      }
+      this.active = false;
+      return;
+    }
+
+    const res = this.pathfinder.nextTile(this.ship.tile(), navTarget);
+    switch (res.type) {
+      case PathFindResultType.Completed:
+        this.ship.move(navTarget);
+        break;
+      case PathFindResultType.NextTile:
+        this.ship.move(res.node);
+        break;
+      case PathFindResultType.Pending:
+        this.ship.touch();
+        break;
+      case PathFindResultType.PathNotFound:
+        this.active = false;
+        break;
+    }
+  }
+
+  private selectNearestPort(owner: Player): Unit | null {
+    const ports = this.mg
+      .units(UnitType.Port)
+      .filter((p) => p.owner() === owner && p.isActive());
+    if (ports.length === 0) return null;
+    let best: Unit | null = null;
+    let bestDist = Number.POSITIVE_INFINITY;
+    for (const p of ports) {
+      const d = this.mg.euclideanDistSquared(this.ship.tile(), p.tile());
+      if (d < bestDist) {
+        bestDist = d;
+        best = p;
+      }
+    }
+    return best;
+  }
+
+  private navTargetForPort(portTile: TileRef): TileRef | null {
+    if (this.mg.isOcean(portTile)) return portTile;
+    const candidates = this.mg
+      .neighbors(portTile)
+      .filter((t) => this.mg.isOcean(t));
+    if (candidates.length === 0) return null;
+    candidates.sort(
+      (a, b) =>
+        this.mg.manhattanDist(this.ship.tile(), a) -
+        this.mg.manhattanDist(this.ship.tile(), b),
+    );
+    return candidates[0];
+  }
+
+  private stepIntoOceanTowards(navTarget: TileRef): TileRef | null {
+    const oceanNeighbors = this.mg
+      .neighbors(this.ship.tile())
+      .filter((t) => this.mg.isOcean(t));
+    if (oceanNeighbors.length === 0) return null;
+    oceanNeighbors.sort(
+      (a, b) =>
+        this.mg.manhattanDist(a, navTarget) -
+        this.mg.manhattanDist(b, navTarget),
+    );
+    return oceanNeighbors[0];
   }
 }

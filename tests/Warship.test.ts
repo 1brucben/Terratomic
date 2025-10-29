@@ -125,7 +125,8 @@ describe("Warship", () => {
       UnitType.TradeShip,
       game.ref(coastX + 1, 11),
       {
-        targetUnit: player1.buildUnit(UnitType.Port, game.ref(coastX, 11), {}),
+        // Destination should NOT grant the warship owner a port; keep player1 without ports
+        targetUnit: player2.buildUnit(UnitType.Port, game.ref(coastX, 11), {}),
       },
     );
 

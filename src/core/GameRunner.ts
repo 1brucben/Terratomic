@@ -3,6 +3,7 @@ import { getConfig } from "./configuration/ConfigLoader";
 import { AllianceExpireCheckExecution } from "./execution/alliance/AllianceExpireCheckExecution";
 import { CapitalRecalculationExecution } from "./execution/CapitalRecalculationExecution";
 import { Executor } from "./execution/ExecutionManager";
+import { TradeManagerExecution } from "./execution/TradeManagerExecution";
 import { WinCheckExecution } from "./execution/WinCheckExecution";
 import { AllianceImpl } from "./game/AllianceImpl";
 import {
@@ -244,6 +245,8 @@ export class GameRunner {
     this.game.addExecution(new AllianceExpireCheckExecution());
     // Background: periodically compute player capitals (geographic centers)
     this.game.addExecution(new CapitalRecalculationExecution());
+    // Trade rework: central trade manager for demand/supply/assignment
+    this.game.addExecution(new TradeManagerExecution());
   }
 
   public addTurn(turn: Turn): void {

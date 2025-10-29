@@ -352,6 +352,24 @@ export class DefaultConfig implements Config {
   tradeShipSpawnRate(numberOfPorts: number): number {
     return Math.round(10 * Math.pow(numberOfPorts, 0.37));
   }
+  // Trade rework parameters
+  tradeGravityK(): number {
+    // Tunable coefficient for gravity model demand accumulation
+    return 1e-7; // conservative default to avoid flooding the queue
+  }
+  tradeDemandTickInterval(): number {
+    return 10;
+  }
+  tradeShipPerPortSupply(): number {
+    return 1;
+  }
+  tradeIncomeFixed(): Gold {
+    return BigInt(10_000);
+  }
+  tradeShipReplacementDelayTicks(): number {
+    // Assume ~10 ticks/sec => 600 ticks ~= 60s
+    return 600;
+  }
 
   // Roads and Cargo Trucks
 
