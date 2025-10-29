@@ -81,7 +81,7 @@ export class SubmarineExecution implements Execution {
       [UnitType.Warship, UnitType.Submarine],
       ({ unit }) =>
         unit.owner() !== this.submarine.owner() &&
-        !unit.owner().isFriendly(this.submarine.owner()),
+        !unit.owner().isFriendly(this.submarine.owner() as any),
     );
 
     if (nearbyNavalUnits.length > 0) {
@@ -110,7 +110,7 @@ export class SubmarineExecution implements Execution {
       if (
         unit.owner() === this.submarine.owner() ||
         unit === this.submarine ||
-        unit.owner().isFriendly(this.submarine.owner()) ||
+        unit.owner().isFriendly(this.submarine.owner() as any) ||
         this.alreadySentShell.has(unit)
       ) {
         continue;
@@ -120,7 +120,10 @@ export class SubmarineExecution implements Execution {
           !hasPort ||
           unit.isSafeFromPirates() ||
           unit.targetUnit()?.owner() === this.submarine.owner() || // trade ship is coming to my port
-          unit.targetUnit()?.owner().isFriendly(this.submarine.owner()) // trade ship is coming to my ally
+          unit
+            .targetUnit()
+            ?.owner()
+            .isFriendly(this.submarine.owner() as any) // trade ship is coming to my ally
         ) {
           continue;
         }
