@@ -297,6 +297,14 @@ export class GameImpl implements Game {
       request: request.toUpdate(),
       accepted: true,
     });
+
+    // If either side was at war with the other, end war immediately when alliance is formed
+    if (requestor.isAtWarWith(recipient)) {
+      requestor.setNeutralWith(recipient);
+    }
+    if (recipient.isAtWarWith(requestor)) {
+      recipient.setNeutralWith(requestor);
+    }
   }
 
   rejectAllianceRequest(request: AllianceRequestImpl) {

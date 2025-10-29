@@ -242,16 +242,8 @@ export class AttackExecution implements Execution {
       this.breakAlliance = false;
       this._owner.breakAlliance(alliance);
     }
-    if (
-      targetPlayer &&
-      this._owner.isAlliedWith(targetPlayer) &&
-      !this.wasAlliedAtInit
-    ) {
-      // In this case a new alliance was created AFTER the attack started.
-      // We should retreat to avoid the attacker becoming a traitor.
-      this.retreat();
-      return;
-    }
+    // Consolidated: retreats on alliance/peace are now handled centrally via
+    // PlayerImpl.setNeutralWith, which orders retreats on hostile actions.
 
     let numTilesPerTick = this.mg
       .config()

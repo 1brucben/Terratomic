@@ -627,6 +627,8 @@ export class PlayerImpl implements Player {
     if (other === this) return;
     if (!this._wars.has(other.id())) return;
     this._wars.delete(other.id());
+    // End any embargo we have against the other as part of making peace
+    this.stopEmbargo(other.id());
     // Event: notify this player that peace was made
     this.mg.displayMessage(
       `Peace made with ${other.displayName()}`,
