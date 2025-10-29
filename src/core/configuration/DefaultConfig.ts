@@ -1118,6 +1118,11 @@ export class DefaultConfig implements Config {
     }
   }
 
+  // Multiplier for computing GDP relative to max population
+  gdpFactor(): number {
+    return 1.0;
+  }
+
   populationIncreaseRate(player: Player): number {
     const max = this.maxPopulation(player);
     //population grows proportional to current population with growth decreasing as it approaches max

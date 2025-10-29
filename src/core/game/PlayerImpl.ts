@@ -177,6 +177,7 @@ export class PlayerImpl implements Player {
           : undefined,
       tilesOwned: this.numTilesOwned(),
       gold: this._gold,
+      gdp: this.gdp(),
       population: this.population(),
       totalPopulation: this.totalPopulation(),
       hospitalReturns: this.hospitalReturns(),
@@ -268,6 +269,16 @@ export class PlayerImpl implements Player {
 
   type(): PlayerType {
     return this.playerInfo.playerType;
+  }
+
+  // Economic: GDP proxy as parameter * max population
+  gdp(): number {
+    const factor = this.mg.config().gdpFactor();
+    const maxPop = this.mg.config().maxPopulation(this);
+    const g = factor * maxPop;
+    // Ensure finite, non-negative number
+    if (!Number.isFinite(g) || g < 0) return 0;
+    return Math.floor(g);
   }
 
   clan(): string | null {

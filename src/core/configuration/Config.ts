@@ -125,6 +125,8 @@ export interface Config {
   proximityBonusPortsNb(totalPorts: number): number;
   proximityBonusAirfieldsNumber(totalAirfields: number): number;
   maxPopulation(player: Player | PlayerView): number;
+  // Multiplier used to compute a player's GDP as: gdpFactor * maxPopulation(player)
+  gdpFactor(): number;
   cityPopulationIncrease(): number;
   boatAttackAmount(attacker: Player, defender: Player | TerraNullius): number;
   shellLifetime(): number;
