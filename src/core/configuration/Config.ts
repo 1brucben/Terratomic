@@ -153,6 +153,14 @@ export interface Config {
   internationalCargoTruckSpawnChance(): number;
   internationalCargoTruckGoldMultiplier(): number;
   internationalCargoTruckGoldSplitRatio(): number;
+  urbanPlanningPopulationBonusNum(): number;
+  urbanPlanningPopulationBonusDen(): number;
+  structureInsuranceRefundNum(): number;
+  structureInsuranceRefundDen(): number;
+  automationTradeIncomeMultiplierNum(): number;
+  automationTradeIncomeMultiplierDen(): number;
+  automationTroopRegenMultiplierNum(): number;
+  automationTroopRegenMultiplierDen(): number;
 
   cargoPlaneGold(dist: number): Gold;
   cargoPlaneSpawnRate(numberOfAirplanes: number): number;

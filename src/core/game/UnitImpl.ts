@@ -1,3 +1,4 @@
+import { renderNumber } from "../../client/Utils";
 import { simpleHash, toInt, withinInt } from "../Util";
 import {
   AllUnitParams,
@@ -8,6 +9,8 @@ import {
   Unit,
   UnitInfo,
   UnitType,
+  UpgradeType,
+  isStructureType,
 } from "./Game";
 import { GameImpl } from "./GameImpl";
 import { TileRef } from "./GameMap";
@@ -34,6 +37,7 @@ export class UnitImpl implements Unit {
   private _level: number = 1;
   private _targetable: boolean = true;
   private _accumulatedRegen: number = 0;
+  private _insuredBy: Player | null = null;
   // Transport-ship specific: track intended target player for cancellation on peace
   private _boatTargetPlayerID: PlayerID | null = null;
 
@@ -58,6 +62,12 @@ export class UnitImpl implements Unit {
       "patrolTile" in params ? (params.patrolTile ?? undefined) : undefined;
     this._targetUnit =
       "targetUnit" in params ? (params.targetUnit ?? undefined) : undefined;
+    if (
+      isStructureType(this._type) &&
+      this._owner.hasUpgrade(UpgradeType.StructureInsurance)
+    ) {
+      this._insuredBy = this._owner;
+    }
 
     switch (this._type) {
       case UnitType.Warship:
@@ -174,6 +184,23 @@ export class UnitImpl implements Unit {
   }
 
   setOwner(newOwner: PlayerImpl): void {
+    if (this._insuredBy) {
+      const baseCost = this.info().cost(this._insuredBy);
+      if (baseCost > 0n) {
+        const num = BigInt(this.mg.config().structureInsuranceRefundNum());
+        const den = BigInt(this.mg.config().structureInsuranceRefundDen());
+        const refundAmount = (baseCost * num) / den;
+        this._insuredBy.addGold(refundAmount);
+        this.mg.displayMessage(
+          "messages.insurance_refund_conquest",
+          MessageType.INSURANCE_REFUND,
+          this._insuredBy.id(),
+          refundAmount,
+          { amount: renderNumber(refundAmount) },
+        );
+      }
+    }
+    this._insuredBy = null;
     switch (this._type) {
       case UnitType.Warship:
       case UnitType.FighterJet:
@@ -192,6 +219,12 @@ export class UnitImpl implements Unit {
     this._owner = newOwner;
     this._owner.invalidateEffectiveUnitsCache(this.type());
     this._owner._units.push(this);
+    if (
+      isStructureType(this._type) &&
+      this._owner.hasUpgrade(UpgradeType.StructureInsurance)
+    ) {
+      this._insuredBy = this._owner;
+    }
     this.mg.addUpdate(this.toUpdate());
     this.mg.displayMessage(
       `Your ${this.type()} was captured by ${newOwner.displayName()}`,
@@ -236,6 +269,23 @@ export class UnitImpl implements Unit {
     if (!this.isActive()) {
       throw new Error(`cannot delete ${this} not active`);
     }
+    if (this._insuredBy) {
+      const baseCost = this.info().cost(this._insuredBy);
+      if (baseCost > 0n) {
+        const num = BigInt(this.mg.config().structureInsuranceRefundNum());
+        const den = BigInt(this.mg.config().structureInsuranceRefundDen());
+        const refundAmount = (baseCost * num) / den;
+        this._insuredBy.addGold(refundAmount);
+        this.mg.displayMessage(
+          "messages.insurance_refund",
+          MessageType.INSURANCE_REFUND,
+          this._insuredBy.id(),
+          refundAmount,
+          { amount: renderNumber(refundAmount) },
+        );
+      }
+    }
+    this._insuredBy = null;
     this._owner._units = this._owner._units.filter((b) => b !== this);
     this._active = false;
     this.mg.addUpdate(this.toUpdate());
@@ -319,6 +369,11 @@ export class UnitImpl implements Unit {
   }
   boatTargetPlayerID(): PlayerID | null {
     return this._boatTargetPlayerID;
+  }
+
+  insure(player: Player | null): void {
+    if (!isStructureType(this._type)) return;
+    this._insuredBy = player;
   }
 
   launch(duration?: Tick): void {

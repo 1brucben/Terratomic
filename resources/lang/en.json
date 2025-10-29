@@ -598,6 +598,8 @@
     "missile_failed_intercept": "Missile failed to intercept target",
     "domestic_trade_summary": "You received {goldAmount} gold from domestic trade in the last 30 seconds.",
     "international_trade_origin": "Your cargo truck successfully delivered goods to {destinationName}. You received {goldAmount} gold.",
-    "international_trade_destination": "A cargo truck from {originName} arrived. You received {goldAmount} gold."
+    "international_trade_destination": "A cargo truck from {originName} arrived. You received {goldAmount} gold.",
+    "insurance_refund": "Insurance refund {amount} gold.",
+    "insurance_refund_conquest": "Insurance refund {amount} gold for conquered structure."
   }
 }

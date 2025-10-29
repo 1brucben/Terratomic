@@ -159,6 +159,7 @@ export function getMessageTypeClasses(type: MessageType): string {
     case MessageType.CAPTURED_ENEMY_UNIT:
     case MessageType.RECEIVED_GOLD_FROM_TRADE:
     case MessageType.CONQUERED_PLAYER:
+    case MessageType.INSURANCE_REFUND:
       return severityColors["success"];
     case MessageType.ATTACK_FAILED:
     case MessageType.ALLIANCE_REJECTED:

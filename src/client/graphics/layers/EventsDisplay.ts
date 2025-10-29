@@ -93,6 +93,7 @@ export class EventsDisplay extends LitElement implements Layer {
     [MessageCategory.TRADE, false],
     [MessageCategory.ALLIANCE, false],
     [MessageCategory.CHAT, false],
+    [MessageCategory.FINANCIAL, false],
   ]);
 
   private renderButton(options: {

@@ -170,7 +170,12 @@ export enum UpgradeType {
 
   // Land Upgrades
   InternationalTrade = "InternationalTrade",
+  UrbanPlanning = "UrbanPlanning",
   ScorchedEarth = "ScorchedEarth",
+
+  // Economy Upgrades
+  StructureInsurance = "StructureInsurance",
+  Automation = "Automation",
 
   // Dummy Water Upgrades
   WaterUpgrade1 = "WaterUpgrade1",
@@ -484,6 +489,9 @@ export interface Unit {
   // Warships
   setPatrolTile(tile: TileRef): void;
   patrolTile(): TileRef | undefined;
+
+  // Insurance (structure units)
+  insure(player: Player | null): void;
 }
 
 export interface TerraNullius {
@@ -848,6 +856,7 @@ export enum MessageType {
   SENT_TROOPS_TO_PLAYER,
   RECEIVED_TROOPS_FROM_PLAYER,
   CHAT,
+  INSURANCE_REFUND,
   WARN,
   PEACE_TIMER_BLOCKED,
 }
@@ -858,6 +867,7 @@ export enum MessageCategory {
   ALLIANCE = "ALLIANCE",
   TRADE = "TRADE",
   CHAT = "CHAT",
+  FINANCIAL = "FINANCIAL",
 }
 
 // Ensures that all message types are included in a category
@@ -890,6 +900,7 @@ export const MESSAGE_TYPE_CATEGORIES: Record<MessageType, MessageCategory> = {
   [MessageType.SENT_TROOPS_TO_PLAYER]: MessageCategory.TRADE,
   [MessageType.RECEIVED_TROOPS_FROM_PLAYER]: MessageCategory.TRADE,
   [MessageType.CHAT]: MessageCategory.CHAT,
+  [MessageType.INSURANCE_REFUND]: MessageCategory.FINANCIAL,
 } as const;
 
 /**

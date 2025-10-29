@@ -41,6 +41,14 @@ export class PurchaseUpgradeExecution implements Execution {
       return;
     }
     if (
+      this.upgrade === UpgradeType.StructureInsurance ||
+      this.upgrade === UpgradeType.Automation ||
+      this.upgrade === UpgradeType.UrbanPlanning
+    ) {
+      this._isActive = false;
+      return;
+    }
+    if (
       this.upgrade === UpgradeType.ScorchedEarth &&
       !this.player.hasResearchedTech(RESEARCH_TECH_IDS.SCORCHED_EARTH)
     ) {

@@ -672,6 +672,8 @@ export class DefaultConfig implements Config {
       // Land
       case UpgradeType.InternationalTrade:
         return { cost: costForPlayer(2_000_000n) };
+      case UpgradeType.UrbanPlanning:
+        return { cost: costForPlayer(1_000_000n) };
       case UpgradeType.ScorchedEarth:
         return { cost: costForPlayer(3_000_000n) };
 
@@ -696,6 +698,10 @@ export class DefaultConfig implements Config {
         return { cost: costForPlayer(1_000_000n) };
       case UpgradeType.EconomyUpgrade2:
         return { cost: costForPlayer(2_000_000n) };
+      case UpgradeType.StructureInsurance:
+        return { cost: costForPlayer(2_000_000n) };
+      case UpgradeType.Automation:
+        return { cost: costForPlayer(3_000_000n) };
       case UpgradeType.EconomyUpgrade3:
         return { cost: costForPlayer(3_000_000n) };
 
@@ -958,11 +964,17 @@ export class DefaultConfig implements Config {
   }
 
   maxPopulation(player: Player | PlayerView): number {
-    const maxPop =
+    let maxPop =
       player.type() === PlayerType.Human && this.infiniteTroops()
         ? 1_000_000_000
         : 1 * (player.numTilesOwned() * 30 + 50000) +
           player.effectiveUnits(UnitType.City) * this.cityPopulationIncrease();
+
+    if (player.hasUpgrade(UpgradeType.UrbanPlanning)) {
+      const num = this.urbanPlanningPopulationBonusNum();
+      const den = this.urbanPlanningPopulationBonusDen();
+      maxPop = Math.floor((maxPop * num) / den);
+    }
 
     if (player.type() === PlayerType.Bot) {
       return maxPop / 2;
@@ -995,6 +1007,12 @@ export class DefaultConfig implements Config {
     const totalPop = player.totalPopulation();
     const ratio = Math.max(1 - totalPop / max, 0);
     toAdd *= ratio ** 1.222;
+
+    if (player.hasUpgrade(UpgradeType.Automation)) {
+      const num = this.automationTroopRegenMultiplierNum();
+      const den = this.automationTroopRegenMultiplierDen();
+      toAdd = (toAdd * num) / den;
+    }
 
     if (player.type() === PlayerType.Bot) {
       toAdd *= 0.7;
@@ -1158,6 +1176,30 @@ export class DefaultConfig implements Config {
     return 0.5; // 50/50 split
   }
 
+  urbanPlanningPopulationBonusNum(): number {
+    return 5;
+  }
+  urbanPlanningPopulationBonusDen(): number {
+    return 4;
+  }
+  structureInsuranceRefundNum(): number {
+    return 1;
+  }
+  structureInsuranceRefundDen(): number {
+    return 3;
+  }
+  automationTradeIncomeMultiplierNum(): number {
+    return 2;
+  }
+  automationTradeIncomeMultiplierDen(): number {
+    return 1;
+  }
+  automationTroopRegenMultiplierNum(): number {
+    return 4;
+  }
+  automationTroopRegenMultiplierDen(): number {
+    return 5;
+  }
   // --- Research system defaults ---
   // f(x) = A * investment^B, where investment is gold allocated to research this tick
   researchAlpha(): number {

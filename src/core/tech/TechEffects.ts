@@ -4,9 +4,12 @@ import { Game, Player, UpgradeType } from "../game/Game";
 // Keep IDs aligned with ResearchTreeModal generation (e.g., "Land-1").
 export const RESEARCH_TECH_IDS = {
   WWII_LESSONS: "Land-1",
+  URBAN_PLANNING: "Land-2",
   SCORCHED_EARTH: "Land-2B",
   POST_WAR_RECONSTRUCTION: "Economy-1",
   INTERNATIONAL_TRADE: "Economy-2",
+  STRUCTURE_INSURANCE: "Economy-3",
+  AUTOMATION: "Economy-4",
 } as const;
 
 export interface TechMeta {
@@ -103,11 +106,83 @@ export const TECHS: Readonly<Record<string, TechDefinition>> = Object.freeze({
     meta: {
       name: "Scorched Earth",
       description:
-        "Unleash a scorched earth campaign—raze your road network and reset economic research to deny enemy logistics.",
+        "Unleash a scorched earth campaign: raze your road network and reset economic research to deny enemy logistics.",
+    },
+  },
+  [RESEARCH_TECH_IDS.URBAN_PLANNING]: {
+    meta: {
+      name: "Urban Planning",
+      description:
+        "Revise zoning, utilities, and transport grids to support denser population hubs. Effects: Unlocks Urban Planning, increasing maximum population capacity by 25%.",
+    },
+    effects: {
+      onComplete: (player) => {
+        if (!player.hasUpgrade?.(UpgradeType.UrbanPlanning)) {
+          player.addUpgrade?.(UpgradeType.UrbanPlanning);
+        }
+      },
+      onRevoke: (player) => {
+        if (player.hasUpgrade?.(UpgradeType.UrbanPlanning)) {
+          player.removeUpgrade?.(UpgradeType.UrbanPlanning);
+        }
+      },
+    },
+  },
+  [RESEARCH_TECH_IDS.STRUCTURE_INSURANCE]: {
+    meta: {
+      name: "Structure Insurance",
+      description:
+        "Establish state-backed insurers to protect strategic structures. Effects: Unlocks Structure Insurance, refunding 33% of construction costs when self constructed buildings are lost.",
+    },
+    effects: {
+      onComplete: (player) => {
+        if (!player.hasUpgrade?.(UpgradeType.StructureInsurance)) {
+          player.addUpgrade?.(UpgradeType.StructureInsurance);
+        }
+        try {
+          const units = player.units?.() ?? [];
+          for (const unit of units) {
+            (unit as any).insure?.(player);
+          }
+        } catch {
+          // Some player implementations may not expose units(); ignore.
+        }
+      },
+      onRevoke: (player) => {
+        try {
+          const units = player.units?.() ?? [];
+          for (const unit of units) {
+            (unit as any).insure?.(null);
+          }
+        } catch {
+          // ignore
+        }
+        if (player.hasUpgrade?.(UpgradeType.StructureInsurance)) {
+          player.removeUpgrade?.(UpgradeType.StructureInsurance);
+        }
+      },
+    },
+  },
+  [RESEARCH_TECH_IDS.AUTOMATION]: {
+    meta: {
+      name: "Automation",
+      description:
+        "Deploy advanced automation across industry to streamline logistics. Effects: Unlocks Automation, doubling domestic trade income while reducing troop regeneration by 20%.",
+    },
+    effects: {
+      onComplete: (player) => {
+        if (!player.hasUpgrade?.(UpgradeType.Automation)) {
+          player.addUpgrade?.(UpgradeType.Automation);
+        }
+      },
+      onRevoke: (player) => {
+        if (player.hasUpgrade?.(UpgradeType.Automation)) {
+          player.removeUpgrade?.(UpgradeType.Automation);
+        }
+      },
     },
   },
 });
-
 // Back-compat export for existing UI code: derive TECH_METADATA from TECHS
 export const TECH_METADATA: Readonly<Record<string, TechMeta>> = Object.freeze(
   Object.fromEntries(Object.entries(TECHS).map(([id, def]) => [id, def.meta])),
