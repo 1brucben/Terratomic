@@ -3,6 +3,7 @@ import {
   EmojiMessage,
   GameUpdates,
   Gold,
+  MapPos,
   MessageType,
   NameViewData,
   PlayerID,
@@ -162,6 +163,8 @@ export interface PlayerUpdate {
   playerType: PlayerType;
   isAlive: boolean;
   isDisconnected: boolean;
+  // Geographic capital (center) of player's territory
+  capital?: MapPos;
   tilesOwned: number;
   gold: Gold;
   population: number;

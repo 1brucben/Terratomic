@@ -133,6 +133,9 @@ export class PlayerImpl implements Player {
   private _autoBombingEnabled: boolean = false;
   public bombersOnTarget = new Map<TileRef, number>();
 
+  // Cached capital (geographic center) of player's territory
+  private _capital: Cell | null = null;
+
   constructor(
     private mg: GameImpl,
     private _smallID: number,
@@ -168,6 +171,10 @@ export class PlayerImpl implements Player {
       playerType: this.type(),
       isAlive: this.isAlive(),
       isDisconnected: this.isDisconnected(),
+      capital:
+        this._capital !== null
+          ? { x: this._capital.x, y: this._capital.y }
+          : undefined,
       tilesOwned: this.numTilesOwned(),
       gold: this._gold,
       population: this.population(),
@@ -1438,6 +1445,15 @@ export class PlayerImpl implements Player {
   }
   lastTileChange(): Tick {
     return this._lastTileChange;
+  }
+
+  capital(): Cell | null {
+    return this._capital;
+  }
+
+  /** Internal setter used by background executions */
+  public _setCapital(capital: Cell | null): void {
+    this._capital = capital;
   }
 
   isDisconnected(): boolean {

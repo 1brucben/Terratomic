@@ -568,6 +568,9 @@ export interface Player {
 
   lastTileChange(): Tick;
 
+  // Capital (geographic center) of the player's territory, if any
+  capital(): Cell | null;
+
   isDisconnected(): boolean;
   markDisconnected(isDisconnected: boolean): void;
 

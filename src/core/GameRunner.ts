@@ -1,6 +1,7 @@
 import { placeName } from "../client/graphics/NameBoxCalculator";
 import { getConfig } from "./configuration/ConfigLoader";
 import { AllianceExpireCheckExecution } from "./execution/alliance/AllianceExpireCheckExecution";
+import { CapitalRecalculationExecution } from "./execution/CapitalRecalculationExecution";
 import { Executor } from "./execution/ExecutionManager";
 import { WinCheckExecution } from "./execution/WinCheckExecution";
 import { AllianceImpl } from "./game/AllianceImpl";
@@ -241,6 +242,8 @@ export class GameRunner {
     }
     this.game.addExecution(new WinCheckExecution());
     this.game.addExecution(new AllianceExpireCheckExecution());
+    // Background: periodically compute player capitals (geographic centers)
+    this.game.addExecution(new CapitalRecalculationExecution());
   }
 
   public addTurn(turn: Turn): void {
