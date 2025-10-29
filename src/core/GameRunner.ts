@@ -237,6 +237,8 @@ export class GameRunner {
         canTarget: player.canTarget(other),
         canSendAllianceRequest: player.canSendAllianceRequest(other),
         canBreakAlliance: player.isAlliedWith(other),
+        // Only show Peace when at war
+        canRequestPeace: player.isAtWarWith(other),
         canDonate: player.canDonate(other),
         canEmbargo: !player.hasEmbargoAgainst(other),
       };

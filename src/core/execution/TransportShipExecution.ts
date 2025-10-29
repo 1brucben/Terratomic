@@ -146,6 +146,8 @@ export class TransportShipExecution implements Execution {
     this.boat = this.attacker.buildUnit(UnitType.TransportShip, this.src, {
       troops: this.startTroops,
     });
+    // Track intended target player on the boat for selective cancellation on peace
+    (this.boat as any).setBoatTargetPlayerID?.(this.targetID);
 
     // Notify the target player about the incoming naval invasion
     if (this.targetID && this.targetID !== mg.terraNullius().id()) {

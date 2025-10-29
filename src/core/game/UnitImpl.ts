@@ -3,6 +3,7 @@ import {
   AllUnitParams,
   MessageType,
   Player,
+  PlayerID,
   Tick,
   Unit,
   UnitInfo,
@@ -33,6 +34,8 @@ export class UnitImpl implements Unit {
   private _level: number = 1;
   private _targetable: boolean = true;
   private _accumulatedRegen: number = 0;
+  // Transport-ship specific: track intended target player for cancellation on peace
+  private _boatTargetPlayerID: PlayerID | null = null;
 
   constructor(
     private _type: UnitType,
@@ -308,6 +311,14 @@ export class UnitImpl implements Unit {
 
   toString(): string {
     return `Unit:${this._type},owner:${this.owner().name()}`;
+  }
+
+  // Transport ship targeting metadata
+  setBoatTargetPlayerID(pid: PlayerID | null): void {
+    this._boatTargetPlayerID = pid;
+  }
+  boatTargetPlayerID(): PlayerID | null {
+    return this._boatTargetPlayerID;
   }
 
   launch(duration?: Tick): void {

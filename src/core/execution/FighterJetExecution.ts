@@ -79,6 +79,7 @@ export class FighterJetExecution implements Execution {
         ) {
           return false;
         }
+        // Only engage if at war with the target's owner
         if (unit.type() === UnitType.CargoPlane) {
           if (!hasAirfield) {
             return false;

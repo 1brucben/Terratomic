@@ -137,6 +137,15 @@ export class NukeExecution implements Execution {
 
         // Record stats
         this.mg.stats().bombLaunch(this.player, target, this.nukeType);
+
+        // War declaration and aggression tracking for nuclear attack
+        if (target.isPlayer()) {
+          const tp = target as Player;
+          this.player.setWarWith(tp);
+          tp.setWarWith(this.player);
+          this.player.recordAggression(tp);
+          tp.recordAggression(this.player);
+        }
       }
 
       // after sending a nuke set the missilesilo on cooldown

@@ -605,6 +605,13 @@ export interface Player {
   allRelationsSorted(): { player: Player; relation: Relation }[];
   updateRelation(other: Player, delta: number): void;
   decayRelations(): void;
+  // New diplomacy layer: war vs neutral
+  isAtWarWith(other: Player): boolean;
+  setWarWith(other: Player): void;
+  setNeutralWith(other: Player): void;
+  // Track aggression timing between pairs; used for simple AI peace behavior
+  recordAggression(other: Player): void;
+  lastAggressionTick(other: Player): Tick;
   isOnSameTeam(other: Player): boolean;
   // Either allied or on same team.
   isFriendly(other: Player): boolean;
@@ -797,6 +804,8 @@ export interface PlayerInteraction {
   canSendEmoji: boolean;
   canSendAllianceRequest: boolean;
   canBreakAlliance: boolean;
+  // New diplomacy: allow requesting peace only when currently at war with the tile owner
+  canRequestPeace?: boolean;
   canTarget: boolean;
   canDonate: boolean;
   canEmbargo: boolean;
@@ -829,6 +838,8 @@ export enum MessageType {
   ALLIANCE_REQUEST,
   ALLIANCE_BROKEN,
   ALLIANCE_EXPIRED,
+  WAR_DECLARED,
+  PEACE_MADE,
   SENT_GOLD_TO_PLAYER,
   RECEIVED_GOLD_FROM_PLAYER,
   RECEIVED_GOLD_FROM_TRADE,
@@ -867,6 +878,8 @@ export const MESSAGE_TYPE_CATEGORIES: Record<MessageType, MessageCategory> = {
   [MessageType.ALLIANCE_REQUEST]: MessageCategory.ALLIANCE,
   [MessageType.ALLIANCE_BROKEN]: MessageCategory.ALLIANCE,
   [MessageType.ALLIANCE_EXPIRED]: MessageCategory.ALLIANCE,
+  [MessageType.WAR_DECLARED]: MessageCategory.ALLIANCE,
+  [MessageType.PEACE_MADE]: MessageCategory.ALLIANCE,
   [MessageType.WARN]: MessageCategory.ALLIANCE,
   [MessageType.PEACE_TIMER_BLOCKED]: MessageCategory.ATTACK,
   [MessageType.SENT_GOLD_TO_PLAYER]: MessageCategory.TRADE,

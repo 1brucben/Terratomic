@@ -17,6 +17,7 @@ import { RESEARCH_TECH_IDS } from "../tech/TechEffects";
 import { flattenedEmojiTable, simpleHash } from "../Util";
 import { EmojiExecution } from "./EmojiExecution";
 import { NukeExecutionHelper } from "./NukeExecutionHelper";
+import { PeaceRequestExecution } from "./PeaceRequestExecution";
 import { PurchaseUpgradeExecution } from "./PurchaseUpgradeExecution";
 import { ResearchTreeSelectExecution } from "./ResearchTreeSelectExecution";
 import { SetRoadInvestmentExecution } from "./SetRoadInvestmentExecution";
@@ -206,6 +207,22 @@ export class FakeHumanExecution implements Execution {
       }
       this.unitCreationHelper.handleUnits();
       this.handleEmbargoesToHostileNations();
+
+      // Auto-peace: if at war but no aggression between sides for 30 seconds, request peace
+      const turnMs = this.mg.config().serverConfig().turnIntervalMs();
+      const thresholdTicks = Math.ceil(30_000 / Math.max(1, turnMs));
+      const me = this.player;
+      for (const other of this.mg.players()) {
+        if (!other.isPlayer?.() || other === me) continue;
+        if (!me.isAtWarWith(other)) continue;
+        const lastMe = me.lastAggressionTick(other);
+        const lastOther = other.lastAggressionTick(me);
+        const last = Math.max(lastMe, lastOther);
+        if (last >= 0 && this.mg.ticks() - last > thresholdTicks) {
+          // Immediate peace request (auto-accept via execution)
+          this.mg.addExecution(new PeaceRequestExecution(me, other.id()));
+        }
+      }
     }
 
     if (ticks % this.attackRate === this.attackTick) {

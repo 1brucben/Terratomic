@@ -25,6 +25,7 @@ import {
   SendAttackIntentEvent,
   SendBoatAttackIntentEvent,
   SendBreakAllianceIntentEvent,
+  SendPeaceRequestIntentEvent,
   SendSpawnIntentEvent,
 } from "../../Transport";
 import { TransformHandler } from "../TransformHandler";
@@ -91,11 +92,11 @@ export class RadialMenu implements Layer {
       Slot.Peace,
       {
         name: "peace",
-        // Keep enabled so we can style it with our custom color, but it won't perform any action
-        disabled: false,
+        // Disabled by default; enabled when canRequestPeace is true
+        disabled: true,
         action: () => {},
-        // Slightly gray, not pure white
-        color: "#e5e7eb", // Tailwind gray-200
+        // Color is set when activated via activateMenuElement; keep null by default
+        color: null,
         icon: doveIcon,
       },
     ],
@@ -393,6 +394,17 @@ export class RadialMenu implements Layer {
         );
       });
     }
+    if (actions?.interaction?.canRequestPeace) {
+      // Use light gray to match the intended neutral/diplomatic styling
+      this.activateMenuElement(Slot.Peace, "#e5e7eb", doveIcon, () => {
+        this.eventBus.emit(
+          new SendPeaceRequestIntentEvent(
+            myPlayer,
+            this.g.owner(tile) as PlayerView,
+          ),
+        );
+      });
+    }
     if (
       actions.buildableUnits.find((bu) => bu.type === UnitType.TransportShip)
         ?.canBuild
@@ -481,12 +493,7 @@ export class RadialMenu implements Layer {
   private disableAllButtons() {
     this.enableCenterButton(false);
     for (const [slot, item] of this.menuItems.entries()) {
-      // Keep Peace enabled and styled; it is a passive no-op but should not look disabled
-      if (slot === Slot.Peace) {
-        item.disabled = false;
-        this.updateMenuItemState(item);
-        continue;
-      }
+      // Disable everything by default; specific buttons get enabled by activateMenuElement()
       item.disabled = true;
       this.updateMenuItemState(item);
     }

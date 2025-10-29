@@ -91,6 +91,10 @@ export class WarshipExecution implements Execution {
       ) {
         continue;
       }
+      // Only engage if at war with the target's owner
+      if (!this.warship.owner().isAtWarWith(unit.owner())) {
+        continue;
+      }
       if (unit.type() === UnitType.TradeShip) {
         if (
           !hasPort ||

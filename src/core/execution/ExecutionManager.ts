@@ -20,6 +20,7 @@ import { MarkDisconnectedExecution } from "./MarkDisconnectedExecution";
 import { MoveFighterJetExecution } from "./MoveFighterJetExecution";
 import { MoveWarshipExecution } from "./MoveWarshipExecution";
 import { NoOpExecution } from "./NoOpExecution";
+import { PeaceRequestExecution } from "./PeaceRequestExecution";
 import { PurchaseUpgradeExecution } from "./PurchaseUpgradeExecution";
 import { QuickChatExecution } from "./QuickChatExecution";
 import { ResearchTreeSelectExecution } from "./ResearchTreeSelectExecution";
@@ -103,6 +104,8 @@ export class Executor {
         );
       case "breakAlliance":
         return new BreakAllianceExecution(player, intent.recipient);
+      case "peaceRequest":
+        return new PeaceRequestExecution(player, intent.recipient);
       case "targetPlayer":
         return new TargetPlayerExecution(player, intent.target);
       case "emoji":

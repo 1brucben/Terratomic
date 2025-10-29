@@ -113,6 +113,10 @@ export class PlayerImpl implements Player {
 
   private relations = new Map<Player, number>();
 
+  // War/peace and aggression tracking
+  private _wars: Set<PlayerID> = new Set();
+  private _lastAggression: Map<PlayerID, Tick> = new Map();
+
   public _incomingAttacks: Attack[] = [];
   public _outgoingAttacks: Attack[] = [];
   public _outgoingLandAttacks: Attack[] = [];
@@ -592,6 +596,64 @@ export class PlayerImpl implements Player {
         player: r.player,
         relation: this.relationFromValue(r.relation),
       }));
+  }
+
+  // --- War/Peace API ---
+  isAtWarWith(other: Player): boolean {
+    if (other === this) return false;
+    return this._wars.has(other.id());
+  }
+
+  setWarWith(other: Player): void {
+    if (other === this) return;
+    if (this._wars.has(other.id())) return;
+    this._wars.add(other.id());
+    // Auto-embargo while at war
+    this.addEmbargo(other.id(), true);
+    // Event: notify this player that they are at war with the other
+    this.mg.displayMessage(
+      `At war with ${other.displayName()}`,
+      MessageType.WAR_DECLARED,
+      this.id(),
+    );
+  }
+
+  setNeutralWith(other: Player): void {
+    if (other === this) return;
+    if (!this._wars.has(other.id())) return;
+    this._wars.delete(other.id());
+    // Event: notify this player that peace was made
+    this.mg.displayMessage(
+      `Peace made with ${other.displayName()}`,
+      MessageType.PEACE_MADE,
+      this.id(),
+    );
+
+    // Cancel all ongoing land attacks targeting the other player
+    for (const a of [...this._outgoingAttacks]) {
+      if (a.target() === other && a.isActive()) {
+        // Use the same cancel flow as manual cancel: order then execute
+        a.orderRetreat();
+        a.executeRetreat();
+      }
+    }
+
+    // Cancel only transport ships targeting the other player
+    for (const boat of this.units(UnitType.TransportShip)) {
+      const targetPID = (boat as any).boatTargetPlayerID?.();
+      if (targetPID === other.id() && !boat.retreating()) {
+        boat.orderBoatRetreat();
+      }
+    }
+  }
+
+  recordAggression(other: Player): void {
+    if (other === this) return;
+    this._lastAggression.set(other.id(), this.mg.ticks());
+  }
+
+  lastAggressionTick(other: Player): Tick {
+    return this._lastAggression.get(other.id()) ?? -1;
   }
 
   updateRelation(other: Player, delta: number): void {

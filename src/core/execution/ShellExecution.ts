@@ -52,6 +52,14 @@ export class ShellExecution implements Execution {
       if (result === true) {
         this.active = false;
         this.target.modifyHealth(-this.effectOnTarget(), this._owner);
+        // Aggression tracking when hitting a player's unit
+        const targetOwner = this.target.owner();
+        if (targetOwner.isPlayer() && this._owner.isPlayer()) {
+          const tp = targetOwner as Player;
+          const op = this._owner as Player;
+          op.recordAggression(tp);
+          tp.recordAggression(op);
+        }
         this.shell.setReachedTarget();
         this.shell.delete(false);
         return;

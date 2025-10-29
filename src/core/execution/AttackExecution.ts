@@ -114,6 +114,15 @@ export class AttackExecution implements Execution {
       new Set<TileRef>(),
     );
 
+    // War declaration and aggression tracking on first contact
+    if (this.target.isPlayer()) {
+      const targetPlayer = this.target as Player;
+      this._owner.setWarWith(targetPlayer);
+      targetPlayer.setWarWith(this._owner);
+      this._owner.recordAggression(targetPlayer);
+      targetPlayer.recordAggression(this._owner);
+    }
+
     const penalty = Math.floor(this._owner.population() * 0.01);
     this._owner.removeTroops(penalty);
 
