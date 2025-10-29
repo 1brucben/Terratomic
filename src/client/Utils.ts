@@ -183,9 +183,13 @@ export function getMessageTypeClasses(type: MessageType): string {
     case MessageType.WARN:
     case MessageType.PEACE_TIMER_BLOCKED:
       return severityColors["warn"];
+    case MessageType.WAR_DECLARED:
+      return severityColors["warn"]; // war start: highlight prominently
     case MessageType.CHAT:
     case MessageType.ALLIANCE_REQUEST:
       return severityColors["info"];
+    case MessageType.PEACE_MADE:
+      return severityColors["success"]; // peace achieved: green
     default:
       console.warn(`Message type ${type} has no explicit color`);
       return severityColors["white"];

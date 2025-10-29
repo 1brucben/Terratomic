@@ -209,12 +209,15 @@ export class FakeHumanExecution implements Execution {
       this.handleEmbargoesToHostileNations();
 
       // Auto-peace: if at war but no aggression between sides for 30 seconds, request peace
+      // NOTE: Only auto-initiated between AIs (FakeHuman/Bot). Do not initiate peace with human players.
       const turnMs = this.mg.config().serverConfig().turnIntervalMs();
       const thresholdTicks = Math.ceil(30_000 / Math.max(1, turnMs));
       const me = this.player;
       for (const other of this.mg.players()) {
         if (!other.isPlayer?.() || other === me) continue;
         if (!me.isAtWarWith(other)) continue;
+        // Skip if the other side is a human; let them initiate peace explicitly.
+        if (other.type() === PlayerType.Human) continue;
         const lastMe = me.lastAggressionTick(other);
         const lastOther = other.lastAggressionTick(me);
         const last = Math.max(lastMe, lastOther);
