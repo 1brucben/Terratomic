@@ -9,6 +9,7 @@ import {
   type TechNode,
 } from "../core/tech/ResearchTree";
 import "./components/baseComponents/Modal";
+import { CloseViewEvent } from "./InputHandler";
 import { SendResearchTreeSelectIntentEvent } from "./Transport";
 
 // Category and TechNode are imported from core so client stays in sync
@@ -52,14 +53,16 @@ export class ResearchTreeModal extends LitElement {
     requestAnimationFrame(() => this.updateLayout());
     // Start a light refresh loop to reflect game state (gold/upgrades) while open
     this.refreshTimer ??= window.setInterval(() => this.requestUpdate(), 500);
+    this.eventBus.on(CloseViewEvent, this.close);
   }
-  close() {
+  close = () => {
     this.modalEl?.close();
     if (this.refreshTimer !== null) {
       window.clearInterval(this.refreshTimer);
       this.refreshTimer = null;
     }
-  }
+    this.eventBus.off(CloseViewEvent, this.close);
+  };
   show() {
     this.visible = true;
     this.open();
