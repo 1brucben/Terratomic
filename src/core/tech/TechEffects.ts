@@ -4,6 +4,7 @@ import { Game, Player, UpgradeType } from "../game/Game";
 // Keep IDs aligned with ResearchTreeModal generation (e.g., "Land-1").
 export const RESEARCH_TECH_IDS = {
   WWII_LESSONS: "Land-1",
+  SCORCHED_EARTH: "Land-2B",
   POST_WAR_RECONSTRUCTION: "Economy-1",
   INTERNATIONAL_TRADE: "Economy-2",
 } as const;
@@ -24,6 +25,8 @@ export interface DefenseCasualtyModifiers {
 export type TechEffect = {
   // Runs once when the tech is completed
   onComplete?: (player: Player, game: Game) => void;
+  // Runs when the tech is revoked (e.g., via category reset)
+  onRevoke?: (player: Player, game: Game) => void;
   // Applied each time casualty modifiers are computed while defending
   defense?: (mods: DefenseCasualtyModifiers) => void;
   // Applied each time casualty modifiers are computed while attacking
@@ -63,6 +66,15 @@ export const TECHS: Readonly<Record<string, TechDefinition>> = Object.freeze({
           player.addUpgrade?.(UpgradeType.Roads);
           game.markPlayerNodesForReconnection?.(player);
         }
+        if (player.hasUpgrade?.(UpgradeType.ScorchedEarth)) {
+          player.removeUpgrade?.(UpgradeType.ScorchedEarth);
+        }
+      },
+      onRevoke: (player, game) => {
+        if (player.hasUpgrade?.(UpgradeType.Roads)) {
+          player.removeUpgrade?.(UpgradeType.Roads);
+          game.markPlayerNodesForReconnection?.(player);
+        }
       },
     },
   },
@@ -79,6 +91,19 @@ export const TECHS: Readonly<Record<string, TechDefinition>> = Object.freeze({
           game.markPlayerNodesForReconnection?.(player);
         }
       },
+      onRevoke: (player, game) => {
+        if (player.hasUpgrade?.(UpgradeType.InternationalTrade)) {
+          player.removeUpgrade?.(UpgradeType.InternationalTrade);
+          game.markPlayerNodesForReconnection?.(player);
+        }
+      },
+    },
+  },
+  [RESEARCH_TECH_IDS.SCORCHED_EARTH]: {
+    meta: {
+      name: "Scorched Earth",
+      description:
+        "Unleash a scorched earth campaign—raze your road network and reset economic research to deny enemy logistics.",
     },
   },
 });
@@ -143,6 +168,15 @@ export function applyTechCompletionEffects(
 ): void {
   const entry = TECHS[techId]?.effects;
   entry?.onComplete?.(player, game);
+}
+
+export function revokeTechEffects(
+  player: Player,
+  game: Game,
+  techId: string,
+): void {
+  const entry = TECHS[techId]?.effects;
+  entry?.onRevoke?.(player, game);
 }
 
 /**

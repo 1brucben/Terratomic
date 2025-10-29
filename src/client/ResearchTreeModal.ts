@@ -2,16 +2,22 @@ import { LitElement, html } from "lit";
 import { customElement, property, query } from "lit/decorators.js";
 import flaskIcon from "../../proprietary/images/flask.png";
 import { EventBus } from "../core/EventBus";
-import { GameView } from "../core/game/GameView";
+import { UpgradeType } from "../core/game/Game";
+import { GameView, PlayerView } from "../core/game/GameView";
 import {
   getTechNodes,
   isTechAvailable as serverIsTechAvailable,
   type Category,
   type TechNode,
 } from "../core/tech/ResearchTree";
+import { RESEARCH_TECH_IDS } from "../core/tech/TechEffects";
 import "./components/baseComponents/Modal";
 import { CloseViewEvent } from "./InputHandler";
-import { SendResearchTreeSelectIntentEvent } from "./Transport";
+import {
+  SendPurchaseUpgradeIntentEvent,
+  SendResearchTreeSelectIntentEvent,
+} from "./Transport";
+import { renderNumber } from "./Utils";
 
 // Category and TechNode are imported from core so client stays in sync
 
@@ -103,6 +109,53 @@ export class ResearchTreeModal extends LitElement {
     // Clicking sets this as the current research priority (server handles distribution)
     this.eventBus.emit(new SendResearchTreeSelectIntentEvent(id));
     this.requestUpdate();
+  }
+
+  private onActivateScorchedEarth(event: Event): void {
+    event.stopPropagation();
+    event.preventDefault();
+    if (!this.game || !this.eventBus) return;
+    const me = this.game.myPlayer();
+    if (!me || this.game.inSpawnPhase()) return;
+    if (me.hasUpgrade?.(UpgradeType.ScorchedEarth)) return;
+    this.eventBus.emit(
+      new SendPurchaseUpgradeIntentEvent(UpgradeType.ScorchedEarth),
+    );
+  }
+
+  private renderScorchedEarthAction(
+    tech: TechNode,
+    me: PlayerView | null,
+    isResearched: boolean,
+  ) {
+    if (tech.id !== RESEARCH_TECH_IDS.SCORCHED_EARTH || !me || !isResearched) {
+      return "";
+    }
+    const config = this.game?.config?.();
+    if (!config) return "";
+    const { cost } = config.upgradeInfo(UpgradeType.ScorchedEarth);
+    const activationCost = cost(me);
+    const gold = me.gold();
+    const hasUpgrade = me.hasUpgrade(UpgradeType.ScorchedEarth);
+    const disabled =
+      hasUpgrade || this.game?.inSpawnPhase?.() || gold < activationCost;
+    const tooltip = hasUpgrade
+      ? "Scorched Earth already active."
+      : gold < activationCost
+        ? "Earn more gold to activate Scorched Earth."
+        : "Activate to raze your road network and reset Economy techs.";
+    return html`
+      <button
+        class="tech-action"
+        @click=${(ev: Event) => this.onActivateScorchedEarth(ev)}
+        ?disabled=${disabled}
+        title=${tooltip}
+      >
+        ${hasUpgrade
+          ? "Activated"
+          : `Activate (${renderNumber(activationCost)} gold)`}
+      </button>
+    `;
   }
 
   private renderLegend() {
@@ -516,6 +569,36 @@ export class ResearchTreeModal extends LitElement {
             color: #86efac; /* keep success green */
             text-shadow: 0 1px 0 rgba(0, 0, 0, 0.5);
           }
+          .tech-wrapper {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+            width: 160px;
+            flex: 0 0 auto;
+          }
+          .tech-action {
+            background: rgba(176, 80, 78, 0.18);
+            border: 1px solid rgba(176, 80, 78, 0.45);
+            border-radius: 6px;
+            color: #ffd1d1;
+            font-size: 11px;
+            font-weight: 600;
+            padding: 6px 8px;
+            text-align: center;
+            cursor: pointer;
+            transition:
+              background 120ms ease,
+              border-color 120ms ease,
+              color 120ms ease;
+          }
+          .tech-action:hover:not([disabled]) {
+            background: rgba(176, 80, 78, 0.3);
+            border-color: rgba(176, 80, 78, 0.6);
+          }
+          .tech-action[disabled] {
+            opacity: 0.65;
+            cursor: not-allowed;
+          }
           /* Highlight prioritized tech with a subtle halo */
           .tech.priority {
             border-color: rgba(59, 130, 246, 0.9);
@@ -751,112 +834,123 @@ export class ResearchTreeModal extends LitElement {
                             ]
                               .filter(Boolean)
                               .join(" ");
+                            const action = this.renderScorchedEarthAction(
+                              tech,
+                              me ?? null,
+                              isResearched,
+                            );
                             return html`
-                              <button
-                                class=${classes}
-                                data-id=${tech.id}
-                                @click=${() => this.onTechClick(tech.id)}
-                                title=${""}
-                                ?disabled=${!clickable}
-                              >
-                                <div class="tooltip">
-                                  <div
-                                    style="font-weight:600;margin-bottom:4px;"
-                                  >
-                                    ${tech.name}
-                                  </div>
-                                  ${tech.description
-                                    ? html`<div
-                                        style="opacity:.9;margin-bottom:6px;"
-                                      >
-                                        ${tech.description}
-                                      </div>`
-                                    : ""}
-                                  ${(() => {
-                                    const meLocal = this.game?.myPlayer?.();
-                                    const b =
-                                      meLocal?.researchBeakers?.(tech.id) ?? 0;
-                                    const pct = Math.min(
-                                      100,
-                                      Math.floor((b / (tech.cost || 1)) * 100),
-                                    );
-                                    return html`<div
-                                      style="font-size:11px;opacity:.9;"
-                                    >
-                                      <div class="cost-inline" translate="no">
-                                        <span
-                                          >Cost:
-                                          ${tech.cost.toLocaleString()}</span
-                                        >
-                                        <img
-                                          src=${flaskIcon}
-                                          alt="research cost"
-                                        />
-                                      </div>
-                                      ${isResearched
-                                        ? html`<div>Status: Completed</div>`
-                                        : html`<div>
-                                            Progress: ${b.toLocaleString()} /
-                                            ${tech.cost.toLocaleString()}
-                                            (${pct}%)
-                                          </div>`}
-                                    </div>`;
-                                  })()}
-                                </div>
-                                <div
-                                  style="font-weight:600; margin-bottom:6px;"
+                              <div class="tech-wrapper">
+                                <button
+                                  class=${classes}
+                                  data-id=${tech.id}
+                                  @click=${() => this.onTechClick(tech.id)}
+                                  title=${""}
+                                  ?disabled=${!clickable}
                                 >
-                                  ${tech.name}
-                                </div>
-                                <div class="cost-inline" translate="no">
-                                  <span>${tech.cost.toLocaleString()}</span>
-                                  <img src=${flaskIcon} alt="research cost" />
-                                </div>
-                                ${!isResearched && me
-                                  ? (() => {
+                                  <div class="tooltip">
+                                    <div
+                                      style="font-weight:600;margin-bottom:4px;"
+                                    >
+                                      ${tech.name}
+                                    </div>
+                                    ${tech.description
+                                      ? html`<div
+                                          style="opacity:.9;margin-bottom:6px;"
+                                        >
+                                          ${tech.description}
+                                        </div>`
+                                      : ""}
+                                    ${(() => {
+                                      const meLocal = this.game?.myPlayer?.();
                                       const b =
-                                        me.researchBeakers?.(tech.id) ?? 0;
+                                        meLocal?.researchBeakers?.(tech.id) ??
+                                        0;
                                       const pct = Math.min(
                                         100,
                                         Math.floor(
                                           (b / (tech.cost || 1)) * 100,
                                         ),
                                       );
-                                      return b > 0
-                                        ? html`<div class="progress-track">
-                                            <div
-                                              class="progress-fill ${priority ===
-                                              tech.id
-                                                ? "priority"
-                                                : ""}"
-                                              style="width:${pct}%"
-                                            ></div>
-                                          </div>`
-                                        : "";
-                                    })()
-                                  : ""}
-                                <div>
-                                  ${tech.requiresAllOf?.length
-                                    ? html`<span class="pill pill-req"
-                                        >Requires:
-                                        ${tech.requiresAllOf.length}</span
-                                      >`
+                                      return html`<div
+                                        style="font-size:11px;opacity:.9;"
+                                      >
+                                        <div class="cost-inline" translate="no">
+                                          <span
+                                            >Cost:
+                                            ${tech.cost.toLocaleString()}</span
+                                          >
+                                          <img
+                                            src=${flaskIcon}
+                                            alt="research cost"
+                                          />
+                                        </div>
+                                        ${isResearched
+                                          ? html`<div>Status: Completed</div>`
+                                          : html`<div>
+                                              Progress: ${b.toLocaleString()} /
+                                              ${tech.cost.toLocaleString()}
+                                              (${pct}%)
+                                            </div>`}
+                                      </div>`;
+                                    })()}
+                                  </div>
+                                  <div
+                                    style="font-weight:600; margin-bottom:6px;"
+                                  >
+                                    ${tech.name}
+                                  </div>
+                                  <div class="cost-inline" translate="no">
+                                    <span>${tech.cost.toLocaleString()}</span>
+                                    <img src=${flaskIcon} alt="research cost" />
+                                  </div>
+                                  ${!isResearched && me
+                                    ? (() => {
+                                        const b =
+                                          me.researchBeakers?.(tech.id) ?? 0;
+                                        const pct = Math.min(
+                                          100,
+                                          Math.floor(
+                                            (b / (tech.cost || 1)) * 100,
+                                          ),
+                                        );
+                                        return b > 0
+                                          ? html`<div class="progress-track">
+                                              <div
+                                                class="progress-fill ${priority ===
+                                                tech.id
+                                                  ? "priority"
+                                                  : ""}"
+                                                style="width:${pct}%"
+                                              ></div>
+                                            </div>`
+                                          : "";
+                                      })()
                                     : ""}
-                                  ${tech.requiresOneOf?.length
-                                    ? html`<span class="pill pill-oneof"
-                                        >One of:
-                                        ${tech.requiresOneOf.length}</span
-                                      >`
-                                    : ""}
-                                  ${priority === tech.id && !isResearched
-                                    ? html`<span
-                                        class="pill"
-                                        style="background:rgba(59,130,246,0.18);color:#cfe3ff;border:1px solid rgba(59,130,246,0.45);"
-                                        >Priority</span
-                                      >`
-                                    : ""}
-                                </div>
-                              </button>
+                                  <div>
+                                    ${tech.requiresAllOf?.length
+                                      ? html`<span class="pill pill-req"
+                                          >Requires:
+                                          ${tech.requiresAllOf.length}</span
+                                        >`
+                                      : ""}
+                                    ${tech.requiresOneOf?.length
+                                      ? html`<span class="pill pill-oneof"
+                                          >One of:
+                                          ${tech.requiresOneOf.length}</span
+                                        >`
+                                      : ""}
+                                    ${priority === tech.id && !isResearched
+                                      ? html`<span
+                                          class="pill"
+                                          style="background:rgba(59,130,246,0.18);color:#cfe3ff;border:1px solid rgba(59,130,246,0.45);"
+                                          >Priority</span
+                                        >`
+                                      : ""}
+                                  </div>
+                                </button>
+                                ${action}
+                              </div>
                             `;
                           })}
                         </div>

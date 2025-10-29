@@ -1,5 +1,6 @@
 import { Config } from "../configuration/Config";
 import { AllPlayersStats, ClientID } from "../Schemas";
+import { Category } from "../tech/ResearchTree";
 import { GameMap, TileRef } from "./GameMap";
 import {
   GameUpdate,
@@ -595,6 +596,7 @@ export interface Player {
   // Research Tree (per-match standalone)
   hasResearchedTech(techId: string): boolean;
   addResearchedTech(techId: string): void;
+  removeResearchedTechsByCategory(category: Category): void;
 
   captureUnit(unit: Unit): void;
 

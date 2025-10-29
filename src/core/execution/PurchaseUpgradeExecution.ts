@@ -1,5 +1,6 @@
 import { Execution, Player, UpgradeType } from "../game/Game";
 import { GameImpl } from "../game/GameImpl";
+import { RESEARCH_TECH_IDS } from "../tech/TechEffects";
 
 export class PurchaseUpgradeExecution implements Execution {
   private mg: GameImpl;
@@ -39,6 +40,13 @@ export class PurchaseUpgradeExecution implements Execution {
       this._isActive = false;
       return;
     }
+    if (
+      this.upgrade === UpgradeType.ScorchedEarth &&
+      !this.player.hasResearchedTech(RESEARCH_TECH_IDS.SCORCHED_EARTH)
+    ) {
+      this._isActive = false;
+      return;
+    }
 
     const cost = this.mg.config().upgradeInfo(this.upgrade).cost(this.player);
     if (this.player.gold() >= cost) {
@@ -47,10 +55,14 @@ export class PurchaseUpgradeExecution implements Execution {
 
       if (this.upgrade === UpgradeType.ScorchedEarth) {
         this.mg.destroyPlayerRoads(this.player);
+        this.player.setRoadInvestmentRate(0);
         this.player.removeUpgrade(UpgradeType.Roads);
-        this.player.removeUpgrade(UpgradeType.ScorchedEarth);
+        this.player.removeUpgrade(UpgradeType.InternationalTrade);
+        this.player.removeResearchedTechsByCategory("Economy");
+        this.mg.markPlayerNodesForReconnection(this.player);
       } else if (this.upgrade === UpgradeType.Roads) {
         this.mg.markPlayerNodesForReconnection(this.player);
+        this.player.removeUpgrade(UpgradeType.ScorchedEarth);
       }
     }
     this._isActive = false;

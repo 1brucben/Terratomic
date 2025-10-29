@@ -48,11 +48,13 @@ const baseLevels: TechNode[] = (() => {
 const extras: TechNode[] = [
   {
     id: "Land-2B",
-    name: getTechMeta("Land-2B", { strict: false })?.name ?? "Land Tech 2B",
+    name: getTechMeta("Land-2B", { strict: false })?.name ?? "Scorched Earth",
     category: "Land",
     level: 2,
     requiresAllOf: ["Land-1"],
-    description: getTechMeta("Land-2B", { strict: false })?.description,
+    description:
+      getTechMeta("Land-2B", { strict: false })?.description ??
+      "Unlocks the Scorched Earth decision, letting you raze roads and reset economic techs.",
     cost: costForLevel(2),
   },
   {

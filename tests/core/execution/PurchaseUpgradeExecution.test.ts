@@ -13,7 +13,11 @@ describe("PurchaseUpgradeExecution", () => {
       addUpgrade: jest.fn(),
       removeUpgrade: jest.fn(),
       removeGold: jest.fn(),
+      hasResearchedTech: jest.fn(),
+      removeResearchedTechsByCategory: jest.fn(),
+      setRoadInvestmentRate: jest.fn(),
     } as unknown as jest.Mocked<Player>;
+    (mockPlayer.hasResearchedTech as jest.Mock).mockReturnValue(true);
 
     mockGame = {
       config: jest.fn().mockReturnValue({
@@ -61,6 +65,21 @@ describe("PurchaseUpgradeExecution", () => {
     expect(mockPlayer.addUpgrade).not.toHaveBeenCalled();
   });
 
+  it("requires the Scorched Earth tech to be researched before activation", () => {
+    (mockPlayer.hasResearchedTech as jest.Mock).mockReturnValue(false);
+    mockPlayer.hasUpgrade.mockReturnValue(false);
+
+    const exec = new PurchaseUpgradeExecution(
+      mockPlayer,
+      UpgradeType.ScorchedEarth,
+    );
+    exec.init(mockGame, 0);
+
+    expect(mockPlayer.removeGold).not.toHaveBeenCalled();
+    expect(mockPlayer.addUpgrade).not.toHaveBeenCalled();
+    expect(mockGame.destroyPlayerRoads).not.toHaveBeenCalled();
+  });
+
   it("should handle the special case for purchasing ScorchedEarth", () => {
     mockPlayer.gold.mockReturnValue(3_000_000n as Gold);
     mockPlayer.hasUpgrade.mockReturnValue(false);
@@ -71,13 +90,24 @@ describe("PurchaseUpgradeExecution", () => {
     );
     exec.init(mockGame, 0);
 
+    expect(mockPlayer.removeGold).toHaveBeenCalledWith(3_000_000n);
     expect(mockPlayer.addUpgrade).toHaveBeenCalledWith(
       UpgradeType.ScorchedEarth,
     );
     expect(mockGame.destroyPlayerRoads).toHaveBeenCalledWith(mockPlayer);
+    expect(mockPlayer.setRoadInvestmentRate).toHaveBeenCalledWith(0);
     expect(mockPlayer.removeUpgrade).toHaveBeenCalledWith(UpgradeType.Roads);
     expect(mockPlayer.removeUpgrade).toHaveBeenCalledWith(
+      UpgradeType.InternationalTrade,
+    );
+    expect(mockPlayer.removeResearchedTechsByCategory).toHaveBeenCalledWith(
+      "Economy",
+    );
+    expect(mockPlayer.removeUpgrade).not.toHaveBeenCalledWith(
       UpgradeType.ScorchedEarth,
+    );
+    expect(mockGame.markPlayerNodesForReconnection).toHaveBeenCalledWith(
+      mockPlayer,
     );
   });
 
@@ -90,6 +120,9 @@ describe("PurchaseUpgradeExecution", () => {
 
     expect(mockGame.markPlayerNodesForReconnection).toHaveBeenCalledWith(
       mockPlayer,
+    );
+    expect(mockPlayer.removeUpgrade).toHaveBeenCalledWith(
+      UpgradeType.ScorchedEarth,
     );
   });
 });

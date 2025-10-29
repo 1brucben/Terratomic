@@ -1,7 +1,11 @@
 import { renderNumber, renderTroops } from "../../client/Utils";
 import { PseudoRandom } from "../PseudoRandom";
 import { ClientID } from "../Schemas";
-import { applyTechCompletionEffects } from "../tech/TechEffects";
+import { Category, findTech } from "../tech/ResearchTree";
+import {
+  applyTechCompletionEffects,
+  revokeTechEffects,
+} from "../tech/TechEffects";
 import {
   assertNever,
   distSortUnit,
@@ -341,6 +345,46 @@ export class PlayerImpl implements Player {
 
     // Apply centralized side-effects upon research completion
     applyTechCompletionEffects(this, this.mg, techId);
+  }
+  removeResearchedTechsByCategory(category: Category): void {
+    const toRemove: string[] = [];
+    for (const techId of this._researchTreeTechs) {
+      const node = findTech(techId);
+      if (!node) {
+        console.warn(
+          `[PlayerImpl] Unable to revoke unknown tech id '${techId}' while removing category '${category}'.`,
+        );
+        continue;
+      }
+      if (node.category === category) {
+        toRemove.push(techId);
+      }
+    }
+
+    const progressToClear: string[] = [];
+    for (const [techId] of this._researchBeakers) {
+      const node = findTech(techId);
+      if (!node) continue;
+      if (node.category === category) {
+        progressToClear.push(techId);
+      }
+    }
+
+    if (toRemove.length === 0 && progressToClear.length === 0) return;
+    const priority = this._researchPriority;
+    const cleared = new Set([...toRemove, ...progressToClear]);
+
+    for (const techId of toRemove) {
+      this._researchTreeTechs.delete(techId);
+      revokeTechEffects(this, this.mg, techId);
+    }
+    for (const techId of progressToClear) {
+      this._researchBeakers.delete(techId);
+    }
+
+    if (priority && cleared.has(priority)) {
+      this._researchPriority = null;
+    }
   }
   hasResearchedTech(techId: string): boolean {
     return this._researchTreeTechs.has(techId);
