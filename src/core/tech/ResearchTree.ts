@@ -58,6 +58,16 @@ const extras: TechNode[] = [
     cost: costForLevel(2),
   },
   {
+    id: "Air-2B",
+    name: "Paratroopers",
+    category: "Air",
+    level: 2,
+    requiresAllOf: ["Air-1"],
+    description:
+      "Unlocks Paratroopers, allowing you to launch surprise attacks from the sky. Requires an Airfield.",
+    cost: costForLevel(2),
+  },
+  {
     id: "Sea-4B",
     name: getTechMeta("Sea-4B", { strict: false })?.name ?? "Sea Tech 4B",
     category: "Sea",
@@ -89,6 +99,11 @@ const tree: TechNode[] = (() => {
   if (sea5) {
     sea5.requiresAllOf = undefined;
     sea5.requiresOneOf = ["Sea-4", "Sea-4B"];
+  }
+  const air3 = t.find((x) => x.id === "Air-3");
+  if (air3) {
+    air3.requiresAllOf = undefined;
+    air3.requiresOneOf = ["Air-2", "Air-2B"];
   }
   return t;
 })();

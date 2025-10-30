@@ -41,7 +41,8 @@ describe("computeResearchLevel", () => {
     const halfL2Count = Math.floor(level2.length / 2);
     const chosenL2 = level2.slice(0, halfL2Count);
     const T = computeResearchLevel([...level1, ...chosenL2]);
-    // additive = 1 + 1 + 0.5 = 2.5; highestLevel = 2 => (2+1)=3; blended = 0.8*2.5 + 0.2*3 = 2.6
-    expect(T).toBeCloseTo(2.6, 2);
+    const ratioL2 = halfL2Count / level2.length;
+    const expected = 0.8 * (1 + 1 + ratioL2) + 0.2 * (2 + 1);
+    expect(T).toBeCloseTo(expected, 6);
   });
 });

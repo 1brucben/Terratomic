@@ -10,6 +10,7 @@ export const RESEARCH_TECH_IDS = {
   INTERNATIONAL_TRADE: "Economy-2",
   STRUCTURE_INSURANCE: "Economy-3",
   AUTOMATION: "Economy-4",
+  PARATROOPERS: "Air-2B",
   SUBMARINE_WARFARE: "Sea-2",
   NUCLEAR_SUBMARINES: "Sea-3",
 } as const;
@@ -180,6 +181,25 @@ export const TECHS: Readonly<Record<string, TechDefinition>> = Object.freeze({
       onRevoke: (player) => {
         if (player.hasUpgrade?.(UpgradeType.Automation)) {
           player.removeUpgrade?.(UpgradeType.Automation);
+        }
+      },
+    },
+  },
+  [RESEARCH_TECH_IDS.PARATROOPERS]: {
+    meta: {
+      name: "Paratroopers",
+      description:
+        "Unlocks Paratroopers, allowing you to launch surprise attacks from the sky. Requires an Airfield.",
+    },
+    effects: {
+      onComplete: (player) => {
+        if (!player.hasUpgrade?.(UpgradeType.AirUpgrade1)) {
+          player.addUpgrade?.(UpgradeType.AirUpgrade1);
+        }
+      },
+      onRevoke: (player) => {
+        if (player.hasUpgrade?.(UpgradeType.AirUpgrade1)) {
+          player.removeUpgrade?.(UpgradeType.AirUpgrade1);
         }
       },
     },
