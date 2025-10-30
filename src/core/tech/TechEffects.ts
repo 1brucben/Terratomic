@@ -10,6 +10,8 @@ export const RESEARCH_TECH_IDS = {
   INTERNATIONAL_TRADE: "Economy-2",
   STRUCTURE_INSURANCE: "Economy-3",
   AUTOMATION: "Economy-4",
+  SUBMARINE_WARFARE: "Sea-2",
+  NUCLEAR_SUBMARINES: "Sea-3",
 } as const;
 
 export interface TechMeta {
@@ -178,6 +180,42 @@ export const TECHS: Readonly<Record<string, TechDefinition>> = Object.freeze({
       onRevoke: (player) => {
         if (player.hasUpgrade?.(UpgradeType.Automation)) {
           player.removeUpgrade?.(UpgradeType.Automation);
+        }
+      },
+    },
+  },
+  [RESEARCH_TECH_IDS.SUBMARINE_WARFARE]: {
+    meta: {
+      name: "Submarine Warfare",
+      description: "Unlocks Submarines, which are invisible to most units.",
+    },
+    effects: {
+      onComplete: (player) => {
+        if (!player.hasUpgrade?.(UpgradeType.SubmarineResearch)) {
+          player.addUpgrade?.(UpgradeType.SubmarineResearch);
+        }
+      },
+      onRevoke: (player) => {
+        if (player.hasUpgrade?.(UpgradeType.SubmarineResearch)) {
+          player.removeUpgrade?.(UpgradeType.SubmarineResearch);
+        }
+      },
+    },
+  },
+  [RESEARCH_TECH_IDS.NUCLEAR_SUBMARINES]: {
+    meta: {
+      name: "Nuclear Submarines",
+      description: "Allows Submarines to launch Atomic Bombs.",
+    },
+    effects: {
+      onComplete: (player) => {
+        if (!player.hasUpgrade?.(UpgradeType.NuclearSubmarineResearch)) {
+          player.addUpgrade?.(UpgradeType.NuclearSubmarineResearch);
+        }
+      },
+      onRevoke: (player) => {
+        if (player.hasUpgrade?.(UpgradeType.NuclearSubmarineResearch)) {
+          player.removeUpgrade?.(UpgradeType.NuclearSubmarineResearch);
         }
       },
     },
