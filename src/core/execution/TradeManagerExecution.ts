@@ -52,6 +52,21 @@ export class TradeManagerExecution implements Execution {
       this.queueLogIntervalId = setInterval(() => {
         // Keep lightweight and consistent with other [TRADE] logs
         console.log(`[TRADE] queue length=${this.queue.length}`);
+        // Also, per human player, report active trade ships and queued replacements
+        for (const p of this.mg.players()) {
+          if (p.type() !== PlayerType.Human) continue;
+          // Active trade ships owned by this player
+          const active = p
+            .units(UnitType.TradeShip)
+            .filter((u) => u.isActive()).length;
+          // Trade ships queued for replacement (scheduled but not yet built) for this player
+          const queued = Array.from(this.replacementDueAt.keys()).filter(
+            (portID) => this.portOwnerById.get(portID) === p,
+          ).length;
+          console.log(
+            `[TRADE] ${p.displayName()} trade ships: active=${active} queued=${queued}`,
+          );
+        }
       }, 5000);
     }
   }
@@ -423,36 +438,89 @@ export class AssignedTradeRouteExecution implements Execution {
     let expectedTargetUnit =
       this.phase === "toStart" ? this.startPort : this.endPort;
     if (this.ship.returning()) {
-      expectedTargetUnit = this.lastPort ?? this.startPort;
-    }
-    // If the DESTINATION (expected target) was destroyed:
-    // - If not already returning, turn around (return to last port if valid; else any domestic port).
-    // - If already returning and that port is gone, pick a different domestic port.
-    if (!expectedTargetUnit.isActive()) {
-      const domesticFallback = this.selectRandomDomesticPort(this.ship.owner());
-      if (!this.ship.returning()) {
-        const fallback =
-          this.lastPort && this.lastPort.isActive()
-            ? this.lastPort
-            : domesticFallback;
-        if (fallback) {
-          this.ship.setReturning(true);
-          this.ship.setTargetUnit(fallback);
-        } else {
-          // Nowhere sensible to return to -> scuttle the ship
-          this.ship.delete(false);
-          this.active = false;
-        }
+      // Always return to the last port actually docked at.
+      if (this.lastPort) {
+        expectedTargetUnit = this.lastPort;
       } else {
+        // No recorded last port: pick a domestic fallback or scuttle.
+        const domesticFallback = this.selectRandomDomesticPort(
+          this.ship.owner(),
+        );
         if (domesticFallback) {
-          this.ship.setTargetUnit(domesticFallback);
+          expectedTargetUnit = domesticFallback;
         } else {
-          // Already returning but no valid fallback -> scuttle the ship
+          // Nowhere sensible to return to -> scuttle the ship and end.
           this.ship.delete(false);
           this.active = false;
+          return;
         }
       }
-      return;
+    }
+    // If the DESTINATION (expected target) was destroyed, try to substitute another port of the same owner.
+    if (!expectedTargetUnit.isActive()) {
+      let substituted = false;
+      if (!this.ship.returning()) {
+        if (this.phase === "toEnd") {
+          // Replace endPort with nearest active port owned by the original end owner
+          const endOwner =
+            (this.ship.tradeRouteEndOwner && this.ship.tradeRouteEndOwner()) ||
+            this.endPort.owner();
+          const replacement = endOwner
+            ? this.selectNearestPort(endOwner)
+            : null;
+          if (replacement) {
+            this.endPort = replacement;
+            expectedTargetUnit = replacement;
+            this.ship.setTargetUnit(expectedTargetUnit);
+            substituted = true;
+          }
+        } else {
+          // phase === "toStart": replace startPort similarly
+          const startOwner =
+            (this.ship.tradeRouteStartOwner &&
+              this.ship.tradeRouteStartOwner()) ||
+            this.startPort.owner();
+          const replacement = startOwner
+            ? this.selectNearestPort(startOwner)
+            : null;
+          if (replacement) {
+            this.startPort = replacement;
+            expectedTargetUnit = replacement;
+            this.ship.setTargetUnit(expectedTargetUnit);
+            substituted = true;
+          }
+        }
+      }
+      if (!substituted) {
+        // Fall back to previous returning/scuttle behavior
+        const domesticFallback = this.selectRandomDomesticPort(
+          this.ship.owner(),
+        );
+        if (!this.ship.returning()) {
+          const fallback =
+            this.lastPort && this.lastPort.isActive()
+              ? this.lastPort
+              : domesticFallback;
+          if (fallback) {
+            this.ship.setReturning(true);
+            this.ship.setTargetUnit(fallback);
+          } else {
+            // Nowhere sensible to return to -> scuttle the ship
+            this.ship.delete(false);
+            this.active = false;
+          }
+        } else {
+          if (domesticFallback) {
+            this.ship.setTargetUnit(domesticFallback);
+          } else {
+            // Already returning but no valid fallback -> scuttle the ship
+            this.ship.delete(false);
+            this.active = false;
+          }
+        }
+        return;
+      }
+      // If substituted, fall through and continue navigation to the new target.
     }
     // If some external order changed the target while not returning, stop this assignment
     // Allow initial assignment where target is still undefined; we'll set it below.
@@ -580,7 +648,27 @@ export class AssignedTradeRouteExecution implements Execution {
         this.ship.move(res.node);
         break;
       case PathFindResultType.PathNotFound:
-        // Path cannot be found; end assignment
+        // Path cannot be found; try another port of the same owner before giving up
+        if (!this.ship.returning()) {
+          if (this.phase === "toEnd") {
+            const owner = this.endPort.owner();
+            const alt = this.selectAlternatePort(owner, this.endPort.id());
+            if (alt) {
+              this.endPort = alt;
+              this.ship.setTargetUnit(alt);
+              return;
+            }
+          } else {
+            const owner = this.startPort.owner();
+            const alt = this.selectAlternatePort(owner, this.startPort.id());
+            if (alt) {
+              this.startPort = alt;
+              this.ship.setTargetUnit(alt);
+              return;
+            }
+          }
+        }
+        // No alternative available -> end assignment
         this.active = false;
         break;
     }
@@ -631,12 +719,51 @@ export class AssignedTradeRouteExecution implements Execution {
     return ports[idx];
   }
 
-  // Abort this trade assignment: clear any route metadata and leave ship idle
-  private abort(): void {
-    this.ship.setTargetUnit(undefined);
-    this.ship.setTradeRouteOwners(null, null);
-    this.ship.setCargoGold(0n);
-    this.ship.setReturning(false);
-    this.active = false;
+  // Pick the nearest active port owned by the given owner (to the ship's current position)
+  private selectNearestPort(owner: Player): Unit | null {
+    const ports = this.mg
+      .units(UnitType.Port)
+      .filter((p) => p.isActive() && p.owner() === owner);
+    if (ports.length === 0) return null;
+    let best: Unit | null = null;
+    let bestDist = Number.POSITIVE_INFINITY;
+    const here = this.ship.tile();
+    for (const p of ports) {
+      const d = this.mg.euclideanDistSquared(here, p.tile());
+      if (d < bestDist) {
+        bestDist = d;
+        best = p;
+      }
+    }
+    return best;
+  }
+
+  // Pick the nearest alternative active port owned by the owner, excluding a specific port ID,
+  // and prefer ports with at least one adjacent ocean tile (dockable)
+  private selectAlternatePort(
+    owner: Player,
+    excludePortId: number,
+  ): Unit | null {
+    const candidates = this.mg
+      .units(UnitType.Port)
+      .filter(
+        (p) => p.isActive() && p.owner() === owner && p.id() !== excludePortId,
+      );
+    if (candidates.length === 0) return null;
+    const dockable: Unit[] = [];
+    const here = this.ship.tile();
+    for (const p of candidates) {
+      const neighbors = this.mg.neighbors(p.tile());
+      if (neighbors.some((t) => this.mg.isOcean(t))) {
+        dockable.push(p);
+      }
+    }
+    const list = dockable.length > 0 ? dockable : candidates;
+    list.sort(
+      (a, b) =>
+        this.mg.euclideanDistSquared(here, a.tile()) -
+        this.mg.euclideanDistSquared(here, b.tile()),
+    );
+    return list[0] ?? null;
   }
 }

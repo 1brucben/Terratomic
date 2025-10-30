@@ -200,7 +200,17 @@ export class PathFinder {
       } else {
         const tile = this.path?.shift();
         if (tile === undefined) {
-          throw new Error("missing tile");
+          // Path exhausted unexpectedly. If already within step distance, report completion.
+          if (this.game.manhattanDist(curr, dst) < dist) {
+            return { type: PathFindResultType.Completed, node: curr };
+          }
+          // Otherwise, recompute a fresh path from current position.
+          this.curr = curr;
+          this.dst = dst;
+          this.path = null;
+          this.aStar = this.newAStar(curr, dst);
+          this.computeFinished = false;
+          return this.nextTile(curr, dst);
         }
         return { type: PathFindResultType.NextTile, node: tile };
       }
@@ -212,7 +222,14 @@ export class PathFinder {
         this.path = this.aStar.reconstructPath();
         // Remove the start tile
         this.path.shift();
-
+        // If the reconstructed path is empty, fall back to completion or path-not-found handling.
+        if (!this.path || this.path.length === 0) {
+          if (this.game.manhattanDist(curr, dst) < dist) {
+            return { type: PathFindResultType.Completed, node: curr };
+          } else {
+            return { type: PathFindResultType.PathNotFound };
+          }
+        }
         return this.nextTile(curr, dst);
       case PathFindResultType.Pending:
         return { type: PathFindResultType.Pending };
