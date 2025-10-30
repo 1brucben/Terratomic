@@ -84,8 +84,6 @@ export class RadialMenu implements Layer {
         icon: null,
       },
     ],
-    [Slot.Ally, { name: "ally", disabled: true, action: () => {} }],
-
     [
       Slot.Info,
       {
@@ -96,6 +94,7 @@ export class RadialMenu implements Layer {
         icon: null,
       },
     ],
+    [Slot.Ally, { name: "ally", disabled: true, action: () => {} }],
     [
       Slot.Peace,
       {
