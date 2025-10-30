@@ -99,6 +99,8 @@ describe("Submarine", () => {
       },
     );
 
+    player1.setWarWith(player2);
+
     expect(tradeShip.owner().id()).toBe(player2.id());
     // Let plenty of time for A* to execute
     for (let i = 0; i < 10; i++) {
