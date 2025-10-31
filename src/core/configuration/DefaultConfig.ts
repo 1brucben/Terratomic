@@ -86,6 +86,9 @@ const TERRAIN_EFFECTS = {
   [TerrainType.Mountain]: { mag: 1.2, speed: 1.2 },
 } as const;
 
+const WARSHIP_AA_RANGE_MULTIPLIER = 0.75;
+const WARSHIP_AA_COOLDOWN_MULTIPLIER = 1.25;
+
 export abstract class DefaultServerConfig implements ServerConfig {
   private publicKey: JWK;
   abstract jwtAudience(): string;
@@ -476,6 +479,23 @@ export class DefaultConfig implements Config {
     return Math.floor(attacker.troops() / 10);
   }
 
+  warshipAARange(): number {
+    return this.defaultSamRange() * WARSHIP_AA_RANGE_MULTIPLIER; // 80 * 0.75 = 60
+  }
+
+  warshipAACooldown(): number {
+    return this.SAMPlaneCooldown() * WARSHIP_AA_COOLDOWN_MULTIPLIER; // 40 * 1.25 = 50
+  }
+
+  warshipAAScanInterval(): number {
+    return 5; // 5 ticks = 0.5 seconds
+  }
+
+  warshipAAHittingChance(): number {
+    // For now, mirrors the standard SAM hit chance. Can be modified later for balancing.
+    return this.samPlaneHittingChance();
+  }
+
   unitInfo(type: UnitType): UnitInfo {
     switch (type) {
       case UnitType.TransportShip:
@@ -739,7 +759,7 @@ export class DefaultConfig implements Config {
         };
       case UpgradeType.WaterUpgrade1:
         return { cost: costForPlayer(1_000_000n) };
-      case UpgradeType.WaterUpgrade2:
+      case UpgradeType.WarshipAntiAir:
         return { cost: costForPlayer(2_000_000n) };
       case UpgradeType.WaterUpgrade3:
         return { cost: costForPlayer(3_000_000n) };

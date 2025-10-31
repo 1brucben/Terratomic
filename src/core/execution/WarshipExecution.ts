@@ -6,11 +6,13 @@ import {
   Unit,
   UnitParams,
   UnitType,
+  UpgradeType,
 } from "../game/Game";
 import { TileRef } from "../game/GameMap";
 import { PathFindResultType } from "../pathfinding/AStar";
 import { PathFinder } from "../pathfinding/PathFinding";
 import { PseudoRandom } from "../PseudoRandom";
+import { SAMMissileExecution } from "./SAMMissileExecution";
 import { ShellExecution } from "./ShellExecution";
 
 export class WarshipExecution implements Execution {
@@ -20,6 +22,9 @@ export class WarshipExecution implements Execution {
   private pathfinder: PathFinder;
   private lastShellAttack = 0;
   private alreadySentShell = new Set<Unit>();
+  private nextAAScanTick = 0;
+  private nextAAMissileFireTick = 0;
+  private pseudoRandom: PseudoRandom;
 
   constructor(
     private input: (UnitParams<UnitType.Warship> & OwnerComp) | Unit,
@@ -46,6 +51,7 @@ export class WarshipExecution implements Execution {
         patrolTile: this.input.patrolTile,
       });
     }
+    this.pseudoRandom = new PseudoRandom(this.warship.id());
   }
 
   tick(ticks: number): void {
@@ -57,6 +63,8 @@ export class WarshipExecution implements Execution {
     if (hasPort) {
       this.warship.modifyHealth(1);
     }
+
+    this.scanAndEngageAircraft();
 
     this.warship.setTargetUnit(this.findTargetUnit());
     if (this.warship.targetUnit()?.type() === UnitType.TradeShip) {
@@ -321,5 +329,80 @@ export class WarshipExecution implements Execution {
       return this.randomTile(true);
     }
     return undefined;
+  }
+
+  private scanAndEngageAircraft(): void {
+    // Guard Clause: Check for the upgrade first.
+    if (!this.warship.owner().hasUpgrade(UpgradeType.WarshipAntiAir)) {
+      return;
+    }
+
+    // Throttling: Only scan periodically to save performance.
+    if (this.mg.ticks() < this.nextAAScanTick) {
+      return;
+    }
+    this.nextAAScanTick =
+      this.mg.ticks() + this.mg.config().warshipAAScanInterval();
+
+    // Target Scan & Squared Distance: Use squared values to avoid expensive sqrt operations.
+    const rangeSq = this.mg.config().warshipAARange() ** 2;
+    const nearbyAircraft = this.mg.nearbyUnits(
+      this.warship.tile(),
+      this.mg.config().warshipAARange(),
+      [UnitType.Bomber, UnitType.FighterJet, UnitType.CargoPlane],
+      ({ unit, distSquared }) =>
+        !unit.owner().isFriendly(this.warship.owner()) &&
+        !unit.targetedBySAM() &&
+        distSquared <= rangeSq,
+    );
+
+    if (nearbyAircraft.length === 0) {
+      return;
+    }
+
+    // Optimized Prioritization (No Sorting): Loop once to find the best target.
+    const priority = {
+      [UnitType.Bomber]: 1,
+      [UnitType.FighterJet]: 2,
+      [UnitType.CargoPlane]: 3,
+    };
+    let bestTarget: Unit | null = null;
+    let bestPriority = 4; // Start with a value higher than any valid priority
+
+    for (const { unit } of nearbyAircraft) {
+      const unitPriority = priority[unit.type()];
+      if (unitPriority < bestPriority) {
+        bestPriority = unitPriority;
+        bestTarget = unit;
+      }
+    }
+
+    // Firing Logic (Decoupled Cooldown)
+    if (bestTarget) {
+      if (this.mg.ticks() < this.nextAAMissileFireTick) {
+        return;
+      }
+
+      const healthPercent =
+        this.warship.health() / (this.warship.info().maxHealth ?? 1);
+      const hit =
+        this.pseudoRandom.next() <
+        this.mg.config().warshipAAHittingChance() * healthPercent;
+
+      if (hit) {
+        this.mg.addExecution(
+          new SAMMissileExecution(
+            this.warship.tile(),
+            this.warship.owner(),
+            this.warship,
+            bestTarget,
+          ),
+        );
+        bestTarget.setTargetedBySAM(true);
+      }
+
+      this.nextAAMissileFireTick =
+        this.mg.ticks() + this.mg.config().warshipAACooldown();
+    }
   }
 }

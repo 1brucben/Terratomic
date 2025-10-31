@@ -183,7 +183,7 @@ export enum UpgradeType {
   SubmarineResearch = "SubmarineResearch",
   NuclearSubmarineResearch = "NuclearSubmarineResearch",
   WaterUpgrade1 = "WaterUpgrade1",
-  WaterUpgrade2 = "WaterUpgrade2",
+  WarshipAntiAir = "WarshipAntiAir",
   WaterUpgrade3 = "WaterUpgrade3",
 
   // Dummy Air Upgrades
