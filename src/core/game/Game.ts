@@ -282,7 +282,7 @@ export interface UnitParamsMap {
 
   [UnitType.Paratrooper]: {
     troops?: number;
-    destination?: TileRef;
+    targetTile?: TileRef;
   };
 
   [UnitType.FighterJet]: {
