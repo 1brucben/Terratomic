@@ -179,17 +179,20 @@ export enum UpgradeType {
   StructureInsurance = "StructureInsurance",
   Automation = "Automation",
 
-  // Dummy Water Upgrades
+  // Water Upgrades
   SubmarineResearch = "SubmarineResearch",
   NuclearSubmarineResearch = "NuclearSubmarineResearch",
   WaterUpgrade1 = "WaterUpgrade1",
+  WaterUpgrade2 = "WaterUpgrade2",
   WarshipAntiAir = "WarshipAntiAir",
   WaterUpgrade3 = "WaterUpgrade3",
 
-  // Dummy Air Upgrades
+  // Air Upgrades
   AirUpgrade1 = "AirUpgrade1",
-  CityAntiAir = "CityAntiAir",
+  AirUpgrade2 = "AirUpgrade2",
   AirUpgrade3 = "AirUpgrade3",
+  CityAntiAir = "CityAntiAir",
+  FighterJetNavalTargeting = "FighterJetNavalTargeting",
 
   // Dummy Economy Upgrades
   EconomyUpgrade1 = "EconomyUpgrade1",

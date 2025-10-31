@@ -1,4 +1,11 @@
-import { Execution, OwnerComp, Unit, UnitParams, UnitType } from "../game/Game";
+import {
+  Execution,
+  OwnerComp,
+  Unit,
+  UnitParams,
+  UnitType,
+  UpgradeType,
+} from "../game/Game";
 import { GameImpl } from "../game/GameImpl";
 import { TileRef } from "../game/GameMap";
 
@@ -10,8 +17,9 @@ export class FighterJetExecution implements Execution {
   private fighterJet: Unit;
   private mg: GameImpl;
   private random: PseudoRandom;
-  private alreadySentShell: Set<Unit> = new Set();
+  private lastAttackTick = 0;
   private pathFinder: StraightPathFinder;
+  private nextScanTick = 0;
 
   constructor(
     private input: (UnitParams<UnitType.FighterJet> & OwnerComp) | Unit,
@@ -49,7 +57,14 @@ export class FighterJetExecution implements Execution {
       this.fighterJet.modifyHealth(this.mg.config().fighterJetHealingAmount());
     }
 
-    this.fighterJet.setTargetUnit(this.findTargetUnit());
+    if (
+      this.mg.ticks() >= this.nextScanTick ||
+      !this.fighterJet.targetUnit()?.isActive()
+    ) {
+      this.fighterJet.setTargetUnit(this.findTargetUnit());
+      this.fighterJet.touch();
+      this.nextScanTick = this.mg.ticks() + 10;
+    }
 
     if (this.fighterJet.targetUnit() !== undefined) {
       if (this.fighterJet.targetUnit()?.type() === UnitType.CargoPlane) {
@@ -63,74 +78,109 @@ export class FighterJetExecution implements Execution {
   }
 
   private findTargetUnit(): Unit | undefined {
-    const hasAirfield =
-      this.fighterJet.owner().units(UnitType.Airfield).length > 0;
-    const patrolRangeSquared = this.mg.config().fighterJetPatrolRange() ** 2;
-    const closest = this._findClosest(
-      this.fighterJet.tile()!,
-      this.mg.config().fighterJetTargettingRange(),
-      [
-        UnitType.Bomber,
-        UnitType.FighterJet,
-        UnitType.CargoPlane,
-        UnitType.Paratrooper,
-      ],
-      (unit) => {
-        if (
-          unit.owner() === this.fighterJet.owner() ||
-          unit === this.fighterJet ||
-          unit.owner().isFriendly(this.fighterJet.owner()) ||
-          !unit.isTargetable()
-        ) {
-          return false;
-        }
-        // Only engage if at war with the target's owner
-        if (unit.type() === UnitType.CargoPlane) {
-          if (!hasAirfield) {
-            return false;
-          }
-          const cargoPlaneDestinationAirfield = unit.targetUnit();
-          if (cargoPlaneDestinationAirfield) {
-            const destinationOwner = cargoPlaneDestinationAirfield.owner();
-            if (
-              destinationOwner === this.fighterJet.owner() ||
-              destinationOwner.isFriendly(this.fighterJet.owner())
-            ) {
-              return false;
-            }
-          }
-        }
-        return true;
-      },
+    const owner = this.fighterJet.owner();
+    const ownerHasUpgrade = owner.hasUpgrade(
+      UpgradeType.FighterJetNavalTargeting,
     );
 
-    if (closest.length === 0) {
-      return undefined;
+    const targetableUnitTypes: UnitType[] = [
+      UnitType.Bomber,
+      UnitType.FighterJet,
+      UnitType.CargoPlane,
+      UnitType.Paratrooper,
+    ];
+
+    if (ownerHasUpgrade) {
+      targetableUnitTypes.push(
+        UnitType.TransportShip,
+        UnitType.Warship,
+        UnitType.TradeShip,
+      );
     }
 
-    closest.sort((a, b) => {
-      const distA = this.mg.euclideanDistSquared(
-        this.fighterJet.tile()!,
-        a.tile()!,
-      );
-      const distB = this.mg.euclideanDistSquared(
-        this.fighterJet.tile()!,
-        b.tile()!,
-      );
+    const nearbyUnits = this.mg.nearbyUnits(
+      this.fighterJet.tile()!,
+      this.mg.config().fighterJetTargettingRange(),
+      targetableUnitTypes,
+    );
 
-      if (a.type() === UnitType.FighterJet && b.type() !== UnitType.FighterJet)
-        return -1;
-      if (a.type() !== UnitType.FighterJet && b.type() === UnitType.FighterJet)
-        return 1;
-      if (a.type() === UnitType.Bomber && b.type() === UnitType.CargoPlane)
-        return -1;
-      if (a.type() === UnitType.CargoPlane && b.type() === UnitType.Bomber)
-        return 1;
+    let bestTarget: Unit | undefined = undefined;
+    let bestPriority = 999;
+    let bestDistSquared = Infinity;
 
-      return distA - distB;
-    });
+    const getPriority = (type: UnitType): number => {
+      switch (type) {
+        case UnitType.Paratrooper:
+          return 0;
+        case UnitType.FighterJet:
+          return 1;
+        case UnitType.Bomber:
+          return 2;
+        case UnitType.CargoPlane:
+          return 3;
+        case UnitType.TransportShip:
+          return 4;
+        case UnitType.Warship:
+          return 5;
+        case UnitType.TradeShip:
+          return 6;
+        default:
+          return 99;
+      }
+    };
 
-    return closest[0];
+    for (const { unit, distSquared } of nearbyUnits) {
+      if (
+        unit.owner() === owner ||
+        unit === this.fighterJet ||
+        unit.owner().isFriendly(owner) ||
+        !unit.isTargetable()
+      ) {
+        continue;
+      }
+
+      if (unit.type() === UnitType.CargoPlane) {
+        if (owner.units(UnitType.Airfield).length === 0) {
+          continue;
+        }
+        const cargoPlaneDestinationAirfield = unit.targetUnit();
+        if (cargoPlaneDestinationAirfield) {
+          const destinationOwner = cargoPlaneDestinationAirfield.owner();
+          if (
+            destinationOwner === owner ||
+            destinationOwner.isFriendly(owner)
+          ) {
+            continue;
+          }
+        }
+      }
+
+      if (ownerHasUpgrade && unit.type() === UnitType.TradeShip) {
+        if (
+          owner.units(UnitType.Port).length === 0 ||
+          unit.isSafeFromPirates() ||
+          unit.targetUnit()?.owner() === owner ||
+          unit.targetUnit()?.owner().isFriendly(owner)
+        ) {
+          continue;
+        }
+      }
+
+      const priority = getPriority(unit.type());
+
+      if (priority < bestPriority) {
+        bestTarget = unit;
+        bestPriority = priority;
+        bestDistSquared = distSquared;
+      } else if (priority === bestPriority) {
+        if (distSquared < bestDistSquared) {
+          bestTarget = unit;
+          bestDistSquared = distSquared;
+        }
+      }
+    }
+
+    return bestTarget;
   }
 
   private attackTarget() {
@@ -211,25 +261,34 @@ export class FighterJetExecution implements Execution {
     }
     this.fighterJet.touch();
 
-    if (
-      distToTargetSquared <=
-      this.mg.config().fighterJetTargetReachedDistance() ** 2
-    ) {
-      this.alreadySentShell.add(targetUnit);
-      this.fighterJet.setTargetUnit(undefined);
+    if (this.mg.ticks() - this.lastAttackTick < 20) {
       return;
     }
+    this.lastAttackTick = this.mg.ticks();
 
-    const shellAttackRate = this.mg.config().fighterJetAttackRate();
-    if (this.mg.ticks() % shellAttackRate === 0) {
-      this.mg.addExecution(
-        new ShellExecution(
-          this.fighterJet.tile()!,
-          this.fighterJet.owner(),
-          this.fighterJet,
-          targetUnit,
-        ),
-      );
+    switch (targetUnit.type()) {
+      case UnitType.TransportShip:
+      case UnitType.TradeShip:
+      case UnitType.Warship:
+        this.mg.addExecution(
+          new ShellExecution(
+            this.fighterJet.tile()!,
+            this.fighterJet.owner(),
+            this.fighterJet,
+            targetUnit,
+          ),
+        );
+        break;
+      default: //FighterJet and Bomber
+        this.mg.addExecution(
+          new ShellExecution(
+            this.fighterJet.tile()!,
+            this.fighterJet.owner(),
+            this.fighterJet,
+            targetUnit,
+          ),
+        );
+        break;
     }
   }
 
@@ -317,44 +376,6 @@ export class FighterJetExecution implements Execution {
       return undefined;
     }
     return this.mg.map().ref(x, y);
-  }
-
-  private _findClosest(
-    startTile: TileRef,
-    range: number,
-    unitTypes: UnitType[],
-    predicate: (unit: Unit) => boolean,
-  ): Unit[] {
-    const nearbyUnits = this.mg.nearbyUnits(startTile, range, unitTypes);
-    const validUnits: Unit[] = [];
-
-    for (const { unit } of nearbyUnits) {
-      if (predicate(unit)) {
-        validUnits.push(unit);
-      }
-    }
-
-    validUnits.sort((a, b) => {
-      const distA = this.mg.euclideanDistSquared(startTile, a.tile());
-      const distB = this.mg.euclideanDistSquared(startTile, b.tile());
-
-      if (
-        a.type() === UnitType.FighterJet &&
-        b.type() !== UnitType.FighterJet
-      ) {
-        return -1;
-      }
-      if (
-        a.type() !== UnitType.FighterJet &&
-        b.type() === UnitType.FighterJet
-      ) {
-        return 1;
-      }
-
-      return distA - distB;
-    });
-
-    return validUnits;
   }
 
   isActive(): boolean {
