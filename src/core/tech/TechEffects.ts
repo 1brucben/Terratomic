@@ -3,6 +3,7 @@ import { Game, Player, UpgradeType } from "../game/Game";
 // Central tech IDs for research tree items that have gameplay effects.
 // Keep IDs aligned with ResearchTreeModal generation (e.g., "Land-1").
 export const RESEARCH_TECH_IDS = {
+  WARSHIP_ANTI_AIR: "Sea-1",
   WWII_LESSONS: "Land-1",
   URBAN_PLANNING: "Land-2",
   CITY_ANTI_AIR: "Air-2",
@@ -47,6 +48,25 @@ export type TechDefinition = {
 
 // Unified registry containing both metadata and effects per tech
 export const TECHS: Readonly<Record<string, TechDefinition>> = Object.freeze({
+  [RESEARCH_TECH_IDS.WARSHIP_ANTI_AIR]: {
+    meta: {
+      name: "Warship Anti-Air",
+      description:
+        "Equips Warships with an anti-air (AA) missile system to engage nearby enemy aircraft (Bombers, Fighter Jets, Cargo Planes). Does not intercept nuclear missiles. Range: 60 tiles. Cooldown: 5.0 seconds. Hit Chance: 80% base.",
+    },
+    effects: {
+      onComplete: (player) => {
+        if (!player.hasUpgrade?.(UpgradeType.WarshipAntiAir)) {
+          player.addUpgrade?.(UpgradeType.WarshipAntiAir);
+        }
+      },
+      onRevoke: (player) => {
+        if (player.hasUpgrade?.(UpgradeType.WarshipAntiAir)) {
+          player.removeUpgrade?.(UpgradeType.WarshipAntiAir);
+        }
+      },
+    },
+  },
   [RESEARCH_TECH_IDS.WWII_LESSONS]: {
     meta: {
       name: "WWII Lessons Learned",
