@@ -132,7 +132,7 @@ describe("WarshipExecution AA Capability", () => {
     const paratrooper = player2.buildUnit(
       UnitType.Paratrooper,
       game.ref(12, 12),
-      { troops: 100, destination: game.ref(1, 1) },
+      { troops: 100, targetTile: game.ref(1, 1) },
     );
 
     executeTicks(game, 10);
