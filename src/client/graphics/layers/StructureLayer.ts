@@ -19,6 +19,7 @@ import { TransformHandler } from "../TransformHandler";
 import { Layer } from "./Layer";
 class StructureRenderInfo {
   public isOnScreen: boolean = false;
+  public isOnCooldown: boolean = false;
   constructor(
     public unit: UnitView,
     public owner: PlayerID,
@@ -231,7 +232,17 @@ export class StructureLayer implements Layer {
     const ownerChanged = render.owner !== unit.owner().id();
     const constructionStateChanged =
       render.underConstruction !== isConstruction;
-    if (ownerChanged || constructionStateChanged) {
+
+    let cooldownChanged = false;
+    if (unit.type() === UnitType.City) {
+      const isOnCooldown = this.game.isCitySamOnCooldown(unit.id());
+      if (isOnCooldown !== render.isOnCooldown) {
+        cooldownChanged = true;
+        render.isOnCooldown = isOnCooldown;
+      }
+    }
+
+    if (ownerChanged || constructionStateChanged || cooldownChanged) {
       render.owner = unit.owner().id();
       render.underConstruction = isConstruction;
       render.pixiSprite?.destroy();
@@ -245,9 +256,12 @@ export class StructureLayer implements Layer {
     const structureType = isConstruction
       ? (unit.constructionType() ?? unit.type())
       : unit.type();
-    const cacheKey = isConstruction
+    let cacheKey = isConstruction
       ? `construction-${structureType}`
       : `${unit.owner().id()}-${structureType}`;
+    if (unit.type() === UnitType.City) {
+      cacheKey += `-${this.game.isCitySamOnCooldown(unit.id())}`;
+    }
     if (this.textureCache.has(cacheKey)) {
       return this.textureCache.get(cacheKey)!;
     }
