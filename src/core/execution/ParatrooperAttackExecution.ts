@@ -4,6 +4,7 @@ import {
   MessageType,
   Player,
   PlayerType,
+  Unit,
   UnitType,
   UpgradeType,
 } from "../game/Game";
@@ -11,6 +12,10 @@ import {
 import { TileRef } from "../game/GameMap";
 import { StraightPathFinder } from "../pathfinding/PathFinding";
 import { AttackExecution } from "./AttackExecution";
+import {
+  attemptInterception,
+  findEligibleCitiesForBomber,
+} from "./utils/CityAntiAirUtils";
 
 export class ParatrooperAttackExecution implements Execution {
   private paratrooperUnitID: number | null = null;
@@ -21,6 +26,7 @@ export class ParatrooperAttackExecution implements Execution {
   private targetPlayerID: string | null;
   private attacker: Player;
   private mg: Game; // Add this line
+  private eligibleCities: Unit[] = [];
 
   constructor(
     attacker: Player,
@@ -135,9 +141,10 @@ export class ParatrooperAttackExecution implements Execution {
     const paratrooper = this.attacker.buildUnit(
       UnitType.Paratrooper,
       closestAirfield,
-      { troops: this.troops, destination: this.dst },
+      { troops: this.troops, targetTile: this.dst },
     );
     this.paratrooperUnitID = paratrooper.id();
+    this.eligibleCities = findEligibleCitiesForBomber(paratrooper, game);
 
     // Initialize pathfinder
     this.pathFinder = new StraightPathFinder(this.mg.map());
@@ -164,6 +171,27 @@ export class ParatrooperAttackExecution implements Execution {
     if (!paratrooper || !paratrooper.isActive()) {
       this.paratrooperUnitID = null; // Unit was destroyed or became inactive
       return;
+    }
+
+    if (paratrooper.targetedBySAM()) return;
+
+    const readyInterceptors = this.eligibleCities.filter(
+      (city) =>
+        !game.isCitySamOnCooldown(city.id()) &&
+        game.euclideanDistSquared(paratrooper.tile(), city.tile()) <=
+          game.config().citySamLaunchRange() *
+            game.config().citySamLaunchRange(),
+    );
+
+    if (readyInterceptors.length > 0) {
+      readyInterceptors.sort(
+        (a, b) =>
+          game.euclideanDistSquared(paratrooper.tile(), a.tile()) -
+          game.euclideanDistSquared(paratrooper.tile(), b.tile()),
+      );
+
+      const closestInterceptor = readyInterceptors[0];
+      attemptInterception(paratrooper, game, closestInterceptor);
     }
 
     if (this.pathFinder === null) {
