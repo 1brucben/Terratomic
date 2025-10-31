@@ -122,29 +122,23 @@ describe("WarshipExecution AA Capability", () => {
   });
 
   // Test Case: Target Priority
-  test("should prioritize a Bomber over a FighterJet and CargoPlane", () => {
+  test("should prioritize a Paratrooper over a Bomber", () => {
     player1.addUpgrade(UpgradeType.WarshipAntiAir);
     jest.spyOn(PseudoRandom.prototype, "next").mockReturnValue(0.1); // Guarantee hit
 
-    const cargoPlane = player2.buildUnit(
-      UnitType.CargoPlane,
-      game.ref(12, 12),
-      { targetUnit: warship },
-    );
-    const fighterJet = player2.buildUnit(
-      UnitType.FighterJet,
-      game.ref(13, 13),
-      { patrolTile: game.ref(13, 13) },
-    );
     const bomber = player2.buildUnit(UnitType.Bomber, game.ref(11, 11), {
       targetTile: game.ref(0, 0),
     });
+    const paratrooper = player2.buildUnit(
+      UnitType.Paratrooper,
+      game.ref(12, 12),
+      { troops: 100, destination: game.ref(1, 1) },
+    );
 
     executeTicks(game, 10);
 
-    expect(bomber.targetedBySAM()).toBe(true);
-    expect(fighterJet.targetedBySAM()).toBe(false);
-    expect(cargoPlane.targetedBySAM()).toBe(false);
+    expect(paratrooper.targetedBySAM()).toBe(true);
+    expect(bomber.targetedBySAM()).toBe(false);
   });
 
   // Test Case: No Nuke Targeting

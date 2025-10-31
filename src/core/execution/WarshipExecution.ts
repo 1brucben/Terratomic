@@ -349,7 +349,12 @@ export class WarshipExecution implements Execution {
     const nearbyAircraft = this.mg.nearbyUnits(
       this.warship.tile(),
       this.mg.config().warshipAARange(),
-      [UnitType.Bomber, UnitType.FighterJet, UnitType.CargoPlane],
+      [
+        UnitType.Bomber,
+        UnitType.FighterJet,
+        UnitType.CargoPlane,
+        UnitType.Paratrooper,
+      ],
       ({ unit, distSquared }) =>
         !unit.owner().isFriendly(this.warship.owner()) &&
         !unit.targetedBySAM() &&
@@ -362,9 +367,10 @@ export class WarshipExecution implements Execution {
 
     // Optimized Prioritization (No Sorting): Loop once to find the best target.
     const priority = {
-      [UnitType.Bomber]: 1,
-      [UnitType.FighterJet]: 2,
-      [UnitType.CargoPlane]: 3,
+      [UnitType.Paratrooper]: 1,
+      [UnitType.Bomber]: 2,
+      [UnitType.FighterJet]: 3,
+      [UnitType.CargoPlane]: 4,
     };
     let bestTarget: Unit | null = null;
     let bestPriority = 4; // Start with a value higher than any valid priority
