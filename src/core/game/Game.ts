@@ -643,7 +643,7 @@ export interface Player {
   lastAggressionTick(other: Player): Tick;
   isOnSameTeam(other: Player): boolean;
   // Either allied or on same team.
-  isFriendly(other: Player): boolean;
+  isFriendly(other: Player | PlayerView): boolean;
   team(): Team | null;
   clan(): string | null;
   incomingAllianceRequests(): AllianceRequest[];

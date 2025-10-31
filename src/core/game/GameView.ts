@@ -150,6 +150,10 @@ export class UnitView {
   isDetectedByNavalUnit(): boolean {
     return this.data.isDetectedByNavalUnit ?? false;
   }
+
+  targetedBySAM(): boolean {
+    return this.data.targetedBySAM ?? false;
+  }
 }
 
 export class PlayerView {
@@ -351,15 +355,15 @@ export class PlayerView {
   roadNetPixelsPerSecond(): number {
     return this.data.roadNetPixelsPerSecond ?? 0;
   }
-  isAlliedWith(other: PlayerView): boolean {
+  isAlliedWith(other: Player | PlayerView): boolean {
     return this.data.allies.some((n) => other.smallID() === n);
   }
 
-  isOnSameTeam(other: PlayerView): boolean {
-    return this.data.team !== undefined && this.data.team === other.data.team;
+  isOnSameTeam(other: Player | PlayerView): boolean {
+    return this.data.team !== undefined && this.data.team === other.team();
   }
 
-  isFriendly(other: PlayerView): boolean {
+  isFriendly(other: Player | PlayerView): boolean {
     return this.isAlliedWith(other) || this.isOnSameTeam(other);
   }
 

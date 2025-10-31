@@ -145,6 +145,7 @@ export interface UnitUpdate {
   cooldownDuration?: Tick;
   isAttacking?: boolean;
   isDetectedByNavalUnit?: boolean;
+  targetedBySAM?: boolean;
 }
 
 export interface AttackUpdate {
