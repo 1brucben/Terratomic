@@ -295,6 +295,11 @@ export class UnitLayer implements Layer {
       .filter((unit) => unit !== undefined) as UnitView[] | undefined;
 
     if (unitsToUpdate && unitsToUpdate.length > 0) {
+      const oldAngleByUnit = new Map<UnitView, number | null>();
+      for (const u of unitsToUpdate) {
+        oldAngleByUnit.set(u, this.unitToLastAngle.get(u) ?? null);
+      }
+
       // Precompute angles once per unit to avoid duplicate work across passes
       const angleByUnit = new Map<UnitView, number | null>();
       for (const u of unitsToUpdate) {
@@ -304,7 +309,7 @@ export class UnitLayer implements Layer {
 
       // the clearing and drawing of unit sprites need to be done in 2 passes
       // otherwise the sprite of a unit can be drawn on top of another unit
-      this.clearUnitsCells(unitsToUpdate, angleByUnit);
+      this.clearUnitsCells(unitsToUpdate, oldAngleByUnit);
       this.drawUnitsCells(unitsToUpdate, angleByUnit);
     }
   }
