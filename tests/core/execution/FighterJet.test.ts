@@ -1,4 +1,3 @@
-import { BomberExecution } from "../../../src/core/execution/BomberExecution";
 import { FighterJetExecution } from "../../../src/core/execution/FighterJetExecution";
 import { WarshipExecution } from "../../../src/core/execution/WarshipExecution";
 import {
@@ -97,10 +96,10 @@ describe("FighterJet Naval Targeting", () => {
 
     executeTicks(game, 25);
 
-    expect(warship.health()).toBe(initialHealth - 250);
+    expect(warship.health()).toBe(initialHealth - 225);
   });
 
-  test("should prioritize aircraft over ships", () => {
+  test("should prioritize aircraft (FighterJet) over ships", () => {
     attacker.addUpgrade(UpgradeType.FighterJetNavalTargeting);
     const fighter = attacker.buildUnit(UnitType.FighterJet, game.ref(1, 2), {
       patrolTile: game.ref(1, 2),
@@ -109,17 +108,18 @@ describe("FighterJet Naval Targeting", () => {
       patrolTile: game.ref(1, 5),
     });
     game.addExecution(new WarshipExecution(warship));
-    const bomber = defender.buildUnit(UnitType.Bomber, game.ref(1, 6), {
-      targetTile: game.ref(1, 1),
-    });
-    const airfield = defender.units(UnitType.Airfield)[0];
-    game.addExecution(
-      new BomberExecution(defender, airfield, game.ref(1, 1), new Map()),
+    const enemyFighter = defender.buildUnit(
+      UnitType.FighterJet,
+      game.ref(1, 6),
+      {
+        patrolTile: game.ref(1, 6),
+      },
     );
+    game.addExecution(new FighterJetExecution(enemyFighter));
     game.addExecution(new FighterJetExecution(fighter));
 
     executeTicks(game, 15);
 
-    expect(fighter.targetUnit()?.id()).toBe(bomber.id());
+    expect(fighter.targetUnit()?.id()).toBe(enemyFighter.id());
   });
 });

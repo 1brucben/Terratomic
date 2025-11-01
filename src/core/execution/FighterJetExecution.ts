@@ -110,20 +110,20 @@ export class FighterJetExecution implements Execution {
 
     const getPriority = (type: UnitType): number => {
       switch (type) {
-        case UnitType.Paratrooper:
-          return 0;
         case UnitType.FighterJet:
           return 1;
         case UnitType.Bomber:
           return 2;
-        case UnitType.CargoPlane:
+        case UnitType.Paratrooper:
           return 3;
-        case UnitType.TransportShip:
+        case UnitType.CargoPlane:
           return 4;
-        case UnitType.Warship:
+        case UnitType.TransportShip:
           return 5;
-        case UnitType.TradeShip:
+        case UnitType.Warship:
           return 6;
+        case UnitType.TradeShip:
+          return 7;
         default:
           return 99;
       }
@@ -269,6 +269,9 @@ export class FighterJetExecution implements Execution {
     switch (targetUnit.type()) {
       case UnitType.TransportShip:
       case UnitType.TradeShip:
+        targetUnit.delete();
+        this.fighterJet.setTargetUnit(undefined);
+        break;
       case UnitType.Warship:
         this.mg.addExecution(
           new ShellExecution(

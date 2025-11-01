@@ -3,6 +3,7 @@ import { Game, Player, UpgradeType } from "../game/Game";
 // Central tech IDs for research tree items that have gameplay effects.
 // Keep IDs aligned with ResearchTreeModal generation (e.g., "Land-1").
 export const RESEARCH_TECH_IDS = {
+  FIGHTER_JET_NAVAL_TARGETING: "Air-1",
   WARSHIP_ANTI_AIR: "Sea-1",
   WWII_LESSONS: "Land-1",
   URBAN_PLANNING: "Land-2",
@@ -225,23 +226,30 @@ export const TECHS: Readonly<Record<string, TechDefinition>> = Object.freeze({
       },
     },
   },
+  [RESEARCH_TECH_IDS.FIGHTER_JET_NAVAL_TARGETING]: {
+    meta: {
+      name: "Fighter Anti-Ship",
+      description:
+        "Equips Fighter Jets with advanced targeting systems to engage and destroy enemy naval units (Warships, Transport Ships, Trade Ships).",
+    },
+    effects: {
+      onComplete: (player) => {
+        if (!player.hasUpgrade?.(UpgradeType.FighterJetNavalTargeting)) {
+          player.addUpgrade?.(UpgradeType.FighterJetNavalTargeting);
+        }
+      },
+      onRevoke: (player) => {
+        if (player.hasUpgrade?.(UpgradeType.FighterJetNavalTargeting)) {
+          player.removeUpgrade?.(UpgradeType.FighterJetNavalTargeting);
+        }
+      },
+    },
+  },
   [RESEARCH_TECH_IDS.PARATROOPERS]: {
     meta: {
       name: "Paratroopers",
       description:
         "Unlocks Paratroopers, allowing you to launch surprise attacks from the sky. Requires an Airfield.",
-    },
-    effects: {
-      onComplete: (player) => {
-        if (!player.hasUpgrade?.(UpgradeType.AirUpgrade1)) {
-          player.addUpgrade?.(UpgradeType.AirUpgrade1);
-        }
-      },
-      onRevoke: (player) => {
-        if (player.hasUpgrade?.(UpgradeType.AirUpgrade1)) {
-          player.removeUpgrade?.(UpgradeType.AirUpgrade1);
-        }
-      },
     },
   },
   [RESEARCH_TECH_IDS.SUBMARINE_WARFARE]: {
