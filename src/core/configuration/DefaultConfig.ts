@@ -321,6 +321,9 @@ export class DefaultConfig implements Config {
   infiniteTroops(): boolean {
     return this._gameConfig.infiniteTroops;
   }
+  startingGold(): number {
+    return this._gameConfig.startingGold ?? 0;
+  }
   tradeShipGold(dist: number): Gold {
     return BigInt(Math.floor(10000 + 150 * Math.pow(dist, 1.1)));
   }

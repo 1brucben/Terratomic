@@ -84,6 +84,7 @@ export interface Config {
   infiniteGold(): boolean;
   infiniteTroops(): boolean;
   instantBuild(): boolean;
+  startingGold(): number;
   numSpawnPhaseTurns(): number;
   userSettings(): UserSettings;
   playerTeams(): TeamCountConfig;
