@@ -28,22 +28,34 @@ export class GameManager {
     return false;
   }
 
-  createGame(id: GameID, gameConfig: GameConfig | undefined) {
-    const game = new GameServer(id, this.log, Date.now(), this.config, {
-      gameMap: GameMapType.World,
-      gameType: GameType.Private,
-      difficulty: Difficulty.Medium,
-      disableNPCs: false,
-      infiniteGold: false,
-      infiniteTroops: false,
-      instantBuild: false,
-      gameMode: GameMode.FFA,
-      bots: 400,
-      disabledUnits: [],
-      peaceTimerDurationMinutes:
-        gameConfig?.peaceTimerDurationMinutes ?? PeaceTimerDuration.None,
-      ...gameConfig,
-    });
+  createGame(
+    id: GameID,
+    gameConfig: GameConfig | undefined,
+    creatorClientID?: string,
+  ) {
+    const game = new GameServer(
+      id,
+      this.log,
+      Date.now(),
+      this.config,
+      {
+        gameMap: GameMapType.World,
+        gameType: GameType.Private,
+        difficulty: Difficulty.Medium,
+        disableNPCs: false,
+        infiniteGold: false,
+        infiniteTroops: false,
+        instantBuild: false,
+        gameMode: GameMode.FFA,
+        bots: 400,
+        disabledUnits: [],
+        peaceTimerDurationMinutes:
+          gameConfig?.peaceTimerDurationMinutes ?? PeaceTimerDuration.None,
+        startingGold: 0,
+        ...gameConfig,
+      },
+      creatorClientID,
+    );
     this.games.set(id, game);
     return game;
   }

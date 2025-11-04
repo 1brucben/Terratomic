@@ -121,3 +121,34 @@ describe("GameImpl", () => {
     expect(attacker.isTraitor()).toBe(true);
   });
 });
+
+describe("Starting gold distribution", () => {
+  test("applies starting gold only to human players", async () => {
+    const startingGold = 5_000_000;
+    const humanInfo = new PlayerInfo(
+      "fr",
+      "human-player",
+      PlayerType.Human,
+      "client-human",
+      "human-id",
+    );
+
+    const gameWithStartingGold = await setup(
+      "ocean_and_land",
+      { startingGold },
+      [humanInfo],
+    );
+    const humanPlayer = gameWithStartingGold.player(humanInfo.id);
+    expect(humanPlayer.gold()).toBe(BigInt(startingGold));
+
+    const botInfo = new PlayerInfo(
+      "fr",
+      "bot-player",
+      PlayerType.Bot,
+      null,
+      "bot-id",
+    );
+    const botPlayer = gameWithStartingGold.addPlayer(botInfo);
+    expect(botPlayer.gold()).toBe(0n);
+  });
+});

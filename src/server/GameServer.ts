@@ -64,14 +64,18 @@ export class GameServer {
 
   private websockets: Set<WebSocket> = new Set();
 
+  private LobbyCreatorID: string | undefined;
+
   constructor(
     public readonly id: string,
     readonly log_: Logger,
     public readonly createdAt: number,
     private config: ServerConfig,
     public gameConfig: GameConfig,
+    lobbyCreatorID?: string,
   ) {
     this.log = log_.child({ gameID: id });
+    this.LobbyCreatorID = lobbyCreatorID ?? undefined;
   }
 
   public updateGameConfig(gameConfig: Partial<GameConfig>): void {
@@ -111,6 +115,9 @@ export class GameServer {
     if (gameConfig.peaceTimerDurationMinutes !== undefined) {
       this.gameConfig.peaceTimerDurationMinutes =
         gameConfig.peaceTimerDurationMinutes;
+    }
+    if (gameConfig.startingGold !== undefined) {
+      this.gameConfig.startingGold = gameConfig.startingGold;
     }
   }
 

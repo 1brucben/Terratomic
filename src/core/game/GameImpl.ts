@@ -462,6 +462,10 @@ export class GameImpl implements Game {
     this._playersBySmallID.push(player);
     this.nextPlayerID++;
     this._players.set(playerInfo.id, player);
+    const startingGold = this.config().startingGold();
+    if (startingGold > 0 && playerInfo.playerType === PlayerType.Human) {
+      player.addGold(BigInt(startingGold));
+    }
     return player;
   }
 

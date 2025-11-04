@@ -20,6 +20,11 @@ import { flattenedEmojiTable } from "./Util";
 export type GameID = string;
 export type ClientID = string;
 
+export const StartingGoldValues = [
+  0, 1_000_000, 2_000_000, 3_000_000, 4_000_000, 5_000_000, 10_000_000,
+  15_000_000, 20_000_000, 25_000_000, 35_000_000, 50_000_000,
+] as const;
+
 export type Intent =
   | SpawnIntent
   | AttackIntent
@@ -172,6 +177,9 @@ export const GameConfigSchema = z.object({
   peaceTimerDurationMinutes: z
     .nativeEnum(PeaceTimerDuration)
     .default(PeaceTimerDuration.None),
+  startingGold: z
+    .union(StartingGoldValues.map((value) => z.literal(value)))
+    .default(0),
 });
 
 export const TeamSchema = z.string();
