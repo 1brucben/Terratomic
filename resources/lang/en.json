@@ -167,6 +167,11 @@
     "regional": "Regional",
     "fantasy": "Other"
   },
+  "starting_gold": {
+    "label": "Starting gold",
+    "default": "0 (default)",
+    "millions": "{amount}M"
+  },
   "private_lobby": {
     "title": "Join Private Lobby",
     "enter_id": "Enter Lobby ID",

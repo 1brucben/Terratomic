@@ -1,7 +1,7 @@
 import { LitElement, html } from "lit";
 import { customElement, query, state } from "lit/decorators.js";
 import randomMap from "../../resources/images/RandomMap.webp";
-import { translateText } from "../client/Utils";
+import { formatStartingGold, translateText } from "../client/Utils";
 import { getServerConfigFromClient } from "../core/configuration/ConfigLoader";
 import {
   Difficulty,
@@ -19,6 +19,7 @@ import {
   GameConfig,
   GameInfo,
   PeaceTimerDuration,
+  StartingGoldValues,
   TeamCountConfig,
 } from "../core/Schemas";
 import { generateID } from "../core/Util";
@@ -28,6 +29,11 @@ import { DifficultyDescription } from "./components/Difficulties";
 import "./components/Maps";
 import { JoinLobbyEvent } from "./Main";
 import { renderUnitTypeOptions } from "./utilities/RenderUnitTypeOptions";
+
+type StartingGoldOption = (typeof StartingGoldValues)[number];
+const startingGoldList = [...StartingGoldValues] as number[];
+const isStartingGoldOption = (value: number): value is StartingGoldOption =>
+  startingGoldList.includes(value);
 
 @customElement("host-lobby-modal")
 export class HostLobbyModal extends LitElement {
@@ -54,6 +60,7 @@ export class HostLobbyModal extends LitElement {
   @state() private lobbyIdVisible: boolean = true;
   @state() private selectedPeaceTimerDuration: PeaceTimerDuration =
     PeaceTimerDuration.None;
+  @state() private startingGold: StartingGoldOption = StartingGoldValues[0];
 
   private playersInterval: NodeJS.Timeout | null = null;
   // Add a new timer for debouncing bot changes
@@ -397,6 +404,26 @@ export class HostLobbyModal extends LitElement {
                   </div>
                 </label>
 
+                <label for="starting-gold" class="option-card">
+                  <div class="option-card-title">
+                    ${translateText("starting_gold.label")}
+                  </div>
+                  <select
+                    id="starting-gold"
+                    class="peace-timer-select"
+                    @change=${this.handleStartingGoldChange}
+                    .value="${String(this.startingGold)}"
+                  >
+                    ${StartingGoldValues.map(
+                      (value) => html`
+                        <option value="${value}">
+                          ${formatStartingGold(value)}
+                        </option>
+                      `,
+                    )}
+                </select>
+                </label>
+
                 <label for="peace-timer" class="option-card">
                   <div class="option-card-title">
                     ${translateText("host_modal.peace_timer")}
@@ -512,6 +539,11 @@ export class HostLobbyModal extends LitElement {
     createLobby(this.lobbyCreatorClientID)
       .then((lobby) => {
         this.lobbyId = lobby.gameID;
+        if (lobby.gameConfig?.startingGold !== undefined) {
+          this.startingGold = lobby.gameConfig.startingGold;
+        } else {
+          this.startingGold = 0;
+        }
         // join lobby
       })
       .then(() => {
@@ -604,6 +636,15 @@ export class HostLobbyModal extends LitElement {
     this.putGameConfig();
   }
 
+  private handleStartingGoldChange(e: Event) {
+    const value = parseInt((e.target as HTMLSelectElement).value, 10);
+    if (isNaN(value) || !isStartingGoldOption(value)) {
+      return;
+    }
+    this.startingGold = value;
+    this.putGameConfig();
+  }
+
   private handlePeaceTimerChange(e: Event) {
     this.selectedPeaceTimerDuration = parseInt(
       (e.target as HTMLSelectElement).value,
@@ -649,6 +690,7 @@ export class HostLobbyModal extends LitElement {
           disabledUnits: this.disabledUnits,
           playerTeams: this.teamCount,
           peaceTimerDurationMinutes: this.selectedPeaceTimerDuration,
+          startingGold: this.startingGold,
         } satisfies Partial<GameConfig>),
       },
     );
@@ -721,6 +763,9 @@ export class HostLobbyModal extends LitElement {
         console.log(`got game info response: ${JSON.stringify(data)}`);
 
         this.clients = data.clients ?? [];
+        if (data.gameConfig?.startingGold !== undefined) {
+          this.startingGold = data.gameConfig.startingGold;
+        }
       });
   }
 

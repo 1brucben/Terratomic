@@ -114,6 +114,9 @@ export class GameServer {
       this.gameConfig.peaceTimerDurationMinutes =
         gameConfig.peaceTimerDurationMinutes;
     }
+    if (gameConfig.startingGold !== undefined) {
+      this.gameConfig.startingGold = gameConfig.startingGold;
+    }
   }
 
   public addClient(client: Client, lastTurn: number) {

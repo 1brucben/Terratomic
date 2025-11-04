@@ -136,6 +136,14 @@ export const translateText = (
   }
 };
 
+export function formatStartingGold(value: number): string {
+  if (value === 0) {
+    return translateText("starting_gold.default");
+  }
+  const millions = String(Math.trunc(value / 1_000_000));
+  return translateText("starting_gold.millions", { amount: millions });
+}
+
 /**
  * Severity colors mapping for message types
  */

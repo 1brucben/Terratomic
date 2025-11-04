@@ -1,7 +1,7 @@
 import { LitElement, html } from "lit";
 import { customElement, query, state } from "lit/decorators.js";
 import randomMap from "../../resources/images/RandomMap.webp";
-import { translateText } from "../client/Utils";
+import { formatStartingGold, translateText } from "../client/Utils";
 import {
   Difficulty,
   Duos,
@@ -13,7 +13,11 @@ import {
   UnitType,
   mapCategories,
 } from "../core/game/Game";
-import { PeaceTimerDuration, TeamCountConfig } from "../core/Schemas";
+import {
+  PeaceTimerDuration,
+  StartingGoldValues,
+  TeamCountConfig,
+} from "../core/Schemas";
 import { generateID } from "../core/Util";
 import "./components/baseComponents/Button";
 import "./components/baseComponents/Modal";
@@ -24,6 +28,11 @@ import { FlagInput } from "./FlagInput";
 import { JoinLobbyEvent } from "./Main";
 import { UsernameInput } from "./UsernameInput";
 import { renderUnitTypeOptions } from "./utilities/RenderUnitTypeOptions";
+
+type StartingGoldOption = (typeof StartingGoldValues)[number];
+const startingGoldList = [...StartingGoldValues] as number[];
+const isStartingGoldOption = (value: number): value is StartingGoldOption =>
+  startingGoldList.includes(value);
 
 @customElement("single-player-modal")
 export class SinglePlayerModal extends LitElement {
@@ -44,6 +53,7 @@ export class SinglePlayerModal extends LitElement {
   @state() private teamCount: TeamCountConfig = 2;
   @state() private selectedPeaceTimerDuration: PeaceTimerDuration =
     PeaceTimerDuration.None;
+  @state() private startingGold: StartingGoldOption = StartingGoldValues[0];
 
   @state() private disabledUnits: UnitType[] = [];
 
@@ -300,6 +310,26 @@ export class SinglePlayerModal extends LitElement {
                 </div>
               </label>
 
+              <label for="starting-gold" class="option-card">
+                <div class="option-card-title">
+                  ${translateText("starting_gold.label")}
+                </div>
+                <select
+                  id="starting-gold"
+                  class="peace-timer-select"
+                  @change=${this.handleStartingGoldChange}
+                  .value="${String(this.startingGold)}"
+                >
+                  ${StartingGoldValues.map(
+                    (value) => html`
+                      <option value="${value}">
+                        ${formatStartingGold(value)}
+                      </option>
+                    `,
+                  )}
+                </select>
+              </label>
+
               <label for="peace-timer" class="option-card">
                 <div class="option-card-title">
                   ${translateText("host_modal.peace_timer")}
@@ -362,6 +392,7 @@ export class SinglePlayerModal extends LitElement {
   public open() {
     this.modalEl?.open();
     this.useRandomMap = false;
+    this.startingGold = 0;
   }
 
   public close() {
@@ -405,6 +436,14 @@ export class SinglePlayerModal extends LitElement {
 
   private handleInfiniteTroopsChange(e: Event) {
     this.infiniteTroops = Boolean((e.target as HTMLInputElement).checked);
+  }
+
+  private handleStartingGoldChange(e: Event) {
+    const value = parseInt((e.target as HTMLSelectElement).value, 10);
+    if (isNaN(value) || !isStartingGoldOption(value)) {
+      return;
+    }
+    this.startingGold = value;
   }
 
   private handlePeaceTimerChange(e: Event) {
@@ -494,6 +533,7 @@ export class SinglePlayerModal extends LitElement {
                 .map((u) => Object.values(UnitType).find((ut) => ut === u))
                 .filter((ut): ut is UnitType => ut !== undefined),
               peaceTimerDurationMinutes: this.selectedPeaceTimerDuration,
+              startingGold: this.startingGold,
             },
           },
         } satisfies JoinLobbyEvent,

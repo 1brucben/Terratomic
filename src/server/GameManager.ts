@@ -51,6 +51,7 @@ export class GameManager {
         disabledUnits: [],
         peaceTimerDurationMinutes:
           gameConfig?.peaceTimerDurationMinutes ?? PeaceTimerDuration.None,
+        startingGold: 0,
         ...gameConfig,
       },
       creatorClientID,

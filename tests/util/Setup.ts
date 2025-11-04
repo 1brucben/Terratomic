@@ -47,6 +47,7 @@ export async function setup(
     infiniteTroops: false,
     instantBuild: false,
     peaceTimerDurationMinutes: PeaceTimerDuration.None,
+    startingGold: 0,
     ..._gameConfig,
   };
   const config = new TestConfig(
