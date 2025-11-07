@@ -125,6 +125,25 @@ export class GameServer {
   }
 
   public addClient(client: Client, lastTurn: number) {
+    // Authorization check
+    if (this._hasStarted) {
+      const isOriginalPlayer =
+        this.gameStartInfo.players.some(
+          (p) => p.clientID === client.clientID,
+        ) ||
+        // Also check if the client was a designated spectator
+        (this.gameConfig.playerTeamAssignments &&
+          this.gameConfig.playerTeamAssignments[client.clientID] === -1);
+
+      if (!isOriginalPlayer) {
+        this.log.warn("Rejecting client trying to join game in progress", {
+          clientID: client.clientID,
+        });
+        client.ws.close(1008, "Game has already started");
+        return;
+      }
+    }
+
     this.websockets.add(client.ws);
     if (this.kickedClients.has(client.clientID)) {
       this.log.warn(`cannot add client, already kicked`, {

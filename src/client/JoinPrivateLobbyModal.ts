@@ -346,6 +346,9 @@ export class JoinPrivateLobbyModal extends LitElement {
         }),
       );
 
+      if (this.playersInterval) {
+        clearInterval(this.playersInterval);
+      }
       this.playersInterval = setInterval(() => this.pollPlayers(), 1000);
       return true;
     }

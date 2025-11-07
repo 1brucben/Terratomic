@@ -192,7 +192,18 @@ const TeamCountConfigSchema = z.union([
 ]);
 export type TeamCountConfig = z.infer<typeof TeamCountConfigSchema>;
 
-const PlayerTeamAssignmentsSchema = z.record(ID, z.number().int().nullable());
+const MAX_TEAMS = 7;
+const PlayerTeamAssignmentsSchema = z.record(
+  ID,
+  z
+    .number()
+    .int()
+    .nullable()
+    .refine(
+      (v) => v === null || v === -1 || (v >= 0 && v < MAX_TEAMS),
+      `Team index must be null, -1, or between 0 and ${MAX_TEAMS - 1}`,
+    ),
+);
 export type PlayerTeamAssignments = z.infer<typeof PlayerTeamAssignmentsSchema>;
 
 export const GameConfigSchema = z.object({

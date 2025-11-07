@@ -599,7 +599,8 @@
     "desync_notice": "You are desynced from other players. What you see might differ from other players."
   },
   "heads_up_message": {
-    "choose_spawn": "Choose a starting location"
+    "choose_spawn": "Choose a starting location",
+    "spectating": "Spectating..."
   },
   "buttons": {
     "focus": "Focus",
