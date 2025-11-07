@@ -204,4 +204,40 @@ describe("assignTeams", () => {
     expect(game.player("playerA").team()).toBe(ColoredTeams.Blue);
     expect(game.player("playerB").team()).toBe(ColoredTeams.Blue);
   });
+
+  it("should omit spectators from the active player roster", async () => {
+    const spectator = new PlayerInfo(
+      "fr",
+      "Spectator",
+      PlayerType.Human,
+      "SPECTATOR123",
+      "spectator",
+    );
+    const active = new PlayerInfo(
+      "fr",
+      "Active",
+      PlayerType.Human,
+      "PLAYER123",
+      "active",
+    );
+
+    const game = await setup(
+      "Plains",
+      {
+        gameMode: GameMode.Team,
+        playerTeams: 2,
+        playerTeamAssignments: {
+          SPECTATOR123: -1,
+          PLAYER123: 0,
+        },
+      },
+      [spectator, active],
+    );
+
+    expect(() => game.player("spectator")).toThrow();
+    expect(game.player("active").team()).toBe(ColoredTeams.Red);
+    expect(game.players().some((p) => p.clientID() === "SPECTATOR123")).toBe(
+      false,
+    );
+  });
 });
