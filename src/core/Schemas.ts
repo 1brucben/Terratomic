@@ -165,6 +165,7 @@ export interface GameInfo {
 export interface ClientInfo {
   clientID: ClientID;
   username: string;
+  teamIndex?: number | null;
 }
 export enum LogSeverity {
   Debug = "DEBUG",
@@ -178,6 +179,11 @@ export enum LogSeverity {
 // Utility types
 //
 
+export const ID = z
+  .string()
+  .regex(/^[a-zA-Z0-9]+$/)
+  .length(8);
+
 const TeamCountConfigSchema = z.union([
   z.number(),
   z.literal(Duos),
@@ -185,6 +191,12 @@ const TeamCountConfigSchema = z.union([
   z.literal(Quads),
 ]);
 export type TeamCountConfig = z.infer<typeof TeamCountConfigSchema>;
+
+const PlayerTeamAssignmentsSchema = z.record(
+  ID,
+  z.number().int().nonnegative().nullable(),
+);
+export type PlayerTeamAssignments = z.infer<typeof PlayerTeamAssignmentsSchema>;
 
 export const GameConfigSchema = z.object({
   gameMap: z.enum(GameMapType),
@@ -201,6 +213,7 @@ export const GameConfigSchema = z.object({
   maxPlayers: z.number().optional(),
   disabledUnits: z.enum(UnitType).array().optional(),
   playerTeams: TeamCountConfigSchema.optional(),
+  playerTeamAssignments: PlayerTeamAssignmentsSchema.optional(),
   peaceTimerDurationMinutes: z
     .nativeEnum(PeaceTimerDuration)
     .default(PeaceTimerDuration.None),
@@ -235,10 +248,6 @@ const EmojiSchema = z
   .number()
   .nonnegative()
   .max(flattenedEmojiTable.length - 1);
-export const ID = z
-  .string()
-  .regex(/^[a-zA-Z0-9]+$/)
-  .length(8);
 
 export const AllPlayersStatsSchema = z.record(ID, PlayerStatsSchema);
 

@@ -1,6 +1,11 @@
 import { Colord } from "colord";
 import { JWK } from "jose";
-import { GameConfig, GameID, TeamCountConfig } from "../Schemas";
+import {
+  GameConfig,
+  GameID,
+  PlayerTeamAssignments,
+  TeamCountConfig,
+} from "../Schemas";
 import {
   Difficulty,
   Game,
@@ -88,6 +93,7 @@ export interface Config {
   numSpawnPhaseTurns(): number;
   userSettings(): UserSettings;
   playerTeams(): TeamCountConfig;
+  playerTeamAssignments(): PlayerTeamAssignments | undefined;
 
   startManpower(playerInfo: PlayerInfo): number;
   populationIncreaseRate(player: Player | PlayerView): number;

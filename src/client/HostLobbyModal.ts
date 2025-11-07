@@ -3,7 +3,9 @@ import { customElement, query, state } from "lit/decorators.js";
 import randomMap from "../../resources/images/RandomMap.webp";
 import { formatStartingGold, translateText } from "../client/Utils";
 import { getServerConfigFromClient } from "../core/configuration/ConfigLoader";
+import { PastelTheme } from "../core/configuration/PastelTheme";
 import {
+  ColoredTeams,
   Difficulty,
   Duos,
   GameMapType,
@@ -61,11 +63,13 @@ export class HostLobbyModal extends LitElement {
   @state() private selectedPeaceTimerDuration: PeaceTimerDuration =
     PeaceTimerDuration.None;
   @state() private startingGold: StartingGoldOption = StartingGoldValues[0];
+  @state() private playerTeamAssignments: Record<string, number | null> = {};
+  @state() private updatingTeamForClient: string | null = null;
 
   private playersInterval: NodeJS.Timeout | null = null;
-  // Add a new timer for debouncing bot changes
   private botsUpdateTimer: number | null = null;
   private userSettings: UserSettings = new UserSettings();
+  private theme = new PastelTheme();
 
   render() {
     return html`
@@ -483,28 +487,9 @@ export class HostLobbyModal extends LitElement {
             }
           </div>
 
-          <div class="players-list">
-            ${this.clients.map(
-              (client) => html`
-                <span class="player-tag">
-                  ${client.username}
-                  ${client.clientID === this.lobbyCreatorClientID
-                    ? html`<span class="host-badge"
-                        >(${translateText("host_modal.host_badge")})</span
-                      >`
-                    : html`
-                        <button
-                          class="remove-player-btn"
-                          @click=${() => this.kickPlayer(client.clientID)}
-                          title="Remove ${client.username}"
-                        >
-                          ×
-                        </button>
-                      `}
-                </span>
-              `,
-            )}
-        </div>
+          <div class="team-columns-container">
+            ${this.renderTeamColumns()}
+          </div>
 
         <div class="start-game-button-container">
           <button
@@ -531,6 +516,7 @@ export class HostLobbyModal extends LitElement {
 
   public open() {
     this.lobbyCreatorClientID = generateID();
+    this.playerTeamAssignments = {};
     this.lobbyIdVisible = this.userSettings.get(
       "settings.lobbyIdVisibility",
       true,
@@ -565,6 +551,7 @@ export class HostLobbyModal extends LitElement {
   public close() {
     this.modalEl?.close();
     this.copySuccess = false;
+    this.playerTeamAssignments = {};
     if (this.playersInterval) {
       clearInterval(this.playersInterval);
       this.playersInterval = null;
@@ -660,16 +647,253 @@ export class HostLobbyModal extends LitElement {
 
   private async handleGameModeSelection(value: GameMode) {
     this.gameMode = value;
+    if (value !== GameMode.Team) {
+      this.playerTeamAssignments = {};
+    }
     this.putGameConfig();
   }
 
   private async handleTeamCountSelection(value: TeamCountConfig) {
     this.teamCount = value;
+    const normalizedCount = this.computeTeamCount(value);
+    const updatedAssignments: Record<string, number | null> = {};
+    for (const client of this.clients) {
+      const current = this.playerTeamAssignments[client.clientID] ?? null;
+      updatedAssignments[client.clientID] =
+        current !== null && current >= normalizedCount ? null : current;
+    }
+    this.playerTeamAssignments = updatedAssignments;
+    await this.putGameConfig();
+  }
+
+  private computeTeamCount(value: TeamCountConfig = this.teamCount): number {
+    if (typeof value === "number") {
+      return Math.max(2, value);
+    }
+    const playerCount = Math.max(this.clients.length, 1);
+    switch (value) {
+      case Duos:
+        return Math.max(2, Math.ceil(playerCount / 2));
+      case Trios:
+        return Math.max(2, Math.ceil(playerCount / 3));
+      case Quads:
+        return Math.max(2, Math.ceil(playerCount / 4));
+      default:
+        return 2;
+    }
+  }
+
+  private getTeamLabels(count: number): string[] {
+    const colorLabels = [
+      ColoredTeams.Red,
+      ColoredTeams.Blue,
+      ColoredTeams.Yellow,
+      ColoredTeams.Green,
+      ColoredTeams.Purple,
+      ColoredTeams.Orange,
+      ColoredTeams.Teal,
+    ];
+    if (count <= colorLabels.length) {
+      return colorLabels.slice(0, count);
+    }
+    return Array.from({ length: count }, (_, index) => `Team ${index + 1}`);
+  }
+
+  private sanitizeAssignmentsForPayload(
+    assignments: Record<string, number | null>,
+    teamCount: number,
+  ): Record<string, number | null> {
+    const sanitized: Record<string, number | null> = {};
+    const maxIndex = Math.max(teamCount - 1, 0);
+    const activeClientIds = new Set(
+      this.clients.map((client) => client.clientID),
+    );
+
+    for (const clientID of activeClientIds) {
+      const value = assignments[clientID];
+      if (value === null || value === undefined) {
+        sanitized[clientID] = null;
+        continue;
+      }
+      if (Number.isInteger(value) && value >= 0 && value <= maxIndex) {
+        sanitized[clientID] = value;
+      } else {
+        sanitized[clientID] = null;
+      }
+    }
+    return sanitized;
+  }
+
+  private handlePlayerTeamSelection(clientID: string, rawValue: string) {
+    const nextAssignments: Record<string, number | null> = {
+      ...this.playerTeamAssignments,
+    };
+    if (rawValue === "") {
+      nextAssignments[clientID] = null;
+    } else {
+      const parsed = Number(rawValue);
+      nextAssignments[clientID] = Number.isNaN(parsed) ? null : parsed;
+    }
+    this.playerTeamAssignments = nextAssignments;
+    this.requestUpdate();
     this.putGameConfig();
+  }
+
+  private renderPlayerTeamSelect(client: ClientInfo) {
+    if (this.gameMode !== GameMode.Team) {
+      return null;
+    }
+    // Allow host to have a team selection dropdown
+    const teamCount = this.computeTeamCount();
+    const labels = this.getTeamLabels(teamCount);
+    const assignment = this.playerTeamAssignments[client.clientID] ?? null;
+    const noTeamTranslation = translateText("host_modal.no_team");
+    const noTeamLabel =
+      noTeamTranslation === "host_modal.no_team"
+        ? "No Team"
+        : noTeamTranslation;
+
+    return html`
+      <select
+        class="player-team-select"
+        @change=${(event: Event) =>
+          this.handlePlayerTeamSelection(
+            client.clientID,
+            (event.target as HTMLSelectElement).value,
+          )}
+      >
+        <option value="" ?selected=${assignment === null}>
+          ${noTeamLabel}
+        </option>
+        ${labels.map(
+          (label, index) => html`
+            <option value="${index}" ?selected=${assignment === index}>
+              ${label}
+            </option>
+          `,
+        )}
+      </select>
+    `;
+  }
+
+  private renderTeamColumns() {
+    if (this.gameMode !== GameMode.Team) {
+      return html`
+        <div class="players-list">
+          ${this.clients.map(
+            (client) => html`
+              <span class="player-tag">
+                <span class="player-name">
+                  ${client.username}
+                  ${client.clientID === this.lobbyCreatorClientID
+                    ? html`<span class="host-badge"
+                        >(${translateText("host_modal.host_badge")})</span
+                      >`
+                    : html`
+                        <button
+                          class="remove-player-btn"
+                          @click=${() => this.kickPlayer(client.clientID)}
+                          title="Remove ${client.username}"
+                        >
+                          ×
+                        </button>
+                      `}
+                </span>
+              </span>
+            `,
+          )}
+        </div>
+      `;
+    }
+
+    const teams = new Map<number | null, ClientInfo[]>();
+    const teamLabels = this.getTeamLabels(this.computeTeamCount());
+
+    // Initialize teams map
+    for (let i = 0; i < teamLabels.length; i++) {
+      teams.set(i, []);
+    }
+    teams.set(null, []); // For unassigned players
+
+    // Group clients by team
+    for (const client of this.clients) {
+      const teamIndex = this.playerTeamAssignments[client.clientID] ?? null;
+      if (teams.has(teamIndex)) {
+        teams.get(teamIndex)?.push(client);
+      } else {
+        teams.get(null)?.push(client);
+      }
+    }
+
+    const unassignedPlayers = teams.get(null) ?? [];
+    teams.delete(null);
+
+    return html`
+      <div class="teams-layout-container">
+        <!-- Unassigned Players Section -->
+        <div class="unassigned-column">
+          <div class="team-column-header">
+            ${translateText("host_modal.unassigned_players")}
+          </div>
+          <div class="unassigned-body">
+            ${unassignedPlayers.map((client) => this.renderPlayerCard(client))}
+          </div>
+        </div>
+
+        <!-- Assigned Teams Section -->
+        <div class="team-columns">
+          ${Array.from(teams.entries()).map(([teamIndex, players]) => {
+            const teamLabel =
+              teamLabels[teamIndex as number] ?? `Team ${teamIndex}`;
+            const teamColor = this.theme
+              .teamColor(teamLabel)
+              .alpha(0.1)
+              .toRgbString();
+            return html`
+              <div class="team-column" style="background-color: ${teamColor}">
+                <div class="team-column-header">${teamLabel}</div>
+                <div class="team-column-body">
+                  ${players.map((client) => this.renderPlayerCard(client))}
+                </div>
+              </div>
+            `;
+          })}
+        </div>
+      </div>
+    `;
+  }
+
+  private renderPlayerCard(client: ClientInfo) {
+    return html`
+      <span class="player-tag">
+        <span class="player-name">${client.username}</span>
+        ${this.renderPlayerTeamSelect(client)}
+        ${client.clientID !== this.lobbyCreatorClientID
+          ? html`
+              <button
+                class="remove-player-btn"
+                @click=${() => this.kickPlayer(client.clientID)}
+                title="Remove ${client.username}"
+              >
+                ×
+              </button>
+            `
+          : html`<span class="host-badge"
+              >(${translateText("host_modal.host_badge")})</span
+            >`}
+      </span>
+    `;
   }
 
   private async putGameConfig() {
     const config = await getServerConfigFromClient();
+    const assignmentsPayload =
+      this.gameMode === GameMode.Team
+        ? this.sanitizeAssignmentsForPayload(
+            this.playerTeamAssignments,
+            this.computeTeamCount(),
+          )
+        : {};
     const response = await fetch(
       `${window.location.origin}/${config.workerPath(this.lobbyId)}/api/game/${this.lobbyId}`,
       {
@@ -689,6 +913,7 @@ export class HostLobbyModal extends LitElement {
           gameMode: this.gameMode,
           disabledUnits: this.disabledUnits,
           playerTeams: this.teamCount,
+          playerTeamAssignments: assignmentsPayload,
           peaceTimerDurationMinutes: this.selectedPeaceTimerDuration,
           startingGold: this.startingGold,
         } satisfies Partial<GameConfig>),
@@ -760,9 +985,44 @@ export class HostLobbyModal extends LitElement {
     })
       .then((response) => response.json())
       .then((data: GameInfo) => {
-        console.log(`got game info response: ${JSON.stringify(data)}`);
+        const clients = data.clients ?? [];
+        const serverAssignments = data.gameConfig?.playerTeamAssignments ?? {};
 
-        this.clients = data.clients ?? [];
+        if (data.gameConfig?.gameMode !== GameMode.Team) {
+          this.playerTeamAssignments = {};
+        } else {
+          const mergedAssignments: Record<string, number | null> = {};
+          for (const client of clients) {
+            const hasServerValue = Object.prototype.hasOwnProperty.call(
+              serverAssignments,
+              client.clientID,
+            );
+            if (hasServerValue) {
+              mergedAssignments[client.clientID] =
+                serverAssignments[client.clientID];
+              continue;
+            }
+            if (client.teamIndex !== undefined) {
+              mergedAssignments[client.clientID] = client.teamIndex;
+              continue;
+            }
+            if (this.playerTeamAssignments[client.clientID] !== undefined) {
+              mergedAssignments[client.clientID] =
+                this.playerTeamAssignments[client.clientID];
+            } else {
+              mergedAssignments[client.clientID] = null;
+            }
+          }
+          this.playerTeamAssignments = mergedAssignments;
+        }
+
+        this.clients = clients;
+        if (data.gameConfig?.gameMode !== undefined) {
+          this.gameMode = data.gameConfig.gameMode;
+        }
+        if (data.gameConfig?.playerTeams !== undefined) {
+          this.teamCount = data.gameConfig.playerTeams;
+        }
         if (data.gameConfig?.startingGold !== undefined) {
           this.startingGold = data.gameConfig.startingGold;
         }

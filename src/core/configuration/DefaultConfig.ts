@@ -28,6 +28,7 @@ import {
   GameConfig,
   GameID,
   PeaceTimerDuration,
+  PlayerTeamAssignments,
   TeamCountConfig,
 } from "../Schemas";
 import {
@@ -316,6 +317,10 @@ export class DefaultConfig implements Config {
   }
   playerTeams(): TeamCountConfig {
     return this._gameConfig.playerTeams ?? 0;
+  }
+
+  playerTeamAssignments(): PlayerTeamAssignments | undefined {
+    return this._gameConfig.playerTeamAssignments;
   }
 
   spawnNPCs(): boolean {

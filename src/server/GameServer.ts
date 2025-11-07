@@ -110,6 +110,11 @@ export class GameServer {
     if (gameConfig.playerTeams !== undefined) {
       this.gameConfig.playerTeams = gameConfig.playerTeams;
     }
+    if (gameConfig.playerTeamAssignments !== undefined) {
+      this.gameConfig.playerTeamAssignments = this.sanitizeTeamAssignments(
+        gameConfig.playerTeamAssignments,
+      );
+    }
     if (gameConfig.peaceTimerDurationMinutes !== undefined) {
       this.gameConfig.peaceTimerDurationMinutes =
         gameConfig.peaceTimerDurationMinutes;
@@ -590,11 +595,16 @@ export class GameServer {
   }
 
   public gameInfo(): GameInfo {
+    const assignments = this.gameConfig.playerTeamAssignments ?? {};
     return {
       gameID: this.id,
       clients: this.activeClients.map((c) => ({
         username: c.username,
         clientID: c.clientID,
+        teamIndex:
+          assignments[c.clientID] !== undefined
+            ? (assignments[c.clientID] ?? null)
+            : null,
       })),
       gameConfig: this.gameConfig,
       msUntilStart: this.isPublic()
@@ -668,6 +678,30 @@ export class GameServer {
       clientID: clientID,
       isDisconnected: isDisconnected,
     });
+  }
+
+  private sanitizeTeamAssignments(
+    assignments: Record<ClientID, number | null>,
+  ): Record<ClientID, number | null> {
+    const allowed = new Set(this.activeClients.map((c) => c.clientID));
+    const sanitized: Record<ClientID, number | null> = {};
+    for (const [clientID, teamIndex] of Object.entries(assignments)) {
+      if (!allowed.has(clientID)) {
+        continue;
+      }
+      if (teamIndex === null) {
+        sanitized[clientID] = null;
+        continue;
+      }
+      if (
+        typeof teamIndex === "number" &&
+        Number.isInteger(teamIndex) &&
+        teamIndex >= 0
+      ) {
+        sanitized[clientID] = teamIndex;
+      }
+    }
+    return sanitized;
   }
 
   private archiveGame() {
