@@ -39,7 +39,6 @@ import { PlayerImpl } from "./PlayerImpl";
 import { Road, RoadManager } from "./RoadManager";
 import { Stats } from "./Stats";
 import { StatsImpl } from "./StatsImpl";
-import { assignTeams } from "./TeamAssignment";
 import { TerraNulliusImpl } from "./TerraNulliusImpl";
 import { UnitGrid, UnitPredicate } from "./UnitGrid";
 
@@ -157,79 +156,73 @@ export class GameImpl implements Game {
       this._nations.forEach((n) => this.addPlayer(n.playerInfo));
       return;
     }
+
     const allPlayers = [
       ...this._humans,
       ...this._nations.map((n) => n.playerInfo),
     ];
-    const playerToTeam = assignTeams(allPlayers, this.playerTeams);
-    const manualAssignments = this._config.playerTeamAssignments();
+    const finalPlayerAssignments = new Map<PlayerInfo, Team>();
+    const unassignedPlayers = new Set<PlayerInfo>();
+    const manualAssignments = this._config.playerTeamAssignments() ?? {};
 
-    if (manualAssignments && Object.keys(manualAssignments).length > 0) {
-      const fallbackPlayers = new Set<PlayerInfo>();
+    // First pass: handle manual assignments and identify unassigned players
+    for (const playerInfo of allPlayers) {
+      const clientID = playerInfo.clientID;
+      const teamIndex =
+        clientID !== null ? manualAssignments[clientID] : undefined;
 
-      for (const playerInfo of allPlayers) {
-        const clientID = playerInfo.clientID;
-        if (clientID === null) continue;
-        if (!(clientID in manualAssignments)) continue;
+      if (teamIndex === -1) {
+        // This is a spectator, so we do nothing and they are not added to the game.
+        continue;
+      }
 
-        const teamIndex = manualAssignments[clientID];
-        if (teamIndex === null || teamIndex === undefined) {
-          playerToTeam.delete(playerInfo);
-          fallbackPlayers.add(playerInfo);
-          continue;
-        }
-
+      if (teamIndex === null || teamIndex === undefined) {
+        // Player is unassigned, add to fallback list.
+        unassignedPlayers.add(playerInfo);
+      } else {
+        // Player has a manual team assignment.
         const manualTeam = this.playerTeams[teamIndex];
-        if (manualTeam !== undefined) {
-          playerToTeam.set(playerInfo, manualTeam);
+        if (manualTeam) {
+          finalPlayerAssignments.set(playerInfo, manualTeam);
         } else {
-          playerToTeam.delete(playerInfo);
-          fallbackPlayers.add(playerInfo);
-        }
-      }
-
-      for (const [playerInfo, team] of playerToTeam.entries()) {
-        if (team === "kicked") {
-          playerToTeam.delete(playerInfo);
-          fallbackPlayers.add(playerInfo);
-        }
-      }
-
-      if (fallbackPlayers.size > 0) {
-        const teamCounts = new Map<Team, number>();
-        for (const team of this.playerTeams) {
-          teamCounts.set(team, 0);
-        }
-        for (const [, team] of playerToTeam.entries()) {
-          teamCounts.set(team, (teamCounts.get(team) ?? 0) + 1);
-        }
-
-        const selectTeamWithFewest = (): Team => {
-          let chosenTeam = this.playerTeams[0];
-          let smallest = teamCounts.get(chosenTeam) ?? 0;
-          for (const team of this.playerTeams) {
-            const count = teamCounts.get(team) ?? 0;
-            if (count < smallest) {
-              smallest = count;
-              chosenTeam = team;
-            }
-          }
-          return chosenTeam;
-        };
-
-        for (const playerInfo of fallbackPlayers) {
-          const team = selectTeamWithFewest();
-          teamCounts.set(team, (teamCounts.get(team) ?? 0) + 1);
-          playerToTeam.set(playerInfo, team);
+          // Invalid team index, treat as unassigned.
+          unassignedPlayers.add(playerInfo);
         }
       }
     }
 
-    for (const [playerInfo, team] of playerToTeam.entries()) {
-      if (team === "kicked") {
-        console.warn(`Player ${playerInfo.name} was kicked from team`);
-        continue;
+    // Second pass: assign teams to the unassigned players
+    if (unassignedPlayers.size > 0) {
+      const teamCounts = new Map<Team, number>();
+      this.playerTeams.forEach((team) => teamCounts.set(team, 0));
+
+      // Count players already assigned to teams
+      for (const team of finalPlayerAssignments.values()) {
+        teamCounts.set(team, (teamCounts.get(team) ?? 0) + 1);
       }
+
+      const selectTeamWithFewest = (): Team => {
+        let chosenTeam = this.playerTeams[0];
+        let smallest = teamCounts.get(chosenTeam) ?? Infinity;
+        for (const team of this.playerTeams) {
+          const count = teamCounts.get(team) ?? 0;
+          if (count < smallest) {
+            smallest = count;
+            chosenTeam = team;
+          }
+        }
+        return chosenTeam;
+      };
+
+      for (const playerInfo of unassignedPlayers) {
+        const team = selectTeamWithFewest();
+        finalPlayerAssignments.set(playerInfo, team);
+        teamCounts.set(team, (teamCounts.get(team) ?? 0) + 1);
+      }
+    }
+
+    // Final step: add all players with their final team assignments to the game
+    for (const [playerInfo, team] of finalPlayerAssignments.entries()) {
       this.addPlayer(playerInfo, team);
     }
   }

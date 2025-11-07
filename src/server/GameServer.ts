@@ -694,9 +694,10 @@ export class GameServer {
         continue;
       }
       if (
-        typeof teamIndex === "number" &&
-        Number.isInteger(teamIndex) &&
-        teamIndex >= 0
+        (typeof teamIndex === "number" &&
+          Number.isInteger(teamIndex) &&
+          teamIndex >= 0) ||
+        teamIndex === -1
       ) {
         sanitized[clientID] = teamIndex;
       }

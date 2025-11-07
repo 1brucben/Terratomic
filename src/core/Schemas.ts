@@ -192,10 +192,7 @@ const TeamCountConfigSchema = z.union([
 ]);
 export type TeamCountConfig = z.infer<typeof TeamCountConfigSchema>;
 
-const PlayerTeamAssignmentsSchema = z.record(
-  ID,
-  z.number().int().nonnegative().nullable(),
-);
+const PlayerTeamAssignmentsSchema = z.record(ID, z.number().int().nullable());
 export type PlayerTeamAssignments = z.infer<typeof PlayerTeamAssignmentsSchema>;
 
 export const GameConfigSchema = z.object({

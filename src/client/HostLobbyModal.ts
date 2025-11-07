@@ -1,5 +1,6 @@
 import { LitElement, html } from "lit";
 import { customElement, query, state } from "lit/decorators.js";
+import { repeat } from "lit/directives/repeat.js";
 import randomMap from "../../resources/images/RandomMap.webp";
 import { formatStartingGold, translateText } from "../client/Utils";
 import { getServerConfigFromClient } from "../core/configuration/ConfigLoader";
@@ -64,7 +65,7 @@ export class HostLobbyModal extends LitElement {
     PeaceTimerDuration.None;
   @state() private startingGold: StartingGoldOption = StartingGoldValues[0];
   @state() private playerTeamAssignments: Record<string, number | null> = {};
-  @state() private updatingTeamForClient: string | null = null;
+  @state() private updatingTeamForClients: Set<string> = new Set();
 
   private playersInterval: NodeJS.Timeout | null = null;
   private botsUpdateTimer: number | null = null;
@@ -715,7 +716,10 @@ export class HostLobbyModal extends LitElement {
         sanitized[clientID] = null;
         continue;
       }
-      if (Number.isInteger(value) && value >= 0 && value <= maxIndex) {
+      if (
+        (Number.isInteger(value) && value >= 0 && value <= maxIndex) ||
+        value === -1
+      ) {
         sanitized[clientID] = value;
       } else {
         sanitized[clientID] = null;
@@ -725,6 +729,8 @@ export class HostLobbyModal extends LitElement {
   }
 
   private handlePlayerTeamSelection(clientID: string, rawValue: string) {
+    this.updatingTeamForClients.add(clientID);
+
     const nextAssignments: Record<string, number | null> = {
       ...this.playerTeamAssignments,
     };
@@ -736,6 +742,7 @@ export class HostLobbyModal extends LitElement {
     }
     this.playerTeamAssignments = nextAssignments;
     this.requestUpdate();
+
     this.putGameConfig();
   }
 
@@ -753,9 +760,13 @@ export class HostLobbyModal extends LitElement {
         ? "No Team"
         : noTeamTranslation;
 
+    const assignmentValue =
+      assignment === null || assignment === undefined ? "" : String(assignment);
+
     return html`
       <select
         class="player-team-select"
+        .value=${assignmentValue}
         @change=${(event: Event) =>
           this.handlePlayerTeamSelection(
             client.clientID,
@@ -764,6 +775,9 @@ export class HostLobbyModal extends LitElement {
       >
         <option value="" ?selected=${assignment === null}>
           ${noTeamLabel}
+        </option>
+        <option value="-1" ?selected=${assignment === -1}>
+          ${translateText("host_modal.spectator")}
         </option>
         ${labels.map(
           (label, index) => html`
@@ -780,7 +794,9 @@ export class HostLobbyModal extends LitElement {
     if (this.gameMode !== GameMode.Team) {
       return html`
         <div class="players-list">
-          ${this.clients.map(
+          ${repeat(
+            this.clients,
+            (client) => client.clientID,
             (client) => html`
               <span class="player-tag">
                 <span class="player-name">
@@ -814,6 +830,7 @@ export class HostLobbyModal extends LitElement {
       teams.set(i, []);
     }
     teams.set(null, []); // For unassigned players
+    teams.set(-1, []); // For spectators
 
     // Group clients by team
     for (const client of this.clients) {
@@ -826,7 +843,16 @@ export class HostLobbyModal extends LitElement {
     }
 
     const unassignedPlayers = teams.get(null) ?? [];
+    const spectators = teams.get(-1) ?? [];
     teams.delete(null);
+    teams.delete(-1);
+
+    const renderPlayerList = (players: ClientInfo[]) =>
+      repeat(
+        players,
+        (client) => client.clientID,
+        (client) => this.renderPlayerCard(client),
+      );
 
     return html`
       <div class="teams-layout-container">
@@ -836,7 +862,7 @@ export class HostLobbyModal extends LitElement {
             ${translateText("host_modal.unassigned_players")}
           </div>
           <div class="unassigned-body">
-            ${unassignedPlayers.map((client) => this.renderPlayerCard(client))}
+            ${renderPlayerList(unassignedPlayers)}
           </div>
         </div>
 
@@ -852,12 +878,18 @@ export class HostLobbyModal extends LitElement {
             return html`
               <div class="team-column" style="background-color: ${teamColor}">
                 <div class="team-column-header">${teamLabel}</div>
-                <div class="team-column-body">
-                  ${players.map((client) => this.renderPlayerCard(client))}
-                </div>
+                <div class="team-column-body">${renderPlayerList(players)}</div>
               </div>
             `;
           })}
+        </div>
+
+        <!-- Spectators Section -->
+        <div class="spectator-column">
+          <div class="team-column-header">
+            ${translateText("host_modal.spectator")}
+          </div>
+          <div class="unassigned-body">${renderPlayerList(spectators)}</div>
         </div>
       </div>
     `;
@@ -991,26 +1023,42 @@ export class HostLobbyModal extends LitElement {
         if (data.gameConfig?.gameMode !== GameMode.Team) {
           this.playerTeamAssignments = {};
         } else {
+          // Check for server confirmation for any clients that are being updated.
+          if (this.updatingTeamForClients.size > 0) {
+            for (const lockedClientID of [...this.updatingTeamForClients]) {
+              const localValue = this.playerTeamAssignments[lockedClientID];
+              const serverValue = serverAssignments[lockedClientID];
+
+              if (localValue === serverValue) {
+                // Server has confirmed the change, we can remove the lock.
+                this.updatingTeamForClients.delete(lockedClientID);
+              }
+            }
+          }
+
+          // Rebuild the assignments map.
           const mergedAssignments: Record<string, number | null> = {};
           for (const client of clients) {
+            const clientID = client.clientID;
+
+            // If this client is currently locked, trust the local (optimistic) state.
+            if (this.updatingTeamForClients.has(clientID)) {
+              mergedAssignments[clientID] =
+                this.playerTeamAssignments[clientID];
+              continue;
+            }
+
+            // Otherwise, use the server's state or other fallbacks.
             const hasServerValue = Object.prototype.hasOwnProperty.call(
               serverAssignments,
-              client.clientID,
+              clientID,
             );
             if (hasServerValue) {
-              mergedAssignments[client.clientID] =
-                serverAssignments[client.clientID];
-              continue;
-            }
-            if (client.teamIndex !== undefined) {
-              mergedAssignments[client.clientID] = client.teamIndex;
-              continue;
-            }
-            if (this.playerTeamAssignments[client.clientID] !== undefined) {
-              mergedAssignments[client.clientID] =
-                this.playerTeamAssignments[client.clientID];
+              mergedAssignments[clientID] = serverAssignments[clientID];
+            } else if (client.teamIndex !== undefined) {
+              mergedAssignments[clientID] = client.teamIndex;
             } else {
-              mergedAssignments[client.clientID] = null;
+              mergedAssignments[clientID] = null;
             }
           }
           this.playerTeamAssignments = mergedAssignments;

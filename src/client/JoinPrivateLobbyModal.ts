@@ -1,9 +1,17 @@
 import { LitElement, html } from "lit";
 import { customElement, query, state } from "lit/decorators.js";
+import { repeat } from "lit/directives/repeat.js";
 import { translateText } from "../client/Utils";
-import { GameInfo, GameRecord } from "../core/Schemas";
+import {
+  ClientInfo,
+  GameInfo,
+  GameRecord,
+  TeamCountConfig,
+} from "../core/Schemas";
 import { generateID } from "../core/Util";
 import { getServerConfigFromClient } from "../core/configuration/ConfigLoader";
+import { PastelTheme } from "../core/configuration/PastelTheme";
+import { ColoredTeams, Duos, GameMode, Quads, Trios } from "../core/game/Game";
 import { JoinLobbyEvent } from "./Main";
 import "./components/baseComponents/Button";
 import "./components/baseComponents/Modal";
@@ -16,10 +24,47 @@ export class JoinPrivateLobbyModal extends LitElement {
   @query("#lobbyIdInput") private lobbyIdInput!: HTMLInputElement;
   @state() private message: string = "";
   @state() private hasJoined = false;
-  @state() private players: string[] = [];
+  @state() private clients: ClientInfo[] = [];
+  @state() private playerTeamAssignments: Record<string, number | null> = {};
+  @state() private gameMode: GameMode = GameMode.FFA;
+  @state() private teamCount: TeamCountConfig = 2;
   @state() private startingGold: number | null = null;
 
   private playersInterval: NodeJS.Timeout | null = null;
+  private theme = new PastelTheme();
+
+  private computeTeamCount(value: TeamCountConfig = this.teamCount): number {
+    if (typeof value === "number") {
+      return Math.max(2, value);
+    }
+    const playerCount = Math.max(this.clients.length, 1);
+    switch (value) {
+      case Duos:
+        return Math.max(2, Math.ceil(playerCount / 2));
+      case Trios:
+        return Math.max(2, Math.ceil(playerCount / 3));
+      case Quads:
+        return Math.max(2, Math.ceil(playerCount / 4));
+      default:
+        return 2;
+    }
+  }
+
+  private getTeamLabels(count: number): string[] {
+    const colorLabels = [
+      ColoredTeams.Red,
+      ColoredTeams.Blue,
+      ColoredTeams.Yellow,
+      ColoredTeams.Green,
+      ColoredTeams.Purple,
+      ColoredTeams.Orange,
+      ColoredTeams.Teal,
+    ];
+    if (count <= colorLabels.length) {
+      return colorLabels.slice(0, count);
+    }
+    return Array.from({ length: count }, (_, index) => `Team ${index + 1}`);
+  }
 
   render() {
     return html`
@@ -55,19 +100,16 @@ export class JoinPrivateLobbyModal extends LitElement {
           ${this.message}
         </div>
         <div class="options-layout">
-          ${this.hasJoined && this.players.length > 0
+          ${this.hasJoined && this.clients.length > 0
             ? html` <div class="options-section">
                 <div class="option-title">
-                  ${this.players.length}
-                  ${this.players.length === 1
+                  ${this.clients.length}
+                  ${this.clients.length === 1
                     ? translateText("private_lobby.player")
                     : translateText("private_lobby.players")}
                 </div>
-
-                <div class="players-list">
-                  ${this.players.map(
-                    (player) => html`<span class="player-tag">${player}</span>`,
-                  )}
+                <div class="team-columns-container">
+                  ${this.renderTeamColumns()}
                 </div>
               </div>`
             : ""}
@@ -82,6 +124,110 @@ export class JoinPrivateLobbyModal extends LitElement {
             : ""}
         </div>
       </o-modal>
+    `;
+  }
+
+  private renderPlayerCard(client: ClientInfo) {
+    return html`
+      <span class="player-tag">
+        <span class="player-name">${client.username}</span>
+      </span>
+    `;
+  }
+
+  private renderTeamColumns() {
+    if (this.gameMode !== GameMode.Team) {
+      return html`
+        <div class="players-list">
+          ${repeat(
+            this.clients,
+            (client) => client.clientID,
+            (client) => html`
+              <span class="player-tag">
+                <span class="player-name">${client.username}</span>
+              </span>
+            `,
+          )}
+        </div>
+      `;
+    }
+
+    const teams = new Map<number | null, ClientInfo[]>();
+    const teamLabels = this.getTeamLabels(this.computeTeamCount());
+
+    // Initialize teams map
+    for (let i = 0; i < teamLabels.length; i++) {
+      teams.set(i, []);
+    }
+    teams.set(null, []); // For unassigned players
+    teams.set(-1, []); // For spectators
+
+    // Group clients by team
+    for (const client of this.clients) {
+      const teamIndex = this.playerTeamAssignments[client.clientID] ?? null;
+      if (teams.has(teamIndex)) {
+        teams.get(teamIndex)?.push(client);
+      } else {
+        teams.get(null)?.push(client);
+      }
+    }
+
+    const unassignedPlayers = teams.get(null) ?? [];
+    const spectators = teams.get(-1) ?? [];
+    teams.delete(null);
+    teams.delete(-1);
+
+    const renderPlayerList = (players: ClientInfo[]) =>
+      repeat(
+        players,
+        (client) => client.clientID,
+        (client) => this.renderPlayerCard(client),
+      );
+
+    return html`
+      <div class="teams-layout-container">
+        <!-- Unassigned Players Section -->
+        <div class="unassigned-column">
+          <div class="team-column-header">
+            ${translateText("host_modal.unassigned_players")}
+          </div>
+          <div class="unassigned-body">
+            ${renderPlayerList(unassignedPlayers)}
+          </div>
+        </div>
+
+        <!-- Assigned Teams Section -->
+        <div class="team-columns">
+          ${repeat(
+            Array.from(teams.entries()),
+            ([teamIndex]) => teamIndex,
+            ([teamIndex, players]) => {
+              const teamLabel =
+                teamLabels[teamIndex as number] ?? `Team ${teamIndex}`;
+              const teamColor = this.theme
+                .teamColor(teamLabel)
+                .alpha(0.1)
+                .toRgbString();
+              return html`
+                <div class="team-column" style="background-color: ${teamColor}">
+                  <div class="team-column-header">${teamLabel}</div>
+                  <div class="team-column-body">
+                    ${renderPlayerList(players)}
+                  </div>
+                </div>
+              `;
+            },
+          )}
+        </div>
+
+        <!-- Spectators Section -->
+        <div class="spectator-column">
+          <div class="team-column-header">
+            ${translateText("host_modal.spectator")}
+          </div>
+          <div class="unassigned-body">${renderPlayerList(spectators)}</div>
+        </div>
+      </div>
     `;
   }
 
@@ -257,7 +403,9 @@ export class JoinPrivateLobbyModal extends LitElement {
     const config = await getServerConfigFromClient();
 
     fetch(
-      `/${config.workerPath(this.lobbyIdInput.value)}/api/game/${this.lobbyIdInput.value}`,
+      `/${config.workerPath(this.lobbyIdInput.value)}/api/game/${
+        this.lobbyIdInput.value
+      }`,
       {
         method: "GET",
         headers: {
@@ -267,8 +415,14 @@ export class JoinPrivateLobbyModal extends LitElement {
     )
       .then((response) => response.json())
       .then((data: GameInfo) => {
-        this.players = data.clients?.map((p) => p.username) ?? [];
-        this.startingGold = data.gameConfig?.startingGold ?? 0;
+        this.clients = data.clients ?? [];
+        if (data.gameConfig) {
+          this.playerTeamAssignments =
+            data.gameConfig.playerTeamAssignments ?? {};
+          this.gameMode = data.gameConfig.gameMode ?? GameMode.FFA;
+          this.teamCount = data.gameConfig.playerTeams ?? 2;
+          this.startingGold = data.gameConfig.startingGold ?? 0;
+        }
       })
       .catch((error) => {
         console.error("Error polling players:", error);

@@ -210,18 +210,16 @@ export class GameRunner {
     const packedTileUpdates = updates[GameUpdateType.Tile].map((u) => u.update);
     updates[GameUpdateType.Tile] = [];
     const me = this.game.playerByClientID(this.clientID);
-    if (!me) {
-      this.isExecuting = false;
-      return;
-    }
-    const alliances = this.game
-      .alliances()
-      .filter(
-        (a) =>
-          a.requestor().smallID() === me.smallID() ||
-          a.recipient().smallID() === me.smallID(),
-      )
-      .map((a) => toAllianceViewData(a as AllianceImpl, me));
+    const alliances = me
+      ? this.game
+          .alliances()
+          .filter((a) =>
+            [a.requestor().smallID(), a.recipient().smallID()].includes(
+              me.smallID(),
+            ),
+          )
+          .map((a) => toAllianceViewData(a as AllianceImpl, me))
+      : [];
     this.callBack({
       tick: this.game.ticks(),
       packedTileUpdates: new BigUint64Array(packedTileUpdates),
