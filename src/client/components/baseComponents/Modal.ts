@@ -25,7 +25,7 @@ export class OModal extends LitElement {
       bottom: 0;
       right: 0;
       top: 0;
-      background-color: rgba(0, 0, 0, 0.5);
+      background-color: var(--ui-overlay);
       /* Avoid double vertical scrollbars; content area will scroll */
       overflow: hidden;
       display: flex;
@@ -48,9 +48,9 @@ export class OModal extends LitElement {
       border-top-left-radius: 4px;
       border-top-right-radius: 4px;
       font-size: 18px;
-      background: #000000a1;
+      background: var(--ui-modal-header);
       text-align: center;
-      color: #fff;
+      color: var(--ui-text-default);
       padding: 1rem 2.4rem 1rem 1.4rem;
     }
 
@@ -62,16 +62,16 @@ export class OModal extends LitElement {
     }
 
     .c-modal__content {
-      background: #23232382;
+      background: var(--ui-modal-content);
       position: relative;
-      color: #fff;
+      color: var(--ui-text-default);
       padding: 1.4rem;
       /* max-height is overridden inline using the maxHeight property */
       overflow: auto;
       backdrop-filter: blur(8px);
       /* Themed scrollbar (vertical + horizontal) */
       scrollbar-width: thin;
-      scrollbar-color: #27476e #0e1a33; /* thumb track */
+      scrollbar-color: var(--ui-secondary) var(--ui-panel-border);
     }
     .c-modal__content::-webkit-scrollbar {
       width: 10px; /* vertical */
@@ -79,19 +79,27 @@ export class OModal extends LitElement {
       background: transparent;
     }
     .c-modal__content::-webkit-scrollbar-track {
-      background: #0e1a33;
+      background: var(--ui-panel-border);
       border-radius: 8px;
       box-shadow: inset 0 0 6px rgba(0, 0, 0, 0.4);
     }
     .c-modal__content::-webkit-scrollbar-thumb {
-      background: linear-gradient(180deg, #27476e, #1e3554);
+      background: linear-gradient(
+        180deg,
+        var(--ui-secondary),
+        var(--ui-secondary-hover)
+      );
       border-radius: 8px;
-      border: 1px solid #27476e;
+      border: 1px solid var(--ui-secondary);
       box-shadow: inset 0 0 4px rgba(255, 255, 255, 0.06);
     }
     .c-modal__content::-webkit-scrollbar-thumb:hover {
-      background: linear-gradient(180deg, #32629b, #254a78);
-      border-color: #32629b;
+      background: linear-gradient(
+        180deg,
+        var(--ui-secondary-hover),
+        var(--ui-secondary)
+      );
+      border-color: var(--ui-secondary-hover);
     }
   `;
   public open() {

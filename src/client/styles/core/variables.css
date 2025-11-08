@@ -22,26 +22,3 @@
   /* Accent text on submarine surfaces */
   --accentTextColor: #dbe7ff; /* soft light blue */
 }
-
-/* Dark mode overrides (scoped by the .dark class on <html> or <body>) */
-.dark {
-  /* Provide explicit dark variants and mirror base tokens when dark */
-  --primaryColorDark: #132036; /* darker navy */
-  --primaryColorHoverDark: #0e1a33;
-  --primaryColorDisabledDark: #0b1629;
-  --secondaryColorDark: #1f3a5a;
-  --secondaryColorHoverDark: #27476e;
-  --alertColorDark: #991b1b;
-  --alertColorHoverDark: #b91c1c;
-
-  /* Mirror base tokens to dark variants for components using base names */
-  --primaryColor: var(--primaryColorDark);
-  --primaryColorHover: var(--primaryColorHoverDark);
-  --primaryColorDisabled: var(--primaryColorDisabledDark);
-  --secondaryColor: var(--secondaryColorDark);
-  --secondaryColorHover: var(--secondaryColorHoverDark);
-  --alertColor: var(--alertColorDark);
-  --alertColorHover: var(--alertColorHoverDark);
-  --accentTextColor: #e3edff;
-  --fontColorLight: #e5e7eb;
-}

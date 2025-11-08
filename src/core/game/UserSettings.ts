@@ -83,11 +83,17 @@ export class UserSettings {
 
   toggleDarkMode() {
     this.set("settings.darkMode", !this.darkMode());
-    if (this.darkMode()) {
+    const enabled = this.darkMode();
+    if (enabled) {
       document.documentElement.classList.add("dark");
     } else {
       document.documentElement.classList.remove("dark");
     }
+    window.dispatchEvent(
+      new CustomEvent("dark-mode-changed", {
+        detail: { darkMode: enabled },
+      }),
+    );
   }
 
   toggleSoundMuted() {

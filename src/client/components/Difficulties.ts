@@ -36,13 +36,17 @@ export class DifficultyDisplay extends LitElement {
 
     .difficulty-skull.active {
       opacity: 1;
-      color: #ff3838;
-      filter: drop-shadow(0 0 4px rgba(255, 56, 56, 0.4));
+      color: var(--ui-alert);
+      filter: drop-shadow(
+        0 0 4px color-mix(in srgb, var(--ui-alert) 60%, transparent)
+      );
       transform: translateY(-1px);
     }
 
     :host(:hover) .difficulty-skull.active {
-      filter: drop-shadow(0 0 6px rgba(255, 56, 56, 0.6));
+      filter: drop-shadow(
+        0 0 6px color-mix(in srgb, var(--ui-alert) 80%, transparent)
+      );
       transform: translateY(-2px);
     }
   `;

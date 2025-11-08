@@ -34,6 +34,7 @@ import { OButton } from "./components/baseComponents/Button";
 import "./components/baseComponents/Modal";
 import { isLoggedIn } from "./jwt";
 import "./styles.css";
+import { applyUiPalette, getUiPalette } from "./theme/UiPaletteLoader";
 
 declare global {
   interface Window {
@@ -42,6 +43,7 @@ declare global {
         newPageView: () => void;
       };
     };
+    __LEGACY_UI_PALETTE__?: boolean;
     ramp: {
       que: Array<() => void>;
       passiveMode: boolean;
@@ -90,7 +92,27 @@ class Client {
 
   constructor() {}
 
+  private handleDarkModeChangedEvent = () => {
+    this.applyUiPaletteFromSettings();
+  };
+
+  private applyUiPaletteFromSettings() {
+    if (window.__LEGACY_UI_PALETTE__) {
+      return;
+    }
+    try {
+      applyUiPalette(getUiPalette(this.userSettings));
+    } catch (error) {
+      console.error("Failed to apply UI palette", error);
+    }
+  }
+
   initialize(): void {
+    this.applyUiPaletteFromSettings();
+    window.addEventListener(
+      "dark-mode-changed",
+      this.handleDarkModeChangedEvent,
+    );
     // Prepare main menu background music
     this.setupMenuMusic();
     // Sync menu music with persisted mute state and react to changes

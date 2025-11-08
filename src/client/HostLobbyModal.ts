@@ -456,11 +456,11 @@ export class HostLobbyModal extends LitElement {
                   </select>
                 </label>
 
-                <hr style="width: 100%; border-top: 1px solid #444; margin: 16px 0;" />
+                <hr style="width: 100%; border-top: 1px solid var(--ui-border-muted); margin: 16px 0;" />
 
                 <!-- Individual disables for structures/weapons -->
                 <div
-                  style="margin: 8px 0 12px 0; font-weight: bold; color: #ccc; text-align: center;"
+                  style="margin: 8px 0 12px 0; font-weight: bold; color: var(--ui-text-muted); text-align: center;"
                 >
                   ${translateText("host_modal.enables_title")}
                 </div>

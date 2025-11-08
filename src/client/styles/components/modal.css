@@ -6,7 +6,7 @@
   bottom: 0;
   right: 0;
   top: 0;
-  background-color: rgba(0, 0, 0, 0.5);
+  background-color: var(--ui-modal-overlay);
   overflow-y: auto;
   display: flex;
   align-items: center;
@@ -14,7 +14,7 @@
 }
 
 .c-modal__wrapper {
-  background: #23232382;
+  background: var(--ui-modal-content);
   border-radius: 8px;
   min-width: 340px;
   max-width: 860px;
@@ -25,9 +25,9 @@
   border-top-left-radius: 4px;
   border-top-right-radius: 4px;
   font-size: 18px;
-  background: #000000a1;
+  background: var(--ui-modal-header);
   text-align: center;
-  color: #fff;
+  color: var(--ui-text-default);
   padding: 1rem 2.4rem 1rem 1.4rem;
 }
 
@@ -40,7 +40,7 @@
 
 .c-modal__content {
   position: relative;
-  color: #fff;
+  color: var(--ui-text-default);
   padding: 1.4rem;
   max-height: 60dvh;
   overflow-y: scroll;

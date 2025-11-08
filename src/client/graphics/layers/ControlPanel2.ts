@@ -1036,7 +1036,7 @@ export class ControlPanel2 extends LitElement implements Layer {
       >
         <div
           class="flex border-b"
-          style="border-color: rgba(24,39,66,0.7)"
+          style="border-color: var(--ui-panel-border)"
           mb-4
         >
           <button
@@ -1135,7 +1135,8 @@ export class ControlPanel2 extends LitElement implements Layer {
                               Select Target
                               <select
                                 id="bomber-player-select"
-                                class="ml-1 p-1 bg-[#132036] text-white border border-[#27476e] rounded-sm w-full truncate"
+                                class="ml-1 p-1 text-white rounded-sm w-full truncate"
+                                style="background-color: var(--ui-secondary); border: 1px solid var(--ui-panel-border);"
                                 @change=${this._handleBomberTargetChange}
                               ></select>
                             </label>
@@ -1312,13 +1313,13 @@ export class ControlPanel2 extends LitElement implements Layer {
                     <div class="relative h-8">
                       <div
                         class="absolute left-0 right-0 top-3 h-2 rounded"
-                        style="background-color:rgba(24,39,66,0.85)"
+                        style="background-color: var(--ui-slider-track)"
                       ></div>
                       <div
                         class="absolute left-0 top-3 h-2 rounded transition-all duration-300"
                         style="width:${(this.investmentRate /
                           this.game.config().maxInvestmentRate()) *
-                        100}%; background-color: rgba(64,123,189,0.6);"
+                        100}%; background-color: var(--ui-slider-troop);"
                       ></div>
                       <input
                         type="range"
@@ -1437,13 +1438,15 @@ export class ControlPanel2 extends LitElement implements Layer {
                     <div class="relative h-8">
                       <div
                         class="absolute left-0 right-0 top-3 h-2 rounded"
-                        style="background-color:rgba(24,39,66,0.85)"
+                        style="background-color: var(--ui-slider-track)"
                       ></div>
                       <div
                         class="absolute left-0 top-3 h-2 rounded transition-all duration-300"
                         style="width:${(
                           (hasRoads ? this._roadInvestmentRate : 0) * 100
-                        ).toFixed(2)}%; background-color: rgba(64,123,189,0.6);"
+                        ).toFixed(
+                          2,
+                        )}%; background-color: var(--ui-slider-troop);"
                       ></div>
                       ${(() => {
                         const me = this.game?.myPlayer?.();
@@ -1573,13 +1576,15 @@ export class ControlPanel2 extends LitElement implements Layer {
                     <div class="relative h-8">
                       <div
                         class="absolute left-0 right-0 top-3 h-2 rounded"
-                        style="background-color:rgba(24,39,66,0.85)"
+                        style="background-color: var(--ui-slider-track)"
                       ></div>
                       <div
                         class="absolute left-0 top-3 h-2 rounded transition-all duration-300"
                         style="width:${(
                           this._researchInvestmentRate * 100
-                        ).toFixed(2)}%; background-color: rgba(64,123,189,0.6);"
+                        ).toFixed(
+                          2,
+                        )}%; background-color: var(--ui-slider-troop);"
                       ></div>
                       <input
                         type="range"
@@ -1631,11 +1636,11 @@ export class ControlPanel2 extends LitElement implements Layer {
                     <div class="relative h-8">
                       <div
                         class="absolute left-0 right-0 top-3 h-2 rounded"
-                        style="background-color:rgba(24,39,66,0.85)"
+                        style="background-color: var(--ui-slider-track)"
                       ></div>
                       <div
                         class="absolute left-0 top-3 h-2 rounded transition-all duration-300"
-                        style="width:0%; background-color: rgba(64,123,189,0.6);"
+                        style="width:0%; background-color: var(--ui-slider-troop);"
                       ></div>
                       <input
                         type="range"

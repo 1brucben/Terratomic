@@ -102,7 +102,7 @@ export class PublicLobby extends LitElement {
         /* —— button element ——————————————— */
         class="isolate grid h-40 grid-cols-[100%] grid-rows-[100%] place-content-stretch
        w-full overflow-hidden
-       bg-gradient-to-r from-[var(--primaryColor)] to-[var(--primaryColorHover)]
+       bg-gradient-to-r from-[var(--ui-primary)] to-[var(--ui-primary-hover)]
        text-white font-medium rounded-xl will-change-transform
        transition-opacity transition-transform duration-200 ease-out hover:opacity-90
        ${
@@ -131,7 +131,7 @@ export class PublicLobby extends LitElement {
             <div class="text-md font-medium text-[var(--secondaryColor)]">
               <span
                 class="text-sm
-                text-[var(--primaryColor)]
+                text-[var(--ui-primary)]
                 bg-white rounded-sm px-1"
               >
                 ${

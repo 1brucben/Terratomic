@@ -11,6 +11,7 @@ import { Layer } from "./Layer";
 export class WinModal extends LitElement implements Layer {
   public game: GameView;
   public eventBus: EventBus;
+  private static stylesApplied = false;
 
   private hasShownDeathModal = false;
 
@@ -31,13 +32,13 @@ export class WinModal extends LitElement implements Layer {
       top: 50%;
       left: 50%;
       transform: translate(-50%, -50%);
-      background-color: rgba(30, 30, 30, 0.7);
+      background-color: var(--ui-modal-content);
       padding: 25px;
       border-radius: 10px;
       z-index: 9999;
-      box-shadow: 0 0 20px rgba(0, 0, 0, 0.5);
+      box-shadow: var(--ui-panel-shadow);
       backdrop-filter: blur(5px);
-      color: white;
+      color: var(--ui-text-default);
       width: 350px;
       transition:
         opacity 0.3s ease-in-out,
@@ -64,13 +65,13 @@ export class WinModal extends LitElement implements Layer {
       margin: 0 0 15px 0;
       font-size: 26px;
       text-align: center;
-      color: white;
+      color: var(--ui-text-accent);
     }
 
     .win-modal p {
       margin: 0 0 20px 0;
       text-align: center;
-      background-color: rgba(0, 0, 0, 0.3);
+      background-color: var(--ui-table-row-bg);
       padding: 10px;
       border-radius: 5px;
     }
@@ -86,8 +87,8 @@ export class WinModal extends LitElement implements Layer {
       padding: 12px;
       font-size: 16px;
       cursor: pointer;
-      background: rgba(0, 150, 255, 0.6);
-      color: white;
+      background: var(--ui-primary);
+      color: var(--ui-button-text);
       border: none;
       border-radius: 5px;
       transition:
@@ -96,7 +97,7 @@ export class WinModal extends LitElement implements Layer {
     }
 
     .win-modal button:hover {
-      background: rgba(0, 150, 255, 0.8);
+      background: var(--ui-primary-hover);
       transform: translateY(-1px);
     }
 
@@ -120,14 +121,29 @@ export class WinModal extends LitElement implements Layer {
         font-size: 14px;
       }
     }
+
+    .win-modal__link {
+      color: var(--ui-text-accent);
+      text-decoration: underline;
+      font-weight: 500;
+      transition: color 0.2s ease;
+      font-size: 24px;
+    }
+
+    .win-modal__link:hover {
+      color: var(--ui-secondary-hover);
+    }
   `;
 
   constructor() {
     super();
-    // Add styles to document
-    const styleEl = document.createElement("style");
-    styleEl.textContent = WinModal.styles.toString();
-    document.head.appendChild(styleEl);
+    if (!WinModal.stylesApplied) {
+      const styleEl = document.createElement("style");
+      styleEl.id = "win-modal-styles";
+      styleEl.textContent = (WinModal.styles as any).toString();
+      document.head.appendChild(styleEl);
+      WinModal.stylesApplied = true;
+    }
   }
 
   render() {
@@ -153,15 +169,7 @@ export class WinModal extends LitElement implements Layer {
         href="https://store.steampowered.com/app/3560670"
         target="_blank"
         rel="noopener noreferrer"
-        style="
-          color: #4a9eff;
-          text-decoration: underline;
-          font-weight: 500;
-          transition: color 0.2s ease;
-          font-size: 24px;
-        "
-        onmouseover="this.style.color='#6db3ff'"
-        onmouseout="this.style.color='#4a9eff'"
+        class="win-modal__link"
       >
         ${translateText("win_modal.wishlist")}
       </a>

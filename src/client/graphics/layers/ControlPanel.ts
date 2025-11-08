@@ -277,34 +277,34 @@ export class ControlPanel extends LitElement implements Layer {
           appearance: none;
           width: 16px;
           height: 16px;
-          background: #0b1220; /* dark navy to match submarine */
+          background: var(--ui-slider-thumb);
           border-width: 2px;
           border-style: solid;
           border-radius: 50%;
           cursor: pointer;
-          border-color: #27476e; /* subtle blue rim by default */
+          border-color: var(--ui-secondary);
           box-shadow: 0 0 0 1px rgba(39, 71, 110, 0.35) inset;
         }
         input[type="range"]::-moz-range-thumb {
           width: 16px;
           height: 16px;
-          background: #0b1220; /* dark navy to match submarine */
+          background: var(--ui-slider-thumb);
           border-width: 2px;
           border-style: solid;
           border-radius: 50%;
           cursor: pointer;
-          border-color: #27476e; /* subtle blue rim by default */
+          border-color: var(--ui-secondary);
           box-shadow: 0 0 0 1px rgba(39, 71, 110, 0.35) inset;
         }
         /* Subtle affordance on hover/focus */
         input[type="range"]:hover::-webkit-slider-thumb,
         input[type="range"]:focus::-webkit-slider-thumb {
-          border-color: #32629b;
+          border-color: var(--ui-secondary-hover);
           box-shadow: 0 0 0 2px rgba(50, 98, 155, 0.45) inset;
         }
         input[type="range"]:hover::-moz-range-thumb,
         input[type="range"]:focus::-moz-range-thumb {
-          border-color: #32629b;
+          border-color: var(--ui-secondary-hover);
           box-shadow: 0 0 0 2px rgba(50, 98, 155, 0.45) inset;
         }
         /* Standardize thumb rims to submarine blue (no per-slider overrides) */
@@ -325,7 +325,7 @@ export class ControlPanel extends LitElement implements Layer {
         .pull-tab-indicator .bar {
           width: 3px;
           height: 22px;
-          background-color: #dbe7ff; /* submarine text */
+          background-color: var(--ui-text-accent);
           border-radius: 2px;
           opacity: 0.9;
           transition: opacity 0.15s ease-in-out;
@@ -347,7 +347,7 @@ export class ControlPanel extends LitElement implements Layer {
                   <!-- Top stats block -->
                   <div
                     class="hidden lg:block mb-4 p-2 rounded-sm"
-                    style="background-color: rgba(24,39,66,0.5)"
+                    style="background-color: var(--ui-table-row-bg)"
                   >
                     <div class="flex justify-between mb-1">
                       <span class="font-bold military-heading">
@@ -359,8 +359,8 @@ export class ControlPanel extends LitElement implements Layer {
                         <span
                           translate="no"
                           style="color: ${this._popRateIsIncreasing
-                            ? "#4EB057"
-                            : "#B0504E"}"
+                            ? "var(--ui-slider-troop)"
+                            : "var(--ui-alert)"}"
                         >
                           (+${renderTroops(this.popRate)}${this
                             ._hospitalReturns > 0
@@ -402,13 +402,13 @@ export class ControlPanel extends LitElement implements Layer {
                       <!-- Background track (exact color) -->
                       <div
                         class="absolute left-0 right-0 top-3 h-2 rounded"
-                        style="background-color:rgba(24,39,66,0.85)"
+                        style="background-color: var(--ui-slider-track)"
                       ></div>
                       <!-- Fill track (teal-blue for troops/workers) -->
                       <div
                         class="absolute left-0 top-3 h-2 rounded transition-all duration-300"
                         style="width:${this.currentTroopRatio *
-                        100}%; background-color: rgba(56,162,179,0.68);"
+                        100}%; background-color: var(--ui-slider-troop);"
                       ></div>
                       <!-- Range input -->
                       <input
@@ -441,13 +441,13 @@ export class ControlPanel extends LitElement implements Layer {
                       <!-- Background track (blue track) -->
                       <div
                         class="absolute left-0 right-0 top-3 h-2 rounded"
-                        style="background-color:rgba(24,39,66,0.85)"
+                        style="background-color: var(--ui-slider-track)"
                       ></div>
                       <!-- Fill track (deep indigo for attack) -->
                       <div
                         class="absolute left-0 top-3 h-2 rounded transition-all duration-300"
                         style="width:${this.attackRatio *
-                        100}%; background-color: rgba(33,56,112,0.8);"
+                        100}%; background-color: var(--ui-slider-attack);"
                       ></div>
                       <!-- Range input -->
                       <input
@@ -472,7 +472,7 @@ export class ControlPanel extends LitElement implements Layer {
               <!-- Vertical Build tab (no functionality change) -->
               <div
                 class="absolute top-0 -right-8 w-8 h-full rounded-r-md flex items-center justify-center cursor-pointer border-2 border-l-0 transition-all duration-200 hover:brightness-125"
-                style="background-color:#132036; border-color:#0E1A33;"
+                style="background-color: var(--ui-secondary); border-color: var(--ui-panel-border);"
                 @mouseenter=${this.handleMouseEnterBuildPanel}
                 @mouseleave=${this.handleMouseLeaveBuildPanel}
                 @click=${this.toggleBuildPanel}

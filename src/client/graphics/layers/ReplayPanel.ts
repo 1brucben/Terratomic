@@ -62,65 +62,49 @@ export class ReplayPanel extends LitElement implements Layer {
       return html``;
     }
 
+    const options: Array<{ label: string; value: ReplaySpeedMultiplier }> = [
+      { label: "×0.5", value: ReplaySpeedMultiplier.slow },
+      { label: "×1", value: ReplaySpeedMultiplier.normal },
+      { label: "×2", value: ReplaySpeedMultiplier.fast },
+      { label: "max", value: ReplaySpeedMultiplier.fastest },
+    ];
+
     return html`
       <div
         class="submarine-panel p-1 lg:p-2"
-        style="box-shadow: inset 0 0 18px rgba(2, 8, 20, 0.8), 0 2px 6px rgba(0, 0, 0, 0.5);"
+        style="box-shadow: var(--ui-panel-shadow);"
         @contextmenu=${(e) => e.preventDefault()}
       >
-        <label class="block mb-1" style="color:#dbe7ff" translate="no">
+        <label
+          class="block mb-1"
+          style="color: var(--ui-text-accent)"
+          translate="no"
+        >
           ${this._isSinglePlayer
             ? translateText("replay_panel.game_speed")
             : translateText("replay_panel.replay_speed")}
         </label>
         <div class="grid grid-cols-2 gap-1">
-          <button
-            class="text-white font-bold py-0 rounded border transition ${this
-              ._replaySpeedMultiplier === ReplaySpeedMultiplier.slow
-              ? "bg-[#1a2e4a] border-[#27476e]"
-              : "border-[#27476e]"}"
-            @click=${() => {
-              this.onReplaySpeedChange(ReplaySpeedMultiplier.slow);
-            }}
-          >
-            ×0.5
-          </button>
-          <button
-            class="text-white font-bold py-0 rounded border transition ${this
-              ._replaySpeedMultiplier === ReplaySpeedMultiplier.normal
-              ? "bg-[#1a2e4a] border-[#27476e]"
-              : "border-[#27476e]"}"
-            @click=${() => {
-              this.onReplaySpeedChange(ReplaySpeedMultiplier.normal);
-            }}
-          >
-            ×1
-          </button>
-          <button
-            class="text-white font-bold py-0 rounded border transition ${this
-              ._replaySpeedMultiplier === ReplaySpeedMultiplier.fast
-              ? "bg-[#1a2e4a] border-[#27476e]"
-              : "border-[#27476e]"}"
-            @click=${() => {
-              this.onReplaySpeedChange(ReplaySpeedMultiplier.fast);
-            }}
-          >
-            ×2
-          </button>
-          <button
-            class="text-white font-bold py-0 rounded border transition ${this
-              ._replaySpeedMultiplier === ReplaySpeedMultiplier.fastest
-              ? "bg-[#1a2e4a] border-[#27476e]"
-              : "border-[#27476e]"}"
-            @click=${() => {
-              this.onReplaySpeedChange(ReplaySpeedMultiplier.fastest);
-            }}
-          >
-            max
-          </button>
+          ${options.map(
+            ({ label, value }) => html`
+              <button
+                class="text-white font-bold py-0 rounded border transition"
+                style=${this.replayButtonStyle(value)}
+                @click=${() => this.onReplaySpeedChange(value)}
+              >
+                ${label}
+              </button>
+            `,
+          )}
         </div>
       </div>
     `;
+  }
+
+  private replayButtonStyle(value: ReplaySpeedMultiplier): string {
+    const isActive = this._replaySpeedMultiplier === value;
+    const background = isActive ? "var(--ui-replay-tab-active)" : "transparent";
+    return `color: var(--ui-button-text); border-color: var(--ui-secondary); background-color: ${background};`;
   }
 
   createRenderRoot() {

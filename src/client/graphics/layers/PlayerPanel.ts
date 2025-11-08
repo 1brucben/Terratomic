@@ -234,6 +234,31 @@ export class PlayerPanel extends LitElement implements Layer {
     const canEmbargo = this.actions?.interaction?.canEmbargo;
 
     return html`
+      <style>
+        .player-panel__value {
+          background-color: var(--ui-slider-track);
+          color: var(--ui-text-default);
+        }
+        .player-panel__label {
+          color: var(--ui-text-light);
+        }
+        .player-panel__button {
+          background-color: var(--ui-secondary);
+          color: var(--ui-button-text);
+          border: 1px solid var(--ui-panel-border);
+        }
+        .player-panel__button:hover {
+          background-color: var(--ui-secondary-hover);
+        }
+        .player-panel__surface {
+          background: linear-gradient(
+            to bottom,
+            var(--ui-panel-shell-top),
+            var(--ui-panel-shell-bottom)
+          );
+          box-shadow: var(--ui-panel-shadow);
+        }
+      </style>
       <div
         class="fixed inset-0 flex items-center justify-center z-50 pointer-events-none overflow-auto"
         @contextmenu=${(e: MouseEvent) => e.preventDefault()}
@@ -243,7 +268,7 @@ export class PlayerPanel extends LitElement implements Layer {
           class="pointer-events-auto max-h-[90vh] overflow-y-auto min-w-[240px] w-auto px-4 py-2"
         >
           <div
-            class="bg-opacity-60 bg-gray-900 p-1 lg:p-2 rounded-lg backdrop-blur-md relative w-full mt-2"
+            class="player-panel__surface p-1 lg:p-2 rounded-lg backdrop-blur-md relative w-full mt-2"
           >
             <!-- Close button -->
             <button
@@ -260,7 +285,7 @@ export class PlayerPanel extends LitElement implements Layer {
               <div class="flex items-center gap-1 lg:gap-2">
                 <div
                   class="px-4 h-8 lg:h-10 flex items-center justify-center
-                       bg-opacity-50 bg-gray-700 text-opacity-90 text-white
+                       player-panel__value
                        rounded text-sm lg:text-xl w-full"
                 >
                   ${other?.name()}
@@ -271,25 +296,19 @@ export class PlayerPanel extends LitElement implements Layer {
               <div class="grid grid-cols-2 gap-2">
                 <div class="flex flex-col gap-1">
                   <!-- Gold -->
-                  <div class="text-white text-opacity-80 text-sm px-2">
+                  <div class="player-panel__label text-sm px-2">
                     ${translateText("player_panel.gold")}
                   </div>
-                  <div
-                    class="bg-opacity-50 bg-gray-700 rounded p-2 text-white"
-                    translate="no"
-                  >
+                  <div class="player-panel__value rounded p-2" translate="no">
                     ${renderNumber(other.gold() || 0)}
                   </div>
                 </div>
                 <div class="flex flex-col gap-1">
                   <!-- Troops -->
-                  <div class="text-white text-opacity-80 text-sm px-2">
+                  <div class="player-panel__label text-sm px-2">
                     ${translateText("player_panel.troops")}
                   </div>
-                  <div
-                    class="bg-opacity-50 bg-gray-700 rounded p-2 text-white"
-                    translate="no"
-                  >
+                  <div class="player-panel__value rounded p-2" translate="no">
                     ${renderTroops(other.troops() || 0)}
                   </div>
                 </div>
@@ -297,10 +316,10 @@ export class PlayerPanel extends LitElement implements Layer {
 
               <!-- Attitude section -->
               <div class="flex flex-col gap-1">
-                <div class="text-white text-opacity-80 text-sm px-2">
+                <div class="player-panel__label text-sm px-2">
                   ${translateText("player_panel.traitor")}
                 </div>
-                <div class="bg-opacity-50 bg-gray-700 rounded p-2 text-white">
+                <div class="player-panel__value rounded p-2">
                   ${other.isTraitor()
                     ? translateText("player_panel.yes")
                     : translateText("player_panel.no")}
@@ -309,20 +328,20 @@ export class PlayerPanel extends LitElement implements Layer {
 
               <!-- Betrayals -->
               <div class="flex flex-col gap-1">
-                <div class="text-white text-opacity-80 text-sm px-2">
+                <div class="player-panel__label text-sm px-2">
                   ${translateText("player_panel.betrayals")}
                 </div>
-                <div class="bg-opacity-50 bg-gray-700 rounded p-2 text-white">
+                <div class="player-panel__value rounded p-2">
                   ${other.data.betrayals ?? 0}
                 </div>
               </div>
 
               <!-- Embargo -->
               <div class="flex flex-col gap-1">
-                <div class="text-white text-opacity-80 text-sm px-2">
+                <div class="player-panel__label text-sm px-2">
                   ${translateText("player_panel.embargo")}
                 </div>
-                <div class="bg-opacity-50 bg-gray-700 rounded p-2 text-white">
+                <div class="player-panel__value rounded p-2">
                   ${other.hasEmbargoAgainst(myPlayer)
                     ? translateText("player_panel.yes")
                     : translateText("player_panel.no")}
@@ -331,12 +350,12 @@ export class PlayerPanel extends LitElement implements Layer {
 
               <!-- Alliances -->
               <div class="flex flex-col gap-1">
-                <div class="text-white text-opacity-80 text-sm px-2">
+                <div class="player-panel__label text-sm px-2">
                   ${translateText("player_panel.alliances")}
                   (${other.allies().length})
                 </div>
                 <div
-                  class="bg-opacity-50 bg-gray-700 rounded p-2 text-white max-w-72 max-h-20 overflow-y-auto"
+                  class="player-panel__value rounded p-2 max-w-72 max-h-20 overflow-y-auto"
                   translate="no"
                 >
                   ${other.allies().length > 0
@@ -351,12 +370,10 @@ export class PlayerPanel extends LitElement implements Layer {
               ${this.allianceExpiryText !== null
                 ? html`
                     <div class="flex flex-col gap-1">
-                      <div class="text-white text-opacity-80 text-sm px-2">
+                      <div class="player-panel__label text-sm px-2">
                         ${translateText("player_panel.alliance_time_remaining")}
                       </div>
-                      <div
-                        class="bg-opacity-50 bg-gray-700 rounded p-2 text-white"
-                      >
+                      <div class="player-panel__value rounded p-2">
                         ${this.allianceExpiryText}
                       </div>
                     </div>
@@ -368,9 +385,7 @@ export class PlayerPanel extends LitElement implements Layer {
                 <button
                   @click=${(e: MouseEvent) =>
                     this.handleChat(e, myPlayer, other)}
-                  class="w-10 h-10 flex items-center justify-center
-                           bg-opacity-50 bg-gray-700 hover:bg-opacity-70
-                           text-white rounded-lg transition-colors"
+                  class="player-panel__button w-10 h-10 flex items-center justify-center rounded-lg transition-colors"
                 >
                   <img src=${chatIcon} alt="Target" class="w-6 h-6" />
                 </button>
@@ -378,9 +393,7 @@ export class PlayerPanel extends LitElement implements Layer {
                   ? html`<button
                       @click=${(e: MouseEvent) =>
                         this.handleTargetClick(e, other)}
-                      class="w-10 h-10 flex items-center justify-center
-                           bg-opacity-50 bg-gray-700 hover:bg-opacity-70
-                           text-white rounded-lg transition-colors"
+                      class="player-panel__button w-10 h-10 flex items-center justify-center rounded-lg transition-colors"
                     >
                       <img src=${targetIcon} alt="Target" class="w-6 h-6" />
                     </button>`
@@ -389,9 +402,7 @@ export class PlayerPanel extends LitElement implements Layer {
                   ? html`<button
                       @click=${(e: MouseEvent) =>
                         this.handleBreakAllianceClick(e, myPlayer, other)}
-                      class="w-10 h-10 flex items-center justify-center
-                           bg-opacity-50 bg-gray-700 hover:bg-opacity-70
-                           text-white rounded-lg transition-colors"
+                      class="player-panel__button w-10 h-10 flex items-center justify-center rounded-lg transition-colors"
                     >
                       <img
                         src=${traitorIcon}
@@ -404,9 +415,7 @@ export class PlayerPanel extends LitElement implements Layer {
                   ? html`<button
                       @click=${(e: MouseEvent) =>
                         this.handleAllianceClick(e, myPlayer, other)}
-                      class="w-10 h-10 flex items-center justify-center
-                           bg-opacity-50 bg-gray-700 hover:bg-opacity-70
-                           text-white rounded-lg transition-colors"
+                      class="player-panel__button w-10 h-10 flex items-center justify-center rounded-lg transition-colors"
                     >
                       <img src=${allianceIcon} alt="Alliance" class="w-6 h-6" />
                     </button>`
@@ -415,9 +424,7 @@ export class PlayerPanel extends LitElement implements Layer {
                   ? html`<button
                       @click=${(e: MouseEvent) =>
                         this.handleDonateTroopClick(e, myPlayer, other)}
-                      class="w-10 h-10 flex items-center justify-center
-                           bg-opacity-50 bg-gray-700 hover:bg-opacity-70
-                           text-white rounded-lg transition-colors"
+                      class="player-panel__button w-10 h-10 flex items-center justify-center rounded-lg transition-colors"
                     >
                       <img
                         src=${donateTroopIcon}
@@ -430,9 +437,7 @@ export class PlayerPanel extends LitElement implements Layer {
                   ? html`<button
                       @click=${(e: MouseEvent) =>
                         this.handleDonateGoldClick(e, myPlayer, other)}
-                      class="w-10 h-10 flex items-center justify-center
-                          bg-opacity-50 bg-gray-700 hover:bg-opacity-70
-                          text-white rounded-lg transition-colors"
+                      class="player-panel__button w-10 h-10 flex items-center justify-center rounded-lg transition-colors"
                     >
                       <img src=${donateGoldIcon} alt="Donate" class="w-6 h-6" />
                     </button>`
@@ -441,9 +446,7 @@ export class PlayerPanel extends LitElement implements Layer {
                   ? html`<button
                       @click=${(e: MouseEvent) =>
                         this.handleEmojiClick(e, myPlayer, other)}
-                      class="w-10 h-10 flex items-center justify-center
-                           bg-opacity-50 bg-gray-700 hover:bg-opacity-70
-                           text-white rounded-lg transition-colors"
+                      class="player-panel__button w-10 h-10 flex items-center justify-center rounded-lg transition-colors"
                     >
                       <img src=${emojiIcon} alt="Emoji" class="w-6 h-6" />
                     </button>`
@@ -453,9 +456,7 @@ export class PlayerPanel extends LitElement implements Layer {
                 ? html`<button
                     @click=${(e: MouseEvent) =>
                       this.handleEmbargoClick(e, myPlayer, other)}
-                    class="w-100 h-10 flex items-center justify-center
-                          bg-opacity-50 bg-gray-700 hover:bg-opacity-70
-                          text-white rounded-lg transition-colors"
+                    class="player-panel__button w-100 h-10 flex items-center justify-center rounded-lg transition-colors"
                   >
                     ${translateText("player_panel.stop_trade")}
                   </button>`
@@ -464,9 +465,7 @@ export class PlayerPanel extends LitElement implements Layer {
                 ? html`<button
                     @click=${(e: MouseEvent) =>
                       this.handleStopEmbargoClick(e, myPlayer, other)}
-                    class="w-100 h-10 flex items-center justify-center
-                          bg-opacity-50 bg-gray-700 hover:bg-opacity-70
-                          text-white rounded-lg transition-colors"
+                    class="player-panel__button w-100 h-10 flex items-center justify-center rounded-lg transition-colors"
                   >
                     ${translateText("player_panel.start_trade")}
                   </button>`

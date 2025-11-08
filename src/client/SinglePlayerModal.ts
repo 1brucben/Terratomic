@@ -358,10 +358,10 @@ export class SinglePlayerModal extends LitElement {
             </div>
 
             <hr
-              style="width: 100%; border-top: 1px solid #444; margin: 16px 0;"
+              style="width: 100%; border-top: 1px solid var(--ui-border-muted); margin: 16px 0;"
             />
             <div
-              style="margin: 8px 0 12px 0; font-weight: bold; color: #ccc; text-align: center;"
+              style="margin: 8px 0 12px 0; font-weight: bold; color: var(--ui-text-muted); text-align: center;"
             >
               ${translateText("single_modal.enables_title")}
             </div>

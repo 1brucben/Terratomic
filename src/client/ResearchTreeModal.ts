@@ -1,5 +1,5 @@
-import { LitElement, html, type PropertyValues } from "lit";
-import { customElement, property, query, state } from "lit/decorators.js";
+import { LitElement, html } from "lit";
+import { customElement, property, query } from "lit/decorators.js";
 import flaskIcon from "../../proprietary/images/flask.png";
 import { EventBus } from "../core/EventBus";
 import { UpgradeType } from "../core/game/Game";
@@ -12,21 +12,12 @@ import {
 } from "../core/tech/ResearchTree";
 import { RESEARCH_TECH_IDS } from "../core/tech/TechEffects";
 import "./components/baseComponents/Modal";
-import {
-  INVESTMENT_REQUEST_EVENT,
-  INVESTMENT_SYNC_EVENT,
-  INVESTMENT_SYNC_REQUEST_EVENT,
-  type InvestmentRequestDetail,
-  type InvestmentSyncDetail,
-} from "./events/InvestmentEvents";
 import { CloseViewEvent } from "./InputHandler";
 import {
   SendPurchaseUpgradeIntentEvent,
   SendResearchTreeSelectIntentEvent,
 } from "./Transport";
 import { renderNumber } from "./Utils";
-
-type ResearchTab = Category | "Overview";
 
 // Category and TechNode are imported from core so client stays in sync
 
@@ -49,48 +40,22 @@ export class ResearchTreeModal extends LitElement {
   private categories: Category[] = Array.from(
     new Set(this.techs.map((t) => t.category)),
   ) as Category[];
-  private readonly tabOrder: ResearchTab[] = [
-    "Land",
-    "Sea",
-    "Air",
-    "Nuclear",
-    "Economy",
-    "Overview",
-  ];
-
-  @state()
-  private activeTab: ResearchTab = "Land";
-
-  @state()
-  private roadInvestmentRate = 0;
-
-  @state()
-  private researchInvestmentRate = 0;
-
-  @state()
-  private lockRoad = false;
-
-  @state()
-  private lockResearch = false;
-
-  @state()
-  private roadInvestmentEnabled = false;
+  // Fixed column widths per category (px). Adjust as needed.
+  private readonly categoryColumnWidths: Record<Category, number> = {
+    Land: 360,
+    Sea: 360,
+    Air: 360,
+    Nuclear: 360,
+    Economy: 360,
+  };
 
   connectedCallback(): void {
     super.connectedCallback();
-    window.addEventListener(
-      INVESTMENT_SYNC_EVENT,
-      this.handleInvestmentSync as EventListener,
-    );
-    if (this.visible) {
-      this.requestInvestmentSync();
-    }
     if (this.visible) this.open();
   }
 
   open() {
     this.modalEl?.open();
-    this.requestInvestmentSync();
     // Perform a full layout pass on the next frame after opening
     requestAnimationFrame(() => this.updateLayout());
     // Start a light refresh loop to reflect game state (gold/upgrades) while open
@@ -195,238 +160,11 @@ export class ResearchTreeModal extends LitElement {
 
   private renderLegend() {
     return html`
-      <div
-        class="legend"
-        style="display:flex;gap:12px;font-size:12px;color:#d1d5db;margin-bottom:8px;"
-      >
-        <span
-          ><span
-            class="swatch"
-            style="width:10px;height:10px;border-radius:2px;display:inline-block;margin-right:6px;background: rgba(239,68,68,0.7)"
-          ></span
-          >Required</span
-        >
-        <span
-          ><span
-            class="swatch"
-            style="width:10px;height:10px;border-radius:2px;display:inline-block;margin-right:6px;background: rgba(245,158,11,0.8)"
-          ></span
-          >Requires one of</span
-        >
-        <span
-          ><span
-            class="swatch"
-            style="width:10px;height:10px;border-radius:2px;display:inline-block;margin-right:6px;background:#4b5563"
-          ></span
-          >Researched</span
-        >
-        <span style="opacity:.7">Unmet requirements are grayed out</span>
-      </div>
-    `;
-  }
-
-  private getOrderedTabs(): ResearchTab[] {
-    const available = new Set(this.categories);
-    const ordered = this.tabOrder.filter((cat) => {
-      if (cat === "Overview") return true;
-      return available.has(cat);
-    });
-    if (!ordered.includes("Overview") && available.size > 0)
-      ordered.push("Overview");
-    return ordered.length ? ordered : [...available];
-  }
-
-  private getActiveCategory(): Category | null {
-    if (this.activeTab === "Overview") return null;
-    const tabs = this.getOrderedTabs();
-    if (!tabs.length) return null;
-    return tabs.includes(this.activeTab)
-      ? (this.activeTab as Category)
-      : (tabs[0] as Category);
-  }
-
-  private onTabClick(cat: ResearchTab) {
-    if (cat === this.activeTab) return;
-    this.activeTab = cat;
-  }
-
-  private handleInvestmentSync = (event: Event) => {
-    const { detail } = event as CustomEvent<InvestmentSyncDetail>;
-    if (!detail) return;
-    this.roadInvestmentRate = detail.road;
-    this.researchInvestmentRate = detail.research;
-    this.lockRoad = detail.lockRoad;
-    this.lockResearch = detail.lockResearch;
-    this.roadInvestmentEnabled = detail.roadEnabled;
-  };
-
-  private requestInvestmentSync() {
-    window.dispatchEvent(new CustomEvent(INVESTMENT_SYNC_REQUEST_EVENT));
-  }
-
-  private dispatchInvestmentRequest(detail: InvestmentRequestDetail) {
-    window.dispatchEvent(
-      new CustomEvent<InvestmentRequestDetail>(INVESTMENT_REQUEST_EVENT, {
-        detail,
-      }),
-    );
-  }
-
-  private handleInvestmentInput(slider: "road" | "research", event: Event) {
-    const input = event.target as HTMLInputElement;
-    const value = Math.max(
-      0,
-      Math.min(1, (parseInt(input.value || "0", 10) || 0) / 100),
-    );
-    const currentValue =
-      slider === "road" ? this.roadInvestmentRate : this.researchInvestmentRate;
-    const locked = slider === "road" ? this.lockRoad : this.lockResearch;
-    const enabled = slider === "road" ? this.canUseRoadSlider() : true;
-    if (locked || !enabled) {
-      input.value = Math.round(currentValue * 100).toString();
-      return;
-    }
-    this.dispatchInvestmentRequest({ type: "set", slider, value });
-  }
-
-  private handleInvestmentToggle(slider: "road" | "research") {
-    if (slider === "road" && !this.canUseRoadSlider()) return;
-    this.dispatchInvestmentRequest({ type: "toggle-lock", slider });
-  }
-
-  private canUseRoadSlider(): boolean {
-    if (this.roadInvestmentEnabled) return true;
-    const me = this.game?.myPlayer?.();
-    return me?.hasUpgrade?.(UpgradeType.Roads) ?? false;
-  }
-
-  private renderRoadSlider(me: PlayerView | null) {
-    const hasRoads = this.canUseRoadSlider();
-    const displayValue = hasRoads ? this.roadInvestmentRate : 0;
-    const percent = Math.round(displayValue * 100);
-    const quality = me?.roadNetworkQuality?.() ?? 100;
-    const completion = me?.roadNetworkCompletion?.() ?? 100;
-    const tooltip = hasRoads
-      ? this.lockRoad
-        ? "Slider is locked. Double-click to unlock."
-        : "Double-click slider to lock."
-      : "Research Post-War Reconstruction to enable road investment.";
-    const breakEvenMarker = this.renderRoadBreakEvenMarker(me, hasRoads);
-    return html`
-      <div
-        class="investment-slider ${hasRoads ? "" : "disabled"}"
-        translate="no"
-      >
-        <label class="investment-label">
-          <span>
-            Road investment: ${percent}% ·
-            <span style="white-space:nowrap;"
-              >Quality ${quality.toFixed(1)}%</span
-            >
-            ·
-            <span style="white-space:nowrap;"
-              >Completion: ${Math.round(completion)}%</span
-            >
-          </span>
-          ${this.lockRoad
-            ? html`<span class="lock-badge">
-                <svg class="lock-icon" viewBox="0 0 24 24">
-                  <path
-                    d="M8 10V7a4 4 0 118 0v3h1a2 2 0 012 2v8a2 2 0 01-2 2H7a2 2 0 01-2-2v-8a2 2 0 012-2h1zm2 0h4V7a2 2 0 10-4 0v3z"
-                  />
-                </svg>
-                Locked
-              </span>`
-            : ""}
-        </label>
-        <div class="investment-track-wrapper" title=${tooltip}>
-          <div class="investment-track-bg"></div>
-          <div
-            class="investment-track-fill"
-            style="width:${Math.min(100, Math.max(0, percent))}%;"
-          ></div>
-          ${breakEvenMarker}
-          <input
-            type="range"
-            min="0"
-            max="100"
-            step="1"
-            .value=${percent.toString()}
-            class="investment-input ${this.lockRoad ? "locked" : ""}"
-            ?disabled=${!hasRoads}
-            @input=${(e: Event) => this.handleInvestmentInput("road", e)}
-            @dblclick=${() => hasRoads && this.handleInvestmentToggle("road")}
-          />
-        </div>
-        <div class="investment-hint">${tooltip}</div>
-      </div>
-    `;
-  }
-
-  private renderRoadBreakEvenMarker(me: PlayerView | null, enabled: boolean) {
-    if (!enabled || !me) return "";
-    const config = this.game?.config?.();
-    if (!config) return "";
-    const pxPerSecond = me.roadNetPixelsPerSecond?.() ?? 0;
-    const base = config.roadConstructionBaseCost();
-    const maintMult = config.roadMaintenanceMultiplier();
-    const length = me.roadNetworkLength?.() ?? 0;
-    const quality = me.roadNetworkQuality?.() ?? 100;
-    const maintenancePerSecond =
-      (length * base * maintMult * Math.max(0.1, quality / 100)) / 60;
-    const grossPerSecond = pxPerSecond * base;
-    let breakEven = 0;
-    if (grossPerSecond > 0) breakEven = maintenancePerSecond / grossPerSecond;
-    else breakEven = maintenancePerSecond > 0 ? 1 : 0;
-    if (!Number.isFinite(breakEven)) breakEven = 0;
-    breakEven = Math.max(0, Math.min(1, breakEven));
-    if (breakEven <= 0 || breakEven >= 1) return "";
-    const leftPct = (breakEven * 100).toFixed(2);
-    return html`<div
-      class="investment-marker"
-      style="left:${leftPct}%;"
-      title=${`Break-even: ${(breakEven * 100).toFixed(0)}%`}
-    ></div>`;
-  }
-
-  private renderResearchSlider() {
-    const percent = Math.round(this.researchInvestmentRate * 100);
-    const tooltip = this.lockResearch
-      ? "Slider is locked. Double-click to unlock."
-      : "Double-click slider to lock.";
-    return html`
-      <div class="investment-slider" translate="no">
-        <label class="investment-label">
-          Research investment: ${percent}%
-          ${this.lockResearch
-            ? html`<span class="lock-badge">
-                <svg class="lock-icon" viewBox="0 0 24 24">
-                  <path
-                    d="M8 10V7a4 4 0 118 0v3h1a2 2 0 012 2v8a2 2 0 01-2 2H7a2 2 0 01-2-2v-8a2 2 0 012-2h1zm2 0h4V7a2 2 0 10-4 0v3z"
-                  />
-                </svg>
-                Locked
-              </span>`
-            : ""}
-        </label>
-        <div class="investment-track-wrapper" title=${tooltip}>
-          <div class="investment-track-bg"></div>
-          <div
-            class="investment-track-fill"
-            style="width:${Math.min(100, Math.max(0, percent))}%;"
-          ></div>
-          <input
-            type="range"
-            min="0"
-            max="100"
-            step="1"
-            .value=${percent.toString()}
-            class="investment-input ${this.lockResearch ? "locked" : ""}"
-            @input=${(e: Event) => this.handleInvestmentInput("research", e)}
-            @dblclick=${() => this.handleInvestmentToggle("research")}
-          />
-        </div>
-        <div class="investment-hint">${tooltip}</div>
+      <div class="legend">
+        <span><span class="swatch swatch-required"></span>Required</span>
+        <span><span class="swatch swatch-oneof"></span>Requires one of</span>
+        <span><span class="swatch swatch-researched"></span>Researched</span>
+        <span class="legend-note">Unmet requirements are grayed out</span>
       </div>
     `;
   }
@@ -443,59 +181,72 @@ export class ResearchTreeModal extends LitElement {
     return map;
   }
 
-  // Orchestrate layout updates and edge redraw
-  private updateLayout() {
-    requestAnimationFrame(() => this.drawEdges());
+  // Apply fixed widths to each level grid so columns line up between rows
+  private applyCategoryWidths() {
+    const tree = this.renderRoot.querySelector(
+      ".tree-container",
+    ) as HTMLElement | null;
+    if (!tree) return;
+    const template = this.categories
+      .map((cat) => `${this.categoryColumnWidths[cat]}px`)
+      .join(" ");
+    tree
+      .querySelectorAll(".level-grid")
+      .forEach(
+        (grid) => ((grid as HTMLElement).style.gridTemplateColumns = template),
+      );
   }
 
-  private renderAllView(
-    levels: number[],
-    researched: Set<string>,
-    categoryColors: Record<Category, string>,
-    percentages: Map<string, number>,
-  ) {
-    if (!this.categories.length) {
-      return html`<div class="empty-state">No research categories found.</div>`;
+  // Position the colored category bands to match the computed column geometry
+  private updateCategoryBandPositions() {
+    const tree = this.renderRoot.querySelector(
+      ".tree-container",
+    ) as HTMLElement | null;
+    if (!tree) return;
+    const bands = this.renderRoot.querySelectorAll(
+      ".category-bands .category-band",
+    ) as NodeListOf<HTMLElement>;
+    const firstGrid = tree.querySelector(".level-grid") as HTMLElement | null;
+    if (!firstGrid || bands.length !== this.categories.length) return;
+    const rootRect = tree.getBoundingClientRect();
+    const scrollLeft = tree.scrollLeft;
+    const contentHeight = tree.scrollHeight;
+    const slots = firstGrid.querySelectorAll(
+      ":scope > .category-slot",
+    ) as NodeListOf<HTMLElement>;
+    slots.forEach((slot, i) => {
+      const r = slot.getBoundingClientRect();
+      const left = r.left - rootRect.left + scrollLeft;
+      const width = r.width;
+      const band = bands[i];
+      band.style.position = "absolute";
+      band.style.left = `${left}px`;
+      band.style.width = `${width}px`;
+      band.style.top = "0";
+      band.style.bottom = "auto";
+      band.style.height = `${contentHeight}px`;
+    });
+    // Reveal the bands immediately after positioning
+    const bandsContainer = this.renderRoot.querySelector(
+      ".category-bands",
+    ) as HTMLElement | null;
+    if (bandsContainer) {
+      bandsContainer.style.height = `${contentHeight}px`;
+      bandsContainer.style.bottom = "auto";
+      bandsContainer.style.visibility = "visible";
     }
-    return html`
-      <div class="all-view-grid">
-        ${this.categories.map((cat) => {
-          const accent = categoryColors[cat] ?? "rgba(59,130,246,0.06)";
-          return html`<div
-            class="all-column"
-            style=${`--column-accent:${accent}`}
-          >
-            <div class="all-column-title">${cat}</div>
-            ${levels.map((lvl) => {
-              const techs = this.techs.filter(
-                (t) => t.category === cat && t.level === lvl,
-              );
-              return html`<div class="compact-level">
-                <div class="compact-level-label">L${lvl}</div>
-                <div class="compact-level-techs">
-                  ${techs.length
-                    ? techs.map((tech) => {
-                        const isResearched = researched.has(tech.id);
-                        const pct = percentages.get(tech.id) ?? 0;
-                        return html`<div
-                          class=${`compact-tech ${isResearched ? "researched" : ""}`}
-                        >
-                          <span class="compact-name"
-                            >${tech.name} (${pct}%)</span
-                          >
-                          ${isResearched
-                            ? html`<span class="compact-check">✔</span>`
-                            : ""}
-                        </div>`;
-                      })
-                    : html`<div class="compact-tech empty">—</div>`}
-                </div>
-              </div>`;
-            })}
-          </div>`;
-        })}
-      </div>
-    `;
+  }
+
+  // Orchestrate layout updates and edge redraw
+  private updateLayout() {
+    // Apply fixed widths and then position bands/edges
+    requestAnimationFrame(() => {
+      this.applyCategoryWidths();
+      requestAnimationFrame(() => {
+        this.updateCategoryBandPositions();
+        this.drawEdges();
+      });
+    });
   }
 
   private drawEdges() {
@@ -503,33 +254,25 @@ export class ResearchTreeModal extends LitElement {
       ".line-layer",
     ) as HTMLElement | null;
     if (!container) return;
-    const svg = container.querySelector("svg");
-    if (!svg) return;
+    const svg = container.querySelector("svg")!;
     while (svg.firstChild) svg.removeChild(svg.firstChild);
-
-    if (this.activeTab === "Overview") return;
-    const activeCategory = this.getActiveCategory();
-    if (!activeCategory) return;
-
-    const visibleTechs = this.techs.filter(
-      (t) => t.category === activeCategory,
-    );
-    if (!visibleTechs.length) return;
 
     const pos = this.computePositions();
     const treeEl = this.renderRoot.querySelector(
       ".tree-container",
-    ) as HTMLElement | null;
-    if (!treeEl) return;
+    ) as HTMLElement;
     const rootRect = treeEl.getBoundingClientRect();
     const scrollLeft = treeEl.scrollLeft;
     const scrollTop = treeEl.scrollTop;
 
+    // Compute highlight path based on priority and current researched
     const me = this.game?.myPlayer?.();
     const researched = this.researchedIDsFromGame();
     const priority = me?.researchPriorityTech?.() ?? null;
 
-    const byId = new Map(visibleTechs.map((n) => [n.id, n] as const));
+    const byId = new Map(this.techs.map((n) => [n.id, n] as const));
+    const sameCat = (a: string, b: string) =>
+      (byId.get(a)?.category ?? "") === (byId.get(b)?.category ?? "");
     const buildMissingPrereqPath = (targetId: string): Set<string> => {
       const path = new Set<string>();
       const seen = new Set<string>();
@@ -538,8 +281,12 @@ export class ResearchTreeModal extends LitElement {
         seen.add(tid);
         const node = byId.get(tid);
         if (!node) return;
-        const reqAll = (node.requiresAllOf ?? []).filter((p) => byId.has(p));
-        const reqOne = (node.requiresOneOf ?? []).filter((p) => byId.has(p));
+        const reqAll = (node.requiresAllOf ?? []).filter((p) =>
+          sameCat(p, tid),
+        );
+        const reqOne = (node.requiresOneOf ?? []).filter((p) =>
+          sameCat(p, tid),
+        );
         for (const r of reqAll) {
           if (!researched.has(r)) {
             path.add(r);
@@ -557,12 +304,12 @@ export class ResearchTreeModal extends LitElement {
           }
         }
       };
-      if (targetId && byId.has(targetId)) dfs(targetId);
+      if (targetId) dfs(targetId);
       return path;
     };
 
     const highlightNodes = new Set<string>();
-    if (priority && byId.has(priority)) {
+    if (priority) {
       highlightNodes.add(priority);
       const missing = buildMissingPrereqPath(priority);
       for (const id of missing) highlightNodes.add(id);
@@ -572,16 +319,16 @@ export class ResearchTreeModal extends LitElement {
       const a = pos[fromId];
       const b = pos[toId];
       if (!a || !b) return;
-      const x1 = a.right - rootRect.left + scrollLeft;
-      const y1 = a.top - rootRect.top + scrollTop + a.height / 2;
-      const x2 = b.left - rootRect.left + scrollLeft;
-      const y2 = b.top - rootRect.top + scrollTop + b.height / 2;
-      const midX = (x1 + x2) / 2;
+      const x1 = a.left - rootRect.left + scrollLeft + a.width / 2;
+      const y1 = a.top - rootRect.top + scrollTop + a.height;
+      const x2 = b.left - rootRect.left + scrollLeft + b.width / 2;
+      const y2 = b.top - rootRect.top + scrollTop;
       const path = document.createElementNS(
         "http://www.w3.org/2000/svg",
         "path",
       );
-      const d = `M ${x1},${y1} L ${midX},${y1} L ${midX},${y2} L ${x2},${y2}`;
+      const mx = (x1 + x2) / 2;
+      const d = `M ${x1},${y1} C ${mx},${y1 + 20} ${mx},${y2 - 20} ${x2},${y2}`;
       path.setAttribute("d", d);
       path.setAttribute("fill", "none");
       const isHighlighted =
@@ -593,17 +340,21 @@ export class ResearchTreeModal extends LitElement {
       svg.appendChild(path);
     };
 
-    for (const t of visibleTechs) {
-      const reqAll = (t.requiresAllOf ?? []).filter((id) => byId.has(id));
-      const reqOne = (t.requiresOneOf ?? []).filter((id) => byId.has(id));
+    for (const t of this.techs) {
+      const sameCat = (p: string) =>
+        this.techs.find((x) => x.id === p)?.category === t.category;
+      t.requiresAllOf ??= [];
+      t.requiresOneOf ??= [];
+
+      const reqAll = t.requiresAllOf.filter(sameCat);
+      const reqOne = t.requiresOneOf.filter(sameCat);
 
       for (const p of reqAll) addLine(p, t.id, "req");
       for (const p of reqOne) addLine(p, t.id, "oneof");
     }
   }
 
-  protected firstUpdated(_changed: PropertyValues): void {
-    super.firstUpdated(_changed);
+  protected firstUpdated(): void {
     setTimeout(() => this.updateLayout(), 0);
     window.addEventListener("resize", this.handleResize);
     // Watch scroll on the whole tree container (both axes)
@@ -615,7 +366,6 @@ export class ResearchTreeModal extends LitElement {
         passive: true,
       } as any,
     );
-    this.requestInvestmentSync();
   }
 
   disconnectedCallback(): void {
@@ -624,10 +374,6 @@ export class ResearchTreeModal extends LitElement {
     // content no longer scrolls for this modal; listener removed
     const tree = this.renderRoot.querySelector(".tree-container");
     tree?.removeEventListener("scroll", this.handleResize as any);
-    window.removeEventListener(
-      INVESTMENT_SYNC_EVENT,
-      this.handleInvestmentSync as EventListener,
-    );
   }
 
   private handleResize = () => {
@@ -655,65 +401,9 @@ export class ResearchTreeModal extends LitElement {
     };
     const me = this.game?.myPlayer?.();
     const priority = me?.researchPriorityTech?.() ?? null;
-    const tabs = this.getOrderedTabs();
-    const isAllView = this.activeTab === "Overview";
-    const activeCategory = this.getActiveCategory();
-    const activeTechs = activeCategory
-      ? this.techs.filter((t) => t.category === activeCategory)
-      : [];
-    const activeMap = new Map(activeTechs.map((n) => [n.id, n] as const));
-    const percentByTechId = (() => {
-      const map = new Map<string, number>();
-      for (const tech of this.techs) {
-        const cost = Math.max(1, tech.cost || 1);
-        const beakers = me?.researchBeakers?.(tech.id) ?? 0;
-        let pct = Math.floor((beakers / cost) * 100);
-        if (!Number.isFinite(pct)) pct = 0;
-        pct = Math.max(0, Math.min(100, pct));
-        if (researched.has(tech.id)) pct = 100;
-        map.set(tech.id, pct);
-      }
-      return map;
-    })();
-    const highlightTrail = (() => {
-      const set = new Set<string>();
-      if (!priority || !activeCategory || !activeMap.has(priority)) return set;
-      const seen = new Set<string>();
-      const dfs = (tid: string) => {
-        if (seen.has(tid)) return;
-        seen.add(tid);
-        const node = activeMap.get(tid);
-        if (!node) return;
-        const reqAll = (node.requiresAllOf ?? []).filter((p) =>
-          activeMap.has(p),
-        );
-        const reqOne = (node.requiresOneOf ?? []).filter((p) =>
-          activeMap.has(p),
-        );
-        for (const r of reqAll) {
-          if (!researched.has(r)) {
-            set.add(r);
-            dfs(r);
-          }
-        }
-        if (reqOne.length > 0 && !reqOne.some((p) => researched.has(p))) {
-          const sorted = [...reqOne].sort(
-            (a, b) =>
-              (activeMap.get(a)?.level ?? 0) - (activeMap.get(b)?.level ?? 0),
-          );
-          const choice = sorted[0];
-          if (choice && !researched.has(choice)) {
-            set.add(choice);
-            dfs(choice);
-          }
-        }
-      };
-      set.add(priority);
-      dfs(priority);
-      return set;
-    })();
 
     return html`
+      <!-- Prevent outer content from scrolling; use inner tree scroll only -->
       <o-modal
         title="Research Tree"
         max-width="90vw"
@@ -721,374 +411,192 @@ export class ResearchTreeModal extends LitElement {
         content-overflow="hidden"
       >
         <style>
-          .tab-shell {
+          :host {
+            --research-req-color: var(--ui-alert);
+            --research-oneof-color: var(--ui-warning);
+            --research-priority-color: var(--ui-info);
+            --research-progress-end: color-mix(
+              in srgb,
+              var(--research-priority-color) 60%,
+              var(--ui-text-light) 40%
+            );
+            --research-researched-color: var(--ui-secondary);
+          }
+          .legend {
             display: flex;
-            flex-direction: column;
+            flex-wrap: wrap;
             gap: 12px;
-          }
-          .tab-bar {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 12px;
-            padding: 8px 4px 4px;
-            border-bottom: 1px solid rgba(148, 163, 184, 0.12);
-            align-items: flex-end;
-          }
-          .tab-buttons {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 8px;
-          }
-          .tab-button {
-            background: #0b1428;
-            color: #9fb4d9;
-            border: 1px solid rgba(148, 163, 184, 0.2);
-            border-radius: 999px;
-            padding: 6px 14px;
-            font-size: 13px;
-            text-transform: uppercase;
-            letter-spacing: 0.05em;
-            cursor: pointer;
-            transition: all 120ms ease;
-          }
-          .tab-button:hover {
-            color: #f1f5ff;
-            border-color: rgba(148, 163, 184, 0.4);
-          }
-          .tab-button.active {
-            color: #f8fbff;
-            border-color: rgba(99, 179, 237, 0.7);
-            background:
-              linear-gradient(
-                135deg,
-                rgba(59, 130, 246, 0.2),
-                rgba(6, 182, 212, 0.08)
-              ),
-              var(--tab-accent, #132035);
-            box-shadow: 0 0 20px rgba(15, 23, 42, 0.6);
-          }
-          .tab-panel {
-            background: #050b16;
-            border: 1px solid rgba(15, 23, 42, 0.9);
-            border-radius: 14px;
-            padding: 12px;
-            box-shadow:
-              inset 0 1px 0 rgba(255, 255, 255, 0.05),
-              0 10px 30px rgba(2, 6, 23, 0.65);
-          }
-          .investment-cluster {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 16px;
-            margin-left: auto;
-            align-items: flex-start;
-            margin-top: -40px;
-          }
-          .investment-slider {
-            min-width: 260px;
-            width: clamp(260px, 40vw, 390px);
-            color: #dbe7ff;
             font-size: 12px;
+            color: var(--ui-text-light);
+            margin-bottom: 8px;
           }
-          .investment-slider.disabled {
-            opacity: 0.5;
-          }
-          .investment-label {
-            font-size: 12px;
-            margin-bottom: 4px;
-            display: flex;
-            align-items: center;
-            gap: 6px;
-          }
-          .investment-track-wrapper {
-            position: relative;
-            height: 24px;
-          }
-          .investment-track-bg {
-            position: absolute;
-            left: 0;
-            right: 0;
-            top: 50%;
-            transform: translateY(-50%);
-            height: 6px;
-            border-radius: 999px;
-            background-color: rgba(24, 39, 66, 0.85);
-          }
-          .investment-track-fill {
-            position: absolute;
-            left: 0;
-            top: 50%;
-            transform: translateY(-50%);
-            height: 6px;
-            border-radius: 999px;
-            background: linear-gradient(90deg, #5ac8fa, #2563eb);
-          }
-          .investment-input {
-            position: absolute;
-            inset: 0;
-            margin: 0;
-            height: 100%;
-            background: transparent;
-            -webkit-appearance: none;
-            appearance: none;
-            outline: none;
-          }
-          .investment-input::-webkit-slider-thumb {
-            -webkit-appearance: none;
-            appearance: none;
-            width: 14px;
-            height: 14px;
-            border-radius: 50%;
-            background: #0b1220;
-            border: 2px solid #27476e;
-            cursor: pointer;
-            box-shadow: 0 0 0 1px rgba(39, 71, 110, 0.35) inset;
-          }
-          .investment-input::-moz-range-thumb {
-            width: 14px;
-            height: 14px;
-            border-radius: 50%;
-            background: #0b1220;
-            border: 2px solid #27476e;
-            cursor: pointer;
-            box-shadow: 0 0 0 1px rgba(39, 71, 110, 0.35) inset;
-          }
-          .investment-input::-webkit-slider-runnable-track,
-          .investment-input::-moz-range-track {
-            background: transparent;
-          }
-          .investment-input.locked::-webkit-slider-thumb,
-          .investment-input.locked::-moz-range-thumb {
-            border-color: #f59e0b;
-            box-shadow: 0 0 0 2px rgba(245, 158, 11, 0.45) inset;
-          }
-          .investment-marker {
-            position: absolute;
-            top: 0;
-            width: 2px;
-            height: 8px;
-            background: rgba(255, 255, 255, 0.85);
-            transform: translateX(-1px);
-            border-radius: 1px;
-          }
-          .investment-hint {
-            font-size: 10px;
-            opacity: 0.65;
-            margin-top: 2px;
-          }
-          .investment-meta {
-            font-size: 11px;
-            opacity: 0.75;
-            margin-top: 4px;
-            text-align: right;
-          }
-          .lock-badge {
-            display: inline-flex;
-            align-items: center;
-            gap: 4px;
-            padding: 1px 6px;
-            border-radius: 999px;
-            background: rgba(255, 255, 255, 0.08);
-            border: 1px solid rgba(255, 255, 255, 0.2);
-            font-size: 10px;
-          }
-          .lock-icon {
+          .legend .swatch {
             width: 10px;
             height: 10px;
-            fill: currentColor;
+            border-radius: 2px;
+            display: inline-block;
+            margin-right: 6px;
+          }
+          .legend-note {
+            opacity: 0.7;
+          }
+          .swatch-required {
+            background: color-mix(
+              in srgb,
+              var(--research-req-color) 70%,
+              transparent
+            );
+          }
+          .swatch-oneof {
+            background: color-mix(
+              in srgb,
+              var(--research-oneof-color) 70%,
+              transparent
+            );
+          }
+          .swatch-researched {
+            background: var(--research-researched-color);
           }
           .tree-container {
+            display: grid;
+            /* Size each category column to its content and allow overall horizontal scroll */
+            grid-template-columns: repeat(5, minmax(160px, max-content));
+            grid-auto-rows: auto;
+            gap: 16px;
             position: relative;
-            overflow: auto;
-            max-height: calc(85dvh - 150px);
-            padding: 6px;
+            overflow-x: auto;
+            overflow-y: auto; /* inner scroll */
+            width: 100%;
+            /* constrain height to modal content so vertical scroll stays inside */
+            max-height: calc(85dvh - 100px);
+            padding-bottom: 4px; /* space for scrollbar overlay */
+            /* Firefox scrollbar */
             scrollbar-width: thin;
-            scrollbar-color: #27476e #0e1a33;
+            scrollbar-color: var(--ui-secondary) var(--ui-panel-border); /* thumb track */
           }
-          .tree-container.all-view {
-            padding: 12px;
-          }
+          /* WebKit-based browsers scrollbar */
           .tree-container::-webkit-scrollbar {
-            height: 10px;
-            width: 10px;
-            background: transparent;
+            height: 10px; /* horizontal scrollbar thickness */
+            width: 10px; /* vertical scrollbar thickness */
+            background: transparent; /* let track define color */
           }
           .tree-container::-webkit-scrollbar-track {
-            background: #0e1a33;
+            background: var(--ui-panel-border); /* deep navy track */
             border-radius: 8px;
             box-shadow: inset 0 0 6px rgba(0, 0, 0, 0.4);
           }
           .tree-container::-webkit-scrollbar-thumb {
-            background: linear-gradient(180deg, #27476e, #1e3554);
+            background: linear-gradient(
+              180deg,
+              var(--ui-secondary),
+              var(--ui-primary)
+            );
             border-radius: 8px;
-            border: 1px solid #27476e;
+            border: 1px solid var(--ui-secondary);
             box-shadow: inset 0 0 4px rgba(255, 255, 255, 0.06);
           }
           .tree-container::-webkit-scrollbar-thumb:hover {
-            background: linear-gradient(180deg, #32629b, #254a78);
-            border-color: #32629b;
+            background: linear-gradient(
+              180deg,
+              var(--ui-secondary-hover),
+              var(--ui-secondary)
+            );
+            border-color: var(--ui-secondary-hover);
           }
           .tree-container::-webkit-scrollbar-corner {
-            background: #0e1a33;
+            background: var(--ui-panel-border);
           }
-          .level-strip {
+          .category-bands {
+            position: absolute;
+            inset: 0;
+            display: block; /* absolute children are positioned by JS */
+            z-index: 0;
+            pointer-events: none;
+            visibility: hidden; /* avoid flicker before positioned */
+          }
+          .category-band {
+            border-left: 1px solid rgba(255, 255, 255, 0.05);
+            border-right: 1px solid rgba(0, 0, 0, 0.25);
+          }
+          .level-band {
+            grid-column: 1 / -1;
+            border-radius: 8px;
+            padding: 6px; /* slightly tighter vertical spacing */
+          }
+          .level-header {
+            font-weight: bold;
+            color: var(--ui-text-accent); /* submarine heading */
+            margin-bottom: 6px; /* reduce header-bottom gap */
+            padding-left: 6px; /* add a bit of left room */
             display: flex;
-            gap: 36px;
-            padding: 6px;
-            min-height: 220px;
-            position: relative;
-            z-index: 2;
-          }
-          .level-column {
-            flex: 0 0 auto;
-            min-width: 220px;
-            border-radius: 12px;
-            border: 1px solid rgba(15, 23, 42, 0.95);
-            background:
-              linear-gradient(
-                180deg,
-                rgba(3, 7, 14, 0.98),
-                rgba(5, 9, 18, 0.92)
-              ),
-              var(--level-accent, rgba(59, 130, 246, 0.06));
-            padding: 12px;
-            box-shadow:
-              inset 0 1px 0 rgba(255, 255, 255, 0.04),
-              0 6px 24px rgba(2, 6, 23, 0.75);
-          }
-          .all-view-grid {
-            display: flex;
-            gap: 16px;
-            min-width: max-content;
-          }
-          .all-column {
-            flex: 0 0 220px;
-            background:
-              linear-gradient(
-                180deg,
-                rgba(4, 7, 14, 0.98),
-                rgba(6, 12, 24, 0.92)
-              ),
-              var(--column-accent, rgba(59, 130, 246, 0.05));
-            border: 1px solid rgba(15, 23, 42, 0.85);
-            border-radius: 12px;
-            padding: 10px;
-            box-shadow:
-              inset 0 1px 0 rgba(255, 255, 255, 0.04),
-              0 4px 16px rgba(2, 6, 23, 0.65);
-          }
-          .all-column-title {
-            font-weight: 600;
-            color: #f0f6ff;
-            margin-bottom: 8px;
-            text-transform: uppercase;
-            letter-spacing: 0.05em;
-          }
-          .compact-level {
-            display: flex;
+            align-items: center;
             gap: 8px;
-            align-items: flex-start;
-            margin-bottom: 6px;
           }
-          .compact-level-label {
-            font-size: 10px;
-            color: #9fb4d9;
-            padding-top: 2px;
-            min-width: 22px;
+          .level-grid {
+            display: grid;
+            /* Make each category column width fit its widest cell content */
+            grid-template-columns: repeat(5, minmax(160px, max-content));
+            gap: 10px; /* slightly less gap between categories */
           }
-          .compact-level-techs {
+          .category-slot {
             display: flex;
             flex-direction: column;
-            gap: 4px;
+            gap: 6px; /* slightly reduce space between title and row */
+            width: auto; /* allow to grow */
+            padding: 6px 12px; /* slightly reduce vertical padding */
+            box-sizing: border-box;
+          }
+          .tech-row {
+            display: flex;
+            flex-direction: row;
+            flex-wrap: wrap; /* keep items horizontal, wrap if too many for fixed column */
+            align-items: flex-start;
+            justify-content: center; /* center techs within the category */
+            gap: 6px; /* slightly tighter spacing between cards */
+            /* No per-row scroll; the entire tree scrolls */
+            overflow: visible;
             width: 100%;
           }
-          .compact-tech {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            font-size: 11px;
-            padding: 4px 6px;
-            border-radius: 6px;
-            background: rgba(15, 23, 42, 0.65);
-            border: 1px solid rgba(59, 130, 246, 0.15);
-            color: #dbe7ff;
-          }
-          .compact-tech.researched {
-            background: rgba(22, 82, 58, 0.35);
-            border-color: rgba(34, 197, 94, 0.4);
-          }
-          .compact-tech.empty {
-            justify-content: center;
-            font-style: italic;
-            opacity: 0.5;
-          }
-          .compact-name {
-            overflow: hidden;
-            text-overflow: ellipsis;
-            white-space: nowrap;
-          }
-          .compact-check {
-            color: #86efac;
-            font-weight: 600;
-            margin-left: 8px;
-          }
-          .level-label {
-            font-weight: 600;
-            color: #e3edff;
-            margin-bottom: 10px;
-            letter-spacing: 0.04em;
-            text-transform: uppercase;
-          }
-          .tech-stack {
-            display: flex;
-            flex-direction: column;
-            gap: 10px;
-          }
-          .empty-level {
+          .category-title {
             font-size: 12px;
-            color: #7b8ba8;
+            text-transform: uppercase;
             opacity: 0.8;
-            text-align: center;
-            border: 1px dashed rgba(125, 138, 164, 0.4);
-            border-radius: 8px;
-            padding: 16px 8px;
-          }
-          .empty-state {
-            padding: 24px;
-            text-align: center;
-            color: #9eaec9;
+            color: var(--ui-text-accent); /* submarine label */
+            margin-bottom: 4px;
           }
           .tech {
-            background: linear-gradient(180deg, #122544, #0e1c33);
-            border: 1px solid rgba(59, 130, 246, 0.35);
-            border-radius: 10px;
-            padding: 10px;
-            color: #e4edff;
+            background: var(--ui-panel-shell-top); /* submarine panel */
+            border: 1px solid var(--ui-panel-border); /* deep navy border */
+            border-radius: 8px;
+            padding: 8px;
+            color: var(--ui-text-accent); /* soft desaturated light-blue */
             position: relative;
             cursor: pointer;
             transition:
               transform 0.12s ease,
               box-shadow 0.12s ease,
               opacity 0.2s;
-            min-height: 72px;
-            width: 100%;
+            min-height: 64px;
+            /* Let multiple techs sit side-by-side */
+            flex: 0 0 auto;
+            width: 160px;
             text-align: left;
-            box-shadow:
-              0 6px 16px rgba(2, 6, 23, 0.65),
-              inset 0 0 0 1px rgba(255, 255, 255, 0.02);
           }
           .tech:hover {
-            box-shadow:
-              0 8px 18px rgba(2, 6, 23, 0.8),
-              0 0 0 2px rgba(59, 130, 246, 0.45) inset;
+            box-shadow: 0 0 0 2px
+              color-mix(in srgb, var(--ui-secondary) 70%, transparent) inset; /* bluish rim */
           }
           .tech.locked {
-            opacity: 1;
+            opacity: 1; /* allow full visibility so users can prioritize paths */
             cursor: pointer;
           }
           .tech.researched {
-            background: #162544;
-            border-color: #27476e;
+            background: color-mix(
+              in srgb,
+              var(--research-researched-color) 85%,
+              transparent
+            ); /* slightly lighter */
+            border-color: var(--research-researched-color);
           }
           .tech.researched::after {
             content: "\\2713";
@@ -1096,20 +604,26 @@ export class ResearchTreeModal extends LitElement {
             top: 6px;
             right: 8px;
             font-weight: bold;
-            color: #86efac;
+            color: var(--ui-success); /* keep success green */
             text-shadow: 0 1px 0 rgba(0, 0, 0, 0.5);
           }
           .tech-wrapper {
             display: flex;
             flex-direction: column;
             gap: 6px;
-            width: 100%;
+            width: 160px;
+            flex: 0 0 auto;
           }
           .tech-action {
-            background: rgba(176, 80, 78, 0.18);
-            border: 1px solid rgba(176, 80, 78, 0.45);
+            background: color-mix(
+              in srgb,
+              var(--research-req-color) 20%,
+              transparent
+            );
+            border: 1px solid
+              color-mix(in srgb, var(--research-req-color) 45%, transparent);
             border-radius: 6px;
-            color: #ffd1d1;
+            color: var(--research-req-color);
             font-size: 11px;
             font-weight: 600;
             padding: 6px 8px;
@@ -1121,27 +635,48 @@ export class ResearchTreeModal extends LitElement {
               color 120ms ease;
           }
           .tech-action:hover:not([disabled]) {
-            background: rgba(176, 80, 78, 0.3);
-            border-color: rgba(176, 80, 78, 0.6);
+            background: color-mix(
+              in srgb,
+              var(--research-req-color) 35%,
+              transparent
+            );
+            border-color: color-mix(
+              in srgb,
+              var(--research-req-color) 60%,
+              transparent
+            );
           }
           .tech-action[disabled] {
             opacity: 0.65;
             cursor: not-allowed;
           }
+          /* Highlight prioritized tech with a subtle halo */
           .tech.priority {
-            border-color: rgba(59, 130, 246, 0.9);
+            border-color: var(--research-priority-color);
             box-shadow:
-              0 0 0 2px rgba(59, 130, 246, 0.35) inset,
-              0 0 10px 2px rgba(59, 130, 246, 0.25);
+              0 0 0 2px
+                color-mix(
+                  in srgb,
+                  var(--research-priority-color) 35%,
+                  transparent
+                )
+                inset,
+              0 0 10px 2px
+                color-mix(
+                  in srgb,
+                  var(--research-priority-color) 25%,
+                  transparent
+                );
           }
+          /* Themed tooltip for tech descriptions (right-side) */
           .tech .tooltip {
             position: absolute;
             top: 50%;
-            left: calc(100% + 12px);
+            left: calc(100% + 8px);
             transform: translateY(-50%);
-            background: #111827;
-            color: #e5e7eb;
-            border: 1px solid #374151;
+            background: var(--ui-panel-shell-top); /* modal dark */
+            color: var(--ui-text-light);
+            border: 1px solid var(--ui-border-muted);
             border-radius: 8px;
             box-shadow:
               0 10px 20px rgba(0, 0, 0, 0.35),
@@ -1166,51 +701,93 @@ export class ResearchTreeModal extends LitElement {
             transform: translateY(-50%);
             border-width: 6px;
             border-style: solid;
-            border-color: transparent #111827 transparent transparent;
+            border-color: transparent var(--ui-panel-shell-top) transparent
+              transparent; /* caret pointing right */
             filter: drop-shadow(-1px 0 0 rgba(55, 65, 81, 0.9));
           }
           .tech:hover .tooltip {
             opacity: 1;
             visibility: visible;
           }
+          /* Research progress bar */
           .progress-track {
             width: 100%;
             height: 6px;
-            background: rgba(39, 71, 110, 0.25);
-            border: 1px solid rgba(39, 71, 110, 0.35);
+            background: color-mix(
+              in srgb,
+              var(--ui-secondary) 25%,
+              transparent
+            );
+            border: 1px solid
+              color-mix(in srgb, var(--ui-secondary) 35%, transparent);
             border-radius: 6px;
             overflow: hidden;
             margin: 6px 0 4px;
           }
           .progress-fill {
             height: 100%;
-            background: linear-gradient(90deg, #00f8ff 0%, #00a6f6 100%);
+            background: linear-gradient(
+              90deg,
+              var(--research-priority-color) 0%,
+              var(--research-progress-end) 100%
+            );
             box-shadow:
-              0 0 10px rgba(37, 150, 186, 0.55),
-              0 0 16px rgba(0, 166, 246, 0.35),
+              0 0 10px
+                color-mix(
+                  in srgb,
+                  var(--research-priority-color) 55%,
+                  transparent
+                ),
+              0 0 16px
+                color-mix(
+                  in srgb,
+                  var(--research-priority-color) 35%,
+                  transparent
+                ),
               inset 0 0 4px rgba(255, 255, 255, 0.1);
           }
           .progress-fill.priority {
-            background: linear-gradient(90deg, #00f8ff 0%, #00a6f6 100%);
+            background: linear-gradient(
+              90deg,
+              var(--research-priority-color) 0%,
+              var(--research-progress-end) 100%
+            );
             box-shadow:
-              0 0 14px rgba(0, 166, 246, 0.75),
-              0 0 26px rgba(0, 248, 255, 0.6),
-              0 0 32px rgba(0, 166, 246, 0.5),
+              0 0 14px
+                color-mix(
+                  in srgb,
+                  var(--research-priority-color) 75%,
+                  transparent
+                ),
+              0 0 26px
+                color-mix(
+                  in srgb,
+                  var(--research-priority-color) 60%,
+                  transparent
+                ),
+              0 0 32px
+                color-mix(
+                  in srgb,
+                  var(--research-priority-color) 50%,
+                  transparent
+                ),
               inset 0 0 6px rgba(255, 255, 255, 0.16),
               inset 0 0 0 1px rgba(255, 255, 255, 0.12);
           }
           .cost-inline {
             display: inline-flex;
+            /* Align bottoms of number and icon */
             align-items: flex-end;
             gap: 6px;
             font-size: 12px;
-            color: #dbe7ff;
+            color: var(--ui-text-accent);
             opacity: 0.95;
             margin: 2px 0 4px;
           }
           .cost-inline img {
             width: 14px;
             height: 14px;
+            /* Slight nudge up to visually align with text bottom across platforms */
             transform: translateY(-1px);
             opacity: 0.95;
           }
@@ -1222,14 +799,38 @@ export class ResearchTreeModal extends LitElement {
             margin-right: 6px;
           }
           .pill-req {
-            background: rgba(176, 80, 78, 0.18);
-            color: #ffd1d1;
-            border: 1px solid rgba(176, 80, 78, 0.45);
+            background: color-mix(
+              in srgb,
+              var(--research-req-color) 18%,
+              transparent
+            ); /* warning red match */
+            color: var(--research-req-color);
+            border: 1px solid
+              color-mix(in srgb, var(--research-req-color) 45%, transparent);
           }
           .pill-oneof {
-            background: rgba(245, 158, 11, 0.14);
-            color: #ffe8a3;
-            border: 1px solid rgba(245, 158, 11, 0.35);
+            background: color-mix(
+              in srgb,
+              var(--research-oneof-color) 18%,
+              transparent
+            );
+            color: var(--research-oneof-color);
+            border: 1px solid
+              color-mix(in srgb, var(--research-oneof-color) 35%, transparent);
+          }
+          .pill-priority {
+            background: color-mix(
+              in srgb,
+              var(--research-priority-color) 18%,
+              transparent
+            );
+            color: var(--research-priority-color);
+            border: 1px solid
+              color-mix(
+                in srgb,
+                var(--research-priority-color) 45%,
+                transparent
+              );
           }
           .line-layer {
             position: absolute;
@@ -1246,232 +847,257 @@ export class ResearchTreeModal extends LitElement {
             stroke-width: 2;
           }
           .edge.req {
-            stroke: rgba(176, 80, 78, 0.85);
+            stroke: color-mix(
+              in srgb,
+              var(--research-req-color) 85%,
+              transparent
+            );
           }
           .edge.oneof {
-            stroke: rgba(245, 158, 11, 0.85);
+            stroke: color-mix(
+              in srgb,
+              var(--research-oneof-color) 85%,
+              transparent
+            );
             stroke-dasharray: 6 4;
           }
           .edge.highlight {
             stroke-width: 3;
-            filter: drop-shadow(0 0 4px rgba(59, 130, 246, 0.45));
+            filter: drop-shadow(
+              0 0 4px
+                color-mix(
+                  in srgb,
+                  var(--research-priority-color) 45%,
+                  transparent
+                )
+            );
           }
         </style>
         ${this.renderLegend()}
-        <div class="tab-shell">
-          <div class="tab-bar">
-            <div class="tab-buttons" role="tablist">
-              ${tabs.map((cat) => {
-                const isAllTab = cat === "Overview";
-                const isActive = isAllTab ? isAllView : cat === activeCategory;
-                return html`<button
-                  type="button"
-                  class="tab-button ${isActive ? "active" : ""}"
-                  role="tab"
-                  aria-selected=${String(isActive)}
-                  style=${isActive
-                    ? `--tab-accent:${isAllTab ? "rgba(148,163,184,0.25)" : (categoryColors[cat as Category] ?? "transparent")}`
-                    : ""}
-                  @click=${() => this.onTabClick(cat)}
-                >
-                  ${cat}
-                </button>`;
-              })}
-            </div>
-            <div class="investment-cluster">
-              ${this.renderResearchSlider()}
-              ${this.renderRoadSlider(me ?? null)}
-            </div>
+        <div class="tree-container">
+          <div class="category-bands">
+            ${this.categories.map(
+              (cat) =>
+                html`<div
+                  class="category-band"
+                  style="background:${categoryColors[cat]}"
+                ></div>`,
+            )}
           </div>
-          <div class="tab-panel" role="tabpanel">
-            <div class="tree-container ${isAllView ? "all-view" : ""}">
-              ${isAllView
-                ? this.renderAllView(
-                    levels,
-                    researched,
-                    categoryColors,
-                    percentByTechId,
-                  )
-                : activeCategory
-                  ? html`<div
-                      class="level-strip"
-                      style=${`--level-accent:${categoryColors[activeCategory] ?? "transparent"}`}
-                    >
-                      ${levels.map((lvl) => {
-                        const techsForLevel = this.techs.filter(
-                          (t) =>
-                            t.level === lvl && t.category === activeCategory,
-                        );
-                        return html`<div class="level-column">
-                          <div class="level-label">Tech Level ${lvl}</div>
-                          <div class="tech-stack">
-                            ${techsForLevel.length
-                              ? techsForLevel.map((tech) => {
-                                  const available = this.isAvailable(
-                                    tech.id,
-                                    researched,
+          ${levels.map(
+            (lvl) => html`
+              <div class="level-band">
+                <div class="level-header">Tech Level ${lvl}</div>
+                <div class="level-grid">
+                  ${this.categories.map((cat) => {
+                    const techs = this.techs.filter(
+                      (t) => t.level === lvl && t.category === cat,
+                    );
+                    return html`
+                      <div class="category-slot">
+                        <div class="category-title">${cat}</div>
+                        <div class="tech-row">
+                          ${techs.map((tech) => {
+                            const available = this.isAvailable(
+                              tech.id,
+                              researched,
+                            );
+                            const isResearched = researched.has(tech.id);
+                            const clickable = !isResearched; // allow prioritizing locked techs
+                            // Compute highlight membership for this node
+                            const byId = new Map(
+                              this.techs.map((n) => [n.id, n] as const),
+                            );
+                            const sameCat = (a: string, b: string) =>
+                              (byId.get(a)?.category ?? "") ===
+                              (byId.get(b)?.category ?? "");
+                            const buildMissingPrereqPath = (
+                              targetId: string,
+                            ): Set<string> => {
+                              const path = new Set<string>();
+                              const seen = new Set<string>();
+                              const dfs = (tid: string) => {
+                                if (seen.has(tid)) return;
+                                seen.add(tid);
+                                const node = byId.get(tid);
+                                if (!node) return;
+                                const reqAll = (
+                                  node.requiresAllOf ?? []
+                                ).filter((p) => sameCat(p, tid));
+                                const reqOne = (
+                                  node.requiresOneOf ?? []
+                                ).filter((p) => sameCat(p, tid));
+                                for (const r of reqAll) {
+                                  if (!researched.has(r)) {
+                                    path.add(r);
+                                    dfs(r);
+                                  }
+                                }
+                                if (
+                                  reqOne.length > 0 &&
+                                  !reqOne.some((p) => researched.has(p))
+                                ) {
+                                  const sorted = [...reqOne].sort(
+                                    (a, b) =>
+                                      (byId.get(a)?.level ?? 0) -
+                                      (byId.get(b)?.level ?? 0),
                                   );
-                                  const isResearched = researched.has(tech.id);
-                                  const clickable = !isResearched;
-                                  const inHighlight = highlightTrail.has(
-                                    tech.id,
-                                  );
-                                  const classes = [
-                                    "tech",
-                                    available ? "" : "locked",
-                                    isResearched ? "researched" : "",
-                                    inHighlight ? "priority" : "",
-                                  ]
-                                    .filter(Boolean)
-                                    .join(" ");
-                                  const action = this.renderScorchedEarthAction(
-                                    tech,
-                                    me ?? null,
-                                    isResearched,
-                                  );
-                                  return html`<div class="tech-wrapper">
-                                    <button
-                                      class=${classes}
-                                      data-id=${tech.id}
-                                      @click=${() => this.onTechClick(tech.id)}
-                                      title=${""}
-                                      ?disabled=${!clickable}
+                                  const choice = sorted[0];
+                                  if (choice && !researched.has(choice)) {
+                                    path.add(choice);
+                                    dfs(choice);
+                                  }
+                                }
+                              };
+                              if (priority) dfs(priority);
+                              return path;
+                            };
+                            const highlightSet = (() => {
+                              const s = new Set<string>();
+                              if (priority) {
+                                s.add(priority);
+                                const missing =
+                                  buildMissingPrereqPath(priority);
+                                for (const id of missing) s.add(id);
+                              }
+                              return s;
+                            })();
+                            const inHighlight = highlightSet.has(tech.id);
+
+                            const classes = [
+                              "tech",
+                              available ? "" : "locked",
+                              isResearched ? "researched" : "",
+                              inHighlight ? "priority" : "",
+                            ]
+                              .filter(Boolean)
+                              .join(" ");
+                            const action = this.renderScorchedEarthAction(
+                              tech,
+                              me ?? null,
+                              isResearched,
+                            );
+                            return html`
+                              <div class="tech-wrapper">
+                                <button
+                                  class=${classes}
+                                  data-id=${tech.id}
+                                  @click=${() => this.onTechClick(tech.id)}
+                                  title=${""}
+                                  ?disabled=${!clickable}
+                                >
+                                  <div class="tooltip">
+                                    <div
+                                      style="font-weight:600;margin-bottom:4px;"
                                     >
-                                      <div class="tooltip">
-                                        <div
-                                          style="font-weight:600;margin-bottom:4px;"
+                                      ${tech.name}
+                                    </div>
+                                    ${tech.description
+                                      ? html`<div
+                                          style="opacity:.9;margin-bottom:6px;"
                                         >
-                                          ${tech.name}
-                                        </div>
-                                        ${tech.description
-                                          ? html`<div
-                                              style="opacity:.9;margin-bottom:6px;"
-                                            >
-                                              ${tech.description}
-                                            </div>`
-                                          : ""}
-                                        ${(() => {
-                                          const meLocal =
-                                            this.game?.myPlayer?.();
-                                          const b =
-                                            meLocal?.researchBeakers?.(
-                                              tech.id,
-                                            ) ?? 0;
-                                          const pct = Math.min(
-                                            100,
-                                            Math.floor(
-                                              (b / (tech.cost || 1)) * 100,
-                                            ),
-                                          );
-                                          return html`<div
-                                            style="font-size:11px;opacity:.9;"
-                                          >
-                                            <div
-                                              class="cost-inline"
-                                              translate="no"
-                                            >
-                                              <span
-                                                >Cost:
-                                                ${tech.cost.toLocaleString()}</span
-                                              >
-                                              <img
-                                                src=${flaskIcon}
-                                                alt="research cost"
-                                              />
-                                            </div>
-                                            ${isResearched
-                                              ? html`<div>
-                                                  Status: Completed
-                                                </div>`
-                                              : html`<div>
-                                                  Progress:
-                                                  ${b.toLocaleString()} /
-                                                  ${tech.cost.toLocaleString()}
-                                                  (${pct}%)
-                                                </div>`}
-                                          </div>`;
-                                        })()}
-                                      </div>
-                                      <div
-                                        style="font-weight:600; margin-bottom:6px;"
+                                          ${tech.description}
+                                        </div>`
+                                      : ""}
+                                    ${(() => {
+                                      const meLocal = this.game?.myPlayer?.();
+                                      const b =
+                                        meLocal?.researchBeakers?.(tech.id) ??
+                                        0;
+                                      const pct = Math.min(
+                                        100,
+                                        Math.floor(
+                                          (b / (tech.cost || 1)) * 100,
+                                        ),
+                                      );
+                                      return html`<div
+                                        style="font-size:11px;opacity:.9;"
                                       >
-                                        ${tech.name}
-                                      </div>
-                                      <div class="cost-inline" translate="no">
-                                        <span
-                                          >${tech.cost.toLocaleString()}</span
-                                        >
-                                        <img
-                                          src=${flaskIcon}
-                                          alt="research cost"
-                                        />
-                                      </div>
-                                      ${!isResearched && me
-                                        ? (() => {
-                                            const b =
-                                              me.researchBeakers?.(tech.id) ??
-                                              0;
-                                            const pct = Math.min(
-                                              100,
-                                              Math.floor(
-                                                (b / (tech.cost || 1)) * 100,
-                                              ),
-                                            );
-                                            return b > 0
-                                              ? html`<div
-                                                  class="progress-track"
-                                                >
-                                                  <div
-                                                    class="progress-fill ${priority ===
-                                                    tech.id
-                                                      ? "priority"
-                                                      : ""}"
-                                                    style="width:${pct}%"
-                                                  ></div>
-                                                </div>`
-                                              : "";
-                                          })()
-                                        : ""}
-                                      <div>
-                                        ${tech.requiresAllOf?.length
-                                          ? html`<span class="pill pill-req"
-                                              >Requires:
-                                              ${tech.requiresAllOf.length}</span
-                                            >`
-                                          : ""}
-                                        ${tech.requiresOneOf?.length
-                                          ? html`<span class="pill pill-oneof"
-                                              >One of:
-                                              ${tech.requiresOneOf.length}</span
-                                            >`
-                                          : ""}
-                                        ${priority === tech.id && !isResearched
-                                          ? html`<span
-                                              class="pill"
-                                              style="background:rgba(59,130,246,0.18);color:#cfe3ff;border:1px solid rgba(59,130,246,0.45);"
-                                              >Priority</span
-                                            >`
-                                          : ""}
-                                      </div>
-                                    </button>
-                                    ${action}
-                                  </div>`;
-                                })
-                              : html`<div class="empty-level">
-                                  No techs at this level
-                                </div>`}
-                          </div>
-                        </div>`;
-                      })}
-                    </div>`
-                  : html`<div class="empty-state">
-                      No research categories found.
-                    </div>`}
-              ${!isAllView
-                ? html`<div class="line-layer"><svg></svg></div>`
-                : ""}
-            </div>
-          </div>
+                                        <div class="cost-inline" translate="no">
+                                          <span
+                                            >Cost:
+                                            ${tech.cost.toLocaleString()}</span
+                                          >
+                                          <img
+                                            src=${flaskIcon}
+                                            alt="research cost"
+                                          />
+                                        </div>
+                                        ${isResearched
+                                          ? html`<div>Status: Completed</div>`
+                                          : html`<div>
+                                              Progress: ${b.toLocaleString()} /
+                                              ${tech.cost.toLocaleString()}
+                                              (${pct}%)
+                                            </div>`}
+                                      </div>`;
+                                    })()}
+                                  </div>
+                                  <div
+                                    style="font-weight:600; margin-bottom:6px;"
+                                  >
+                                    ${tech.name}
+                                  </div>
+                                  <div class="cost-inline" translate="no">
+                                    <span>${tech.cost.toLocaleString()}</span>
+                                    <img src=${flaskIcon} alt="research cost" />
+                                  </div>
+                                  ${!isResearched && me
+                                    ? (() => {
+                                        const b =
+                                          me.researchBeakers?.(tech.id) ?? 0;
+                                        const pct = Math.min(
+                                          100,
+                                          Math.floor(
+                                            (b / (tech.cost || 1)) * 100,
+                                          ),
+                                        );
+                                        return b > 0
+                                          ? html`<div class="progress-track">
+                                              <div
+                                                class="progress-fill ${priority ===
+                                                tech.id
+                                                  ? "priority"
+                                                  : ""}"
+                                                style="width:${pct}%"
+                                              ></div>
+                                            </div>`
+                                          : "";
+                                      })()
+                                    : ""}
+                                  <div>
+                                    ${tech.requiresAllOf?.length
+                                      ? html`<span class="pill pill-req"
+                                          >Requires:
+                                          ${tech.requiresAllOf.length}</span
+                                        >`
+                                      : ""}
+                                    ${tech.requiresOneOf?.length
+                                      ? html`<span class="pill pill-oneof"
+                                          >One of:
+                                          ${tech.requiresOneOf.length}</span
+                                        >`
+                                      : ""}
+                                    ${priority === tech.id && !isResearched
+                                      ? html`<span class="pill pill-priority"
+                                          >Priority</span
+                                        >`
+                                      : ""}
+                                  </div>
+                                </button>
+                                ${action}
+                              </div>
+                            `;
+                          })}
+                        </div>
+                      </div>
+                    `;
+                  })}
+                </div>
+              </div>
+            `,
+          )}
+          <div class="line-layer"><svg></svg></div>
         </div>
       </o-modal>
     `;

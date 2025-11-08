@@ -41,7 +41,7 @@ export class SettingSlider extends LitElement {
 
   private updateSliderStyle(slider: HTMLInputElement) {
     const percent = ((this.value - this.min) / (this.max - this.min)) * 100;
-    slider.style.background = `linear-gradient(to right, #2196f3 ${percent}%, #444 ${percent}%)`;
+    slider.style.background = `linear-gradient(to right, var(--ui-secondary) ${percent}%, var(--ui-border-muted) ${percent}%)`;
   }
 
   firstUpdated() {

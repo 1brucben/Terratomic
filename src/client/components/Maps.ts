@@ -49,7 +49,7 @@ export class MapDisplay extends LitElement {
       flex-direction: column;
       align-items: center;
       justify-content: space-between;
-      background: rgba(30, 30, 30, 0.95);
+      background: var(--ui-panel-shell-top);
       border: 2px solid rgba(255, 255, 255, 0.1);
       border-radius: 12px;
       cursor: pointer;
@@ -58,13 +58,13 @@ export class MapDisplay extends LitElement {
 
     .option-card:hover {
       transform: translateY(-2px);
-      border-color: rgba(255, 255, 255, 0.3);
-      background: rgba(40, 40, 40, 0.95);
+      border-color: var(--ui-secondary);
+      background: var(--ui-panel-shell-bottom);
     }
 
     .option-card.selected {
-      border-color: var(--primaryColor);
-      background: rgba(14, 26, 51, 0.35);
+      border-color: var(--ui-primary);
+      background: var(--ui-slider-track);
       box-shadow:
         0 0 0 2px rgba(39, 71, 110, 0.5),
         0 0 12px rgba(39, 71, 110, 0.35);
@@ -72,7 +72,7 @@ export class MapDisplay extends LitElement {
 
     .option-card-title {
       font-size: 14px;
-      color: #aaa;
+      color: var(--ui-text-muted);
       text-align: center;
       margin: 0 0 4px 0;
     }
@@ -80,7 +80,7 @@ export class MapDisplay extends LitElement {
     .option-image {
       width: 100%;
       aspect-ratio: 4/2;
-      color: #aaa;
+      color: var(--ui-text-muted);
       transition: transform 0.2s ease-in-out;
       border-radius: 8px;
       background-color: rgba(255, 255, 255, 0.1);

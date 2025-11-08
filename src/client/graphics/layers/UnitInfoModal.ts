@@ -91,14 +91,14 @@ export class UnitInfoModal extends LitElement implements Layer {
 
     .modal {
       pointer-events: auto;
-      background: rgba(30, 30, 30, 0.95);
-      color: #f8f8f8;
-      border: 1px solid #555;
+      background: var(--ui-modal-content);
+      color: var(--ui-text-default);
+      border: 1px solid var(--ui-panel-border);
       padding: 12px 18px;
       border-radius: 8px;
       min-width: 220px;
       max-width: 300px;
-      box-shadow: 0 6px 12px rgba(0, 0, 0, 0.5);
+      box-shadow: var(--ui-panel-shadow);
       font-family: "Segoe UI", sans-serif;
       font-size: 15px;
       line-height: 1.6;
@@ -107,13 +107,13 @@ export class UnitInfoModal extends LitElement implements Layer {
     }
 
     .modal strong {
-      color: #e0e0e0;
+      color: var(--ui-text-accent);
     }
 
     .close-button {
-      background: #d00;
-      color: #fff;
-      border: none;
+      background: var(--ui-primary);
+      color: var(--ui-button-text);
+      border: 1px solid transparent;
       border-radius: 4px;
       font-size: 14px;
       font-weight: bold;
@@ -126,7 +126,24 @@ export class UnitInfoModal extends LitElement implements Layer {
     }
 
     .close-button:hover {
-      background: #a00;
+      background: var(--ui-primary-hover);
+    }
+
+    .modal__title {
+      margin-bottom: 8px;
+      font-size: 16px;
+      font-weight: bold;
+      color: var(--ui-text-accent);
+    }
+
+    .modal__section {
+      margin-bottom: 4px;
+    }
+
+    .modal__actions {
+      margin-top: 14px;
+      display: flex;
+      justify-content: center;
     }
   `;
 
@@ -142,21 +159,21 @@ export class UnitInfoModal extends LitElement implements Layer {
         style="display: ${this.open ? "block" : "none"}; left: ${this
           .x}px; top: ${this.y}px; position: absolute;"
       >
-        <div style="margin-bottom: 8px; font-size: 16px; font-weight: bold;">
+        <div class="modal__title">
           ${translateText("unit_info_modal.structure_info")}
         </div>
-        <div style="margin-bottom: 4px;">
+        <div class="modal__section">
           <strong>${translateText("unit_info_modal.type")}:</strong>
           ${translateText(this.buildUnitTypeTranslationString()) ??
           translateText("unit_info_modal.unit_type_unknown")}
         </div>
         ${secondsLeft > 0
-          ? html`<div style="margin-bottom: 4px;">
+          ? html`<div class="modal__section">
               <strong>${translateText("unit_info_modal.cooldown")}</strong>
               ${secondsLeft}s
             </div>`
           : ""}
-        <div style="margin-top: 14px; display: flex; justify-content: center;">
+        <div class="modal__actions">
           <button
             @click=${() => {
               this.onCloseStructureModal();
@@ -166,7 +183,6 @@ export class UnitInfoModal extends LitElement implements Layer {
             }}
             class="close-button"
             title="${translateText("unit_info_modal.close")}"
-            style="width: 100px; height: 32px;"
           >
             ${translateText("unit_info_modal.close")}
           </button>

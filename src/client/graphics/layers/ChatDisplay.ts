@@ -133,7 +133,7 @@ export class ChatDisplay extends LitElement implements Layer {
         <div>
           <div
             class="w-full sticky top-0 px-[10px]"
-            style="background-color: rgba(24,39,66,0.5)"
+            style="background-color: var(--ui-table-row-bg)"
           >
             <button
               class="cursor-pointer pointer-events-auto ${this._hidden

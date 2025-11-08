@@ -1019,7 +1019,7 @@ export class EventsDisplay extends LitElement implements Layer {
         ? html`
             <div
               class="absolute bottom-0 right-0 z-50"
-              style="background-color: rgba(24,39,66,0.6)"
+              style="background-color: var(--ui-slider-track)"
             >
               ${this.renderButton({
                 content: html`

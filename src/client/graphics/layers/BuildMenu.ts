@@ -251,7 +251,7 @@ export class BuildMenu extends LitElement {
       justify-content: center;
       align-items: center;
       height: 100%;
-      color: white;
+      color: var(--ui-text-light);
       font-size: 1.2rem;
       text-align: center;
     }
@@ -275,10 +275,10 @@ export class BuildMenu extends LitElement {
       position: relative;
       width: 120px;
       height: 50px;
-      border: 2px solid #0e1a33;
+      border: 2px solid var(--ui-panel-border);
       /* Darker idle surface to improve separation */
-      background: #183152;
-      color: #c9dbff; /* submarine palette light blue */
+      background: var(--ui-primary);
+      color: var(--ui-text-accent); /* submarine palette light blue */
       border-radius: 6px;
       box-shadow:
         inset 0 0 10px rgba(0, 0, 0, 0.5),
@@ -294,9 +294,9 @@ export class BuildMenu extends LitElement {
       gap: 8px;
     }
     .build-button:not(:disabled):hover {
-      background-color: #162544; /* deeper navy on hover */
+      background-color: var(--ui-secondary); /* deeper navy on hover */
       transform: scale(1.02);
-      border-color: #27476e; /* blue accent border */
+      border-color: var(--ui-secondary); /* blue accent border */
       box-shadow:
         inset 0 0 10px rgba(0, 0, 0, 0.5),
         0 2px 8px rgba(0, 0, 0, 0.6);
@@ -304,8 +304,8 @@ export class BuildMenu extends LitElement {
     .build-button:not(:disabled):active {
       background: linear-gradient(
         to bottom,
-        #182742,
-        #182742
+        var(--ui-secondary-hover),
+        var(--ui-secondary)
       ); /* pressed navy */
       transform: scale(0.98);
       box-shadow:
@@ -313,8 +313,8 @@ export class BuildMenu extends LitElement {
         0 1px 3px rgba(0, 0, 0, 0.3);
     }
     .build-button:disabled {
-      background-color: #0a0f1a;
-      border-color: #0e1a33;
+      background-color: var(--ui-primary-disabled);
+      border-color: var(--ui-panel-border);
       cursor: not-allowed;
       opacity: 0.6;
       box-shadow: none;
@@ -323,10 +323,10 @@ export class BuildMenu extends LitElement {
       opacity: 0.4;
     }
     .build-button:disabled .build-cost {
-      color: #888;
+      color: var(--ui-text-muted);
     }
     .selected-for-build {
-      border-color: #32629b; /* blue selection accent */
+      border-color: var(--ui-secondary-hover); /* blue selection accent */
       box-shadow: 0 0 10px rgba(50, 98, 155, 0.65);
     }
     .build-icon {
@@ -345,7 +345,7 @@ export class BuildMenu extends LitElement {
       font-weight: bold;
       text-align: left;
       line-height: 1.2;
-      color: #e3edff; /* brighten primary label */
+      color: var(--ui-text-accent); /* brighten primary label */
       font-family: monospace;
     }
     .build-description {
@@ -358,42 +358,42 @@ export class BuildMenu extends LitElement {
       -webkit-box-orient: vertical;
       word-break: break-word;
       max-height: 2.4em;
-      color: #9fb6db; /* muted info */
+      color: var(--ui-text-muted); /* muted info */
     }
     .build-cost {
       font-size: 10px;
       white-space: nowrap;
       text-align: left;
-      color: #dbe7ff; /* readable cost color */
+      color: var(--ui-text-accent); /* readable cost color */
     }
     .build-count-chip {
       position: absolute;
       top: -5px;
       right: -5px;
-      background-color: #2c2c2c;
-      color: white;
+      background-color: var(--ui-panel-shell-bottom);
+      color: var(--ui-text-light);
       padding: 1px 5px;
       border-radius: 10px;
       font-size: 9px;
-      border: 1px solid #444;
+      border: 1px solid var(--ui-border-muted);
     }
     .build-hotkey {
       position: absolute;
       bottom: 2px;
       right: 4px;
-      color: #93addb; /* subtle hint color */
+      color: var(--ui-text-muted); /* subtle hint color */
       font-size: 9px;
     }
     .build-button:not(:disabled):hover > .build-count-chip {
-      background-color: #3a3a3a;
-      border-color: #666;
+      background-color: var(--ui-panel-shell-top);
+      border-color: var(--ui-border-muted);
     }
     .build-button:not(:disabled):active > .build-count-chip {
-      background-color: #4a4a4a;
+      background-color: var(--ui-panel-shell-bottom);
     }
     .build-button:disabled > .build-count-chip {
-      background-color: #1a1a1a;
-      border-color: #333;
+      background-color: var(--ui-surface-dark);
+      border-color: var(--ui-border-muted);
       cursor: not-allowed;
     }
     .build-count {

@@ -14,13 +14,13 @@ export class GameStartingModal extends LitElement {
       top: 50%;
       left: 50%;
       transform: translate(-50%, -50%);
-      background-color: rgba(30, 30, 30, 0.7);
+      background-color: var(--ui-modal-content);
       padding: 25px;
       border-radius: 10px;
       z-index: 9999;
-      box-shadow: 0 0 20px rgba(0, 0, 0, 0.5);
+      box-shadow: var(--ui-panel-shadow);
       backdrop-filter: blur(5px);
-      color: white;
+      color: var(--ui-text-default);
       width: 300px;
       text-align: center;
       transition:
@@ -47,12 +47,12 @@ export class GameStartingModal extends LitElement {
     .modal h2 {
       margin-bottom: 15px;
       font-size: 22px;
-      color: white;
+      color: var(--ui-text-accent);
     }
 
     .modal p {
       margin-bottom: 20px;
-      background-color: rgba(0, 0, 0, 0.3);
+      background-color: var(--ui-table-row-bg);
       padding: 10px;
       border-radius: 5px;
     }
@@ -67,8 +67,8 @@ export class GameStartingModal extends LitElement {
       padding: 12px;
       font-size: 16px;
       cursor: pointer;
-      background: rgba(255, 100, 100, 0.7);
-      color: white;
+      background: var(--ui-primary);
+      color: var(--ui-button-text);
       border: none;
       border-radius: 5px;
       transition:
@@ -77,7 +77,7 @@ export class GameStartingModal extends LitElement {
     }
 
     .modal button:hover {
-      background: rgba(255, 100, 100, 0.9);
+      background: var(--ui-primary-hover);
       transform: translateY(-1px);
     }
 

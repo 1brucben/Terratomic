@@ -24,21 +24,21 @@ export class NewsModal extends LitElement {
     }
 
     .news-content {
-      color: #ddd;
+      color: var(--ui-text-default);
       line-height: 1.5;
-      background: rgba(0, 0, 0, 0.6);
+      background: var(--ui-slider-track);
       border-radius: 8px;
       padding: 1rem;
     }
 
     .news-content a {
-      color: #4a9eff !important;
+      color: var(--ui-secondary) !important;
       text-decoration: underline !important;
       transition: color 0.2s ease;
     }
 
     .news-content a:hover {
-      color: #6fb3ff !important;
+      color: var(--ui-secondary-hover) !important;
     }
   `;
 

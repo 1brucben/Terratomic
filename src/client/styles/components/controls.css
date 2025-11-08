@@ -96,27 +96,25 @@
 .submarine-panel {
   background: linear-gradient(
     to bottom,
-    rgba(11, 18, 32, 0.92),
-    /* #0b1220 */ rgba(16, 27, 51, 0.92) /* #101b33 */
+    var(--ui-panel-shell-top),
+    var(--ui-panel-shell-bottom)
   );
-  border: 2px solid #0e1a33; /* deep navy border */
+  border: 2px solid var(--ui-panel-border);
   border-radius: 10px;
-  box-shadow:
-    inset 0 0 10px rgba(0, 0, 0, 0.5),
-    0 2px 6px rgba(0, 0, 0, 0.4);
+  box-shadow: var(--ui-panel-shadow);
   padding: 2px;
-  color: #e9f2ff; /* brighten default text for submarine panels */
+  color: var(--ui-text-accent);
   font-family: monospace;
   /* Default downscale for panels without affecting transforms used elsewhere */
   zoom: var(--ui-panel-zoom, 0.9);
 }
 /* Typography inside submarine panels */
 .submarine-panel .military-heading {
-  color: #f2f7ff; /* brighter headings */
+  color: var(--ui-text-accent);
 }
 .submarine-panel .military-label {
   /* tone down saturation but brighten value for readability */
-  color: #e4ecff; /* brighter label */
+  color: var(--ui-text-light);
 }
 
 /* Default slider look in submarine panels */
@@ -131,19 +129,19 @@
 }
 .submarine-panel .military-slider::-webkit-slider-thumb,
 .submarine-panel .military-slider::-moz-range-thumb {
-  background: #0b1220; /* blend thumb with panel */
-  border-color: #27476e; /* default thumb rim */
+  background: var(--ui-slider-thumb);
+  border-color: var(--ui-secondary);
 }
 
 /* Submarine variant buttons (override tan) */
 .submarine-panel .military-button {
-  background-color: #183152; /* navy button */
-  color: #e3edff; /* light blue text */
-  border: 1px solid #27476e; /* blue rim */
+  background-color: var(--ui-primary);
+  color: var(--ui-button-text);
+  border: 1px solid var(--ui-secondary);
 }
 .submarine-panel .military-button:hover {
-  background-color: #1d3a60;
-  border-color: #32629b;
+  background-color: var(--ui-primary-hover);
+  border-color: var(--ui-secondary-hover);
 }
 
 /* Section headings / titles */
@@ -153,21 +151,21 @@
   font-size: 12px;
   letter-spacing: 1px;
   text-transform: uppercase;
-  color: #d8d1b1;
+  color: var(--ui-text-accent);
   margin: 0 0 4px 0;
 }
 
 /* Labels for inline stats / small captions */
 .military-label {
   font-size: 12px;
-  color: #beb79d;
+  color: var(--ui-text-muted);
   text-transform: uppercase;
 }
 
 /* Utilitarian console buttons */
 .military-button {
-  background-color: #3b3e2c;
-  color: #d8d1b1;
+  background-color: var(--ui-secondary);
+  color: var(--ui-button-text);
   border: 1px solid #1f2018;
   padding: 4px 8px;
   text-transform: uppercase;
@@ -176,7 +174,7 @@
   transition: background-color 0.15s ease-in-out;
 }
 .military-button:hover {
-  background-color: #4e513a;
+  background-color: var(--ui-secondary-hover);
 }
 
 /* Sliders (range inputs) */
@@ -185,7 +183,7 @@
   appearance: none;
   width: 100%;
   height: 6px;
-  background: #4e513a; /* track */
+  background: var(--ui-slider-track);
   border-radius: 3px;
   outline: none;
 }
@@ -195,7 +193,7 @@
   width: 14px;
   height: 14px;
   border-radius: 50%;
-  background: #4eb057; /* thumb */
+  background: var(--ui-slider-thumb);
   margin-top: -4px;
   cursor: pointer;
 }
@@ -203,11 +201,11 @@
   width: 14px;
   height: 14px;
   border-radius: 50%;
-  background: #4eb057;
+  background: var(--ui-slider-thumb);
   cursor: pointer;
 }
 .military-slider::-moz-range-track {
-  background: #4e513a;
+  background: var(--ui-slider-track);
   height: 6px;
   border-radius: 3px;
 }
