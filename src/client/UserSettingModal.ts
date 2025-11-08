@@ -241,6 +241,16 @@ export class UserSettingModal extends LitElement {
 
   private renderBasicSettings() {
     return html`
+      <!-- 🌙 Dark Mode -->
+      <setting-toggle
+        label="${translateText("user_setting.dark_mode_label")}"
+        description="${translateText("user_setting.dark_mode_desc")}"
+        id="dark-mode-toggle"
+        .checked=${this.userSettings.darkMode()}
+        @change=${(e: CustomEvent<{ checked: boolean }>) =>
+          this.toggleDarkMode(e)}
+      ></setting-toggle>
+
       <!-- 😊 Emojis -->
       <setting-toggle
         label="${translateText("user_setting.emojis_label")}"

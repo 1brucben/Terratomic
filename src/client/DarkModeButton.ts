@@ -8,6 +8,7 @@ export class DarkModeButton extends LitElement {
   @state() private darkMode: boolean = this.userSettings.darkMode();
 
   createRenderRoot() {
+    // Use light DOM so Tailwind/global styles apply.
     return this;
   }
 
@@ -35,10 +36,12 @@ export class DarkModeButton extends LitElement {
     return html`
       <button
         title="Toggle Dark Mode"
-        class="absolute top-0 right-0 md:top-[10px] md:right-[10px] border-none bg-none cursor-pointer text-2xl"
+        class="flex items-center justify-center w-10 h-10 rounded-full border-none bg-black/40 text-white cursor-pointer text-2xl transition hover:bg-black/60"
         @click=${() => this.toggleDarkMode()}
+        aria-label=${this.darkMode ? "Disable dark mode" : "Enable dark mode"}
+        aria-pressed=${this.darkMode}
       >
-        ${this.darkMode ? "☀️" : "🌙"}
+        ${this.darkMode ? "🌙" : "☀️"}
       </button>
     `;
   }
