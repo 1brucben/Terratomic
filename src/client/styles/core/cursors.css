@@ -1,6 +1,6 @@
 .crosshair-cursor {
   cursor:
-    url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 16 16"><rect x="7" y="0" width="2" height="16" fill="white"/><rect x="0" y="7" width="16" height="2" fill="white"/></svg>')
+    url('data:image/svg+xml;utf8, <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 16 16">  <path d="M6 0h4v6h6v4h-6v6h-4v-6H0V6h6z" fill="black"/> <path d="M7 1h2v6h6v2h-6v6h-2v-6H1V7h6z" fill="white"/></svg>')
       8 8,
     crosshair;
 }
