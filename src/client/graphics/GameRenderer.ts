@@ -24,6 +24,7 @@ import { PlayerInfoOverlay } from "./layers/PlayerInfoOverlay";
 import { PlayerPanel } from "./layers/PlayerPanel";
 import { RadialMenu } from "./layers/RadialMenu";
 import { ReplayPanel } from "./layers/ReplayPanel";
+import { ResearchToggleButton } from "./layers/ResearchToggleButton";
 import { RoadLayer } from "./layers/RoadLayer";
 import { SpawnTimer } from "./layers/SpawnTimer";
 import { StructureLayer } from "./layers/StructureLayer";
@@ -115,6 +116,15 @@ export function createRenderer(
   controlPanel2.eventBus = eventBus;
   controlPanel2.uiState = uiState;
   controlPanel2.game = game;
+
+  const researchToggleButton = document.querySelector(
+    "research-toggle-button",
+  ) as ResearchToggleButton;
+  if (!(researchToggleButton instanceof ResearchToggleButton)) {
+    console.error("ResearchToggleButton element not found in the DOM");
+  }
+  researchToggleButton.eventBus = eventBus;
+  researchToggleButton.game = game;
 
   const eventsDisplay = document.querySelector(
     "events-display",
@@ -237,6 +247,7 @@ export function createRenderer(
     gameLeftSidebar,
     controlPanel,
     controlPanel2,
+    researchToggleButton,
     playerInfo,
     winModel,
     optionsMenu,
