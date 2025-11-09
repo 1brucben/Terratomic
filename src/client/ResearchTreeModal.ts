@@ -1,5 +1,5 @@
 import { LitElement, html } from "lit";
-import { customElement, property, query } from "lit/decorators.js";
+import { customElement, property, query, state } from "lit/decorators.js";
 import flaskIcon from "../../proprietary/images/flask.png";
 import { EventBus } from "../core/EventBus";
 import { UpgradeType } from "../core/game/Game";
@@ -18,6 +18,8 @@ import {
   SendResearchTreeSelectIntentEvent,
 } from "./Transport";
 import { renderNumber } from "./Utils";
+
+type ResearchTab = Category | "All";
 
 // Category and TechNode are imported from core so client stays in sync
 
@@ -40,14 +42,17 @@ export class ResearchTreeModal extends LitElement {
   private categories: Category[] = Array.from(
     new Set(this.techs.map((t) => t.category)),
   ) as Category[];
-  // Fixed column widths per category (px). Adjust as needed.
-  private readonly categoryColumnWidths: Record<Category, number> = {
-    Land: 360,
-    Sea: 360,
-    Air: 360,
-    Nuclear: 360,
-    Economy: 360,
-  };
+  private readonly tabOrder: ResearchTab[] = [
+    "Land",
+    "Sea",
+    "Air",
+    "Nuclear",
+    "Economy",
+    "All",
+  ];
+
+  @state()
+  private activeTab: ResearchTab = "Land";
 
   connectedCallback(): void {
     super.connectedCallback();
@@ -190,6 +195,30 @@ export class ResearchTreeModal extends LitElement {
     `;
   }
 
+  private getOrderedTabs(): ResearchTab[] {
+    const available = new Set(this.categories);
+    const ordered = this.tabOrder.filter((cat) => {
+      if (cat === "All") return true;
+      return available.has(cat);
+    });
+    if (!ordered.includes("All") && available.size > 0) ordered.push("All");
+    return ordered.length ? ordered : [...available];
+  }
+
+  private getActiveCategory(): Category | null {
+    if (this.activeTab === "All") return null;
+    const tabs = this.getOrderedTabs();
+    if (!tabs.length) return null;
+    return tabs.includes(this.activeTab)
+      ? (this.activeTab as Category)
+      : (tabs[0] as Category);
+  }
+
+  private onTabClick(cat: ResearchTab) {
+    if (cat === this.activeTab) return;
+    this.activeTab = cat;
+  }
+
   private computePositions(): { [id: string]: DOMRect } {
     const map: { [id: string]: DOMRect } = {};
     const cards = this.renderRoot.querySelectorAll(
@@ -202,72 +231,55 @@ export class ResearchTreeModal extends LitElement {
     return map;
   }
 
-  // Apply fixed widths to each level grid so columns line up between rows
-  private applyCategoryWidths() {
-    const tree = this.renderRoot.querySelector(
-      ".tree-container",
-    ) as HTMLElement | null;
-    if (!tree) return;
-    const template = this.categories
-      .map((cat) => `${this.categoryColumnWidths[cat]}px`)
-      .join(" ");
-    tree
-      .querySelectorAll(".level-grid")
-      .forEach(
-        (grid) => ((grid as HTMLElement).style.gridTemplateColumns = template),
-      );
-  }
-
-  // Position the colored category bands to match the computed column geometry
-  private updateCategoryBandPositions() {
-    const tree = this.renderRoot.querySelector(
-      ".tree-container",
-    ) as HTMLElement | null;
-    if (!tree) return;
-    const bands = this.renderRoot.querySelectorAll(
-      ".category-bands .category-band",
-    ) as NodeListOf<HTMLElement>;
-    const firstGrid = tree.querySelector(".level-grid") as HTMLElement | null;
-    if (!firstGrid || bands.length !== this.categories.length) return;
-    const rootRect = tree.getBoundingClientRect();
-    const scrollLeft = tree.scrollLeft;
-    const contentHeight = tree.scrollHeight;
-    const slots = firstGrid.querySelectorAll(
-      ":scope > .category-slot",
-    ) as NodeListOf<HTMLElement>;
-    slots.forEach((slot, i) => {
-      const r = slot.getBoundingClientRect();
-      const left = r.left - rootRect.left + scrollLeft;
-      const width = r.width;
-      const band = bands[i];
-      band.style.position = "absolute";
-      band.style.left = `${left}px`;
-      band.style.width = `${width}px`;
-      band.style.top = "0";
-      band.style.bottom = "auto";
-      band.style.height = `${contentHeight}px`;
-    });
-    // Reveal the bands immediately after positioning
-    const bandsContainer = this.renderRoot.querySelector(
-      ".category-bands",
-    ) as HTMLElement | null;
-    if (bandsContainer) {
-      bandsContainer.style.height = `${contentHeight}px`;
-      bandsContainer.style.bottom = "auto";
-      bandsContainer.style.visibility = "visible";
-    }
-  }
-
   // Orchestrate layout updates and edge redraw
   private updateLayout() {
-    // Apply fixed widths and then position bands/edges
-    requestAnimationFrame(() => {
-      this.applyCategoryWidths();
-      requestAnimationFrame(() => {
-        this.updateCategoryBandPositions();
-        this.drawEdges();
-      });
-    });
+    requestAnimationFrame(() => this.drawEdges());
+  }
+
+  private renderAllView(
+    levels: number[],
+    researched: Set<string>,
+    categoryColors: Record<Category, string>,
+  ) {
+    if (!this.categories.length) {
+      return html`<div class="empty-state">No research categories found.</div>`;
+    }
+    return html`
+      <div class="all-view-grid">
+        ${this.categories.map((cat) => {
+          const accent = categoryColors[cat] ?? "rgba(59,130,246,0.06)";
+          return html`<div
+            class="all-column"
+            style=${`--column-accent:${accent}`}
+          >
+            <div class="all-column-title">${cat}</div>
+            ${levels.map((lvl) => {
+              const techs = this.techs.filter(
+                (t) => t.category === cat && t.level === lvl,
+              );
+              return html`<div class="compact-level">
+                <div class="compact-level-label">L${lvl}</div>
+                <div class="compact-level-techs">
+                  ${techs.length
+                    ? techs.map((tech) => {
+                        const isResearched = researched.has(tech.id);
+                        return html`<div
+                          class=${`compact-tech ${isResearched ? "researched" : ""}`}
+                        >
+                          <span class="compact-name">${tech.name}</span>
+                          ${isResearched
+                            ? html`<span class="compact-check">✔</span>`
+                            : ""}
+                        </div>`;
+                      })
+                    : html`<div class="compact-tech empty">—</div>`}
+                </div>
+              </div>`;
+            })}
+          </div>`;
+        })}
+      </div>
+    `;
   }
 
   private drawEdges() {
@@ -275,25 +287,33 @@ export class ResearchTreeModal extends LitElement {
       ".line-layer",
     ) as HTMLElement | null;
     if (!container) return;
-    const svg = container.querySelector("svg")!;
+    const svg = container.querySelector("svg");
+    if (!svg) return;
     while (svg.firstChild) svg.removeChild(svg.firstChild);
+
+    if (this.activeTab === "All") return;
+    const activeCategory = this.getActiveCategory();
+    if (!activeCategory) return;
+
+    const visibleTechs = this.techs.filter(
+      (t) => t.category === activeCategory,
+    );
+    if (!visibleTechs.length) return;
 
     const pos = this.computePositions();
     const treeEl = this.renderRoot.querySelector(
       ".tree-container",
-    ) as HTMLElement;
+    ) as HTMLElement | null;
+    if (!treeEl) return;
     const rootRect = treeEl.getBoundingClientRect();
     const scrollLeft = treeEl.scrollLeft;
     const scrollTop = treeEl.scrollTop;
 
-    // Compute highlight path based on priority and current researched
     const me = this.game?.myPlayer?.();
     const researched = this.researchedIDsFromGame();
     const priority = me?.researchPriorityTech?.() ?? null;
 
-    const byId = new Map(this.techs.map((n) => [n.id, n] as const));
-    const sameCat = (a: string, b: string) =>
-      (byId.get(a)?.category ?? "") === (byId.get(b)?.category ?? "");
+    const byId = new Map(visibleTechs.map((n) => [n.id, n] as const));
     const buildMissingPrereqPath = (targetId: string): Set<string> => {
       const path = new Set<string>();
       const seen = new Set<string>();
@@ -302,12 +322,8 @@ export class ResearchTreeModal extends LitElement {
         seen.add(tid);
         const node = byId.get(tid);
         if (!node) return;
-        const reqAll = (node.requiresAllOf ?? []).filter((p) =>
-          sameCat(p, tid),
-        );
-        const reqOne = (node.requiresOneOf ?? []).filter((p) =>
-          sameCat(p, tid),
-        );
+        const reqAll = (node.requiresAllOf ?? []).filter((p) => byId.has(p));
+        const reqOne = (node.requiresOneOf ?? []).filter((p) => byId.has(p));
         for (const r of reqAll) {
           if (!researched.has(r)) {
             path.add(r);
@@ -325,12 +341,12 @@ export class ResearchTreeModal extends LitElement {
           }
         }
       };
-      if (targetId) dfs(targetId);
+      if (targetId && byId.has(targetId)) dfs(targetId);
       return path;
     };
 
     const highlightNodes = new Set<string>();
-    if (priority) {
+    if (priority && byId.has(priority)) {
       highlightNodes.add(priority);
       const missing = buildMissingPrereqPath(priority);
       for (const id of missing) highlightNodes.add(id);
@@ -340,16 +356,16 @@ export class ResearchTreeModal extends LitElement {
       const a = pos[fromId];
       const b = pos[toId];
       if (!a || !b) return;
-      const x1 = a.left - rootRect.left + scrollLeft + a.width / 2;
-      const y1 = a.top - rootRect.top + scrollTop + a.height;
-      const x2 = b.left - rootRect.left + scrollLeft + b.width / 2;
-      const y2 = b.top - rootRect.top + scrollTop;
+      const x1 = a.right - rootRect.left + scrollLeft;
+      const y1 = a.top - rootRect.top + scrollTop + a.height / 2;
+      const x2 = b.left - rootRect.left + scrollLeft;
+      const y2 = b.top - rootRect.top + scrollTop + b.height / 2;
+      const midX = (x1 + x2) / 2;
       const path = document.createElementNS(
         "http://www.w3.org/2000/svg",
         "path",
       );
-      const mx = (x1 + x2) / 2;
-      const d = `M ${x1},${y1} C ${mx},${y1 + 20} ${mx},${y2 - 20} ${x2},${y2}`;
+      const d = `M ${x1},${y1} L ${midX},${y1} L ${midX},${y2} L ${x2},${y2}`;
       path.setAttribute("d", d);
       path.setAttribute("fill", "none");
       const isHighlighted =
@@ -361,14 +377,9 @@ export class ResearchTreeModal extends LitElement {
       svg.appendChild(path);
     };
 
-    for (const t of this.techs) {
-      const sameCat = (p: string) =>
-        this.techs.find((x) => x.id === p)?.category === t.category;
-      t.requiresAllOf ??= [];
-      t.requiresOneOf ??= [];
-
-      const reqAll = t.requiresAllOf.filter(sameCat);
-      const reqOne = t.requiresOneOf.filter(sameCat);
+    for (const t of visibleTechs) {
+      const reqAll = (t.requiresAllOf ?? []).filter((id) => byId.has(id));
+      const reqOne = (t.requiresOneOf ?? []).filter((id) => byId.has(id));
 
       for (const p of reqAll) addLine(p, t.id, "req");
       for (const p of reqOne) addLine(p, t.id, "oneof");
@@ -422,9 +433,52 @@ export class ResearchTreeModal extends LitElement {
     };
     const me = this.game?.myPlayer?.();
     const priority = me?.researchPriorityTech?.() ?? null;
+    const tabs = this.getOrderedTabs();
+    const isAllView = this.activeTab === "All";
+    const activeCategory = this.getActiveCategory();
+    const activeTechs = activeCategory
+      ? this.techs.filter((t) => t.category === activeCategory)
+      : [];
+    const activeMap = new Map(activeTechs.map((n) => [n.id, n] as const));
+    const highlightTrail = (() => {
+      const set = new Set<string>();
+      if (!priority || !activeCategory || !activeMap.has(priority)) return set;
+      const seen = new Set<string>();
+      const dfs = (tid: string) => {
+        if (seen.has(tid)) return;
+        seen.add(tid);
+        const node = activeMap.get(tid);
+        if (!node) return;
+        const reqAll = (node.requiresAllOf ?? []).filter((p) =>
+          activeMap.has(p),
+        );
+        const reqOne = (node.requiresOneOf ?? []).filter((p) =>
+          activeMap.has(p),
+        );
+        for (const r of reqAll) {
+          if (!researched.has(r)) {
+            set.add(r);
+            dfs(r);
+          }
+        }
+        if (reqOne.length > 0 && !reqOne.some((p) => researched.has(p))) {
+          const sorted = [...reqOne].sort(
+            (a, b) =>
+              (activeMap.get(a)?.level ?? 0) - (activeMap.get(b)?.level ?? 0),
+          );
+          const choice = sorted[0];
+          if (choice && !researched.has(choice)) {
+            set.add(choice);
+            dfs(choice);
+          }
+        }
+      };
+      set.add(priority);
+      dfs(priority);
+      return set;
+    })();
 
     return html`
-      <!-- Prevent outer content from scrolling; use inner tree scroll only -->
       <o-modal
         title="Research Tree"
         max-width="90vw"
@@ -432,31 +486,73 @@ export class ResearchTreeModal extends LitElement {
         content-overflow="hidden"
       >
         <style>
-          .tree-container {
-            display: grid;
-            /* Size each category column to its content and allow overall horizontal scroll */
-            grid-template-columns: repeat(5, minmax(160px, max-content));
-            grid-auto-rows: auto;
-            gap: 16px;
-            position: relative;
-            overflow-x: auto;
-            overflow-y: auto; /* inner scroll */
-            width: 100%;
-            /* constrain height to modal content so vertical scroll stays inside */
-            max-height: calc(85dvh - 100px);
-            padding-bottom: 4px; /* space for scrollbar overlay */
-            /* Firefox scrollbar */
-            scrollbar-width: thin;
-            scrollbar-color: #27476e #0e1a33; /* thumb track */
+          .tab-shell {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
           }
-          /* WebKit-based browsers scrollbar */
+          .tab-bar {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            padding: 8px 4px 4px;
+            border-bottom: 1px solid rgba(148, 163, 184, 0.12);
+          }
+          .tab-button {
+            background: #0b1428;
+            color: #9fb4d9;
+            border: 1px solid rgba(148, 163, 184, 0.2);
+            border-radius: 999px;
+            padding: 6px 14px;
+            font-size: 13px;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            cursor: pointer;
+            transition: all 120ms ease;
+          }
+          .tab-button:hover {
+            color: #f1f5ff;
+            border-color: rgba(148, 163, 184, 0.4);
+          }
+          .tab-button.active {
+            color: #f8fbff;
+            border-color: rgba(99, 179, 237, 0.7);
+            background:
+              linear-gradient(
+                135deg,
+                rgba(59, 130, 246, 0.2),
+                rgba(6, 182, 212, 0.08)
+              ),
+              var(--tab-accent, #132035);
+            box-shadow: 0 0 20px rgba(15, 23, 42, 0.6);
+          }
+          .tab-panel {
+            background: #050b16;
+            border: 1px solid rgba(15, 23, 42, 0.9);
+            border-radius: 14px;
+            padding: 12px;
+            box-shadow:
+              inset 0 1px 0 rgba(255, 255, 255, 0.05),
+              0 10px 30px rgba(2, 6, 23, 0.65);
+          }
+          .tree-container {
+            position: relative;
+            overflow: auto;
+            max-height: calc(85dvh - 150px);
+            padding: 6px;
+            scrollbar-width: thin;
+            scrollbar-color: #27476e #0e1a33;
+          }
+          .tree-container.all-view {
+            padding: 12px;
+          }
           .tree-container::-webkit-scrollbar {
-            height: 10px; /* horizontal scrollbar thickness */
-            width: 10px; /* vertical scrollbar thickness */
-            background: transparent; /* let track define color */
+            height: 10px;
+            width: 10px;
+            background: transparent;
           }
           .tree-container::-webkit-scrollbar-track {
-            background: #0e1a33; /* deep navy track */
+            background: #0e1a33;
             border-radius: 8px;
             box-shadow: inset 0 0 6px rgba(0, 0, 0, 0.4);
           }
@@ -473,91 +569,163 @@ export class ResearchTreeModal extends LitElement {
           .tree-container::-webkit-scrollbar-corner {
             background: #0e1a33;
           }
-          .category-bands {
-            position: absolute;
-            inset: 0;
-            display: block; /* absolute children are positioned by JS */
-            z-index: 0;
-            pointer-events: none;
-            visibility: hidden; /* avoid flicker before positioned */
-          }
-          .category-band {
-            border-left: 1px solid rgba(255, 255, 255, 0.05);
-            border-right: 1px solid rgba(0, 0, 0, 0.25);
-          }
-          .level-band {
-            grid-column: 1 / -1;
-            border-radius: 8px;
-            padding: 6px; /* slightly tighter vertical spacing */
-          }
-          .level-header {
-            font-weight: bold;
-            color: #e3edff; /* submarine heading */
-            margin-bottom: 6px; /* reduce header-bottom gap */
-            padding-left: 6px; /* add a bit of left room */
+          .level-strip {
             display: flex;
-            align-items: center;
+            gap: 36px;
+            padding: 6px;
+            min-height: 220px;
+            position: relative;
+            z-index: 2;
+          }
+          .level-column {
+            flex: 0 0 auto;
+            min-width: 220px;
+            border-radius: 12px;
+            border: 1px solid rgba(15, 23, 42, 0.95);
+            background:
+              linear-gradient(
+                180deg,
+                rgba(3, 7, 14, 0.98),
+                rgba(5, 9, 18, 0.92)
+              ),
+              var(--level-accent, rgba(59, 130, 246, 0.06));
+            padding: 12px;
+            box-shadow:
+              inset 0 1px 0 rgba(255, 255, 255, 0.04),
+              0 6px 24px rgba(2, 6, 23, 0.75);
+          }
+          .all-view-grid {
+            display: flex;
+            gap: 16px;
+            min-width: max-content;
+          }
+          .all-column {
+            flex: 0 0 220px;
+            background:
+              linear-gradient(
+                180deg,
+                rgba(4, 7, 14, 0.98),
+                rgba(6, 12, 24, 0.92)
+              ),
+              var(--column-accent, rgba(59, 130, 246, 0.05));
+            border: 1px solid rgba(15, 23, 42, 0.85);
+            border-radius: 12px;
+            padding: 10px;
+            box-shadow:
+              inset 0 1px 0 rgba(255, 255, 255, 0.04),
+              0 4px 16px rgba(2, 6, 23, 0.65);
+          }
+          .all-column-title {
+            font-weight: 600;
+            color: #f0f6ff;
+            margin-bottom: 8px;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+          }
+          .compact-level {
+            display: flex;
             gap: 8px;
+            align-items: flex-start;
+            margin-bottom: 6px;
           }
-          .level-grid {
-            display: grid;
-            /* Make each category column width fit its widest cell content */
-            grid-template-columns: repeat(5, minmax(160px, max-content));
-            gap: 10px; /* slightly less gap between categories */
+          .compact-level-label {
+            font-size: 10px;
+            color: #9fb4d9;
+            padding-top: 2px;
+            min-width: 22px;
           }
-          .category-slot {
+          .compact-level-techs {
             display: flex;
             flex-direction: column;
-            gap: 6px; /* slightly reduce space between title and row */
-            width: auto; /* allow to grow */
-            padding: 6px 12px; /* slightly reduce vertical padding */
-            box-sizing: border-box;
-          }
-          .tech-row {
-            display: flex;
-            flex-direction: row;
-            flex-wrap: wrap; /* keep items horizontal, wrap if too many for fixed column */
-            align-items: flex-start;
-            justify-content: center; /* center techs within the category */
-            gap: 6px; /* slightly tighter spacing between cards */
-            /* No per-row scroll; the entire tree scrolls */
-            overflow: visible;
+            gap: 4px;
             width: 100%;
           }
-          .category-title {
-            font-size: 12px;
+          .compact-tech {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 11px;
+            padding: 4px 6px;
+            border-radius: 6px;
+            background: rgba(15, 23, 42, 0.65);
+            border: 1px solid rgba(59, 130, 246, 0.15);
+            color: #dbe7ff;
+          }
+          .compact-tech.researched {
+            background: rgba(22, 82, 58, 0.35);
+            border-color: rgba(34, 197, 94, 0.4);
+          }
+          .compact-tech.empty {
+            justify-content: center;
+            font-style: italic;
+            opacity: 0.5;
+          }
+          .compact-name {
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+          }
+          .compact-check {
+            color: #86efac;
+            font-weight: 600;
+            margin-left: 8px;
+          }
+          .level-label {
+            font-weight: 600;
+            color: #e3edff;
+            margin-bottom: 10px;
+            letter-spacing: 0.04em;
             text-transform: uppercase;
+          }
+          .tech-stack {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+          }
+          .empty-level {
+            font-size: 12px;
+            color: #7b8ba8;
             opacity: 0.8;
-            color: #c9dbff; /* submarine label */
-            margin-bottom: 4px;
+            text-align: center;
+            border: 1px dashed rgba(125, 138, 164, 0.4);
+            border-radius: 8px;
+            padding: 16px 8px;
+          }
+          .empty-state {
+            padding: 24px;
+            text-align: center;
+            color: #9eaec9;
           }
           .tech {
-            background: #0b1220; /* submarine panel */
-            border: 1px solid #0e1a33; /* deep navy border */
-            border-radius: 8px;
-            padding: 8px;
-            color: #dbe7ff; /* soft desaturated light-blue */
+            background: linear-gradient(180deg, #122544, #0e1c33);
+            border: 1px solid rgba(59, 130, 246, 0.35);
+            border-radius: 10px;
+            padding: 10px;
+            color: #e4edff;
             position: relative;
             cursor: pointer;
             transition:
               transform 0.12s ease,
               box-shadow 0.12s ease,
               opacity 0.2s;
-            min-height: 64px;
-            /* Let multiple techs sit side-by-side */
-            flex: 0 0 auto;
-            width: 160px;
+            min-height: 72px;
+            width: 100%;
             text-align: left;
+            box-shadow:
+              0 6px 16px rgba(2, 6, 23, 0.65),
+              inset 0 0 0 1px rgba(255, 255, 255, 0.02);
           }
           .tech:hover {
-            box-shadow: 0 0 0 2px rgba(39, 71, 110, 0.8) inset; /* bluish rim */
+            box-shadow:
+              0 8px 18px rgba(2, 6, 23, 0.8),
+              0 0 0 2px rgba(59, 130, 246, 0.45) inset;
           }
           .tech.locked {
-            opacity: 1; /* allow full visibility so users can prioritize paths */
+            opacity: 1;
             cursor: pointer;
           }
           .tech.researched {
-            background: #162544; /* slightly lighter */
+            background: #162544;
             border-color: #27476e;
           }
           .tech.researched::after {
@@ -566,15 +734,14 @@ export class ResearchTreeModal extends LitElement {
             top: 6px;
             right: 8px;
             font-weight: bold;
-            color: #86efac; /* keep success green */
+            color: #86efac;
             text-shadow: 0 1px 0 rgba(0, 0, 0, 0.5);
           }
           .tech-wrapper {
             display: flex;
             flex-direction: column;
             gap: 6px;
-            width: 160px;
-            flex: 0 0 auto;
+            width: 100%;
           }
           .tech-action {
             background: rgba(176, 80, 78, 0.18);
@@ -599,20 +766,18 @@ export class ResearchTreeModal extends LitElement {
             opacity: 0.65;
             cursor: not-allowed;
           }
-          /* Highlight prioritized tech with a subtle halo */
           .tech.priority {
             border-color: rgba(59, 130, 246, 0.9);
             box-shadow:
               0 0 0 2px rgba(59, 130, 246, 0.35) inset,
               0 0 10px 2px rgba(59, 130, 246, 0.25);
           }
-          /* Themed tooltip for tech descriptions (right-side) */
           .tech .tooltip {
             position: absolute;
             top: 50%;
-            left: calc(100% + 8px);
+            left: calc(100% + 12px);
             transform: translateY(-50%);
-            background: #111827; /* modal dark */
+            background: #111827;
             color: #e5e7eb;
             border: 1px solid #374151;
             border-radius: 8px;
@@ -639,14 +804,13 @@ export class ResearchTreeModal extends LitElement {
             transform: translateY(-50%);
             border-width: 6px;
             border-style: solid;
-            border-color: transparent #111827 transparent transparent; /* caret pointing right */
+            border-color: transparent #111827 transparent transparent;
             filter: drop-shadow(-1px 0 0 rgba(55, 65, 81, 0.9));
           }
           .tech:hover .tooltip {
             opacity: 1;
             visibility: visible;
           }
-          /* Research progress bar */
           .progress-track {
             width: 100%;
             height: 6px;
@@ -658,7 +822,6 @@ export class ResearchTreeModal extends LitElement {
           }
           .progress-fill {
             height: 100%;
-            /* Match flask colors exactly */
             background: linear-gradient(90deg, #00f8ff 0%, #00a6f6 100%);
             box-shadow:
               0 0 10px rgba(37, 150, 186, 0.55),
@@ -666,7 +829,6 @@ export class ResearchTreeModal extends LitElement {
               inset 0 0 4px rgba(255, 255, 255, 0.1);
           }
           .progress-fill.priority {
-            /* Same flask gradient, but stronger neon to pop more than base */
             background: linear-gradient(90deg, #00f8ff 0%, #00a6f6 100%);
             box-shadow:
               0 0 14px rgba(0, 166, 246, 0.75),
@@ -677,7 +839,6 @@ export class ResearchTreeModal extends LitElement {
           }
           .cost-inline {
             display: inline-flex;
-            /* Align bottoms of number and icon */
             align-items: flex-end;
             gap: 6px;
             font-size: 12px;
@@ -688,7 +849,6 @@ export class ResearchTreeModal extends LitElement {
           .cost-inline img {
             width: 14px;
             height: 14px;
-            /* Slight nudge up to visually align with text bottom across platforms */
             transform: translateY(-1px);
             opacity: 0.95;
           }
@@ -700,7 +860,7 @@ export class ResearchTreeModal extends LitElement {
             margin-right: 6px;
           }
           .pill-req {
-            background: rgba(176, 80, 78, 0.18); /* warning red match */
+            background: rgba(176, 80, 78, 0.18);
             color: #ffd1d1;
             border: 1px solid rgba(176, 80, 78, 0.45);
           }
@@ -736,232 +896,209 @@ export class ResearchTreeModal extends LitElement {
           }
         </style>
         ${this.renderLegend()}
-        <div class="tree-container">
-          <div class="category-bands">
-            ${this.categories.map(
-              (cat) =>
-                html`<div
-                  class="category-band"
-                  style="background:${categoryColors[cat]}"
-                ></div>`,
-            )}
+        <div class="tab-shell">
+          <div class="tab-bar" role="tablist">
+            ${tabs.map((cat) => {
+              const isAllTab = cat === "All";
+              const isActive = isAllTab ? isAllView : cat === activeCategory;
+              return html`<button
+                type="button"
+                class="tab-button ${isActive ? "active" : ""}"
+                role="tab"
+                aria-selected=${String(isActive)}
+                style=${isActive
+                  ? `--tab-accent:${isAllTab ? "rgba(148,163,184,0.25)" : (categoryColors[cat as Category] ?? "transparent")}`
+                  : ""}
+                @click=${() => this.onTabClick(cat)}
+              >
+                ${cat}
+              </button>`;
+            })}
           </div>
-          ${levels.map(
-            (lvl) => html`
-              <div class="level-band">
-                <div class="level-header">Tech Level ${lvl}</div>
-                <div class="level-grid">
-                  ${this.categories.map((cat) => {
-                    const techs = this.techs.filter(
-                      (t) => t.level === lvl && t.category === cat,
-                    );
-                    return html`
-                      <div class="category-slot">
-                        <div class="category-title">${cat}</div>
-                        <div class="tech-row">
-                          ${techs.map((tech) => {
-                            const available = this.isAvailable(
-                              tech.id,
-                              researched,
-                            );
-                            const isResearched = researched.has(tech.id);
-                            const clickable = !isResearched; // allow prioritizing locked techs
-                            // Compute highlight membership for this node
-                            const byId = new Map(
-                              this.techs.map((n) => [n.id, n] as const),
-                            );
-                            const sameCat = (a: string, b: string) =>
-                              (byId.get(a)?.category ?? "") ===
-                              (byId.get(b)?.category ?? "");
-                            const buildMissingPrereqPath = (
-                              targetId: string,
-                            ): Set<string> => {
-                              const path = new Set<string>();
-                              const seen = new Set<string>();
-                              const dfs = (tid: string) => {
-                                if (seen.has(tid)) return;
-                                seen.add(tid);
-                                const node = byId.get(tid);
-                                if (!node) return;
-                                const reqAll = (
-                                  node.requiresAllOf ?? []
-                                ).filter((p) => sameCat(p, tid));
-                                const reqOne = (
-                                  node.requiresOneOf ?? []
-                                ).filter((p) => sameCat(p, tid));
-                                for (const r of reqAll) {
-                                  if (!researched.has(r)) {
-                                    path.add(r);
-                                    dfs(r);
-                                  }
-                                }
-                                if (
-                                  reqOne.length > 0 &&
-                                  !reqOne.some((p) => researched.has(p))
-                                ) {
-                                  const sorted = [...reqOne].sort(
-                                    (a, b) =>
-                                      (byId.get(a)?.level ?? 0) -
-                                      (byId.get(b)?.level ?? 0),
+          <div class="tab-panel" role="tabpanel">
+            <div class="tree-container ${isAllView ? "all-view" : ""}">
+              ${isAllView
+                ? this.renderAllView(levels, researched, categoryColors)
+                : activeCategory
+                  ? html`<div
+                      class="level-strip"
+                      style=${`--level-accent:${categoryColors[activeCategory] ?? "transparent"}`}
+                    >
+                      ${levels.map((lvl) => {
+                        const techsForLevel = this.techs.filter(
+                          (t) =>
+                            t.level === lvl && t.category === activeCategory,
+                        );
+                        return html`<div class="level-column">
+                          <div class="level-label">Tech Level ${lvl}</div>
+                          <div class="tech-stack">
+                            ${techsForLevel.length
+                              ? techsForLevel.map((tech) => {
+                                  const available = this.isAvailable(
+                                    tech.id,
+                                    researched,
                                   );
-                                  const choice = sorted[0];
-                                  if (choice && !researched.has(choice)) {
-                                    path.add(choice);
-                                    dfs(choice);
-                                  }
-                                }
-                              };
-                              if (priority) dfs(priority);
-                              return path;
-                            };
-                            const highlightSet = (() => {
-                              const s = new Set<string>();
-                              if (priority) {
-                                s.add(priority);
-                                const missing =
-                                  buildMissingPrereqPath(priority);
-                                for (const id of missing) s.add(id);
-                              }
-                              return s;
-                            })();
-                            const inHighlight = highlightSet.has(tech.id);
-
-                            const classes = [
-                              "tech",
-                              available ? "" : "locked",
-                              isResearched ? "researched" : "",
-                              inHighlight ? "priority" : "",
-                            ]
-                              .filter(Boolean)
-                              .join(" ");
-                            const action = this.renderScorchedEarthAction(
-                              tech,
-                              me ?? null,
-                              isResearched,
-                            );
-                            return html`
-                              <div class="tech-wrapper">
-                                <button
-                                  class=${classes}
-                                  data-id=${tech.id}
-                                  @click=${() => this.onTechClick(tech.id)}
-                                  title=${""}
-                                  ?disabled=${!clickable}
-                                >
-                                  <div class="tooltip">
-                                    <div
-                                      style="font-weight:600;margin-bottom:4px;"
+                                  const isResearched = researched.has(tech.id);
+                                  const clickable = !isResearched;
+                                  const inHighlight = highlightTrail.has(
+                                    tech.id,
+                                  );
+                                  const classes = [
+                                    "tech",
+                                    available ? "" : "locked",
+                                    isResearched ? "researched" : "",
+                                    inHighlight ? "priority" : "",
+                                  ]
+                                    .filter(Boolean)
+                                    .join(" ");
+                                  const action = this.renderScorchedEarthAction(
+                                    tech,
+                                    me ?? null,
+                                    isResearched,
+                                  );
+                                  return html`<div class="tech-wrapper">
+                                    <button
+                                      class=${classes}
+                                      data-id=${tech.id}
+                                      @click=${() => this.onTechClick(tech.id)}
+                                      title=${""}
+                                      ?disabled=${!clickable}
                                     >
-                                      ${tech.name}
-                                    </div>
-                                    ${tech.description
-                                      ? html`<div
-                                          style="opacity:.9;margin-bottom:6px;"
+                                      <div class="tooltip">
+                                        <div
+                                          style="font-weight:600;margin-bottom:4px;"
                                         >
-                                          ${tech.description}
-                                        </div>`
-                                      : ""}
-                                    ${(() => {
-                                      const meLocal = this.game?.myPlayer?.();
-                                      const b =
-                                        meLocal?.researchBeakers?.(tech.id) ??
-                                        0;
-                                      const pct = Math.min(
-                                        100,
-                                        Math.floor(
-                                          (b / (tech.cost || 1)) * 100,
-                                        ),
-                                      );
-                                      return html`<div
-                                        style="font-size:11px;opacity:.9;"
-                                      >
-                                        <div class="cost-inline" translate="no">
-                                          <span
-                                            >Cost:
-                                            ${tech.cost.toLocaleString()}</span
-                                          >
-                                          <img
-                                            src=${flaskIcon}
-                                            alt="research cost"
-                                          />
+                                          ${tech.name}
                                         </div>
-                                        ${isResearched
-                                          ? html`<div>Status: Completed</div>`
-                                          : html`<div>
-                                              Progress: ${b.toLocaleString()} /
-                                              ${tech.cost.toLocaleString()}
-                                              (${pct}%)
-                                            </div>`}
-                                      </div>`;
-                                    })()}
-                                  </div>
-                                  <div
-                                    style="font-weight:600; margin-bottom:6px;"
-                                  >
-                                    ${tech.name}
-                                  </div>
-                                  <div class="cost-inline" translate="no">
-                                    <span>${tech.cost.toLocaleString()}</span>
-                                    <img src=${flaskIcon} alt="research cost" />
-                                  </div>
-                                  ${!isResearched && me
-                                    ? (() => {
-                                        const b =
-                                          me.researchBeakers?.(tech.id) ?? 0;
-                                        const pct = Math.min(
-                                          100,
-                                          Math.floor(
-                                            (b / (tech.cost || 1)) * 100,
-                                          ),
-                                        );
-                                        return b > 0
-                                          ? html`<div class="progress-track">
-                                              <div
-                                                class="progress-fill ${priority ===
-                                                tech.id
-                                                  ? "priority"
-                                                  : ""}"
-                                                style="width:${pct}%"
-                                              ></div>
+                                        ${tech.description
+                                          ? html`<div
+                                              style="opacity:.9;margin-bottom:6px;"
+                                            >
+                                              ${tech.description}
                                             </div>`
-                                          : "";
-                                      })()
-                                    : ""}
-                                  <div>
-                                    ${tech.requiresAllOf?.length
-                                      ? html`<span class="pill pill-req"
-                                          >Requires:
-                                          ${tech.requiresAllOf.length}</span
-                                        >`
-                                      : ""}
-                                    ${tech.requiresOneOf?.length
-                                      ? html`<span class="pill pill-oneof"
-                                          >One of:
-                                          ${tech.requiresOneOf.length}</span
-                                        >`
-                                      : ""}
-                                    ${priority === tech.id && !isResearched
-                                      ? html`<span
-                                          class="pill"
-                                          style="background:rgba(59,130,246,0.18);color:#cfe3ff;border:1px solid rgba(59,130,246,0.45);"
-                                          >Priority</span
-                                        >`
-                                      : ""}
-                                  </div>
-                                </button>
-                                ${action}
-                              </div>
-                            `;
-                          })}
-                        </div>
-                      </div>
-                    `;
-                  })}
-                </div>
-              </div>
-            `,
-          )}
-          <div class="line-layer"><svg></svg></div>
+                                          : ""}
+                                        ${(() => {
+                                          const meLocal =
+                                            this.game?.myPlayer?.();
+                                          const b =
+                                            meLocal?.researchBeakers?.(
+                                              tech.id,
+                                            ) ?? 0;
+                                          const pct = Math.min(
+                                            100,
+                                            Math.floor(
+                                              (b / (tech.cost || 1)) * 100,
+                                            ),
+                                          );
+                                          return html`<div
+                                            style="font-size:11px;opacity:.9;"
+                                          >
+                                            <div
+                                              class="cost-inline"
+                                              translate="no"
+                                            >
+                                              <span
+                                                >Cost:
+                                                ${tech.cost.toLocaleString()}</span
+                                              >
+                                              <img
+                                                src=${flaskIcon}
+                                                alt="research cost"
+                                              />
+                                            </div>
+                                            ${isResearched
+                                              ? html`<div>
+                                                  Status: Completed
+                                                </div>`
+                                              : html`<div>
+                                                  Progress:
+                                                  ${b.toLocaleString()} /
+                                                  ${tech.cost.toLocaleString()}
+                                                  (${pct}%)
+                                                </div>`}
+                                          </div>`;
+                                        })()}
+                                      </div>
+                                      <div
+                                        style="font-weight:600; margin-bottom:6px;"
+                                      >
+                                        ${tech.name}
+                                      </div>
+                                      <div class="cost-inline" translate="no">
+                                        <span
+                                          >${tech.cost.toLocaleString()}</span
+                                        >
+                                        <img
+                                          src=${flaskIcon}
+                                          alt="research cost"
+                                        />
+                                      </div>
+                                      ${!isResearched && me
+                                        ? (() => {
+                                            const b =
+                                              me.researchBeakers?.(tech.id) ??
+                                              0;
+                                            const pct = Math.min(
+                                              100,
+                                              Math.floor(
+                                                (b / (tech.cost || 1)) * 100,
+                                              ),
+                                            );
+                                            return b > 0
+                                              ? html`<div
+                                                  class="progress-track"
+                                                >
+                                                  <div
+                                                    class="progress-fill ${priority ===
+                                                    tech.id
+                                                      ? "priority"
+                                                      : ""}"
+                                                    style="width:${pct}%"
+                                                  ></div>
+                                                </div>`
+                                              : "";
+                                          })()
+                                        : ""}
+                                      <div>
+                                        ${tech.requiresAllOf?.length
+                                          ? html`<span class="pill pill-req"
+                                              >Requires:
+                                              ${tech.requiresAllOf.length}</span
+                                            >`
+                                          : ""}
+                                        ${tech.requiresOneOf?.length
+                                          ? html`<span class="pill pill-oneof"
+                                              >One of:
+                                              ${tech.requiresOneOf.length}</span
+                                            >`
+                                          : ""}
+                                        ${priority === tech.id && !isResearched
+                                          ? html`<span
+                                              class="pill"
+                                              style="background:rgba(59,130,246,0.18);color:#cfe3ff;border:1px solid rgba(59,130,246,0.45);"
+                                              >Priority</span
+                                            >`
+                                          : ""}
+                                      </div>
+                                    </button>
+                                    ${action}
+                                  </div>`;
+                                })
+                              : html`<div class="empty-level">
+                                  No techs at this level
+                                </div>`}
+                          </div>
+                        </div>`;
+                      })}
+                    </div>`
+                  : html`<div class="empty-state">
+                      No research categories found.
+                    </div>`}
+              ${!isAllView
+                ? html`<div class="line-layer"><svg></svg></div>`
+                : ""}
+            </div>
+          </div>
         </div>
       </o-modal>
     `;
