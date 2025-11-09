@@ -942,6 +942,7 @@ export class ResearchTreeModal extends LitElement {
           .level-column {
             flex: 0 0 auto;
             min-width: 220px;
+            max-width: 240px;
             border-radius: 12px;
             border: 1px solid rgba(15, 23, 42, 0.95);
             background:
@@ -1071,7 +1072,6 @@ export class ResearchTreeModal extends LitElement {
               box-shadow 0.12s ease,
               opacity 0.2s;
             min-height: 72px;
-            width: 100%;
             text-align: left;
             box-shadow:
               0 6px 16px rgba(2, 6, 23, 0.65),
@@ -1136,9 +1136,9 @@ export class ResearchTreeModal extends LitElement {
           }
           .tech .tooltip {
             position: absolute;
-            top: 50%;
-            left: calc(100% + 12px);
-            transform: translateY(-50%);
+            top: calc(100% + 10px);
+            left: 50%;
+            transform: translateX(-50%);
             background: #111827;
             color: #e5e7eb;
             border: 1px solid #374151;
@@ -1161,17 +1161,29 @@ export class ResearchTreeModal extends LitElement {
           .tech .tooltip::after {
             content: "";
             position: absolute;
-            left: -6px;
-            top: 50%;
-            transform: translateY(-50%);
+            top: -6px;
+            left: 50%;
+            transform: translateX(-50%);
             border-width: 6px;
             border-style: solid;
-            border-color: transparent #111827 transparent transparent;
-            filter: drop-shadow(-1px 0 0 rgba(55, 65, 81, 0.9));
+            border-color: transparent transparent #111827 transparent;
+            filter: drop-shadow(0 -1px 0 rgba(55, 65, 81, 0.9));
           }
           .tech:hover .tooltip {
             opacity: 1;
             visibility: visible;
+          }
+          .tech-description {
+            font-size: 12px;
+            line-height: 1.35;
+            color: rgba(223, 231, 255, 0.82);
+            margin: 6px 0 8px;
+            max-height: 3.8em;
+            min-height: 3.8em;
+            overflow: auto;
+            white-space: normal;
+            word-break: break-word;
+            overflow-wrap: anywhere;
           }
           .progress-track {
             width: 100%;
@@ -1405,6 +1417,16 @@ export class ResearchTreeModal extends LitElement {
                                           src=${flaskIcon}
                                           alt="research cost"
                                         />
+                                      </div>
+                                      <div
+                                        class="tech-description ${tech.description
+                                          ? ""
+                                          : "empty"}"
+                                      >
+                                        ${tech.description &&
+                                        tech.description.trim().length
+                                          ? tech.description
+                                          : html`&nbsp;`}
                                       </div>
                                       ${!isResearched && me
                                         ? (() => {
