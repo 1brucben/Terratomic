@@ -1,4 +1,4 @@
-import { LitElement, html } from "lit";
+import { LitElement, html, type PropertyValues } from "lit";
 import { customElement, property, query, state } from "lit/decorators.js";
 import flaskIcon from "../../proprietary/images/flask.png";
 import { EventBus } from "../core/EventBus";
@@ -12,6 +12,13 @@ import {
 } from "../core/tech/ResearchTree";
 import { RESEARCH_TECH_IDS } from "../core/tech/TechEffects";
 import "./components/baseComponents/Modal";
+import {
+  INVESTMENT_REQUEST_EVENT,
+  INVESTMENT_SYNC_EVENT,
+  INVESTMENT_SYNC_REQUEST_EVENT,
+  type InvestmentRequestDetail,
+  type InvestmentSyncDetail,
+} from "./events/InvestmentEvents";
 import { CloseViewEvent } from "./InputHandler";
 import {
   SendPurchaseUpgradeIntentEvent,
@@ -54,13 +61,36 @@ export class ResearchTreeModal extends LitElement {
   @state()
   private activeTab: ResearchTab = "Land";
 
+  @state()
+  private roadInvestmentRate = 0;
+
+  @state()
+  private researchInvestmentRate = 0;
+
+  @state()
+  private lockRoad = false;
+
+  @state()
+  private lockResearch = false;
+
+  @state()
+  private roadInvestmentEnabled = false;
+
   connectedCallback(): void {
     super.connectedCallback();
+    window.addEventListener(
+      INVESTMENT_SYNC_EVENT,
+      this.handleInvestmentSync as EventListener,
+    );
+    if (this.visible) {
+      this.requestInvestmentSync();
+    }
     if (this.visible) this.open();
   }
 
   open() {
     this.modalEl?.open();
+    this.requestInvestmentSync();
     // Perform a full layout pass on the next frame after opening
     requestAnimationFrame(() => this.updateLayout());
     // Start a light refresh loop to reflect game state (gold/upgrades) while open
@@ -217,6 +247,187 @@ export class ResearchTreeModal extends LitElement {
   private onTabClick(cat: ResearchTab) {
     if (cat === this.activeTab) return;
     this.activeTab = cat;
+  }
+
+  private handleInvestmentSync = (event: Event) => {
+    const { detail } = event as CustomEvent<InvestmentSyncDetail>;
+    if (!detail) return;
+    this.roadInvestmentRate = detail.road;
+    this.researchInvestmentRate = detail.research;
+    this.lockRoad = detail.lockRoad;
+    this.lockResearch = detail.lockResearch;
+    this.roadInvestmentEnabled = detail.roadEnabled;
+  };
+
+  private requestInvestmentSync() {
+    window.dispatchEvent(new CustomEvent(INVESTMENT_SYNC_REQUEST_EVENT));
+  }
+
+  private dispatchInvestmentRequest(detail: InvestmentRequestDetail) {
+    window.dispatchEvent(
+      new CustomEvent<InvestmentRequestDetail>(INVESTMENT_REQUEST_EVENT, {
+        detail,
+      }),
+    );
+  }
+
+  private handleInvestmentInput(slider: "road" | "research", event: Event) {
+    const input = event.target as HTMLInputElement;
+    const value = Math.max(
+      0,
+      Math.min(1, (parseInt(input.value || "0", 10) || 0) / 100),
+    );
+    const currentValue =
+      slider === "road" ? this.roadInvestmentRate : this.researchInvestmentRate;
+    const locked = slider === "road" ? this.lockRoad : this.lockResearch;
+    const enabled = slider === "road" ? this.canUseRoadSlider() : true;
+    if (locked || !enabled) {
+      input.value = Math.round(currentValue * 100).toString();
+      return;
+    }
+    this.dispatchInvestmentRequest({ type: "set", slider, value });
+  }
+
+  private handleInvestmentToggle(slider: "road" | "research") {
+    if (slider === "road" && !this.canUseRoadSlider()) return;
+    this.dispatchInvestmentRequest({ type: "toggle-lock", slider });
+  }
+
+  private canUseRoadSlider(): boolean {
+    if (this.roadInvestmentEnabled) return true;
+    const me = this.game?.myPlayer?.();
+    return me?.hasUpgrade?.(UpgradeType.Roads) ?? false;
+  }
+
+  private renderRoadSlider(me: PlayerView | null) {
+    const hasRoads = this.canUseRoadSlider();
+    const displayValue = hasRoads ? this.roadInvestmentRate : 0;
+    const percent = Math.round(displayValue * 100);
+    const quality = me?.roadNetworkQuality?.() ?? 100;
+    const completion = me?.roadNetworkCompletion?.() ?? 100;
+    const tooltip = hasRoads
+      ? this.lockRoad
+        ? "Slider is locked. Double-click to unlock."
+        : "Double-click slider to lock."
+      : "Research Post-War Reconstruction to enable road investment.";
+    const breakEvenMarker = this.renderRoadBreakEvenMarker(me, hasRoads);
+    return html`
+      <div
+        class="investment-slider ${hasRoads ? "" : "disabled"}"
+        translate="no"
+      >
+        <label class="investment-label">
+          <span>
+            Road investment: ${percent}% ·
+            <span style="white-space:nowrap;"
+              >Quality ${quality.toFixed(1)}%</span
+            >
+            ·
+            <span style="white-space:nowrap;"
+              >Completion: ${Math.round(completion)}%</span
+            >
+          </span>
+          ${this.lockRoad
+            ? html`<span class="lock-badge">
+                <svg class="lock-icon" viewBox="0 0 24 24">
+                  <path
+                    d="M8 10V7a4 4 0 118 0v3h1a2 2 0 012 2v8a2 2 0 01-2 2H7a2 2 0 01-2-2v-8a2 2 0 012-2h1zm2 0h4V7a2 2 0 10-4 0v3z"
+                  />
+                </svg>
+                Locked
+              </span>`
+            : ""}
+        </label>
+        <div class="investment-track-wrapper" title=${tooltip}>
+          <div class="investment-track-bg"></div>
+          <div
+            class="investment-track-fill"
+            style="width:${Math.min(100, Math.max(0, percent))}%;"
+          ></div>
+          ${breakEvenMarker}
+          <input
+            type="range"
+            min="0"
+            max="100"
+            step="1"
+            .value=${percent.toString()}
+            class="investment-input ${this.lockRoad ? "locked" : ""}"
+            ?disabled=${!hasRoads}
+            @input=${(e: Event) => this.handleInvestmentInput("road", e)}
+            @dblclick=${() => hasRoads && this.handleInvestmentToggle("road")}
+          />
+        </div>
+        <div class="investment-hint">${tooltip}</div>
+      </div>
+    `;
+  }
+
+  private renderRoadBreakEvenMarker(me: PlayerView | null, enabled: boolean) {
+    if (!enabled || !me) return "";
+    const config = this.game?.config?.();
+    if (!config) return "";
+    const pxPerSecond = me.roadNetPixelsPerSecond?.() ?? 0;
+    const base = config.roadConstructionBaseCost();
+    const maintMult = config.roadMaintenanceMultiplier();
+    const length = me.roadNetworkLength?.() ?? 0;
+    const quality = me.roadNetworkQuality?.() ?? 100;
+    const maintenancePerSecond =
+      (length * base * maintMult * Math.max(0.1, quality / 100)) / 60;
+    const grossPerSecond = pxPerSecond * base;
+    let breakEven = 0;
+    if (grossPerSecond > 0) breakEven = maintenancePerSecond / grossPerSecond;
+    else breakEven = maintenancePerSecond > 0 ? 1 : 0;
+    if (!Number.isFinite(breakEven)) breakEven = 0;
+    breakEven = Math.max(0, Math.min(1, breakEven));
+    if (breakEven <= 0 || breakEven >= 1) return "";
+    const leftPct = (breakEven * 100).toFixed(2);
+    return html`<div
+      class="investment-marker"
+      style="left:${leftPct}%;"
+      title=${`Break-even: ${(breakEven * 100).toFixed(0)}%`}
+    ></div>`;
+  }
+
+  private renderResearchSlider() {
+    const percent = Math.round(this.researchInvestmentRate * 100);
+    const tooltip = this.lockResearch
+      ? "Slider is locked. Double-click to unlock."
+      : "Double-click slider to lock.";
+    return html`
+      <div class="investment-slider" translate="no">
+        <label class="investment-label">
+          Research investment: ${percent}%
+          ${this.lockResearch
+            ? html`<span class="lock-badge">
+                <svg class="lock-icon" viewBox="0 0 24 24">
+                  <path
+                    d="M8 10V7a4 4 0 118 0v3h1a2 2 0 012 2v8a2 2 0 01-2 2H7a2 2 0 01-2-2v-8a2 2 0 012-2h1zm2 0h4V7a2 2 0 10-4 0v3z"
+                  />
+                </svg>
+                Locked
+              </span>`
+            : ""}
+        </label>
+        <div class="investment-track-wrapper" title=${tooltip}>
+          <div class="investment-track-bg"></div>
+          <div
+            class="investment-track-fill"
+            style="width:${Math.min(100, Math.max(0, percent))}%;"
+          ></div>
+          <input
+            type="range"
+            min="0"
+            max="100"
+            step="1"
+            .value=${percent.toString()}
+            class="investment-input ${this.lockResearch ? "locked" : ""}"
+            @input=${(e: Event) => this.handleInvestmentInput("research", e)}
+            @dblclick=${() => this.handleInvestmentToggle("research")}
+          />
+        </div>
+        <div class="investment-hint">${tooltip}</div>
+      </div>
+    `;
   }
 
   private computePositions(): { [id: string]: DOMRect } {
@@ -386,7 +597,8 @@ export class ResearchTreeModal extends LitElement {
     }
   }
 
-  protected firstUpdated(): void {
+  protected firstUpdated(_changed: PropertyValues): void {
+    super.firstUpdated(_changed);
     setTimeout(() => this.updateLayout(), 0);
     window.addEventListener("resize", this.handleResize);
     // Watch scroll on the whole tree container (both axes)
@@ -398,6 +610,7 @@ export class ResearchTreeModal extends LitElement {
         passive: true,
       } as any,
     );
+    this.requestInvestmentSync();
   }
 
   disconnectedCallback(): void {
@@ -406,6 +619,10 @@ export class ResearchTreeModal extends LitElement {
     // content no longer scrolls for this modal; listener removed
     const tree = this.renderRoot.querySelector(".tree-container");
     tree?.removeEventListener("scroll", this.handleResize as any);
+    window.removeEventListener(
+      INVESTMENT_SYNC_EVENT,
+      this.handleInvestmentSync as EventListener,
+    );
   }
 
   private handleResize = () => {
@@ -494,9 +711,15 @@ export class ResearchTreeModal extends LitElement {
           .tab-bar {
             display: flex;
             flex-wrap: wrap;
-            gap: 8px;
+            gap: 12px;
             padding: 8px 4px 4px;
             border-bottom: 1px solid rgba(148, 163, 184, 0.12);
+            align-items: flex-end;
+          }
+          .tab-buttons {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
           }
           .tab-button {
             background: #0b1428;
@@ -534,6 +757,127 @@ export class ResearchTreeModal extends LitElement {
             box-shadow:
               inset 0 1px 0 rgba(255, 255, 255, 0.05),
               0 10px 30px rgba(2, 6, 23, 0.65);
+          }
+          .investment-cluster {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 16px;
+            margin-left: auto;
+            align-items: flex-start;
+            margin-top: -40px;
+          }
+          .investment-slider {
+            min-width: 260px;
+            width: clamp(260px, 40vw, 390px);
+            color: #dbe7ff;
+            font-size: 12px;
+          }
+          .investment-slider.disabled {
+            opacity: 0.5;
+          }
+          .investment-label {
+            font-size: 12px;
+            margin-bottom: 4px;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+          }
+          .investment-track-wrapper {
+            position: relative;
+            height: 24px;
+          }
+          .investment-track-bg {
+            position: absolute;
+            left: 0;
+            right: 0;
+            top: 50%;
+            transform: translateY(-50%);
+            height: 6px;
+            border-radius: 999px;
+            background-color: rgba(24, 39, 66, 0.85);
+          }
+          .investment-track-fill {
+            position: absolute;
+            left: 0;
+            top: 50%;
+            transform: translateY(-50%);
+            height: 6px;
+            border-radius: 999px;
+            background: linear-gradient(90deg, #5ac8fa, #2563eb);
+          }
+          .investment-input {
+            position: absolute;
+            inset: 0;
+            margin: 0;
+            height: 100%;
+            background: transparent;
+            -webkit-appearance: none;
+            appearance: none;
+            outline: none;
+          }
+          .investment-input::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 14px;
+            height: 14px;
+            border-radius: 50%;
+            background: #0b1220;
+            border: 2px solid #27476e;
+            cursor: pointer;
+            box-shadow: 0 0 0 1px rgba(39, 71, 110, 0.35) inset;
+          }
+          .investment-input::-moz-range-thumb {
+            width: 14px;
+            height: 14px;
+            border-radius: 50%;
+            background: #0b1220;
+            border: 2px solid #27476e;
+            cursor: pointer;
+            box-shadow: 0 0 0 1px rgba(39, 71, 110, 0.35) inset;
+          }
+          .investment-input::-webkit-slider-runnable-track,
+          .investment-input::-moz-range-track {
+            background: transparent;
+          }
+          .investment-input.locked::-webkit-slider-thumb,
+          .investment-input.locked::-moz-range-thumb {
+            border-color: #f59e0b;
+            box-shadow: 0 0 0 2px rgba(245, 158, 11, 0.45) inset;
+          }
+          .investment-marker {
+            position: absolute;
+            top: 0;
+            width: 2px;
+            height: 8px;
+            background: rgba(255, 255, 255, 0.85);
+            transform: translateX(-1px);
+            border-radius: 1px;
+          }
+          .investment-hint {
+            font-size: 10px;
+            opacity: 0.65;
+            margin-top: 2px;
+          }
+          .investment-meta {
+            font-size: 11px;
+            opacity: 0.75;
+            margin-top: 4px;
+            text-align: right;
+          }
+          .lock-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            padding: 1px 6px;
+            border-radius: 999px;
+            background: rgba(255, 255, 255, 0.08);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            font-size: 10px;
+          }
+          .lock-icon {
+            width: 10px;
+            height: 10px;
+            fill: currentColor;
           }
           .tree-container {
             position: relative;
@@ -897,23 +1241,29 @@ export class ResearchTreeModal extends LitElement {
         </style>
         ${this.renderLegend()}
         <div class="tab-shell">
-          <div class="tab-bar" role="tablist">
-            ${tabs.map((cat) => {
-              const isAllTab = cat === "All";
-              const isActive = isAllTab ? isAllView : cat === activeCategory;
-              return html`<button
-                type="button"
-                class="tab-button ${isActive ? "active" : ""}"
-                role="tab"
-                aria-selected=${String(isActive)}
-                style=${isActive
-                  ? `--tab-accent:${isAllTab ? "rgba(148,163,184,0.25)" : (categoryColors[cat as Category] ?? "transparent")}`
-                  : ""}
-                @click=${() => this.onTabClick(cat)}
-              >
-                ${cat}
-              </button>`;
-            })}
+          <div class="tab-bar">
+            <div class="tab-buttons" role="tablist">
+              ${tabs.map((cat) => {
+                const isAllTab = cat === "All";
+                const isActive = isAllTab ? isAllView : cat === activeCategory;
+                return html`<button
+                  type="button"
+                  class="tab-button ${isActive ? "active" : ""}"
+                  role="tab"
+                  aria-selected=${String(isActive)}
+                  style=${isActive
+                    ? `--tab-accent:${isAllTab ? "rgba(148,163,184,0.25)" : (categoryColors[cat as Category] ?? "transparent")}`
+                    : ""}
+                  @click=${() => this.onTabClick(cat)}
+                >
+                  ${cat}
+                </button>`;
+              })}
+            </div>
+            <div class="investment-cluster">
+              ${this.renderResearchSlider()}
+              ${this.renderRoadSlider(me ?? null)}
+            </div>
           </div>
           <div class="tab-panel" role="tabpanel">
             <div class="tree-container ${isAllView ? "all-view" : ""}">

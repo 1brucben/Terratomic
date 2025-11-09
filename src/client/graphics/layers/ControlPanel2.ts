@@ -11,6 +11,13 @@ import {
 import { GameView, PlayerView } from "../../../core/game/GameView";
 import { getTechNodes } from "../../../core/tech/ResearchTree";
 import { getTechMeta, RESEARCH_TECH_IDS } from "../../../core/tech/TechEffects";
+import {
+  INVESTMENT_REQUEST_EVENT,
+  INVESTMENT_SYNC_EVENT,
+  INVESTMENT_SYNC_REQUEST_EVENT,
+  type InvestmentRequestDetail,
+  type InvestmentSyncDetail,
+} from "../../events/InvestmentEvents";
 import { PlayerListChangedEvent } from "../../events/PlayerListChangedEvent";
 import { AttackRatioEvent } from "../../InputHandler";
 import "../../ResearchTreeModal";
@@ -184,6 +191,55 @@ export class ControlPanel2 extends LitElement implements Layer {
     UnitType.Academy,
     UnitType.City,
   ];
+
+  private readonly investmentRequestHandler = (event: Event) => {
+    const { detail } = event as CustomEvent<InvestmentRequestDetail>;
+    if (!detail) return;
+    if (detail.type === "set") {
+      const value = Math.max(0, Math.min(1, detail.value ?? 0));
+      if (detail.slider === "road" && !this.playerHasRoadsUpgrade()) return;
+      this.applyInvestmentChange(detail.slider, value);
+    } else if (detail.type === "toggle-lock") {
+      if (detail.slider === "prod") {
+        this._lockProd = !this._lockProd;
+      } else if (detail.slider === "road") {
+        if (!this.playerHasRoadsUpgrade()) return;
+        this._lockRoad = !this._lockRoad;
+      } else if (detail.slider === "research") {
+        this._lockResearch = !this._lockResearch;
+      }
+      this.emitInvestmentSync();
+      this.requestUpdate();
+    }
+  };
+
+  private readonly investmentSyncRequestHandler = () => {
+    this.emitInvestmentSync();
+  };
+
+  connectedCallback(): void {
+    super.connectedCallback();
+    window.addEventListener(
+      INVESTMENT_REQUEST_EVENT,
+      this.investmentRequestHandler as EventListener,
+    );
+    window.addEventListener(
+      INVESTMENT_SYNC_REQUEST_EVENT,
+      this.investmentSyncRequestHandler,
+    );
+  }
+
+  disconnectedCallback(): void {
+    window.removeEventListener(
+      INVESTMENT_REQUEST_EVENT,
+      this.investmentRequestHandler as EventListener,
+    );
+    window.removeEventListener(
+      INVESTMENT_SYNC_REQUEST_EVENT,
+      this.investmentSyncRequestHandler,
+    );
+    super.disconnectedCallback();
+  }
 
   init() {
     this.attackRatio = Number(
@@ -569,6 +625,79 @@ export class ControlPanel2 extends LitElement implements Layer {
     return { prod: currentProd, road: currentRoad, research: currentResearch };
   }
 
+  private applyInvestmentChange(
+    changed: "prod" | "road" | "research",
+    proposed: number,
+  ) {
+    const { prod, road, research } = this._applyTripleInvestmentConstraint(
+      changed,
+      proposed,
+    );
+    this.commitInvestmentRates(prod, road, research);
+  }
+
+  private commitInvestmentRates(
+    prod: number,
+    road: number,
+    research: number,
+  ): boolean {
+    const prodChanged = Math.abs(prod - this.investmentRate) > 1e-6;
+    const roadChanged = Math.abs(road - this._roadInvestmentRate) > 1e-6;
+    const researchChanged =
+      Math.abs(research - this._researchInvestmentRate) > 1e-6;
+
+    if (!prodChanged && !roadChanged && !researchChanged) {
+      return false;
+    }
+
+    this.investmentRate = prod;
+    this._roadInvestmentRate = road;
+    this._researchInvestmentRate = research;
+
+    if (prodChanged) {
+      this.onInvestmentRateChange(this.investmentRate);
+      this.uiState.investmentRate = this.investmentRate;
+      localStorage.setItem(
+        "settings.investmentRate",
+        this.investmentRate.toString(),
+      );
+    }
+    if (roadChanged) {
+      this.onRoadInvestmentChange(this._roadInvestmentRate);
+      localStorage.setItem(
+        "settings.roadInvestmentRate",
+        this._roadInvestmentRate.toString(),
+      );
+    }
+    if (researchChanged) {
+      this.onResearchInvestmentChange(this._researchInvestmentRate);
+      localStorage.setItem(
+        "settings.researchInvestmentRate",
+        this._researchInvestmentRate.toString(),
+      );
+    }
+
+    this.emitInvestmentSync();
+    return true;
+  }
+
+  private emitInvestmentSync() {
+    const detail: InvestmentSyncDetail = {
+      prod: this.investmentRate,
+      road: this._roadInvestmentRate,
+      research: this._researchInvestmentRate,
+      lockProd: this._lockProd,
+      lockRoad: this._lockRoad,
+      lockResearch: this._lockResearch,
+      roadEnabled: this.playerHasRoadsUpgrade(),
+    };
+    window.dispatchEvent(
+      new CustomEvent<InvestmentSyncDetail>(INVESTMENT_SYNC_EVENT, {
+        detail,
+      }),
+    );
+  }
+
   renderLayer(context: CanvasRenderingContext2D) {
     // Render any necessary canvas elements
   }
@@ -593,6 +722,11 @@ export class ControlPanel2 extends LitElement implements Layer {
   delta(): number {
     const d = this._population - this.targetTroops();
     return d;
+  }
+
+  private playerHasRoadsUpgrade(): boolean {
+    const player = this.game?.myPlayer?.();
+    return player?.hasUpgrade?.(UpgradeType.Roads) ?? false;
   }
 
   private _getPlayersInAirfieldRange(): PlayerView[] {
@@ -1353,59 +1487,15 @@ export class ControlPanel2 extends LitElement implements Layer {
                           ._lockProd
                           ? "slider-locked"
                           : ""}"
-                        @dblclick=${() => (this._lockProd = !this._lockProd)}
+                        @dblclick=${() => {
+                          this._lockProd = !this._lockProd;
+                          this.emitInvestmentSync();
+                        }}
                         @input=${(e: Event) => {
-                          if (this._lockProd) {
-                            (e.target as HTMLInputElement).value = (
-                              this.investmentRate * 100
-                            ).toString();
-                            return;
-                          }
-                          const proposed =
-                            parseInt((e.target as HTMLInputElement).value) /
-                            100;
-                          const { prod, road, research } =
-                            this._applyTripleInvestmentConstraint(
-                              "prod",
-                              proposed,
-                            );
-
-                          const prodChanged = prod !== this.investmentRate;
-                          const roadChanged = road !== this._roadInvestmentRate;
-                          const researchChanged =
-                            research !== this._researchInvestmentRate;
-
-                          this.investmentRate = prod;
-                          this._roadInvestmentRate = road;
-                          this._researchInvestmentRate = research;
-
-                          if (prodChanged)
-                            this.onInvestmentRateChange(this.investmentRate);
-                          if (roadChanged)
-                            this.onRoadInvestmentChange(
-                              this._roadInvestmentRate,
-                            );
-                          if (researchChanged)
-                            this.onResearchInvestmentChange(
-                              this._researchInvestmentRate,
-                            );
-
-                          localStorage.setItem(
-                            "settings.investmentRate",
-                            this.investmentRate.toString(),
-                          );
-                          localStorage.setItem(
-                            "settings.roadInvestmentRate",
-                            this._roadInvestmentRate.toString(),
-                          );
-                          localStorage.setItem(
-                            "settings.researchInvestmentRate",
-                            this._researchInvestmentRate.toString(),
-                          );
-                          // Snap slider back to the effective value in case constraint blocked change
-                          (e.target as HTMLInputElement).value = (
-                            this.investmentRate * 100
-                          ).toString();
+                          const input = e.target as HTMLInputElement;
+                          const proposed = parseInt(input.value) / 100;
+                          this.applyInvestmentChange("prod", proposed);
+                          input.value = (this.investmentRate * 100).toString();
                         }}
                       />
                     </div>
@@ -1573,55 +1663,10 @@ export class ControlPanel2 extends LitElement implements Layer {
                           : ""}
                         @input=${(e: Event) => {
                           if (!hasRoads) return;
-                          if (this._lockRoad) {
-                            (e.target as HTMLInputElement).value = (
-                              this._roadInvestmentRate * 100
-                            ).toString();
-                            return;
-                          }
-                          const proposed =
-                            parseInt((e.target as HTMLInputElement).value) /
-                            100;
-                          const { prod, road, research } =
-                            this._applyTripleInvestmentConstraint(
-                              "road",
-                              proposed,
-                            );
-
-                          const prodChanged = prod !== this.investmentRate;
-                          const roadChanged = road !== this._roadInvestmentRate;
-                          const researchChanged =
-                            research !== this._researchInvestmentRate;
-
-                          this.investmentRate = prod;
-                          this._roadInvestmentRate = road;
-                          this._researchInvestmentRate = research;
-
-                          if (roadChanged)
-                            this.onRoadInvestmentChange(
-                              this._roadInvestmentRate,
-                            );
-                          if (prodChanged)
-                            this.onInvestmentRateChange(this.investmentRate);
-                          if (researchChanged)
-                            this.onResearchInvestmentChange(
-                              this._researchInvestmentRate,
-                            );
-
-                          localStorage.setItem(
-                            "settings.roadInvestmentRate",
-                            this._roadInvestmentRate.toString(),
-                          );
-                          localStorage.setItem(
-                            "settings.investmentRate",
-                            this.investmentRate.toString(),
-                          );
-                          localStorage.setItem(
-                            "settings.researchInvestmentRate",
-                            this._researchInvestmentRate.toString(),
-                          );
-                          // Snap slider to effective value
-                          (e.target as HTMLInputElement).value = (
+                          const input = e.target as HTMLInputElement;
+                          const proposed = parseInt(input.value) / 100;
+                          this.applyInvestmentChange("road", proposed);
+                          input.value = (
                             this._roadInvestmentRate * 100
                           ).toString();
                         }}
@@ -1629,8 +1674,12 @@ export class ControlPanel2 extends LitElement implements Layer {
                           ._lockRoad && hasRoads
                           ? "slider-locked"
                           : ""}"
-                        @dblclick=${() =>
-                          hasRoads && (this._lockRoad = !this._lockRoad)}
+                        @dblclick=${() => {
+                          if (hasRoads) {
+                            this._lockRoad = !this._lockRoad;
+                            this.emitInvestmentSync();
+                          }
+                        }}
                       />
                     </div>
                     <div
@@ -1699,55 +1748,10 @@ export class ControlPanel2 extends LitElement implements Layer {
                           this._researchInvestmentRate * 100
                         ).toString()}
                         @input=${(e: Event) => {
-                          if (this._lockResearch) {
-                            (e.target as HTMLInputElement).value = (
-                              this._researchInvestmentRate * 100
-                            ).toString();
-                            return;
-                          }
-                          const proposed =
-                            parseInt((e.target as HTMLInputElement).value) /
-                            100;
-                          const { prod, road, research } =
-                            this._applyTripleInvestmentConstraint(
-                              "research",
-                              proposed,
-                            );
-
-                          const prodChanged = prod !== this.investmentRate;
-                          const roadChanged = road !== this._roadInvestmentRate;
-                          const researchChanged =
-                            research !== this._researchInvestmentRate;
-
-                          this.investmentRate = prod;
-                          this._roadInvestmentRate = road;
-                          this._researchInvestmentRate = research;
-
-                          if (prodChanged)
-                            this.onInvestmentRateChange(this.investmentRate);
-                          if (roadChanged)
-                            this.onRoadInvestmentChange(
-                              this._roadInvestmentRate,
-                            );
-                          if (researchChanged)
-                            this.onResearchInvestmentChange(
-                              this._researchInvestmentRate,
-                            );
-
-                          localStorage.setItem(
-                            "settings.investmentRate",
-                            this.investmentRate.toString(),
-                          );
-                          localStorage.setItem(
-                            "settings.roadInvestmentRate",
-                            this._roadInvestmentRate.toString(),
-                          );
-                          localStorage.setItem(
-                            "settings.researchInvestmentRate",
-                            this._researchInvestmentRate.toString(),
-                          );
-                          // Snap slider to effective value
-                          (e.target as HTMLInputElement).value = (
+                          const input = e.target as HTMLInputElement;
+                          const proposed = parseInt(input.value) / 100;
+                          this.applyInvestmentChange("research", proposed);
+                          input.value = (
                             this._researchInvestmentRate * 100
                           ).toString();
                         }}
@@ -1755,8 +1759,10 @@ export class ControlPanel2 extends LitElement implements Layer {
                           ._lockResearch
                           ? "slider-locked"
                           : ""}"
-                        @dblclick=${() =>
-                          (this._lockResearch = !this._lockResearch)}
+                        @dblclick=${() => {
+                          this._lockResearch = !this._lockResearch;
+                          this.emitInvestmentSync();
+                        }}
                       />
                     </div>
                   </div>
