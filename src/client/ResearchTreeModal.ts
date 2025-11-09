@@ -26,7 +26,7 @@ import {
 } from "./Transport";
 import { renderNumber } from "./Utils";
 
-type ResearchTab = Category | "All";
+type ResearchTab = Category | "Overview";
 
 // Category and TechNode are imported from core so client stays in sync
 
@@ -55,7 +55,7 @@ export class ResearchTreeModal extends LitElement {
     "Air",
     "Nuclear",
     "Economy",
-    "All",
+    "Overview",
   ];
 
   @state()
@@ -228,15 +228,16 @@ export class ResearchTreeModal extends LitElement {
   private getOrderedTabs(): ResearchTab[] {
     const available = new Set(this.categories);
     const ordered = this.tabOrder.filter((cat) => {
-      if (cat === "All") return true;
+      if (cat === "Overview") return true;
       return available.has(cat);
     });
-    if (!ordered.includes("All") && available.size > 0) ordered.push("All");
+    if (!ordered.includes("Overview") && available.size > 0)
+      ordered.push("Overview");
     return ordered.length ? ordered : [...available];
   }
 
   private getActiveCategory(): Category | null {
-    if (this.activeTab === "All") return null;
+    if (this.activeTab === "Overview") return null;
     const tabs = this.getOrderedTabs();
     if (!tabs.length) return null;
     return tabs.includes(this.activeTab)
@@ -451,6 +452,7 @@ export class ResearchTreeModal extends LitElement {
     levels: number[],
     researched: Set<string>,
     categoryColors: Record<Category, string>,
+    percentages: Map<string, number>,
   ) {
     if (!this.categories.length) {
       return html`<div class="empty-state">No research categories found.</div>`;
@@ -474,10 +476,13 @@ export class ResearchTreeModal extends LitElement {
                   ${techs.length
                     ? techs.map((tech) => {
                         const isResearched = researched.has(tech.id);
+                        const pct = percentages.get(tech.id) ?? 0;
                         return html`<div
                           class=${`compact-tech ${isResearched ? "researched" : ""}`}
                         >
-                          <span class="compact-name">${tech.name}</span>
+                          <span class="compact-name"
+                            >${tech.name} (${pct}%)</span
+                          >
                           ${isResearched
                             ? html`<span class="compact-check">✔</span>`
                             : ""}
@@ -502,7 +507,7 @@ export class ResearchTreeModal extends LitElement {
     if (!svg) return;
     while (svg.firstChild) svg.removeChild(svg.firstChild);
 
-    if (this.activeTab === "All") return;
+    if (this.activeTab === "Overview") return;
     const activeCategory = this.getActiveCategory();
     if (!activeCategory) return;
 
@@ -651,12 +656,25 @@ export class ResearchTreeModal extends LitElement {
     const me = this.game?.myPlayer?.();
     const priority = me?.researchPriorityTech?.() ?? null;
     const tabs = this.getOrderedTabs();
-    const isAllView = this.activeTab === "All";
+    const isAllView = this.activeTab === "Overview";
     const activeCategory = this.getActiveCategory();
     const activeTechs = activeCategory
       ? this.techs.filter((t) => t.category === activeCategory)
       : [];
     const activeMap = new Map(activeTechs.map((n) => [n.id, n] as const));
+    const percentByTechId = (() => {
+      const map = new Map<string, number>();
+      for (const tech of this.techs) {
+        const cost = Math.max(1, tech.cost || 1);
+        const beakers = me?.researchBeakers?.(tech.id) ?? 0;
+        let pct = Math.floor((beakers / cost) * 100);
+        if (!Number.isFinite(pct)) pct = 0;
+        pct = Math.max(0, Math.min(100, pct));
+        if (researched.has(tech.id)) pct = 100;
+        map.set(tech.id, pct);
+      }
+      return map;
+    })();
     const highlightTrail = (() => {
       const set = new Set<string>();
       if (!priority || !activeCategory || !activeMap.has(priority)) return set;
@@ -1244,7 +1262,7 @@ export class ResearchTreeModal extends LitElement {
           <div class="tab-bar">
             <div class="tab-buttons" role="tablist">
               ${tabs.map((cat) => {
-                const isAllTab = cat === "All";
+                const isAllTab = cat === "Overview";
                 const isActive = isAllTab ? isAllView : cat === activeCategory;
                 return html`<button
                   type="button"
@@ -1268,7 +1286,12 @@ export class ResearchTreeModal extends LitElement {
           <div class="tab-panel" role="tabpanel">
             <div class="tree-container ${isAllView ? "all-view" : ""}">
               ${isAllView
-                ? this.renderAllView(levels, researched, categoryColors)
+                ? this.renderAllView(
+                    levels,
+                    researched,
+                    categoryColors,
+                    percentByTechId,
+                  )
                 : activeCategory
                   ? html`<div
                       class="level-strip"
