@@ -29,6 +29,7 @@ import { RoadLayer } from "./layers/RoadLayer";
 import { SpawnTimer } from "./layers/SpawnTimer";
 import { StructureLayer } from "./layers/StructureLayer";
 import { TeamStats } from "./layers/TeamStats";
+import { TechUnlockNotification } from "./layers/TechUnlockNotification";
 import { TerrainLayer } from "./layers/TerrainLayer";
 import { TerritoryLayer } from "./layers/TerritoryLayer";
 import { TopBar } from "./layers/TopBar";
@@ -125,6 +126,15 @@ export function createRenderer(
   }
   researchToggleButton.eventBus = eventBus;
   researchToggleButton.game = game;
+
+  const techUnlockNotification = document.querySelector(
+    "tech-unlock-notification",
+  ) as TechUnlockNotification;
+  if (!(techUnlockNotification instanceof TechUnlockNotification)) {
+    console.error("TechUnlockNotification element not found in the DOM");
+  }
+  techUnlockNotification.eventBus = eventBus;
+  techUnlockNotification.game = game;
 
   const eventsDisplay = document.querySelector(
     "events-display",
@@ -248,6 +258,7 @@ export function createRenderer(
     controlPanel,
     controlPanel2,
     researchToggleButton,
+    techUnlockNotification,
     playerInfo,
     winModel,
     optionsMenu,
