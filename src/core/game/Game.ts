@@ -191,7 +191,6 @@ export enum UpgradeType {
   AirUpgrade1 = "AirUpgrade1",
   CityAntiAir = "CityAntiAir",
   AirUpgrade3 = "AirUpgrade3",
-  CityAntiAir = "CityAntiAir",
   FighterJetNavalTargeting = "FighterJetNavalTargeting",
 
   // Dummy Economy Upgrades
