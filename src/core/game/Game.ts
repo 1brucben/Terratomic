@@ -189,7 +189,7 @@ export enum UpgradeType {
 
   // Air Upgrades
   AirUpgrade1 = "AirUpgrade1",
-  AirUpgrade2 = "AirUpgrade2",
+  CityAntiAir = "CityAntiAir",
   AirUpgrade3 = "AirUpgrade3",
   CityAntiAir = "CityAntiAir",
   FighterJetNavalTargeting = "FighterJetNavalTargeting",
