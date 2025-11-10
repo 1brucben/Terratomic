@@ -187,17 +187,19 @@ export class TechUnlockNotification extends LitElement implements Layer {
           width: min(320px, 90vw);
           background: linear-gradient(
             180deg,
-            rgba(11, 18, 32, 0.95),
-            rgba(24, 39, 66, 0.95)
+            color-mix(in srgb, var(--ui-panel-shell-top) 95%, transparent),
+            color-mix(in srgb, var(--ui-panel-shell-bottom) 95%, transparent)
           );
-          border: 2px solid rgba(14, 26, 51, 0.9);
+          border: 2px solid
+            color-mix(in srgb, var(--ui-panel-border) 90%, transparent);
           border-radius: 8px;
           padding: 12px 16px;
-          color: #e3edff;
+          color: var(--ui-text-light);
           font-family: "Oswald", sans-serif;
           box-shadow:
-            inset 0 0 12px rgba(255, 255, 255, 0.08),
-            8px 12px 24px rgba(0, 0, 0, 0.55);
+            inset 0 0 12px
+              color-mix(in srgb, var(--ui-text-light) 18%, transparent),
+            8px 12px 24px color-mix(in srgb, var(--ui-overlay) 85%, transparent);
           transition:
             transform 200ms ease,
             opacity 200ms ease;
@@ -220,7 +222,7 @@ export class TechUnlockNotification extends LitElement implements Layer {
           font-size: 12px;
           letter-spacing: 0.2em;
           text-transform: uppercase;
-          color: #fcd34d;
+          color: var(--ui-status-warning);
           animation: pulse 1.25s ease-in-out infinite;
         }
         .tech-toast__title {
@@ -231,22 +233,25 @@ export class TechUnlockNotification extends LitElement implements Layer {
         .tech-toast__body {
           font-size: 13px;
           font-family: "Roboto Mono", monospace;
-          color: rgba(227, 237, 255, 0.85);
+          color: color-mix(in srgb, var(--ui-text-light) 85%, transparent);
           line-height: 1.4;
           white-space: pre-line;
         }
         @keyframes pulse {
           0% {
             opacity: 0.7;
-            text-shadow: 0 0 4px rgba(252, 211, 77, 0.4);
+            text-shadow: 0 0 4px
+              color-mix(in srgb, var(--ui-status-warning) 40%, transparent);
           }
           50% {
             opacity: 1;
-            text-shadow: 0 0 12px rgba(252, 211, 77, 0.8);
+            text-shadow: 0 0 12px
+              color-mix(in srgb, var(--ui-status-warning) 80%, transparent);
           }
           100% {
             opacity: 0.7;
-            text-shadow: 0 0 4px rgba(252, 211, 77, 0.4);
+            text-shadow: 0 0 4px
+              color-mix(in srgb, var(--ui-status-warning) 40%, transparent);
           }
         }
       </style>
