@@ -1,4 +1,4 @@
-import { LitElement, html } from "lit";
+import { html, LitElement } from "lit";
 import { customElement, query, state } from "lit/decorators.js";
 import { translateText } from "../client/Utils";
 import { UserSettings } from "../core/game/UserSettings";
@@ -7,6 +7,17 @@ import { SettingKeybind } from "./components/baseComponents/setting/SettingKeybi
 import "./components/baseComponents/setting/SettingNumber";
 import "./components/baseComponents/setting/SettingSlider";
 import "./components/baseComponents/setting/SettingToggle";
+import {
+  adjustUiScalePercent,
+  applyUiScalePercent,
+  getStoredUiScalePercent,
+  saveUiScalePercent,
+  UI_SCALE_CHANGED_EVENT,
+  UI_SCALE_DEFAULT_PERCENT,
+  UI_SCALE_MAX_PERCENT,
+  UI_SCALE_MIN_PERCENT,
+  UI_SCALE_STEP_PERCENT,
+} from "./uiScale";
 
 @customElement("user-setting")
 export class UserSettingModal extends LitElement {
@@ -17,10 +28,20 @@ export class UserSettingModal extends LitElement {
 
   @state() private keySequence: string[] = [];
   @state() private showEasterEggSettings = false;
+  @state() private uiScalePercent = UI_SCALE_DEFAULT_PERCENT;
+
+  private handleUiScaleChanged = (event: Event) => {
+    const detail = (event as CustomEvent<{ percent: number }>).detail;
+    if (!detail) return;
+    const { percent } = detail;
+    if (typeof percent !== "number" || percent === this.uiScalePercent) return;
+    this.uiScalePercent = percent;
+  };
 
   connectedCallback() {
     super.connectedCallback();
     window.addEventListener("keydown", this.handleKeyDown);
+    window.addEventListener(UI_SCALE_CHANGED_EVENT, this.handleUiScaleChanged);
 
     const savedKeybinds = localStorage.getItem("settings.keybinds");
     if (savedKeybinds) {
@@ -30,6 +51,8 @@ export class UserSettingModal extends LitElement {
         console.warn("Invalid keybinds JSON:", e);
       }
     }
+
+    this.uiScalePercent = getStoredUiScalePercent();
   }
 
   @query("o-modal") private modalEl!: HTMLElement & {
@@ -44,6 +67,10 @@ export class UserSettingModal extends LitElement {
 
   disconnectedCallback() {
     window.removeEventListener("keydown", this.handleKeyDown);
+    window.removeEventListener(
+      UI_SCALE_CHANGED_EVENT,
+      this.handleUiScaleChanged,
+    );
     super.disconnectedCallback();
     document.body.style.overflow = "auto";
   }
@@ -139,6 +166,7 @@ export class UserSettingModal extends LitElement {
 
   private toggleLobbyIdVisibility(e: CustomEvent<{ checked: boolean }>) {
     const hideIds = e.detail?.checked;
+
     if (typeof hideIds !== "boolean") return;
 
     this.userSettings.set("settings.lobbyIdVisibility", !hideIds); // Invert because checked=hide
@@ -173,6 +201,21 @@ export class UserSettingModal extends LitElement {
     } else {
       console.warn("Slider event missing detail.value", e);
     }
+  }
+
+  private nudgeUiScale(delta: number) {
+    const next = adjustUiScalePercent(this.uiScalePercent, delta);
+    if (next === this.uiScalePercent) return;
+    this.uiScalePercent = next;
+    saveUiScalePercent(next);
+    applyUiScalePercent(next);
+  }
+
+  private resetUiScale() {
+    if (this.uiScalePercent === UI_SCALE_DEFAULT_PERCENT) return;
+    this.uiScalePercent = UI_SCALE_DEFAULT_PERCENT;
+    saveUiScalePercent(UI_SCALE_DEFAULT_PERCENT);
+    applyUiScalePercent(UI_SCALE_DEFAULT_PERCENT);
   }
 
   private handleKeybindChange(
@@ -304,6 +347,47 @@ export class UserSettingModal extends LitElement {
         .checked=${!this.userSettings.get("settings.lobbyIdVisibility", true)}
         @change=${this.toggleLobbyIdVisibility}
       ></setting-toggle>
+
+      <div class="setting-item vertical">
+        <div class="setting-label-group">
+          <label class="setting-label"
+            >${translateText("user_setting.ui_scale_label")}</label
+          >
+          <div class="setting-description">
+            ${translateText("user_setting.ui_scale_desc")}
+          </div>
+        </div>
+        <div class="flex items-center gap-3 flex-wrap">
+          <button
+            class="w-10 h-10 rounded bg-white/10 text-white text-xl font-bold hover:bg-white/20 transition"
+            @click=${() => this.nudgeUiScale(-UI_SCALE_STEP_PERCENT)}
+            type="button"
+          >
+            -
+          </button>
+          <div class="text-lg font-semibold min-w-[60px] text-center">
+            ${this.uiScalePercent}%
+          </div>
+          <button
+            class="w-10 h-10 rounded bg-white/10 text-white text-xl font-bold hover:bg-white/20 transition"
+            @click=${() => this.nudgeUiScale(UI_SCALE_STEP_PERCENT)}
+            type="button"
+          >
+            +
+          </button>
+          <button
+            class="px-3 py-1 rounded bg-white/5 text-sm uppercase tracking-wide hover:bg-white/15 transition"
+            @click=${this.resetUiScale}
+            type="button"
+          >
+            ${translateText("user_setting.ui_scale_reset")}
+          </button>
+        </div>
+        <div class="text-xs text-gray-400 mt-1">
+          ${UI_SCALE_MIN_PERCENT}% - ${UI_SCALE_MAX_PERCENT}%
+          (${UI_SCALE_STEP_PERCENT}% steps)
+        </div>
+      </div>
 
       <!-- ⚔️ Attack Ratio -->
       <setting-slider

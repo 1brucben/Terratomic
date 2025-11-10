@@ -56,6 +56,16 @@
 @import url("./styles/components/setting.css");
 @import url("./styles/components/controls.css");
 @import url("./styles/core/cursors.css");
+:root {
+  --ui-scale: 1;
+}
+
+.ui-scale-surface {
+  --ui-scale-base: 1;
+  --ui-scale-origin: center;
+  transform-origin: var(--ui-scale-origin);
+  transform: scale(calc(var(--ui-scale) * var(--ui-scale-base)));
+}
 * {
   -webkit-box-sizing: border-box;
   -moz-box-sizing: border-box;
