@@ -1206,7 +1206,8 @@ export class ResearchTreeModal extends LitElement {
               transform 0.12s ease,
               box-shadow 0.12s ease,
               opacity 0.2s;
-            min-height: 72px;
+            /* Ensure cards are tall enough for: title + cost + progress bar + pills */
+            min-height: 132px;
             width: 100%;
             text-align: left;
             box-shadow:
@@ -1389,6 +1390,9 @@ export class ResearchTreeModal extends LitElement {
             height: 14px;
             transform: translateY(-1px);
             opacity: 0.95;
+          }
+          .pill-container {
+            min-height: 18px;
           }
           .pill {
             font-size: 10px;
@@ -1623,7 +1627,7 @@ export class ResearchTreeModal extends LitElement {
                                               : "";
                                           })()
                                         : ""}
-                                      <div>
+                                      <div class="pill-container">
                                         ${tech.requiresAllOf?.length
                                           ? html`<span class="pill pill-req"
                                               >Requires:
