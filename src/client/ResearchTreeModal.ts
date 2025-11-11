@@ -1172,7 +1172,7 @@ export class ResearchTreeModal extends LitElement {
           .tech-stack {
             display: flex;
             flex-direction: column;
-            gap: 10px;
+            gap: 20px;
           }
           .empty-level {
             font-size: 12px;
