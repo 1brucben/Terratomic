@@ -251,6 +251,18 @@ export const TECHS: Readonly<Record<string, TechDefinition>> = Object.freeze({
       description:
         "Unlocks Paratroopers, allowing you to launch surprise attacks from the sky. Requires an Airfield.",
     },
+    effects: {
+      onComplete: (player) => {
+        if (!player.hasUpgrade(UpgradeType.AirUpgrade1)) {
+          player.addUpgrade(UpgradeType.AirUpgrade1);
+        }
+      },
+      onRevoke: (player) => {
+        if (player.hasUpgrade(UpgradeType.AirUpgrade1)) {
+          player.removeUpgrade(UpgradeType.AirUpgrade1);
+        }
+      },
+    },
   },
   [RESEARCH_TECH_IDS.SUBMARINE_WARFARE]: {
     meta: {

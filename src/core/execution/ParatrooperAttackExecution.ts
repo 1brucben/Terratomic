@@ -173,8 +173,6 @@ export class ParatrooperAttackExecution implements Execution {
       return;
     }
 
-    if (paratrooper.targetedBySAM()) return;
-
     const readyInterceptors = this.eligibleCities.filter(
       (city) =>
         (city.ticksLeftInCooldown() ?? 0) <= 0 &&

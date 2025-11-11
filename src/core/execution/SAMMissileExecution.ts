@@ -57,6 +57,12 @@ export class SAMMissileExecution implements Execution {
       this.target.owner() === this.SAMMissile.owner() ||
       !Whitelist.includes(this.target.type())
     ) {
+      try {
+        this.target.setTargetedBySAM(false);
+      } catch (e) {
+        // If the target is already gone or invalid, ignore.
+      }
+
       this.SAMMissile.delete(false);
       this.active = false;
       return;
