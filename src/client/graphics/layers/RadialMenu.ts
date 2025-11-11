@@ -47,25 +47,6 @@ enum Slot {
   AirAttack,
 }
 
-const MENU_COLORS = {
-  info: "var(--ui-info)",
-  ally: "var(--ui-success)",
-  breakAlliance: "var(--ui-alert)",
-  peace: "var(--ui-text-light)",
-  boat: "var(--ui-secondary)",
-  airAttack: "var(--ui-alert-hover)",
-} as const;
-
-const MENU_STATE_COLORS = {
-  disabledFill: "var(--ui-border-muted)",
-  iconEnabled: "var(--ui-text-light)",
-  iconDisabled: "var(--ui-text-muted)",
-  centerEnabledFill: "var(--ui-secondary)",
-  centerDisabledFill: "var(--ui-surface-muted)",
-  centerEnabledText: "var(--ui-text-light)",
-  centerDisabledText: "var(--ui-text-muted)",
-} as const;
-
 export class RadialMenu implements Layer {
   private clickedCell: Cell | null = null;
   private lastClosed: number = 0;
@@ -132,15 +113,9 @@ export class RadialMenu implements Layer {
   private readonly centerButtonSize = 30;
   private readonly iconSize = 32;
   private readonly centerIconSize = 48;
-  private readonly disabledColor = MENU_STATE_COLORS.disabledFill;
+  private readonly disabledColor = d3.rgb(128, 128, 128).toString();
   // Scale factor specifically for the Peace (dove) icon relative to iconSize
   private readonly peaceIconScale = 1.2;
-  private readonly iconEnabledColor = MENU_STATE_COLORS.iconEnabled;
-  private readonly iconDisabledColor = MENU_STATE_COLORS.iconDisabled;
-  private readonly centerEnabledFill = MENU_STATE_COLORS.centerEnabledFill;
-  private readonly centerDisabledFill = MENU_STATE_COLORS.centerDisabledFill;
-  private readonly centerEnabledText = MENU_STATE_COLORS.centerEnabledText;
-  private readonly centerDisabledText = MENU_STATE_COLORS.centerDisabledText;
 
   private isCenterButtonEnabled = false;
 
@@ -213,7 +188,7 @@ export class RadialMenu implements Layer {
       .attr("fill", (d) =>
         d.data.disabled ? this.disabledColor : d.data.color,
       )
-      .attr("stroke", "var(--ui-text-light)")
+      .attr("stroke", "#ffffff")
       .attr("stroke-width", "2")
       .style("cursor", (d) => (d.data.disabled ? "not-allowed" : "pointer"))
       .style("opacity", (d) => (d.data.disabled ? 0.5 : 1))
@@ -313,7 +288,7 @@ export class RadialMenu implements Layer {
       .append("circle")
       .attr("class", "center-button-visible")
       .attr("r", this.centerButtonSize)
-      .attr("fill", this.centerEnabledFill)
+      .attr("fill", "#2c3e50")
       .style("pointer-events", "none");
 
     centerButton
@@ -401,44 +376,34 @@ export class RadialMenu implements Layer {
     tile: TileRef,
   ) {
     if (this.g.hasOwner(tile)) {
-      this.activateMenuElement(Slot.Info, MENU_COLORS.info, infoIcon, () => {
+      this.activateMenuElement(Slot.Info, "#64748B", infoIcon, () => {
         this.playerPanel.show(actions, tile);
       });
     }
 
     if (actions?.interaction?.canSendAllianceRequest) {
-      this.activateMenuElement(
-        Slot.Ally,
-        MENU_COLORS.ally,
-        allianceIcon,
-        () => {
-          this.eventBus.emit(
-            new SendAllianceRequestIntentEvent(
-              myPlayer,
-              this.g.owner(tile) as PlayerView,
-            ),
-          );
-        },
-      );
+      this.activateMenuElement(Slot.Ally, "#53ac75", allianceIcon, () => {
+        this.eventBus.emit(
+          new SendAllianceRequestIntentEvent(
+            myPlayer,
+            this.g.owner(tile) as PlayerView,
+          ),
+        );
+      });
     }
     if (actions?.interaction?.canBreakAlliance) {
-      this.activateMenuElement(
-        Slot.Ally,
-        MENU_COLORS.breakAlliance,
-        traitorIcon,
-        () => {
-          this.eventBus.emit(
-            new SendBreakAllianceIntentEvent(
-              myPlayer,
-              this.g.owner(tile) as PlayerView,
-            ),
-          );
-        },
-      );
+      this.activateMenuElement(Slot.Ally, "#c74848", traitorIcon, () => {
+        this.eventBus.emit(
+          new SendBreakAllianceIntentEvent(
+            myPlayer,
+            this.g.owner(tile) as PlayerView,
+          ),
+        );
+      });
     }
     if (actions?.interaction?.canRequestPeace) {
       // Use light gray to match the intended neutral/diplomatic styling
-      this.activateMenuElement(Slot.Peace, MENU_COLORS.peace, doveIcon, () => {
+      this.activateMenuElement(Slot.Peace, "#e5e7eb", doveIcon, () => {
         this.eventBus.emit(
           new SendPeaceRequestIntentEvent(
             myPlayer,
@@ -451,7 +416,7 @@ export class RadialMenu implements Layer {
       actions.buildableUnits.find((bu) => bu.type === UnitType.TransportShip)
         ?.canBuild
     ) {
-      this.activateMenuElement(Slot.Boat, MENU_COLORS.boat, boatIcon, () => {
+      this.activateMenuElement(Slot.Boat, "#3f6ab1", boatIcon, () => {
         // BestTransportShipSpawn is an expensive operation, so
         // we calculate it here and send the spawn tile to other clients.
         myPlayer.bestTransportShipSpawn(tile).then((spawn) => {
@@ -480,22 +445,17 @@ export class RadialMenu implements Layer {
     }
 
     if (this.shouldShowAirAttack(myPlayer, tile)) {
-      this.activateMenuElement(
-        Slot.AirAttack,
-        MENU_COLORS.airAttack,
-        airAttackIcon,
-        () => {
-          if (this.clickedCell === null) return;
-          const dst = this.g.ref(this.clickedCell.x, this.clickedCell.y);
-          this.eventBus.emit(
-            new SendParatrooperAttackIntentEvent(
-              this.g.owner(tile).id(),
-              dst,
-              this.uiState.attackRatio * myPlayer.troops(),
-            ),
-          );
-        },
-      );
+      this.activateMenuElement(Slot.AirAttack, "#8B0000", airAttackIcon, () => {
+        if (this.clickedCell === null) return;
+        const dst = this.g.ref(this.clickedCell.x, this.clickedCell.y);
+        this.eventBus.emit(
+          new SendParatrooperAttackIntentEvent(
+            this.g.owner(tile).id(),
+            dst,
+            this.uiState.attackRatio * myPlayer.troops(),
+          ),
+        );
+      });
     }
 
     if (!this.g.hasOwner(tile)) {
@@ -645,10 +605,7 @@ export class RadialMenu implements Layer {
     this.menuElement
       .select(`image[data-name="${item.name}"]`)
       .attr("xlink:href", item.disabled ? disabledIcon : item.icon)
-      .attr(
-        "fill",
-        item.disabled ? this.iconDisabledColor : this.iconEnabledColor,
-      );
+      .attr("fill", item.disabled ? "#999999" : "white");
   }
 
   private onCenterButtonHover(isHovering: boolean) {
@@ -684,10 +641,10 @@ export class RadialMenu implements Layer {
 
     centerButton
       .select(".center-button-visible")
-      .attr("fill", enabled ? this.centerEnabledFill : this.centerDisabledFill);
+      .attr("fill", enabled ? "#2c3e50" : "#999999");
 
     centerButton
       .select(".center-button-text")
-      .attr("fill", enabled ? this.centerEnabledText : this.centerDisabledText);
+      .attr("fill", enabled ? "white" : "#cccccc");
   }
 }
