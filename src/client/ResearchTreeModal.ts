@@ -700,6 +700,8 @@ export class ResearchTreeModal extends LitElement {
         max-width="90vw"
         max-height="85dvh"
         content-overflow="hidden"
+        class="ui-scale-surface"
+        style="--ui-scale-origin: center;"
       >
         <style>
           .legend {

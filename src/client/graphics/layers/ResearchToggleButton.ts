@@ -139,16 +139,21 @@ export class ResearchToggleButton extends LitElement implements Layer {
           border-color: var(--ui-secondary);
         }
       </style>
-      <button
-        type="button"
-        class="research-vertical-button ${this._isModalOpen ? "open" : ""}"
-        aria-label="Toggle Research Tree"
-        @click=${this.toggleModal}
+      <div
+        class="ui-scale-surface"
+        style="position: fixed; left: 0; top: 50%; z-index: 10050; --ui-scale-origin: center left;"
       >
-        ${["R", "E", "S", "E", "A", "R", "C", "H"].map(
-          (letter) => html`<span>${letter}</span>`,
-        )}
-      </button>
+        <button
+          type="button"
+          class="research-vertical-button ${this._isModalOpen ? "open" : ""}"
+          aria-label="Toggle Research Tree"
+          @click=${this.toggleModal}
+        >
+          ${["R", "E", "S", "E", "A", "R", "C", "H"].map(
+            (letter) => html`<span>${letter}</span>`,
+          )}
+        </button>
+      </div>
     `;
   }
 }
