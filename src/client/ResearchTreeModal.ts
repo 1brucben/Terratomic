@@ -745,6 +745,17 @@ export class ResearchTreeModal extends LitElement {
               color-mix(in srgb, var(--ui-border-muted) 35%, transparent);
             align-items: flex-end;
           }
+          /* Responsive padding to prevent slider overlap on smaller screens */
+          @media (max-width: 1024px) {
+            .tab-bar {
+              padding-bottom: 12px;
+            }
+          }
+          @media (max-width: 768px) {
+            .tab-bar {
+              padding-bottom: 20px;
+            }
+          }
           .tab-buttons {
             display: flex;
             flex-wrap: wrap;
@@ -813,6 +824,18 @@ export class ResearchTreeModal extends LitElement {
             margin-left: auto;
             align-items: flex-start;
             margin-top: -40px;
+          }
+
+          @media (max-width: 1100px) {
+            .investment-cluster {
+              margin-top: 0;
+            }
+            /* Allow the modal content area to scroll vertically on small screens */
+            .tab-shell {
+              max-height: calc(85dvh - 40px);
+              overflow-y: auto;
+              -webkit-overflow-scrolling: touch;
+            }
           }
           .investment-slider {
             min-width: 260px;
@@ -1449,10 +1472,7 @@ export class ResearchTreeModal extends LitElement {
                 </button>`;
               })}
             </div>
-            <div class="investment-cluster">
-              ${this.renderResearchSlider()}
-              ${this.renderRoadSlider(me ?? null)}
-            </div>
+            <div class="investment-cluster">${this.renderResearchSlider()}</div>
           </div>
           <div class="tab-panel" role="tabpanel">
             <div class="tree-container ${isAllView ? "all-view" : ""}">
