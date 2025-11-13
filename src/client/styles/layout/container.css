@@ -1,7 +1,7 @@
 .container {
   display: flex;
   padding: 1.5rem; /* Slightly more padding */
-  max-width: 540px !important;
+  max-width: 540px;
   flex-direction: column;
   gap: 1.5rem; /* Slightly more gap */
   opacity: 1;
