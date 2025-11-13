@@ -33,6 +33,16 @@ You're now ready to start developing locally. A formal contribution guide will b
 
 Until then, open issues, submit pull requests, or join the discussion [on Discord](https://discord.gg/JNZbp4pg5y) — we're listening.
 
+### 📐 UI Development Guidelines
+
+When adding or modifying UI components, please follow our **resolution-responsive scaling system**:
+
+- Use `rem` units (not `px`) for all dimensions
+- Use semantic font classes (`.font-sm`, `.font-base`, `.font-md`) instead of Tailwind's `text-*` utilities
+- Test at multiple resolutions: 1920×1080, 1600×900, 1440×900, 1366×768
+
+**→ [Read the complete UI Scaling Guide](docs/dev_notes/SCALING_GUIDE.md)**
+
 ---
 
 ## 🗂️ Project Structure
