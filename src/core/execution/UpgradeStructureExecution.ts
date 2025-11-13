@@ -40,11 +40,13 @@ export class UpgradeStructureExecution implements Execution {
       case UnitType.Port:
       case UnitType.Hospital:
       case UnitType.Academy:
-      case UnitType.MissileSilo: {
+      case UnitType.MissileSilo:
+      case UnitType.SAMLauncher: {
         const unitType = this.unit.type();
         // Enforce missile silo max level 3 on the executor side to avoid charging when capped
         if (
-          unitType === UnitType.MissileSilo &&
+          (unitType === UnitType.MissileSilo ||
+            unitType === UnitType.SAMLauncher) &&
           (this.unit.level?.call(this.unit) ?? 1) >= 3
         ) {
           this._isActive = false;
