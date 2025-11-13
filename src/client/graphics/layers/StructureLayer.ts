@@ -85,6 +85,7 @@ export class StructureLayer implements Layer {
   private lastAffordableForUpgradeHospital: boolean | null = null;
   private lastAffordableForUpgradeAcademy: boolean | null = null;
   private lastAffordableForUpgradeSilo: boolean | null = null;
+  private lastAffordableForUpgradeSAM: boolean | null = null;
   // Client-side level tracking for structures (temporary)
   private structureLevels = new Map<
     number,
@@ -162,7 +163,8 @@ export class StructureLayer implements Layer {
           r.unit.type() === UnitType.Port ||
           r.unit.type() === UnitType.Hospital ||
           r.unit.type() === UnitType.Academy ||
-          r.unit.type() === UnitType.MissileSilo
+          r.unit.type() === UnitType.MissileSilo ||
+          r.unit.type() === UnitType.SAMLauncher
         ) {
           r.pixiSprite.texture = this.createTexture(r.unit);
         }
@@ -297,13 +299,15 @@ export class StructureLayer implements Layer {
     const affordableHospital = this.canAffordUpgradeForType(UnitType.Hospital);
     const affordableAcademy = this.canAffordUpgradeForType(UnitType.Academy);
     const affordableSilo = this.canAffordUpgradeForType(UnitType.MissileSilo);
+    const affordableSAM = this.canAffordUpgradeForType(UnitType.SAMLauncher);
     if (!this.upgradeMode) {
       if (
         this.lastAffordableForUpgradeCity !== null ||
         this.lastAffordableForUpgradePort !== null ||
         this.lastAffordableForUpgradeHospital !== null ||
         this.lastAffordableForUpgradeAcademy !== null ||
-        this.lastAffordableForUpgradeSilo !== null
+        this.lastAffordableForUpgradeSilo !== null ||
+        this.lastAffordableForUpgradeSAM !== null
       ) {
         for (const r of this.renders) {
           if (
@@ -311,7 +315,8 @@ export class StructureLayer implements Layer {
             r.unit.type() === UnitType.Port ||
             r.unit.type() === UnitType.Hospital ||
             r.unit.type() === UnitType.Academy ||
-            r.unit.type() === UnitType.MissileSilo
+            r.unit.type() === UnitType.MissileSilo ||
+            r.unit.type() === UnitType.SAMLauncher
           ) {
             r.pixiSprite.texture = this.createTexture(r.unit);
           }
@@ -321,6 +326,7 @@ export class StructureLayer implements Layer {
         this.lastAffordableForUpgradeHospital = null;
         this.lastAffordableForUpgradeAcademy = null;
         this.lastAffordableForUpgradeSilo = null;
+        this.lastAffordableForUpgradeSAM = null;
         this.shouldRedraw = true;
       }
       // When exiting upgrade mode, ensure any previously highlighted sprites are refreshed
@@ -343,12 +349,14 @@ export class StructureLayer implements Layer {
     const academyChanged =
       this.lastAffordableForUpgradeAcademy !== affordableAcademy;
     const siloChanged = this.lastAffordableForUpgradeSilo !== affordableSilo;
+    const samChanged = this.lastAffordableForUpgradeSAM !== affordableSAM;
     if (
       cityChanged ||
       portChanged ||
       hospitalChanged ||
       academyChanged ||
-      siloChanged
+      siloChanged ||
+      samChanged
     ) {
       for (const r of this.renders) {
         const t = r.unit.type();
@@ -357,7 +365,8 @@ export class StructureLayer implements Layer {
           (portChanged && t === UnitType.Port) ||
           (hospitalChanged && t === UnitType.Hospital) ||
           (academyChanged && t === UnitType.Academy) ||
-          (siloChanged && t === UnitType.MissileSilo)
+          (siloChanged && t === UnitType.MissileSilo) ||
+          (samChanged && t === UnitType.SAMLauncher)
         ) {
           r.pixiSprite.texture = this.createTexture(r.unit);
         }
@@ -367,6 +376,7 @@ export class StructureLayer implements Layer {
       this.lastAffordableForUpgradeHospital = affordableHospital;
       this.lastAffordableForUpgradeAcademy = affordableAcademy;
       this.lastAffordableForUpgradeSilo = affordableSilo;
+      this.lastAffordableForUpgradeSAM = affordableSAM;
       this.shouldRedraw = true;
     }
 
@@ -379,7 +389,8 @@ export class StructureLayer implements Layer {
         t !== UnitType.Port &&
         t !== UnitType.Hospital &&
         t !== UnitType.Academy &&
-        t !== UnitType.MissileSilo
+        t !== UnitType.MissileSilo &&
+        t !== UnitType.SAMLauncher
       ) {
         continue;
       }
@@ -477,7 +488,8 @@ export class StructureLayer implements Layer {
         t === UnitType.Port ||
         t === UnitType.Hospital ||
         t === UnitType.Academy ||
-        t === UnitType.MissileSilo
+        t === UnitType.MissileSilo ||
+        t === UnitType.SAMLauncher
       ) {
         const hl = this.shouldHighlight(unit) ? 1 : 0;
         cacheKey += `-hl${hl}`;
@@ -533,7 +545,8 @@ export class StructureLayer implements Layer {
         structureType === UnitType.Port ||
         structureType === UnitType.Hospital ||
         structureType === UnitType.Academy ||
-        structureType === UnitType.MissileSilo) &&
+        structureType === UnitType.MissileSilo ||
+        structureType === UnitType.SAMLauncher) &&
       this.shouldHighlight(unit)
     ) {
       // Blend neon green with the base border color to reduce intensity
@@ -653,11 +666,16 @@ export class StructureLayer implements Layer {
       unit.type() !== UnitType.Port &&
       unit.type() !== UnitType.Hospital &&
       unit.type() !== UnitType.Academy &&
-      unit.type() !== UnitType.MissileSilo
+      unit.type() !== UnitType.MissileSilo &&
+      unit.type() !== UnitType.SAMLauncher
     )
       return false;
     // Do not highlight missile silos at max level (3)
     if (unit.type() === UnitType.MissileSilo && unit.level() >= 3) {
+      return false;
+    }
+    // Do not highlight SAM launchers at max level (3)
+    if (unit.type() === UnitType.SAMLauncher && unit.level() >= 3) {
       return false;
     }
     return unit.owner().id() === me.id() && this.canAffordUpgrade(unit);
