@@ -93,16 +93,16 @@ export class UnitInfoModal extends LitElement implements Layer {
       pointer-events: auto;
       background: var(--ui-modal-content);
       color: var(--ui-text-default);
-      border: 1px solid var(--ui-panel-border);
-      padding: 12px 18px;
-      border-radius: 8px;
-      min-width: 220px;
-      max-width: 300px;
+      border: 0.0625rem solid var(--ui-panel-border); /* 1px */
+      padding: 0.75rem 1.125rem; /* 12px 18px */
+      border-radius: var(--radius-md); /* 8px */
+      min-width: 13.75rem; /* 220px */
+      max-width: 18.75rem; /* 300px */
       box-shadow: var(--ui-panel-shadow);
       font-family: "Segoe UI", sans-serif;
-      font-size: 15px;
+      font-size: 0.9375rem; /* 15px */
       line-height: 1.6;
-      backdrop-filter: blur(6px);
+      backdrop-filter: blur(0.375rem); /* 6px */
       position: relative;
     }
 
@@ -113,16 +113,16 @@ export class UnitInfoModal extends LitElement implements Layer {
     .close-button {
       background: var(--ui-primary);
       color: var(--ui-button-text);
-      border: 1px solid transparent;
-      border-radius: 4px;
-      font-size: 14px;
+      border: 0.0625rem solid transparent; /* 1px */
+      border-radius: var(--radius-xs); /* 4px */
+      font-size: 0.875rem; /* 14px */
       font-weight: bold;
       cursor: pointer;
       display: flex;
       align-items: center;
       justify-content: center;
       line-height: 1;
-      padding: 6px 12px;
+      padding: 0.375rem 0.75rem; /* 6px 12px */
     }
 
     .close-button:hover {
@@ -130,18 +130,18 @@ export class UnitInfoModal extends LitElement implements Layer {
     }
 
     .modal__title {
-      margin-bottom: 8px;
-      font-size: 16px;
+      margin-bottom: 0.5rem; /* 8px */
+      font-size: 1rem; /* 16px */
       font-weight: bold;
       color: var(--ui-text-accent);
     }
 
     .modal__section {
-      margin-bottom: 4px;
+      margin-bottom: var(--space-1); /* 4px */
     }
 
     .modal__actions {
-      margin-top: 14px;
+      margin-top: 0.875rem; /* 14px */
       display: flex;
       justify-content: center;
     }

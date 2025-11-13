@@ -17,7 +17,7 @@
 }
 
 .plus {
-  font-size: 16px;
+  font-size: 1em;
   color: #ccc;
 }
 
@@ -75,7 +75,7 @@
   display: flex;
   flex-direction: column;
   gap: 4px;
-  font-size: 14px;
+  font-size: 0.875em;
   color: #ccc;
 }
 
@@ -148,7 +148,7 @@
 .military-heading {
   /* Use Oswald for cleaner, condensed headings used by POP:/GOLD: */
   font-family: "Oswald", sans-serif;
-  font-size: 12px;
+  font-size: var(--font-sm);
   letter-spacing: 1px;
   text-transform: uppercase;
   color: var(--ui-text-accent);
@@ -157,7 +157,7 @@
 
 /* Labels for inline stats / small captions */
 .military-label {
-  font-size: 12px;
+  font-size: var(--font-sm);
   color: var(--ui-text-muted);
   text-transform: uppercase;
 }
@@ -169,7 +169,7 @@
   border: 1px solid #1f2018;
   padding: 4px 8px;
   text-transform: uppercase;
-  font-size: 12px;
+  font-size: var(--font-sm);
   font-family: monospace;
   transition: background-color 0.15s ease-in-out;
 }

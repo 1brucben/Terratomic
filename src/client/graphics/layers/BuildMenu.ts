@@ -259,7 +259,7 @@ export class BuildMenu extends LitElement {
     }
     .build-menu {
       background-color: transparent;
-      padding: 0px;
+      padding: 0;
       display: flex;
       flex-direction: column;
       align-items: flex-start;
@@ -275,33 +275,33 @@ export class BuildMenu extends LitElement {
     }
     .build-button {
       position: relative;
-      width: 120px;
-      height: 50px;
-      border: 2px solid var(--ui-panel-border);
+      width: 7.5rem; /* 120px */
+      height: 3.125rem; /* 50px */
+      border: 0.125rem solid var(--ui-panel-border); /* 2px */
       /* Darker idle surface to improve separation */
       background: var(--ui-primary);
       color: var(--ui-text-accent); /* submarine palette light blue */
-      border-radius: 6px;
+      border-radius: var(--radius-sm); /* 6px */
       box-shadow:
-        inset 0 0 10px rgba(0, 0, 0, 0.5),
-        0 2px 6px rgba(0, 0, 0, 0.4);
+        inset 0 0 0.625rem rgba(0, 0, 0, 0.5),
+        0 0.125rem 0.375rem rgba(0, 0, 0, 0.4);
       cursor: pointer;
       transition: all 0.3s ease;
       display: flex;
       flex-direction: row;
       justify-content: flex-start;
       align-items: center;
-      margin: 4px;
-      padding: 5px;
-      gap: 8px;
+      margin: var(--space-1); /* 4px */
+      padding: 0.3125rem; /* 5px */
+      gap: var(--space-2); /* 8px */
     }
     .build-button:not(:disabled):hover {
       background-color: var(--ui-secondary); /* deeper navy on hover */
       transform: scale(1.02);
       border-color: var(--ui-secondary); /* blue accent border */
       box-shadow:
-        inset 0 0 10px rgba(0, 0, 0, 0.5),
-        0 2px 8px rgba(0, 0, 0, 0.6);
+        inset 0 0 0.625rem rgba(0, 0, 0, 0.5),
+        0 0.125rem 0.5rem rgba(0, 0, 0, 0.6);
     }
     .build-button:not(:disabled):active {
       background: linear-gradient(
@@ -311,8 +311,8 @@ export class BuildMenu extends LitElement {
       ); /* pressed navy */
       transform: scale(0.98);
       box-shadow:
-        inset 0 0 10px rgba(0, 0, 0, 0.7),
-        0 1px 3px rgba(0, 0, 0, 0.3);
+        inset 0 0 0.625rem rgba(0, 0, 0, 0.7),
+        0 0.0625rem 0.1875rem rgba(0, 0, 0, 0.3);
     }
     .build-button:disabled {
       background-color: var(--ui-primary-disabled);
@@ -329,21 +329,21 @@ export class BuildMenu extends LitElement {
     }
     .selected-for-build {
       border-color: var(--ui-secondary-hover); /* blue selection accent */
-      box-shadow: 0 0 10px rgba(50, 98, 155, 0.65);
+      box-shadow: 0 0 0.625rem rgba(50, 98, 155, 0.65);
     }
     .build-icon {
-      width: 28px;
-      height: 28px;
+      width: 1.75rem; /* 28px */
+      height: 1.75rem; /* 28px */
       flex-shrink: 0;
     }
     .build-item-details {
       display: flex;
       flex-direction: column;
       align-items: flex-start;
-      gap: 2px;
+      gap: 0.125rem; /* 2px */
     }
     .build-name {
-      font-size: 11px;
+      font-size: 0.6875rem; /* 11px */
       font-weight: bold;
       text-align: left;
       line-height: 1.2;
@@ -363,28 +363,28 @@ export class BuildMenu extends LitElement {
       color: var(--ui-text-muted); /* muted info */
     }
     .build-cost {
-      font-size: 10px;
+      font-size: 0.625rem; /* 10px */
       white-space: nowrap;
       text-align: left;
       color: var(--ui-text-accent); /* readable cost color */
     }
     .build-count-chip {
       position: absolute;
-      top: -5px;
-      right: -5px;
+      top: -0.3125rem; /* -5px */
+      right: -0.3125rem; /* -5px */
       background-color: var(--ui-panel-shell-bottom);
       color: var(--ui-text-light);
-      padding: 1px 5px;
-      border-radius: 10px;
-      font-size: 9px;
-      border: 1px solid var(--ui-border-muted);
+      padding: 0.0625rem 0.3125rem; /* 1px 5px */
+      border-radius: 0.625rem; /* 10px */
+      font-size: 0.5625rem; /* 9px */
+      border: 0.0625rem solid var(--ui-border-muted); /* 1px */
     }
     .build-hotkey {
       position: absolute;
-      bottom: 2px;
-      right: 4px;
+      bottom: 0.125rem; /* 2px */
+      right: 0.25rem; /* 4px */
       color: var(--ui-text-muted); /* subtle hint color */
-      font-size: 9px;
+      font-size: 0.5625rem; /* 9px */
     }
     .build-button:not(:disabled):hover > .build-count-chip {
       background-color: var(--ui-panel-shell-top);
@@ -400,35 +400,35 @@ export class BuildMenu extends LitElement {
     }
     .build-count {
       font-weight: bold;
-      font-size: 10px;
+      font-size: 0.625rem; /* 10px */
     }
     .upgrade-button-container {
       align-self: flex-end;
-      margin: 8px 4px 4px auto;
+      margin: 0.5rem 0.25rem 0.25rem auto; /* 8px 4px 4px */
     }
     .upgrade-button {
-      width: 70px;
-      height: 70px;
-      border: 2px solid var(--ui-panel-border);
+      width: 4.375rem; /* 70px */
+      height: 4.375rem; /* 70px */
+      border: 0.125rem solid var(--ui-panel-border); /* 2px */
       background: var(--ui-primary);
       color: var(--ui-text-accent);
-      border-radius: 6px;
+      border-radius: var(--radius-sm); /* 6px */
       box-shadow:
-        inset 0 0 10px rgba(0, 0, 0, 0.5),
-        0 2px 6px rgba(0, 0, 0, 0.4);
+        inset 0 0 0.625rem rgba(0, 0, 0, 0.5),
+        0 0.125rem 0.375rem rgba(0, 0, 0, 0.4);
       cursor: pointer;
       transition: all 0.3s ease;
       display: flex;
       flex-direction: column;
       justify-content: center;
       align-items: center;
-      gap: 4px;
+      gap: var(--space-1); /* 4px */
     }
     .upgrade-button.selected {
       border-color: var(--ui-secondary-hover);
       box-shadow:
-        0 0 12px rgba(50, 98, 155, 0.75),
-        inset 0 0 12px rgba(0, 0, 0, 0.6);
+        0 0 0.75rem rgba(50, 98, 155, 0.75),
+        inset 0 0 0.75rem rgba(0, 0, 0, 0.6);
       background: var(--ui-secondary);
       transform: scale(1.05);
     }
@@ -446,11 +446,11 @@ export class BuildMenu extends LitElement {
       transform: scale(0.95);
     }
     .upgrade-icon {
-      width: 32px;
-      height: 32px;
+      width: 2rem; /* 32px */
+      height: 2rem; /* 32px */
     }
     .upgrade-label {
-      font-size: 11px;
+      font-size: 0.6875rem; /* 11px */
       font-weight: bold;
       text-transform: lowercase;
     }

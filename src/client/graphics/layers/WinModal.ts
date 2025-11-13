@@ -33,13 +33,13 @@ export class WinModal extends LitElement implements Layer {
       left: 50%;
       transform: translate(-50%, -50%);
       background-color: var(--ui-modal-content);
-      padding: 25px;
-      border-radius: 10px;
+      padding: 1.5625rem; /* 25px */
+      border-radius: 0.625rem; /* 10px */
       z-index: 9999;
       box-shadow: var(--ui-panel-shadow);
-      backdrop-filter: blur(5px);
+      backdrop-filter: blur(0.3125rem); /* 5px */
       color: var(--ui-text-default);
-      width: 350px;
+      width: 21.875rem; /* 350px */
       transition:
         opacity 0.3s ease-in-out,
         visibility 0.3s ease-in-out;
@@ -62,35 +62,35 @@ export class WinModal extends LitElement implements Layer {
     }
 
     .win-modal h2 {
-      margin: 0 0 15px 0;
-      font-size: 26px;
+      margin: 0 0 0.9375rem 0; /* 15px */
+      font-size: 1.625rem; /* 26px */
       text-align: center;
       color: var(--ui-text-accent);
     }
 
     .win-modal p {
-      margin: 0 0 20px 0;
+      margin: 0 0 1.25rem 0; /* 20px */
       text-align: center;
       background-color: var(--ui-table-row-bg);
-      padding: 10px;
-      border-radius: 5px;
+      padding: 0.625rem; /* 10px */
+      border-radius: 0.3125rem; /* 5px */
     }
 
     .button-container {
       display: flex;
       justify-content: space-between;
-      gap: 10px;
+      gap: 0.625rem; /* 10px */
     }
 
     .win-modal button {
       flex: 1;
-      padding: 12px;
-      font-size: 16px;
+      padding: 0.75rem; /* 12px */
+      font-size: 1rem; /* 16px */
       cursor: pointer;
       background: var(--ui-primary);
       color: var(--ui-button-text);
       border: none;
-      border-radius: 5px;
+      border-radius: 0.3125rem; /* 5px */
       transition:
         background-color 0.2s ease,
         transform 0.1s ease;
@@ -98,27 +98,27 @@ export class WinModal extends LitElement implements Layer {
 
     .win-modal button:hover {
       background: var(--ui-primary-hover);
-      transform: translateY(-1px);
+      transform: translateY(-0.0625rem);
     }
 
     .win-modal button:active {
-      transform: translateY(1px);
+      transform: translateY(0.0625rem);
     }
 
     @media (max-width: 768px) {
       .win-modal {
         width: 90%;
-        max-width: 300px;
-        padding: 20px;
+        max-width: 18.75rem; /* 300px */
+        padding: 1.25rem; /* 20px */
       }
 
       .win-modal h2 {
-        font-size: 26px;
+        font-size: 1.625rem; /* 26px */
       }
 
       .win-modal button {
-        padding: 10px;
-        font-size: 14px;
+        padding: 0.625rem; /* 10px */
+        font-size: 0.875rem; /* 14px */
       }
     }
 
@@ -127,7 +127,7 @@ export class WinModal extends LitElement implements Layer {
       text-decoration: underline;
       font-weight: 500;
       transition: color 0.2s ease;
-      font-size: 24px;
+      font-size: 1.5rem; /* 24px */
     }
 
     .win-modal__link:hover {

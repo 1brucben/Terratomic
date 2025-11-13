@@ -62,7 +62,7 @@
   padding: 16px 24px;
   background: rgba(0, 0, 0, 0.8);
   color: #fff;
-  font-size: 20px;
+  font-size: 1.25em;
   border-radius: 12px;
   animation: fadePop 5s ease-out forwards;
   z-index: 9999;
@@ -76,7 +76,7 @@
   padding: 16px 24px;
   background: rgba(0, 0, 0, 0.8);
   color: #fff;
-  font-size: 20px;
+  font-size: 1.25em;
   border-radius: 12px;
   animation: fadePop_2 10s ease-out forwards;
   z-index: 9999;
@@ -141,7 +141,7 @@
 
 .setting-label {
   color: #f0f0f0;
-  font-size: 15px;
+  font-size: 0.9375em;
   font-weight: 500;
 }
 
@@ -214,7 +214,7 @@
 .slider-value {
   width: 100%;
   text-align: center;
-  font-size: 13px;
+  font-size: 0.8125em;
   color: #aaa;
 }
 
@@ -283,7 +283,7 @@
 }
 
 .setting-description {
-  font-size: 12px;
+  font-size: 0.75em;
   color: #888;
   margin-top: 2px;
   white-space: normal;

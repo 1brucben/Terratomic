@@ -15,3 +15,28 @@
 .t-text-white {
   color: #ffffffb3;
 }
+
+/* Semantic font-size utilities mapped to tokens (rem-based, no compounding) */
+.font-xs {
+  font-size: var(--font-xs);
+}
+.font-sm {
+  font-size: var(--font-sm);
+}
+.font-base {
+  font-size: var(--font-base);
+}
+.font-md {
+  font-size: var(--font-md);
+}
+.font-lg {
+  font-size: var(--font-lg);
+}
+
+/* Density helpers for tight panels */
+.font-dense {
+  font-size: var(--font-sm);
+}
+.font-micro {
+  font-size: var(--font-xs);
+}

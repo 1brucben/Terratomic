@@ -707,17 +707,17 @@ export class ResearchTreeModal extends LitElement {
           .legend {
             display: flex;
             flex-wrap: wrap;
-            gap: 12px;
-            font-size: 12px;
+            gap: var(--space-3); /* 12px */
+            font-size: var(--font-sm); /* 12px */
             color: var(--ui-text-light);
-            margin-bottom: 8px;
+            margin-bottom: var(--space-2); /* 8px */
           }
           .legend .swatch {
-            width: 10px;
-            height: 10px;
-            border-radius: 2px;
+            width: 0.625rem; /* 10px */
+            height: 0.625rem; /* 10px */
+            border-radius: var(--radius-xs); /* 2px */
             display: inline-block;
-            margin-right: 6px;
+            margin-right: 0.375rem; /* 6px */
           }
           .legend-note {
             opacity: 0.7;
@@ -734,13 +734,13 @@ export class ResearchTreeModal extends LitElement {
           .tab-shell {
             display: flex;
             flex-direction: column;
-            gap: 12px;
+            gap: var(--space-3); /* 12px */
           }
           .tab-bar {
             display: flex;
             flex-wrap: wrap;
-            gap: 12px;
-            padding: 8px 4px 4px;
+            gap: var(--space-3); /* 12px */
+            padding: 0.5rem 0.25rem 0.25rem; /* 8px 4px 4px */
             border-bottom: 1px solid
               color-mix(in srgb, var(--ui-border-muted) 35%, transparent);
             align-items: flex-end;
@@ -748,18 +748,18 @@ export class ResearchTreeModal extends LitElement {
           /* Responsive padding to prevent slider overlap on smaller screens */
           @media (max-width: 1024px) {
             .tab-bar {
-              padding-bottom: 12px;
+              padding-bottom: var(--space-3); /* 12px */
             }
           }
           @media (max-width: 768px) {
             .tab-bar {
-              padding-bottom: 20px;
+              padding-bottom: 1.25rem; /* 20px */
             }
           }
           .tab-buttons {
             display: flex;
             flex-wrap: wrap;
-            gap: 8px;
+            gap: var(--space-2); /* 8px */
           }
           .tab-button {
             background: color-mix(
@@ -771,8 +771,8 @@ export class ResearchTreeModal extends LitElement {
             border: 1px solid
               color-mix(in srgb, var(--ui-border-muted) 45%, transparent);
             border-radius: 999px;
-            padding: 6px 14px;
-            font-size: 13px;
+            padding: 0.375rem 0.875rem; /* 6px 14px */
+            font-size: 0.8125rem; /* 13px */
             text-transform: uppercase;
             letter-spacing: 0.05em;
             cursor: pointer;
@@ -799,7 +799,7 @@ export class ResearchTreeModal extends LitElement {
                 --tab-accent,
                 color-mix(in srgb, var(--ui-panel-shell-top) 70%, transparent)
               );
-            box-shadow: 0 0 20px
+            box-shadow: 0 0 1.25rem /* 20px */
               color-mix(in srgb, var(--ui-panel-border) 60%, transparent);
           }
           .tab-panel {
@@ -810,20 +810,21 @@ export class ResearchTreeModal extends LitElement {
             );
             border: 1px solid
               color-mix(in srgb, var(--ui-panel-border) 90%, transparent);
-            border-radius: 14px;
-            padding: 12px;
+            border-radius: 0.875rem; /* 14px */
+            padding: var(--space-3); /* 12px */
             box-shadow:
-              inset 0 1px 0
+              inset 0 0.0625rem 0
                 color-mix(in srgb, var(--ui-text-light) 5%, transparent),
-              0 10px 30px color-mix(in srgb, var(--ui-overlay) 65%, transparent);
+              0 0.625rem 1.875rem
+                color-mix(in srgb, var(--ui-overlay) 65%, transparent);
           }
           .investment-cluster {
             display: flex;
             flex-wrap: wrap;
-            gap: 16px;
+            gap: var(--space-4); /* 16px */
             margin-left: auto;
             align-items: flex-start;
-            margin-top: -40px;
+            margin-top: -2.5rem; /* -40px */
           }
 
           @media (max-width: 1100px) {
@@ -832,30 +833,30 @@ export class ResearchTreeModal extends LitElement {
             }
             /* Allow the modal content area to scroll vertically on small screens */
             .tab-shell {
-              max-height: calc(85dvh - 40px);
+              max-height: calc(85dvh - 2.5rem); /* 40px */
               overflow-y: auto;
               -webkit-overflow-scrolling: touch;
             }
           }
           .investment-slider {
-            min-width: 260px;
-            width: clamp(260px, 40vw, 390px);
+            min-width: 16.25rem; /* 260px */
+            width: clamp(16.25rem, 40vw, 24.375rem); /* 260px..390px */
             color: var(--ui-text-accent);
-            font-size: 12px;
+            font-size: var(--font-sm); /* 12px */
           }
           .investment-slider.disabled {
             opacity: 0.5;
           }
           .investment-label {
-            font-size: 12px;
-            margin-bottom: 4px;
+            font-size: var(--font-sm); /* 12px */
+            margin-bottom: 0.25rem; /* 4px */
             display: flex;
             align-items: center;
-            gap: 6px;
+            gap: 0.375rem; /* 6px */
           }
           .investment-track-wrapper {
             position: relative;
-            height: 24px;
+            height: 1.5rem; /* 24px */
           }
           .investment-track-bg {
             position: absolute;
@@ -863,7 +864,7 @@ export class ResearchTreeModal extends LitElement {
             right: 0;
             top: 50%;
             transform: translateY(-50%);
-            height: 6px;
+            height: 0.375rem; /* 6px */
             border-radius: 999px;
             background-color: color-mix(
               in srgb,
@@ -876,7 +877,7 @@ export class ResearchTreeModal extends LitElement {
             left: 0;
             top: 50%;
             transform: translateY(-50%);
-            height: 6px;
+            height: 0.375rem; /* 6px */
             border-radius: 999px;
             background: linear-gradient(
               90deg,
@@ -897,31 +898,31 @@ export class ResearchTreeModal extends LitElement {
           .investment-input::-webkit-slider-thumb {
             -webkit-appearance: none;
             appearance: none;
-            width: 14px;
-            height: 14px;
+            width: 0.875rem; /* 14px */
+            height: 0.875rem; /* 14px */
             border-radius: 50%;
             background: color-mix(
               in srgb,
               var(--ui-panel-shell-top) 95%,
               transparent
             );
-            border: 2px solid var(--ui-panel-border);
+            border: 0.125rem solid var(--ui-panel-border); /* 2px */
             cursor: pointer;
-            box-shadow: 0 0 0 1px
+            box-shadow: 0 0 0 0.0625rem /* 1px */
               color-mix(in srgb, var(--ui-secondary) 35%, transparent) inset;
           }
           .investment-input::-moz-range-thumb {
-            width: 14px;
-            height: 14px;
+            width: 0.875rem; /* 14px */
+            height: 0.875rem; /* 14px */
             border-radius: 50%;
             background: color-mix(
               in srgb,
               var(--ui-panel-shell-top) 95%,
               transparent
             );
-            border: 2px solid var(--ui-panel-border);
+            border: 0.125rem solid var(--ui-panel-border); /* 2px */
             cursor: pointer;
-            box-shadow: 0 0 0 1px
+            box-shadow: 0 0 0 0.0625rem /* 1px */
               color-mix(in srgb, var(--ui-secondary) 35%, transparent) inset;
           }
           .investment-input::-webkit-slider-runnable-track,
@@ -931,38 +932,38 @@ export class ResearchTreeModal extends LitElement {
           .investment-input.locked::-webkit-slider-thumb,
           .investment-input.locked::-moz-range-thumb {
             border-color: var(--ui-warning);
-            box-shadow: 0 0 0 2px
+            box-shadow: 0 0 0 0.125rem /* 2px */
               color-mix(in srgb, var(--ui-warning) 45%, transparent) inset;
           }
           .investment-marker {
             position: absolute;
             top: 0;
-            width: 2px;
-            height: 8px;
+            width: 0.125rem; /* 2px */
+            height: 0.5rem; /* 8px */
             background: color-mix(
               in srgb,
               var(--ui-text-light) 85%,
               transparent
             );
-            transform: translateX(-1px);
-            border-radius: 1px;
+            transform: translateX(-0.0625rem); /* -1px */
+            border-radius: 0.0625rem; /* 1px */
           }
           .investment-hint {
-            font-size: 10px;
+            font-size: 0.625rem; /* 10px */
             opacity: 0.65;
-            margin-top: 2px;
+            margin-top: 0.125rem; /* 2px */
           }
           .investment-meta {
-            font-size: 11px;
+            font-size: var(--font-xs); /* 11px */
             opacity: 0.75;
-            margin-top: 4px;
+            margin-top: 0.25rem; /* 4px */
             text-align: right;
           }
           .lock-badge {
             display: inline-flex;
             align-items: center;
-            gap: 4px;
-            padding: 1px 6px;
+            gap: var(--space-1); /* 4px */
+            padding: 0.0625rem 0.375rem; /* 1px 6px */
             border-radius: 999px;
             background: color-mix(
               in srgb,
@@ -971,33 +972,33 @@ export class ResearchTreeModal extends LitElement {
             );
             border: 1px solid
               color-mix(in srgb, var(--ui-text-light) 20%, transparent);
-            font-size: 10px;
+            font-size: 0.625rem; /* 10px */
           }
           .lock-icon {
-            width: 10px;
-            height: 10px;
+            width: 0.625rem; /* 10px */
+            height: 0.625rem; /* 10px */
             fill: currentColor;
           }
           .tree-container {
             position: relative;
             overflow: auto;
-            max-height: calc(85dvh - 150px);
-            padding: 6px;
+            max-height: calc(85dvh - 9.375rem); /* 150px */
+            padding: 0.375rem; /* 6px */
             scrollbar-width: thin;
             scrollbar-color: var(--ui-panel-border) var(--ui-panel-border);
           }
           .tree-container.all-view {
-            padding: 12px;
+            padding: var(--space-3); /* 12px */
           }
           .tree-container::-webkit-scrollbar {
-            height: 10px;
-            width: 10px;
+            height: 0.625rem; /* 10px */
+            width: 0.625rem; /* 10px */
             background: transparent;
           }
           .tree-container::-webkit-scrollbar-track {
             background: var(--ui-panel-border);
-            border-radius: 8px;
-            box-shadow: inset 0 0 6px
+            border-radius: var(--radius-lg); /* 12px -> use lg for rounded */
+            box-shadow: inset 0 0 0.375rem
               color-mix(in srgb, var(--ui-overlay) 40%, transparent);
           }
           .tree-container::-webkit-scrollbar-thumb {
@@ -1006,9 +1007,9 @@ export class ResearchTreeModal extends LitElement {
               var(--ui-panel-border),
               color-mix(in srgb, var(--ui-panel-shell-bottom) 75%, transparent)
             );
-            border-radius: 8px;
-            border: 1px solid var(--ui-panel-border);
-            box-shadow: inset 0 0 4px
+            border-radius: 0.5rem; /* 8px */
+            border: 0.0625rem solid var(--ui-panel-border); /* 1px */
+            box-shadow: inset 0 0 0.25rem
               color-mix(in srgb, var(--ui-text-light) 6%, transparent);
           }
           .tree-container::-webkit-scrollbar-thumb:hover {
@@ -1028,16 +1029,16 @@ export class ResearchTreeModal extends LitElement {
           }
           .level-strip {
             display: flex;
-            gap: 36px;
-            padding: 6px;
-            min-height: 220px;
+            gap: 2.25rem; /* 36px */
+            padding: 0.375rem; /* 6px */
+            min-height: 13.75rem; /* 220px */
             position: relative;
             z-index: 2;
           }
           .level-column {
             flex: 0 0 auto;
-            min-width: 220px;
-            border-radius: 12px;
+            min-width: 13.75rem; /* 220px */
+            border-radius: var(--radius-lg); /* 12px */
             border: 1px solid
               color-mix(in srgb, var(--ui-panel-border) 95%, transparent);
             background:
@@ -1058,19 +1059,20 @@ export class ResearchTreeModal extends LitElement {
                 --level-accent,
                 color-mix(in srgb, var(--ui-info) 6%, transparent)
               );
-            padding: 12px;
+            padding: var(--space-3); /* 12px */
             box-shadow:
-              inset 0 1px 0
+              inset 0 0.0625rem 0
                 color-mix(in srgb, var(--ui-text-light) 4%, transparent),
-              0 6px 24px color-mix(in srgb, var(--ui-overlay) 75%, transparent);
+              0 0.375rem 1.5rem
+                color-mix(in srgb, var(--ui-overlay) 75%, transparent);
           }
           .all-view-grid {
             display: flex;
-            gap: 16px;
+            gap: var(--space-4); /* 16px */
             min-width: max-content;
           }
           .all-column {
-            flex: 0 0 220px;
+            flex: 0 0 13.75rem; /* 220px */
             background:
               linear-gradient(
                 180deg,
@@ -1091,45 +1093,46 @@ export class ResearchTreeModal extends LitElement {
               );
             border: 1px solid
               color-mix(in srgb, var(--ui-panel-border) 85%, transparent);
-            border-radius: 12px;
-            padding: 10px;
+            border-radius: var(--radius-lg); /* 12px */
+            padding: 0.625rem; /* 10px */
             box-shadow:
-              inset 0 1px 0
+              inset 0 0.0625rem 0
                 color-mix(in srgb, var(--ui-text-light) 4%, transparent),
-              0 4px 16px color-mix(in srgb, var(--ui-overlay) 65%, transparent);
+              0 0.25rem 1rem
+                color-mix(in srgb, var(--ui-overlay) 65%, transparent);
           }
           .all-column-title {
             font-weight: 600;
             color: var(--ui-text-light);
-            margin-bottom: 8px;
+            margin-bottom: var(--space-2); /* 8px */
             text-transform: uppercase;
             letter-spacing: 0.05em;
           }
           .compact-level {
             display: flex;
-            gap: 8px;
+            gap: var(--space-2); /* 8px */
             align-items: flex-start;
-            margin-bottom: 6px;
+            margin-bottom: 0.375rem; /* 6px */
           }
           .compact-level-label {
-            font-size: 10px;
+            font-size: 0.625rem; /* 10px */
             color: var(--ui-text-accent);
-            padding-top: 2px;
-            min-width: 22px;
+            padding-top: 0.125rem; /* 2px */
+            min-width: 1.375rem; /* 22px */
           }
           .compact-level-techs {
             display: flex;
             flex-direction: column;
-            gap: 4px;
+            gap: 0.25rem; /* 4px */
             width: 100%;
           }
           .compact-tech {
             display: flex;
             justify-content: space-between;
             align-items: center;
-            font-size: 11px;
-            padding: 4px 6px;
-            border-radius: 6px;
+            font-size: var(--font-xs); /* 11px */
+            padding: 0.25rem 0.375rem; /* 4px 6px */
+            border-radius: 0.375rem; /* 6px */
             background: color-mix(
               in srgb,
               var(--ui-panel-border) 65%,
@@ -1160,32 +1163,32 @@ export class ResearchTreeModal extends LitElement {
           .compact-check {
             color: var(--ui-success);
             font-weight: 600;
-            margin-left: 8px;
+            margin-left: var(--space-2); /* 8px */
           }
           .level-label {
             font-weight: 600;
             color: var(--ui-text-accent);
-            margin-bottom: 10px;
+            margin-bottom: 0.625rem; /* 10px */
             letter-spacing: 0.04em;
             text-transform: uppercase;
           }
           .tech-stack {
             display: flex;
             flex-direction: column;
-            gap: 20px;
+            gap: 1.25rem; /* 20px */
           }
           .empty-level {
-            font-size: 12px;
+            font-size: var(--font-sm); /* 12px */
             color: var(--ui-text-muted);
             opacity: 0.8;
             text-align: center;
             border: 1px dashed
               color-mix(in srgb, var(--ui-border-muted) 40%, transparent);
-            border-radius: 8px;
-            padding: 16px 8px;
+            border-radius: 0.5rem; /* 8px */
+            padding: 1rem 0.5rem; /* 16px 8px */
           }
           .empty-state {
-            padding: 24px;
+            padding: var(--space-6); /* 24px */
             text-align: center;
             color: var(--ui-text-muted);
           }
@@ -1197,8 +1200,8 @@ export class ResearchTreeModal extends LitElement {
             );
             border: 1px solid
               color-mix(in srgb, var(--ui-info) 35%, transparent);
-            border-radius: 10px;
-            padding: 10px;
+            border-radius: 0.625rem; /* 10px */
+            padding: 0.625rem; /* 10px */
             color: var(--ui-text-accent);
             position: relative;
             cursor: pointer;
@@ -1207,19 +1210,21 @@ export class ResearchTreeModal extends LitElement {
               box-shadow 0.12s ease,
               opacity 0.2s;
             /* Ensure cards are tall enough for: title + cost + progress bar + pills */
-            min-height: 132px;
+            min-height: 8.25rem; /* 132px */
             line-height: 1.5;
             width: 100%;
             text-align: left;
             box-shadow:
-              0 6px 16px color-mix(in srgb, var(--ui-overlay) 65%, transparent),
-              inset 0 0 0 1px
+              0 0.375rem 1rem
+                color-mix(in srgb, var(--ui-overlay) 65%, transparent),
+              inset 0 0 0 0.0625rem
                 color-mix(in srgb, var(--ui-text-light) 2%, transparent);
           }
           .tech:hover {
             box-shadow:
-              0 8px 18px color-mix(in srgb, var(--ui-overlay) 80%, transparent),
-              0 0 0 2px color-mix(in srgb, var(--ui-info) 45%, transparent)
+              0 0.5rem 1.125rem
+                color-mix(in srgb, var(--ui-overlay) 80%, transparent),
+              0 0 0 0.125rem color-mix(in srgb, var(--ui-info) 45%, transparent)
                 inset;
           }
           .tech.locked {
@@ -1237,32 +1242,32 @@ export class ResearchTreeModal extends LitElement {
           .tech.researched::after {
             content: "\\2713";
             position: absolute;
-            top: 6px;
-            right: 8px;
+            top: 0.375rem; /* 6px */
+            right: 0.5rem; /* 8px */
             font-weight: bold;
             color: var(--ui-success);
-            text-shadow: 0 1px 0
+            text-shadow: 0 0.0625rem 0
               color-mix(in srgb, var(--ui-overlay) 50%, transparent);
           }
           .tech-wrapper {
             display: flex;
             flex-direction: column;
-            gap: 6px;
+            gap: 0.375rem; /* 6px */
             width: 100%;
           }
           .tech-action {
             background: color-mix(in srgb, var(--ui-alert) 18%, transparent);
             border: 1px solid
               color-mix(in srgb, var(--ui-alert) 45%, transparent);
-            border-radius: 6px;
+            border-radius: 0.375rem; /* 6px */
             color: color-mix(
               in srgb,
               var(--ui-alert) 70%,
               var(--ui-text-light) 30%
             );
-            font-size: 11px;
+            font-size: var(--font-xs); /* 11px */
             font-weight: 600;
-            padding: 6px 8px;
+            padding: 0.375rem 0.5rem; /* 6px 8px */
             text-align: center;
             cursor: pointer;
             transition:
@@ -1288,7 +1293,7 @@ export class ResearchTreeModal extends LitElement {
           .tech .tooltip {
             position: absolute;
             top: 50%;
-            left: calc(100% + 12px);
+            left: calc(100% + 0.75rem); /* 12px */
             transform: translateY(-50%);
             background: color-mix(
               in srgb,
@@ -1298,15 +1303,16 @@ export class ResearchTreeModal extends LitElement {
             color: var(--ui-text-light);
             border: 1px solid
               color-mix(in srgb, var(--ui-border-muted) 70%, transparent);
-            border-radius: 8px;
+            border-radius: 0.5rem; /* 8px */
             box-shadow:
-              0 10px 20px color-mix(in srgb, var(--ui-overlay) 35%, transparent),
-              inset 0 0 0 1px
+              0 0.625rem 1.25rem
+                color-mix(in srgb, var(--ui-overlay) 35%, transparent),
+              inset 0 0 0 0.0625rem
                 color-mix(in srgb, var(--ui-text-light) 2%, transparent);
-            padding: 8px 10px;
-            font-size: 12px;
+            padding: 0.5rem 0.625rem; /* 8px 10px */
+            font-size: var(--font-sm); /* 12px */
             line-height: 1.25;
-            max-width: 280px;
+            max-width: 17.5rem; /* 280px */
             width: max-content;
             z-index: 10;
             opacity: 0;
@@ -1318,16 +1324,16 @@ export class ResearchTreeModal extends LitElement {
           .tech .tooltip::after {
             content: "";
             position: absolute;
-            left: -6px;
+            left: -0.375rem; /* -6px */
             top: 50%;
             transform: translateY(-50%);
-            border-width: 6px;
+            border-width: 0.375rem; /* 6px */
             border-style: solid;
             border-color: transparent
               color-mix(in srgb, var(--ui-panel-shell-top) 75%, transparent)
               transparent transparent;
             filter: drop-shadow(
-              -1px 0 0
+              -0.0625rem 0 0 /* -1px */
                 color-mix(in srgb, var(--ui-border-muted) 90%, transparent)
             );
           }
@@ -1337,7 +1343,7 @@ export class ResearchTreeModal extends LitElement {
           }
           .progress-track {
             width: 100%;
-            height: 6px;
+            height: 0.375rem; /* 6px */
             background: color-mix(
               in srgb,
               var(--ui-secondary) 25%,
@@ -1345,9 +1351,9 @@ export class ResearchTreeModal extends LitElement {
             );
             border: 1px solid
               color-mix(in srgb, var(--ui-secondary) 35%, transparent);
-            border-radius: 6px;
+            border-radius: 0.375rem; /* 6px */
             overflow: hidden;
-            margin: 6px 0 4px;
+            margin: 0.375rem 0 0.25rem; /* 6px 0 4px */
           }
           .progress-fill {
             height: 100%;
@@ -1357,9 +1363,10 @@ export class ResearchTreeModal extends LitElement {
               color-mix(in srgb, var(--ui-info) 70%, transparent) 100%
             );
             box-shadow:
-              0 0 10px color-mix(in srgb, var(--ui-info) 55%, transparent),
-              0 0 16px color-mix(in srgb, var(--ui-info) 35%, transparent),
-              inset 0 0 4px
+              0 0 0.625rem color-mix(in srgb, var(--ui-info) 55%, transparent),
+              /* 10px */ 0 0 1rem
+                color-mix(in srgb, var(--ui-info) 35%, transparent),
+              /* 16px */ inset 0 0 0.25rem /* 4px */
                 color-mix(in srgb, var(--ui-text-light) 10%, transparent);
           }
           .progress-fill.priority {
@@ -1369,39 +1376,41 @@ export class ResearchTreeModal extends LitElement {
               color-mix(in srgb, var(--ui-info) 70%, transparent) 100%
             );
             box-shadow:
-              0 0 14px color-mix(in srgb, var(--ui-info) 75%, transparent),
-              0 0 26px color-mix(in srgb, var(--ui-info) 60%, transparent),
-              0 0 32px color-mix(in srgb, var(--ui-info) 50%, transparent),
-              inset 0 0 6px
+              0 0 0.875rem color-mix(in srgb, var(--ui-info) 75%, transparent),
+              /* 14px */ 0 0 1.625rem
+                color-mix(in srgb, var(--ui-info) 60%, transparent),
+              /* 26px */ 0 0 2rem
+                color-mix(in srgb, var(--ui-info) 50%, transparent),
+              /* 32px */ inset 0 0 0.375rem /* 6px */
                 color-mix(in srgb, var(--ui-text-light) 16%, transparent),
-              inset 0 0 0 1px
+              inset 0 0 0 0.0625rem /* 1px */
                 color-mix(in srgb, var(--ui-text-light) 12%, transparent);
           }
           .cost-inline {
             display: inline-flex;
             align-items: flex-end;
-            gap: 6px;
-            font-size: 12px;
+            gap: 0.375rem; /* 6px */
+            font-size: var(--font-sm); /* 12px */
             color: var(--ui-text-accent);
             opacity: 0.95;
-            margin: 2px 0 4px;
+            margin: 0.125rem 0 0.25rem; /* 2px 0 4px */
             line-height: 1.5;
           }
           .cost-inline img {
-            width: 14px;
-            height: 14px;
-            transform: translateY(-1px);
+            width: 0.875rem; /* 14px */
+            height: 0.875rem; /* 14px */
+            transform: translateY(-0.0625rem); /* -1px */
             opacity: 0.95;
           }
           .pill-container {
-            min-height: 18px;
+            min-height: 1.125rem; /* 18px */
           }
           .pill {
-            font-size: 10px;
+            font-size: 0.625rem; /* 10px */
             border-radius: 999px;
-            padding: 2px 6px;
+            padding: 0.125rem 0.375rem; /* 2px 6px */
             display: inline-block;
-            margin-right: 6px;
+            margin-right: 0.375rem; /* 6px */
             line-height: 1.5;
           }
           .pill-req {

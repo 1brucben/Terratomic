@@ -869,20 +869,20 @@ export class ControlPanel2 extends LitElement implements Layer {
         .build-button {
           position: relative;
           width: 100%; /* Full width of the column */
-          height: 50px;
-          border: 2px solid #2d3748;
+          height: 3.125rem; /* 50px */
+          border: 0.125rem solid #2d3748; /* 2px */
           /* Darker idle surface */
           background-color: #232d40;
           color: #e2e8f0;
-          border-radius: 6px;
-          box-shadow: inset 0 0 10px rgba(0, 0, 0, 0.5);
+          border-radius: var(--radius-md); /* 8px -> md */
+          box-shadow: inset 0 0 0.625rem rgba(0, 0, 0, 0.5); /* 10px */
           cursor: pointer;
           transition: all 0.3s ease;
           display: flex;
           justify-content: center;
           align-items: center;
-          padding: 5px;
-          font-size: 12px;
+          padding: var(--space-1); /* 4px */
+          font-size: var(--font-sm); /* 12px */
           text-align: center;
         }
         .upgrade-available {
@@ -928,9 +928,9 @@ export class ControlPanel2 extends LitElement implements Layer {
         /* Top-level ControlPanel2 tabs (Build/Attack/Economy/Bombers) */
         .cp2-tab {
           color: #c9dbff;
-          border: 1px solid #0e1a33;
+          border: 0.0625rem solid #0e1a33; /* 1px */
           background-color: #0b1220;
-          border-radius: 6px;
+          border-radius: var(--radius-md);
           transition:
             background-color 0.15s ease-in-out,
             color 0.15s ease-in-out,
@@ -957,26 +957,26 @@ export class ControlPanel2 extends LitElement implements Layer {
         input[type="range"]::-webkit-slider-thumb {
           -webkit-appearance: none;
           appearance: none;
-          width: 16px;
-          height: 16px;
+          width: 1rem; /* 16px */
+          height: 1rem; /* 16px */
           background: #0b1220; /* dark navy to match submarine */
-          border-width: 2px;
+          border-width: 0.125rem; /* 2px */
           border-style: solid;
           border-radius: 50%;
           cursor: pointer;
           border-color: #27476e; /* default subtle blue rim */
-          box-shadow: 0 0 0 1px rgba(39, 71, 110, 0.35) inset;
+          box-shadow: 0 0 0 0.0625rem rgba(39, 71, 110, 0.35) inset; /* 1px */
         }
         input[type="range"]::-moz-range-thumb {
-          width: 16px;
-          height: 16px;
+          width: 1rem;
+          height: 1rem;
           background: #0b1220; /* dark navy to match submarine */
-          border-width: 2px;
+          border-width: 0.125rem;
           border-style: solid;
           border-radius: 50%;
           cursor: pointer;
           border-color: #27476e; /* default subtle blue rim */
-          box-shadow: 0 0 0 1px rgba(39, 71, 110, 0.35) inset;
+          box-shadow: 0 0 0 0.0625rem rgba(39, 71, 110, 0.35) inset;
         }
         /* Subtle affordance on hover/focus */
         input[type="range"]:hover::-webkit-slider-thumb,
@@ -1008,30 +1008,30 @@ export class ControlPanel2 extends LitElement implements Layer {
         .lock-badge {
           display: inline-flex;
           align-items: center;
-          gap: 4px;
-          margin-left: 6px;
+          gap: 0.25rem; /* 4px */
+          margin-left: 0.375rem; /* 6px */
           color: #a0aec0;
-          font-size: 11px;
+          font-size: var(--font-xs); /* 11px */
           /* Ensure the badge aligns with surrounding text like "0%" */
           vertical-align: middle;
           line-height: 1em;
         }
         .lock-icon {
-          width: 12px;
-          height: 12px;
+          width: 0.75rem; /* 12px */
+          height: 0.75rem; /* 12px */
           fill: #a0aec0;
           /* Keep icon from affecting baseline height and align nicely */
           display: inline-block;
           vertical-align: middle;
           position: relative;
-          top: -1px; /* nudge up to visually center with text */
+          top: -0.0625rem; /* -1px */
         }
       </style>
       <div
         class="${this._isVisible && this.isOpen
-          ? `w-full h-[260px] text-sm lg:text-m submarine-panel border-2 border-gray-700 p-2 pr-3 lg:p-4 flex flex-col transition-all duration-300 ml-2 lg:ml-0`
+          ? `w-full h-[16.25rem] text-sm lg:font-md submarine-panel border-2 border-gray-700 p-2 pr-3 lg:p-4 flex flex-col transition-all duration-300 ml-2 lg:ml-0`
           : "hidden"}"
-        style="box-shadow: inset 0 0 18px rgba(2, 8, 20, 0.8), 0 2px 6px rgba(0, 0, 0, 0.5);"
+        style="box-shadow: inset 0 0 1.125rem rgba(2, 8, 20, 0.8), 0 0.125rem 0.375rem rgba(0, 0, 0, 0.5);"
         @contextmenu=${(e: MouseEvent) => e.preventDefault()}
       >
         <div
@@ -1105,7 +1105,7 @@ export class ControlPanel2 extends LitElement implements Layer {
                         Stop Auto Bombing
                       </button>
                     </div>
-                    <p class="text-xs mt-3 text-gray-400">
+                    <p class="font-micro mt-3 text-gray-400">
                       Autobombing sends bombers to nearby non-allied territory
                       and bombs their structures.
                     </p>
@@ -1130,7 +1130,7 @@ export class ControlPanel2 extends LitElement implements Layer {
                             class="flex flex-col gap-2"
                           >
                             <label
-                              class="inline-flex items-center text-sm military-label"
+                              class="inline-flex items-center font-base military-label"
                             >
                               Select Target
                               <select
@@ -1141,7 +1141,7 @@ export class ControlPanel2 extends LitElement implements Layer {
                               ></select>
                             </label>
 
-                            <label class="block text-sm military-label"
+                            <label class="block font-base military-label"
                               >Select Structure</label
                             >
                             <div class="grid grid-cols-4 gap-2">
@@ -1186,7 +1186,7 @@ export class ControlPanel2 extends LitElement implements Layer {
                       ? ""
                       : html`
                           <h3 class="military-heading mb-2">Target Actions</h3>
-                          <div class="text-sm min-h-[20px]">
+                          <div class="font-base min-h-[1.25rem]">
                             ${this._currentTargetPlayerId &&
                             this._currentTargetStructureType
                               ? html`<span class="font-bold military-label"
@@ -1302,7 +1302,7 @@ export class ControlPanel2 extends LitElement implements Layer {
                         : ""}
                     </label>
                     <div
-                      class="text-right text-xs opacity-60 mt-1 military-label normal-case"
+                      class="text-right font-micro opacity-60 mt-1 military-label normal-case"
                       translate="no"
                     >
                       Prod: ${Math.round(this._productivity * 100)}%
@@ -1428,7 +1428,7 @@ export class ControlPanel2 extends LitElement implements Layer {
                             : ""}
                         </label>
                         <div
-                          class="text-right text-xs opacity-60 mt-1 military-label normal-case"
+                          class="text-right font-micro opacity-60 mt-1 military-label normal-case"
                           translate="no"
                         >
                           Road: ${pxPerSecond.toFixed(2)} px/s
@@ -1491,7 +1491,7 @@ export class ControlPanel2 extends LitElement implements Layer {
                         return html`
                           <div
                             class="absolute top-1"
-                            style="left:${leftPct}; width:2px; height:10px; background-color: rgba(255,255,255,0.85); transform: translateX(-1px); border-radius: 1px;"
+                            style="left:${leftPct}; width:0.125rem; height:0.625rem; background-color: rgba(255,255,255,0.85); transform: translateX(-0.0625rem); border-radius: 0.0625rem;"
                             title=${`Break-even: ${percentLabel} (covers maintenance)`}
                           ></div>
                         `;
@@ -1528,7 +1528,7 @@ export class ControlPanel2 extends LitElement implements Layer {
                       />
                     </div>
                     <div
-                      class="text-right text-xs opacity-60 mt-1 military-label normal-case"
+                      class="text-right font-micro opacity-60 mt-1 military-label normal-case"
                       translate="no"
                     >
                       ${(() => {

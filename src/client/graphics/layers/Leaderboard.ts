@@ -159,6 +159,8 @@ export class Leaderboard extends LitElement implements Layer {
 
   renderLayer(context: CanvasRenderingContext2D) {}
 
+  static styles = [];
+
   shouldTransform(): boolean {
     return false;
   }
@@ -169,15 +171,15 @@ export class Leaderboard extends LitElement implements Layer {
     }
     return html`
       <div
-        class="max-h-[35vh] overflow-y-auto text-white text-xs md:text-xs lg:text-sm md:max-h-[50vh]  ${this
+        class="max-h-[35vh] overflow-y-auto text-white font-micro md:font-micro lg:font-dense md:max-h-[50vh]  ${this
           .visible
           ? ""
           : "hidden"}"
         @contextmenu=${(e: Event) => e.preventDefault()}
       >
         <div
-          class="grid submarine-panel w-full text-xs md:text-xs lg:text-sm"
-          style="box-shadow: var(--ui-panel-shadow); grid-template-columns: 30px 100px 70px 55px 75px;"
+          class="grid submarine-panel w-full font-micro md:font-micro lg:font-dense"
+          style="box-shadow: var(--ui-panel-shadow); grid-template-columns: 1.875rem 6.25rem 4.375rem 3.4375rem 4.6875rem;"
         >
           <div class="contents font-bold">
             <div class="py-1 md:py-2 text-center border-b border-slate-500">
@@ -255,7 +257,7 @@ export class Leaderboard extends LitElement implements Layer {
       </div>
 
       <button
-        class="mt-1 px-1.5 py-0.5 md:px-2 md:py-0.5 text-xs md:text-xs lg:text-sm border border-white/20 hover:bg-white/10 text-white mx-auto block"
+        class="mt-1 px-1.5 py-0.5 md:px-2 md:py-0.5 font-micro md:font-micro lg:font-dense border border-white/20 hover:bg-white/10 text-white mx-auto block"
         @click=${() => {
           this.showTopFive = !this.showTopFive;
           this.updateLeaderboard();

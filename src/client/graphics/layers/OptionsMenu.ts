@@ -241,7 +241,7 @@ export class OptionsMenu extends LitElement implements Layer {
               children: this.isPaused ? "▶️" : "⏸",
             })}
             <div
-              class="w-[55px] h-8 lg:w-24 lg:h-10 flex items-center justify-center rounded text-sm lg:text-xl"
+              class="w-[3.4375rem] h-8 lg:w-24 lg:h-10 flex items-center justify-center rounded text-sm lg:text-xl"
               style="background-color: var(--ui-slider-track); color: var(--ui-text-accent);"
             >
               ${secondsToHms(this.timer)}
@@ -338,13 +338,13 @@ export class OptionsMenu extends LitElement implements Layer {
                 +
               </button>
               <button
-                class="text-[10px] px-2 py-1 rounded bg-white/10 hover:bg-white/20 transition text-white uppercase tracking-wide"
+                class="text-[0.625rem] px-2 py-1 rounded bg-white/10 hover:bg-white/20 transition text-white uppercase tracking-wide"
                 @click=${this.onUiScaleReset}
               >
                 ${translateText("user_setting.ui_scale_reset")}
               </button>
             </div>
-            <span class="text-[10px] uppercase tracking-wide opacity-70">
+            <span class="text-[0.625rem] uppercase tracking-wide opacity-70">
               ${translateText("user_setting.ui_scale_desc")}
             </span>
           </div>

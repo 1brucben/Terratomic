@@ -243,7 +243,7 @@ export class PlayerInfoOverlay extends LitElement implements Layer {
           class="flex justify-center items-center gap-2 mb-2 w-full border border-gray-400 rounded p-1"
         >
           <div
-            class="text-bold text-lg font-bold inline-flex items-center break-all ${isFriendly
+            class="text-bold font-md md:font-base font-bold inline-flex items-center break-all ${isFriendly
               ? "text-green-500"
               : "text-white"}"
           >
@@ -255,7 +255,7 @@ export class PlayerInfoOverlay extends LitElement implements Layer {
               : ""}
             ${player.name()}
           </div>
-          <div class="text-sm opacity-80 relative top-[1px]">
+          <div class="font-base opacity-80 relative" style="top:0.0625rem">
             ${relationHtml}
             <span
               class="${relationHtml
@@ -275,7 +275,7 @@ export class PlayerInfoOverlay extends LitElement implements Layer {
             class="flex flex-col justify-between p-1 border border-gray-400 rounded w-56"
           >
             <!-- Box 2 Content -->
-            <div class="flex items-center gap-2 text-sm opacity-80">
+            <div class="flex items-center gap-2 font-base opacity-80">
               ${player.team() !== null
                 ? html`<span
                     >${translateText("player_info_overlay.team")}:
@@ -304,7 +304,7 @@ export class PlayerInfoOverlay extends LitElement implements Layer {
                 : ""}
             </div>
             <!-- Box 3 Content -->
-            <div class="flex items-center gap-2 text-sm opacity-80">
+            <div class="flex items-center gap-2 font-base opacity-80">
               <span translate="no">
                 <img
                   src="/images/GoldCoinIcon.svg"
@@ -325,7 +325,7 @@ export class PlayerInfoOverlay extends LitElement implements Layer {
                 <img
                   src="/images/flask.png"
                   class="inline-block w-4 h-4 mr-1"
-                  style="transform: translateY(-1px);"
+                  style="transform: translateY(-0.0625rem);"
                   alt="Research"
                 />
                 ${player.researchTechLevel().toFixed(1)}
@@ -358,7 +358,7 @@ export class PlayerInfoOverlay extends LitElement implements Layer {
                     class="inline-block w-4 h-4"
                     alt="${unitType}"
                   />
-                  <span class="text-sm opacity-80">${count}</span>
+                  <span class="font-base opacity-80">${count}</span>
                 </div>
               `;
             })}
@@ -380,10 +380,10 @@ export class PlayerInfoOverlay extends LitElement implements Layer {
           ${unit.owner().name()}
         </div>
         <div class="mt-1">
-          <div class="text-sm opacity-80">${unit.type()}</div>
+          <div class="font-base opacity-80">${unit.type()}</div>
           ${unit.hasHealth()
             ? html`
-                <div class="text-sm opacity-80">
+                <div class="font-base opacity-80">
                   ${translateText("player_info_overlay.health")}:
                   ${unit.health()}
                 </div>
@@ -409,8 +409,8 @@ export class PlayerInfoOverlay extends LitElement implements Layer {
         @contextmenu=${(e) => e.preventDefault()}
       >
         <div
-          class="absolute top-0 lg:top-2.5 left-1/2 transform -translate-x-1/2 scale-[0.9] origin-top submarine-panel transition-all duration-300 text-lg md:text-base ${containerClasses}"
-          style="box-shadow: inset 0 0 18px rgba(2, 8, 20, 0.8), 0 2px 6px rgba(0, 0, 0, 0.5);"
+          class="absolute top-0 lg:top-2.5 left-1/2 transform -translate-x-1/2 origin-top submarine-panel transition-all duration-300 font-md md:font-base ${containerClasses}"
+          style="box-shadow: inset 0 0 1.125rem rgba(2, 8, 20, 0.8), 0 0.125rem 0.375rem rgba(0,0,0,0.5);"
         >
           ${this.player !== null ? this.renderPlayerInfo(this.player) : ""}
           ${this.unit !== null ? this.renderUnitInfo(this.unit) : ""}

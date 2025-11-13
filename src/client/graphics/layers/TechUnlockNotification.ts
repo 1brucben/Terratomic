@@ -181,25 +181,26 @@ export class TechUnlockNotification extends LitElement implements Layer {
       <style>
         .tech-toast {
           position: fixed;
-          left: 36px;
+          left: 2.25rem; /* 36px */
           top: 50%;
           transform: translateY(-50%);
-          width: min(320px, 90vw);
+          width: min(20rem, 90vw); /* 320px */
           background: linear-gradient(
             180deg,
             color-mix(in srgb, var(--ui-panel-shell-top) 95%, transparent),
             color-mix(in srgb, var(--ui-panel-shell-bottom) 95%, transparent)
           );
-          border: 2px solid
+          border: 0.125rem solid
             color-mix(in srgb, var(--ui-panel-border) 90%, transparent);
-          border-radius: 8px;
-          padding: 12px 16px;
+          border-radius: var(--radius-md); /* 8px */
+          padding: 0.75rem 1rem; /* 12px 16px */
           color: var(--ui-text-light);
           font-family: "Oswald", sans-serif;
           box-shadow:
-            inset 0 0 12px
+            inset 0 0 0.75rem
               color-mix(in srgb, var(--ui-text-light) 18%, transparent),
-            8px 12px 24px color-mix(in srgb, var(--ui-overlay) 85%, transparent);
+            0.5rem 0.75rem 1.5rem
+              color-mix(in srgb, var(--ui-overlay) 85%, transparent); /* 8px 12px 24px */
           transition:
             transform 200ms ease,
             opacity 200ms ease;
@@ -215,23 +216,23 @@ export class TechUnlockNotification extends LitElement implements Layer {
         .tech-toast__header {
           display: flex;
           flex-direction: column;
-          gap: 4px;
-          margin-bottom: 8px;
+          gap: var(--space-1); /* 4px */
+          margin-bottom: 0.5rem; /* 8px */
         }
         .tech-toast__label {
-          font-size: 12px;
+          font-size: 0.75rem; /* 12px */
           letter-spacing: 0.2em;
           text-transform: uppercase;
           color: var(--ui-status-warning);
           animation: pulse 1.25s ease-in-out infinite;
         }
         .tech-toast__title {
-          font-size: 20px;
+          font-size: 1.25rem; /* 20px */
           line-height: 1.1;
           text-transform: uppercase;
         }
         .tech-toast__body {
-          font-size: 13px;
+          font-size: 0.8125rem; /* 13px */
           font-family: "Roboto Mono", monospace;
           color: color-mix(in srgb, var(--ui-text-light) 85%, transparent);
           line-height: 1.4;
@@ -240,17 +241,17 @@ export class TechUnlockNotification extends LitElement implements Layer {
         @keyframes pulse {
           0% {
             opacity: 0.7;
-            text-shadow: 0 0 4px
+            text-shadow: 0 0 0.25rem
               color-mix(in srgb, var(--ui-status-warning) 40%, transparent);
           }
           50% {
             opacity: 1;
-            text-shadow: 0 0 12px
+            text-shadow: 0 0 0.75rem
               color-mix(in srgb, var(--ui-status-warning) 80%, transparent);
           }
           100% {
             opacity: 0.7;
-            text-shadow: 0 0 4px
+            text-shadow: 0 0 0.25rem
               color-mix(in srgb, var(--ui-status-warning) 40%, transparent);
           }
         }

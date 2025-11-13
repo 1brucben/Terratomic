@@ -89,7 +89,8 @@
       }
 
       .drop-shadow-glow {
-        filter: drop-shadow(0 0 5px #00ff00) drop-shadow(0 0 15px #00ff00);
+        filter: drop-shadow(0 0 0.3125rem #00ff00)
+          drop-shadow(0 0 0.9375rem #00ff00);
       }
 
       /* Scale container based on screen height */
@@ -115,11 +116,11 @@
     <main class="flex justify-center pt-8">
       <div class="scale-container w-full flex justify-center">
         <div
-          class="container p-[25px] flex flex-col submarine-panel"
+          class="container p-[1.5625rem] flex flex-col submarine-panel"
           style="
             box-shadow:
-              inset 0 0 10px rgba(0, 0, 0, 0.5),
-              0 2px 6px rgba(0, 0, 0, 0.4);
+              inset 0 0 0.625rem rgba(0, 0, 0, 0.5),
+              0 0.125rem 0.375rem rgba(0, 0, 0, 0.4);
           "
         >
           <img
@@ -215,8 +216,8 @@
       title="Settings"
       class="fixed bottom-4 right-4 z-50 rounded-full p-2 shadow-lg transition-colors duration-300 flex items-center justify-center hover:bg-[var(--ui-primary-hover)]"
       style="
-        width: 72px;
-        height: 72px;
+        width: 4.5rem;
+        height: 4.5rem;
         background-color: var(--ui-primary);
         transform: scale(0.9);
         transform-origin: bottom right;
@@ -225,7 +226,7 @@
       <img
         src="../../resources/images/SettingIconWhite.svg"
         alt="Settings"
-        style="width: 65px; height: 65px"
+        style="width: 4.0625rem; height: 4.0625rem"
       />
     </button>
 
@@ -236,10 +237,10 @@
     <div id="app"></div>
     <div id="radialMenu" class="radial-menu"></div>
     <div
-      class="flex gap-2 fixed right-[10px] top-[10px] z-50 flex-col items-end"
+      class="flex gap-2 fixed right-[0.625rem] top-[0.625rem] z-50 flex-col items-end"
     >
       <div
-        class="flex flex-col gap-2 w-max ui-scale-surface"
+        class="flex flex-col gap-2 w-max"
         style="width: 100%; --ui-scale-base: 0.9; --ui-scale-origin: top right"
       >
         <options-menu style="width: 100%; z-index: 10"></options-menu>
@@ -248,7 +249,7 @@
       <player-info-overlay style="width: max-content"></player-info-overlay>
     </div>
     <div
-      class="fixed bottom-[30px] sm:bottom-auto sm:top-[20px] z-50 mx-auto max-w-max inset-x-0 items-center"
+      class="fixed bottom-[1.875rem] sm:bottom-auto sm:top-[1.25rem] z-50 mx-auto max-w-max inset-x-0 items-center"
     >
       <heads-up-message></heads-up-message>
     </div>
@@ -257,30 +258,19 @@
       class="bottom-0 w-full flex z-50 justify-between items-end"
       style="position: fixed; pointer-events: none"
     >
-      <div
-        class="flex items-end ui-scale-surface"
-        style="
-          pointer-events: auto;
-          --ui-scale-base: 0.9;
-          --ui-scale-origin: bottom left;
-        "
-      >
+      <div class="flex items-end" style="pointer-events: auto">
         <control-panel
-          class="w-1/4 max-w-[270px] min-w-[270px]"
+          class="w-1/4 max-w-[16.875rem] min-w-[16.875rem]"
           style="pointer-events: auto"
         ></control-panel>
         <control-panel2
-          class="max-w-[620px] min-w-[620px]"
-          style="pointer-events: auto; margin-left: 32px"
+          class="max-w-[38.75rem] min-w-[38.75rem]"
+          style="pointer-events: auto; margin-left: 2rem"
         ></control-panel2>
       </div>
       <div
-        class="ui-scale-surface max-w-[260px] min-w-[260px] flex flex-col"
-        style="
-          pointer-events: auto;
-          --ui-scale-base: 0.9;
-          --ui-scale-origin: bottom right;
-        "
+        class="max-w-[16.25rem] min-w-[16.25rem] flex flex-col"
+        style="pointer-events: auto"
       >
         <chat-display></chat-display>
         <events-display></events-display>

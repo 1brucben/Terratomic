@@ -94,13 +94,13 @@ export class ResearchToggleButton extends LitElement implements Layer {
           display: flex;
           flex-direction: column;
           align-items: center;
-          gap: 4px;
-          padding: 14px 10px;
-          border: 2px solid var(--ui-panel-border);
+          gap: var(--space-1); /* 4px */
+          padding: 0.875rem 0.625rem; /* 14px 10px -> rem for root scaling */
+          border: 0.125rem solid var(--ui-panel-border); /* 2px */
           border-left: none;
-          border-radius: 0 6px 6px 0;
+          border-radius: 0 0.375rem 0.375rem 0; /* 6px */
           text-transform: uppercase;
-          letter-spacing: 1px;
+          letter-spacing: 0.0625rem; /* 1px */
           font-family: "Oswald", sans-serif;
           background: linear-gradient(
             180deg,
@@ -110,9 +110,10 @@ export class ResearchToggleButton extends LitElement implements Layer {
           color: var(--ui-text-light);
           cursor: pointer;
           box-shadow:
-            inset 0 0 8px
+            inset 0 0 0.5rem
               color-mix(in srgb, var(--ui-text-light) 18%, transparent),
-            4px 0 12px color-mix(in srgb, var(--ui-overlay) 75%, transparent);
+            /* 8px */ 0.25rem 0 0.75rem
+              color-mix(in srgb, var(--ui-overlay) 75%, transparent); /* 4px 12px */
           transition:
             transform 120ms ease,
             box-shadow 120ms ease,
@@ -120,15 +121,16 @@ export class ResearchToggleButton extends LitElement implements Layer {
         }
         .research-vertical-button span {
           display: block;
-          font-size: 14px;
+          font-size: var(--font-md); /* 16px */
           line-height: 1.1;
         }
         .research-vertical-button:hover {
           transform: translateY(-50%) scale(1.05);
           box-shadow:
-            inset 0 0 12px
+            inset 0 0 0.75rem
               color-mix(in srgb, var(--ui-text-light) 22%, transparent),
-            8px 0 16px color-mix(in srgb, var(--ui-overlay) 80%, transparent);
+            /* 12px */ 0.5rem 0 1rem
+              color-mix(in srgb, var(--ui-overlay) 80%, transparent); /* 8px 16px */
         }
         .research-vertical-button.open {
           background: linear-gradient(

@@ -1027,7 +1027,7 @@ export class EventsDisplay extends LitElement implements Layer {
                   <span
                     class="${this.newEvents
                       ? ""
-                      : "hidden"} inline-block px-2 bg-red-500 rounded-xl text-sm"
+                      : "hidden"} inline-block px-2 bg-red-500 rounded-xl font-base"
                     >${this.newEvents}</span
                   >
                 `,
@@ -1042,7 +1042,7 @@ export class EventsDisplay extends LitElement implements Layer {
             <!-- Main Events Display -->
             <div
               class="relative w-full submarine-panel p-2 pr-3 lg:p-4"
-              style="box-shadow: inset 0 0 18px rgba(2, 8, 20, 0.8), 0 2px 6px rgba(0, 0, 0, 0.5);"
+              style="box-shadow: inset 0 0 1.125rem rgba(2, 8, 20, 0.8), 0 0.125rem 0.375rem rgba(0, 0, 0, 0.5);"
             >
               <!-- Button Bar -->
               <div class="w-full p-2 lg:p-3 rounded-t-none md:rounded-t-md">
@@ -1134,7 +1134,7 @@ export class EventsDisplay extends LitElement implements Layer {
 
               <!-- Content Area -->
               <div
-                class="rounded-b-none md:rounded-b-md flex flex-col-reverse overflow-y-auto w-full h-[178px]"
+                class="rounded-b-none md:rounded-b-md flex flex-col-reverse overflow-y-auto w-full h-44"
               >
                 <div>
                   <table
@@ -1178,7 +1178,7 @@ export class EventsDisplay extends LitElement implements Layer {
                                       ${event.buttons.map(
                                         (btn) => html`
                                           <button
-                                            class="inline-block px-3 py-1 text-white rounded text-md md:text-sm cursor-pointer transition-colors duration-300
+                                            class="inline-block px-3 py-1 text-white rounded font-md md:font-base cursor-pointer transition-colors duration-300
                             ${btn.className.includes("btn-info")
                                               ? "bg-red-700 hover:bg-red-800" /* Use standard Tailwind red */
                                               : btn.className.includes(

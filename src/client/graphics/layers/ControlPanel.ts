@@ -275,26 +275,26 @@ export class ControlPanel extends LitElement implements Layer {
         input[type="range"]::-webkit-slider-thumb {
           -webkit-appearance: none;
           appearance: none;
-          width: 16px;
-          height: 16px;
+          width: 1rem; /* 16px */
+          height: 1rem; /* 16px */
           background: var(--ui-slider-thumb);
-          border-width: 2px;
+          border-width: 0.125rem; /* 2px */
           border-style: solid;
           border-radius: 50%;
           cursor: pointer;
           border-color: var(--ui-secondary);
-          box-shadow: 0 0 0 1px rgba(39, 71, 110, 0.35) inset;
+          box-shadow: 0 0 0 0.0625rem rgba(39, 71, 110, 0.35) inset; /* 1px */
         }
         input[type="range"]::-moz-range-thumb {
-          width: 16px;
-          height: 16px;
+          width: 1rem;
+          height: 1rem;
           background: var(--ui-slider-thumb);
-          border-width: 2px;
+          border-width: 0.125rem;
           border-style: solid;
           border-radius: 50%;
           cursor: pointer;
           border-color: var(--ui-secondary);
-          box-shadow: 0 0 0 1px rgba(39, 71, 110, 0.35) inset;
+          box-shadow: 0 0 0 0.0625rem rgba(39, 71, 110, 0.35) inset;
         }
         /* Subtle affordance on hover/focus */
         input[type="range"]:hover::-webkit-slider-thumb,
@@ -320,13 +320,13 @@ export class ControlPanel extends LitElement implements Layer {
           flex-direction: row;
           align-items: center;
           justify-content: center;
-          gap: 4px;
+          gap: 0.25rem; /* 4px */
         }
         .pull-tab-indicator .bar {
-          width: 3px;
-          height: 22px;
+          width: 0.1875rem; /* 3px */
+          height: 1.375rem; /* 22px */
           background-color: var(--ui-text-accent);
-          border-radius: 2px;
+          border-radius: 0.125rem; /* 2px */
           opacity: 0.9;
           transition: opacity 0.15s ease-in-out;
         }
@@ -340,7 +340,7 @@ export class ControlPanel extends LitElement implements Layer {
             <!-- Root panel shell (submarine-panel provides background/border/colors) -->
             <div class="relative submarine-panel">
               <div
-                class="w-full h-[255px] text-sm lg:text-m bg-transparent border-0 shadow-inner p-2 pr-3 lg:p-4 rounded-md flex"
+                class="w-full h-[15.9375rem] font-base lg:font-md bg-transparent border-0 shadow-inner p-2 pr-3 lg:p-4 rounded-md flex"
                 @contextmenu=${(e: MouseEvent) => e.preventDefault()}
               >
                 <div class="flex-grow flex flex-col h-full">

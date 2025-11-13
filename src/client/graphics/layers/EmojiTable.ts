@@ -59,8 +59,8 @@ export class EmojiTable extends LitElement {
 
     return html`
       <div
-        class="bg-slate-800 max-w-[95vw] max-h-[95vh] pt-[15px] pb-[15px] fixed flex flex-col -translate-x-1/2 -translate-y-1/2 
-                items-center rounded-[10px] z-[9999] top-[50%] left-[50%] justify-center"
+        class="bg-slate-800 max-w-[95vw] max-h-[95vh] pt-[0.9375rem] pb-[0.9375rem] fixed flex flex-col -translate-x-1/2 -translate-y-1/2 
+                items-center rounded-[0.625rem] z-[9999] top-[50%] left-[50%] justify-center"
         @contextmenu=${(e: MouseEvent) => e.preventDefault()}
         @wheel=${(e: WheelEvent) => e.stopPropagation()}
       >
@@ -84,9 +84,9 @@ export class EmojiTable extends LitElement {
                   (emoji) => html`
                     <button
                       class="flex transition-transform duration-300 ease justify-center items-center cursor-pointer
-                              border border-solid border-slate-500 rounded-[12px] bg-slate-700 hover:bg-slate-600 active:bg-slate-500 
-                              md:m-[8px] md:text-[60px] md:w-[80px] md:h-[80px] hover:scale-[1.1] active:scale-[0.95]
-                              sm:w-[60px] sm:h-[60px] sm:text-[32px] sm:m-[5px] text-[28px] w-[50px] h-[50px] m-[3px]"
+                              border border-solid border-slate-500 rounded-[0.75rem] bg-slate-700 hover:bg-slate-600 active:bg-slate-500 
+                              md:m-[0.5rem] md:text-[3.75rem] md:w-[5rem] md:h-[5rem] hover:scale-[1.1] active:scale-[0.95]
+                              sm:w-[3.75rem] sm:h-[3.75rem] sm:text-[2rem] sm:m-[0.3125rem] text-[1.75rem] w-[3.125rem] h-[3.125rem] m-[0.1875rem]"
                       @click=${() => this.onEmojiClicked(emoji)}
                     >
                       ${emoji}

@@ -126,13 +126,13 @@ export class ChatDisplay extends LitElement implements Layer {
     return html`
       <div
         class="${this._hidden
-          ? "w-fit px-[10px] py-[5px]"
-          : ""} submarine-panel p-2 pr-3 lg:p-4 relative flex flex-col-reverse overflow-y-auto w-full h-[270px]"
-        style="box-shadow: inset 0 0 18px rgba(2, 8, 20, 0.8), 0 2px 6px rgba(0, 0, 0, 0.5); pointer-events: auto"
+          ? "w-fit px-[0.625rem] py-[0.3125rem]"
+          : ""} submarine-panel p-2 pr-3 lg:p-4 relative flex flex-col-reverse overflow-y-auto w-full h-[16.875rem]"
+        style="box-shadow: inset 0 0 1.125rem rgba(2, 8, 20, 0.8), 0 0.125rem 0.375rem rgba(0, 0, 0, 0.5); pointer-events: auto"
       >
         <div>
           <div
-            class="w-full sticky top-0 px-[10px]"
+            class="w-full sticky top-0 px-[0.625rem]"
             style="background-color: var(--ui-table-row-bg)"
           >
             <button

@@ -612,7 +612,7 @@ export class RadialMenu implements Layer {
     if (!this.isCenterButtonEnabled) return;
 
     const scale = isHovering ? 1.2 : 1;
-    const fontSize = isHovering ? "18px" : "16px";
+    const fontSize = isHovering ? "1.125rem" : "1rem"; /* 18px : 16px */
 
     this.menuElement
       .select(".center-button-hitbox")

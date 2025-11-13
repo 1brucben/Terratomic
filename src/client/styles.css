@@ -58,7 +58,62 @@
 @import url("./styles/core/cursors.css");
 :root {
   --ui-scale: 1;
+  /* Spacing scale (rem-based) */
+  --space-1: 0.25rem; /* 4px */
+  --space-2: 0.5rem; /* 8px */
+  --space-3: 0.75rem; /* 12px */
+  --space-4: 1rem; /* 16px */
+  --space-5: 1.25rem; /* 20px */
+  --space-6: 1.5rem; /* 24px */
+  --space-8: 2rem; /* 32px */
+  /* Border radius scale */
+  --radius-xs: 0.125rem; /* 2px */
+  --radius-sm: 0.25rem; /* 4px */
+  --radius-md: 0.5rem; /* 8px */
+  --radius-lg: 0.75rem; /* 12px */
+  --radius-xl: 1rem; /* 16px */
+  /* Font sizes (semantic tokens) */
+  --font-xs: 0.6875rem; /* 11px */
+  --font-sm: 0.75rem; /* 12px */
+  --font-base: 0.875rem; /* 14px */
+  --font-md: 1rem; /* 16px */
+  --font-lg: 1.25rem; /* 20px */
 }
+
+/* Root font-size breakpoints for crisp global scaling (rem-based) */
+/* Tuned for common resolutions: scales UI proportionally without blur */
+/* Using html selector with !important to override Tailwind base reset */
+/* Establish body font-size once to inherit root scaling from html */
+body {
+  font-size: 1rem;
+}
+@media (min-width: 1920px) {
+  html {
+    font-size: 16px !important; /* 1920×1080+ (Full HD and above) */
+  }
+}
+@media (max-width: 1919px) and (min-width: 1600px) {
+  html {
+    font-size: 12px !important; /* 1600×900, 1680×1050 */
+  }
+}
+@media (max-width: 1599px) and (min-width: 1440px) {
+  html {
+    font-size: 10px !important; /* 1440×900 HD+ range */
+  }
+}
+@media (max-width: 1439px) and (min-width: 1280px) {
+  html {
+    font-size: 9px !important; /* 1366×768 and 1280×720/800 */
+  }
+}
+@media (max-width: 1279px) {
+  html {
+    font-size: 8px !important; /* Smaller laptops and tablets */
+  }
+}
+
+/* Text sizing now uses semantic utilities in styles/core/typography.css */
 
 .ui-scale-surface {
   --ui-scale-base: 1;
@@ -95,7 +150,7 @@
   width: 100%;
   max-width: 300px;
   padding: 15px 20px;
-  font-size: 16px;
+  font-size: 1em;
   cursor: pointer;
   background-color: var(--ui-primary);
   color: var(--ui-button-text);
@@ -129,13 +184,13 @@
 
 .options-section {
   background: rgba(0, 0, 0, 0.2);
-  padding: 12px 24px 24px 24px;
-  border-radius: 12px;
+  padding: var(--space-3) var(--space-6) var(--space-6) var(--space-6);
+  border-radius: var(--radius-lg);
 }
 
 .option-title {
-  margin: 0 0 16px 0;
-  font-size: 20px;
+  margin: 0 0 var(--space-4) 0;
+  font-size: var(--font-lg);
   color: var(--ui-text-light);
   text-align: center;
 }
@@ -179,7 +234,7 @@
 }
 
 .option-card-title {
-  font-size: 14px;
+  font-size: 0.875em;
   color: var(--ui-text-muted);
   text-align: center;
   margin: 0 0 4px 0;
@@ -192,7 +247,7 @@
   transition: transform 0.2s ease-in-out;
   border-radius: 8px;
   background-color: rgba(255, 255, 255, 0.1);
-  font-size: 14px;
+  font-size: 0.875em;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -246,7 +301,7 @@ label.option-card:hover {
 .copy-success {
   position: relative;
   color: var(--ui-text-accent); /* blue-300 */
-  font-size: 14px;
+  font-size: 0.875em;
   margin-top: 5px;
 }
 
@@ -288,7 +343,7 @@ label.option-card:hover {
 }
 
 .lobby-id {
-  font-size: 14px;
+  font-size: 0.875em;
   color: var(--ui-text-light);
   text-align: center;
   font-family: monospace;
@@ -298,9 +353,9 @@ label.option-card:hover {
 .players-list {
   display: flex;
   flex-wrap: wrap;
-  gap: 8px;
+  gap: var(--space-2);
   justify-content: center;
-  padding: 0 16px;
+  padding: 0 var(--space-4);
 }
 
 .player-tag {
@@ -312,7 +367,7 @@ label.option-card:hover {
   padding: 8px 12px;
   margin: 4px;
   border-radius: 16px;
-  font-size: 14px;
+  font-size: 0.875em;
 }
 #bots-count,
 #private-lobby-bots-count {
@@ -591,7 +646,7 @@ label.option-card:hover {
   margin-top: 10px;
   padding: 10px;
   border-radius: 4px;
-  font-size: 14px;
+  font-size: 0.875em;
   transition: opacity 0.3s ease;
   opacity: 0;
   height: 0;
@@ -627,7 +682,7 @@ label.option-card:hover {
   max-width: 200px;
   outline: 0;
   padding: 10px;
-  font-size: 16px;
+  font-size: 1em;
   border: 1px solid var(--ui-panel-border);
   background-color: var(--ui-panel-shell-top);
   color: var(--ui-text-light);
@@ -666,7 +721,7 @@ label.option-card:hover {
 
 .option-title {
   margin: 0 0 16px 0;
-  font-size: 20px;
+  font-size: 1.25em;
   color: var(--ui-text-light);
   text-align: center;
 }
@@ -684,9 +739,9 @@ label.option-card:hover {
   align-items: center;
   justify-content: center;
   background: var(--ui-panel-shell-bottom);
-  padding: 4px 16px;
-  border-radius: 16px;
-  font-size: 14px;
+  padding: var(--space-1) var(--space-4);
+  border-radius: var(--radius-xl);
+  font-size: var(--font-base);
   color: var(--ui-text-light);
   border: 1px solid var(--ui-panel-border);
 }
@@ -702,10 +757,10 @@ label.option-card:hover {
   background-color: var(--ui-panel-shell-bottom);
   color: var(--ui-text-light);
   border: 1px solid var(--ui-panel-border);
-  border-radius: 4px;
-  padding: 2px 4px;
-  font-size: 12px;
-  margin-bottom: 8px;
+  border-radius: var(--radius-sm);
+  padding: calc(var(--space-1) / 2) var(--space-1);
+  font-size: var(--font-sm);
+  margin-bottom: var(--space-2);
   /* News Button Notification */
   news-button .active button {
     position: relative;
@@ -721,7 +776,7 @@ label.option-card:hover {
   }
 
   .host-badge {
-    font-size: 11px;
+    font-size: 0.6875em;
     color: var(--ui-success);
     font-weight: bold;
   }
@@ -733,7 +788,7 @@ label.option-card:hover {
     background: var(--ui-alert);
     color: var(--ui-button-text);
     border-radius: 50%;
-    font-size: 11px;
+    font-size: 0.6875em;
     cursor: pointer;
     display: flex;
     align-items: center;

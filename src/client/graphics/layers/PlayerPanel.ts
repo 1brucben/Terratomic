@@ -265,7 +265,7 @@ export class PlayerPanel extends LitElement implements Layer {
         @wheel=${(e: MouseEvent) => e.stopPropagation()}
       >
         <div
-          class="pointer-events-auto max-h-[90vh] overflow-y-auto min-w-[240px] w-auto px-4 py-2"
+          class="pointer-events-auto max-h-[90vh] overflow-y-auto min-w-[15rem] w-auto px-4 py-2"
         >
           <div
             class="player-panel__surface p-1 lg:p-2 rounded-lg backdrop-blur-md relative w-full mt-2"
@@ -280,7 +280,7 @@ export class PlayerPanel extends LitElement implements Layer {
               ✕
             </button>
 
-            <div class="flex flex-col gap-2 min-w-[240px]">
+            <div class="flex flex-col gap-2 min-w-[15rem]">
               <!-- Name section -->
               <div class="flex items-center gap-1 lg:gap-2">
                 <div
