@@ -146,7 +146,13 @@ describe("WarshipExecution AA Capability", () => {
     player1.addUpgrade(UpgradeType.WarshipAntiAir);
     const addExecutionSpy = jest.spyOn(game, "addExecution");
     jest.spyOn(PseudoRandom.prototype, "next").mockReturnValue(0.1);
-    player2.buildUnit(UnitType.AtomBomb, game.ref(11, 11), {});
+    player2.buildUnit(UnitType.AtomBomb, game.ref(11, 11), {
+      targetTile: game.ref(0, 0),
+      trajectory: [
+        { tile: game.ref(11, 11), targetable: true },
+        { tile: game.ref(10, 11), targetable: true },
+      ],
+    });
     executeTicks(game, 10);
     expect(addExecutionSpy).not.toHaveBeenCalledWith(
       expect.any(SAMMissileExecution),

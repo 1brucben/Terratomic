@@ -232,6 +232,7 @@ export interface Config {
   nukeAllianceBreakThreshold(): number;
   defaultNukeSpeed(): number;
   defaultNukeTargetableRange(): number;
+  defaultSamMissileSpeed(): number;
   defaultSamRange(): number;
   nukeDeathFactor(humans: number, tilesOwned: number): number;
   structureMinDist(): number;

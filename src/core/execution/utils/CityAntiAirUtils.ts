@@ -56,7 +56,13 @@ export function attemptInterception(target: Unit, game: Game, city: Unit) {
   }
 
   target.setTargetedBySAM(true);
-  const sam = new SAMMissileExecution(city.tile(), city.owner(), city, target);
+  const sam = new SAMMissileExecution(
+    city.tile(),
+    city.owner(),
+    city,
+    target,
+    target.tile(),
+  );
   game.addExecution(sam);
   // Start city SAM cooldown using standard unit cooldown API
   city.launch(game.config().citySamCooldown());

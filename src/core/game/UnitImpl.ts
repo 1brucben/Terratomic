@@ -6,6 +6,7 @@ import {
   Player,
   PlayerID,
   Tick,
+  TrajectoryTile,
   Unit,
   UnitInfo,
   UnitType,
@@ -52,6 +53,9 @@ export class UnitImpl implements Unit {
     // 3 seconds * 10 ticks/sec = 30 ticks
     return this.mg.ticks() - this.lastVisibleTick < 30;
   }
+  // Nuke only
+  private _trajectoryIndex: number = 0;
+  private _trajectory: TrajectoryTile[];
 
   constructor(
     private _type: UnitType,
@@ -66,6 +70,7 @@ export class UnitImpl implements Unit {
     this._health = toInt(this.mg.unitInfo(_type).maxHealth ?? 1);
     this._targetTile =
       "targetTile" in params ? (params.targetTile ?? undefined) : undefined;
+    this._trajectory = "trajectory" in params ? (params.trajectory ?? []) : [];
     this._troops = "troops" in params ? (params.troops ?? 0) : 0;
     this._lastSetSafeFromPirates =
       "lastSetSafeFromPirates" in params
@@ -553,6 +558,19 @@ export class UnitImpl implements Unit {
 
   targetTile(): TileRef | undefined {
     return this._targetTile;
+  }
+
+  setTrajectoryIndex(i: number): void {
+    const max = this._trajectory.length - 1;
+    this._trajectoryIndex = i < 0 ? 0 : i > max ? max : i;
+  }
+
+  trajectoryIndex(): number {
+    return this._trajectoryIndex;
+  }
+
+  trajectory(): TrajectoryTile[] {
+    return this._trajectory;
   }
 
   setTargetUnit(target: Unit | undefined): void {

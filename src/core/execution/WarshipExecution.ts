@@ -402,6 +402,7 @@ export class WarshipExecution implements Execution {
             this.warship.owner(),
             this.warship,
             bestTarget,
+            bestTarget.tile(),
           ),
         );
         bestTarget.setTargetedBySAM(true);

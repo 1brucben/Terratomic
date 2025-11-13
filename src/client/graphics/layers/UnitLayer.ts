@@ -783,7 +783,7 @@ export class UnitLayer implements Layer {
       const targetable = unit.targetable();
       if (!targetable) {
         this.context.save();
-        this.context.globalAlpha = 0.4;
+        this.context.globalAlpha = 0.5;
       }
 
       const angle = angleByUnit?.get(unit) ?? this.getUnitAngle(unit);

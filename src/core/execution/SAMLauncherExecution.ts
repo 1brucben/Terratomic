@@ -11,6 +11,118 @@ import { TileRef } from "../game/GameMap";
 import { PseudoRandom } from "../PseudoRandom";
 import { SAMMissileExecution } from "./SAMMissileExecution";
 
+type Target = {
+  unit: Unit;
+  tile: TileRef;
+};
+
+/**
+ * Smart SAM targeting system preshoting nukes so its range is strictly enforced
+ */
+class SAMTargetingSystem {
+  // Store unreachable nukes so the SAM won't compute an interception point for them every frame
+  private nukesToIgnore: Set<number> = new Set();
+
+  constructor(
+    private mg: Game,
+    private player: Player,
+    private sam: Unit,
+  ) {}
+
+  updateUnreachableNukes(nearbyUnits: { unit: Unit; distSquared: number }[]) {
+    const nearbyUnitSet = new Set(nearbyUnits.map((u) => u.unit.id()));
+    for (const nukeId of this.nukesToIgnore) {
+      if (!nearbyUnitSet.has(nukeId)) {
+        this.nukesToIgnore.delete(nukeId);
+      }
+    }
+  }
+
+  private storeUnreachableNukes(nukeId: number) {
+    this.nukesToIgnore.add(nukeId);
+  }
+
+  private isInRange(tile: TileRef) {
+    const samTile = this.sam.tile();
+    const rangeSquared = this.mg.config().defaultSamRange() ** 2;
+    return this.mg.euclideanDistSquared(samTile, tile) <= rangeSquared;
+  }
+
+  private tickToReach(currentTile: TileRef, tile: TileRef): number {
+    const missileSpeed = this.mg.config().defaultSamMissileSpeed();
+    return Math.ceil(this.mg.manhattanDist(currentTile, tile) / missileSpeed);
+  }
+
+  private computeInterceptionTile(unit: Unit): TileRef | undefined {
+    const trajectory = unit.trajectory();
+    const samTile = this.sam.tile();
+    const currentIndex = unit.trajectoryIndex();
+    const explosionTick: number = trajectory.length - currentIndex;
+    for (let i = unit.trajectoryIndex(); i < trajectory.length; i++) {
+      const trajectoryTile = trajectory[i];
+      if (trajectoryTile.targetable && this.isInRange(trajectoryTile.tile)) {
+        const nukeTickToReach = i - currentIndex;
+        const samTickToReach = this.tickToReach(samTile, trajectoryTile.tile);
+        const reachableOnTime = Math.abs(nukeTickToReach - samTickToReach) <= 1;
+        if (reachableOnTime && samTickToReach < explosionTick) {
+          return trajectoryTile.tile;
+        }
+      }
+    }
+    return undefined;
+  }
+
+  public getSingleTarget(): Target | null {
+    // Look beyond the SAM range so it can preshot nukes
+    const detectionRange = this.mg.config().defaultSamRange() * 1.5;
+    const nukes = this.mg.nearbyUnits(
+      this.sam.tile(),
+      detectionRange,
+      [UnitType.AtomBomb, UnitType.HydrogenBomb],
+      ({ unit }) => {
+        return (
+          unit.owner() !== this.player && !this.player.isFriendly(unit.owner())
+        );
+      },
+    );
+
+    // Clear unreachable nukes that went out of range
+    this.updateUnreachableNukes(nukes);
+
+    const targets: Array<Target> = [];
+    for (const nuke of nukes) {
+      if (this.nukesToIgnore.has(nuke.unit.id())) {
+        continue;
+      }
+      const interceptionTile = this.computeInterceptionTile(nuke.unit);
+      if (interceptionTile !== undefined) {
+        targets.push({ unit: nuke.unit, tile: interceptionTile });
+      } else {
+        // Store unreachable nukes in order to prevent useless interception computation
+        this.storeUnreachableNukes(nuke.unit.id());
+      }
+    }
+
+    return (
+      targets.sort((a: Target, b: Target) => {
+        // Prioritize Hydrogen Bombs
+        if (
+          a.unit.type() === UnitType.HydrogenBomb &&
+          b.unit.type() !== UnitType.HydrogenBomb
+        )
+          return -1;
+        if (
+          a.unit.type() !== UnitType.HydrogenBomb &&
+          b.unit.type() === UnitType.HydrogenBomb
+        )
+          return 1;
+
+        return 0;
+      })[0] ?? null
+    );
+  }
+}
+
 export class SAMLauncherExecution implements Execution {
   private mg: Game;
   private active: boolean = true;
@@ -19,6 +131,7 @@ export class SAMLauncherExecution implements Execution {
   // shoot the one targeting very close (MIRVWarheadProtectionRadius)
   private MIRVWarheadSearchRadius = 400;
   private MIRVWarheadProtectionRadius = 50;
+  private targetingSystem: SAMTargetingSystem;
 
   private cargoPlaneSearchRadius = 150;
   private cargoPlaneCheckOffset: number = 0;
@@ -39,44 +152,6 @@ export class SAMLauncherExecution implements Execution {
     this.mg = mg;
     this.cargoPlaneCheckOffset = mg.ticks() % 20;
   }
-
-  private getSingleTarget(): Unit | null {
-    if (this.sam === null) return null;
-    const nukes = this.mg.nearbyUnits(
-      this.sam.tile(),
-      this.mg.config().defaultSamRange(),
-      [UnitType.AtomBomb, UnitType.HydrogenBomb],
-      ({ unit }) => {
-        if (!isUnit(unit)) return false;
-        if (unit.owner() === this.player) return false;
-        if (this.player.isFriendly(unit.owner() as Player)) return false;
-        return unit.isTargetable();
-      },
-    );
-
-    return (
-      nukes.sort((a, b) => {
-        const { unit: unitA, distSquared: distA } = a;
-        const { unit: unitB, distSquared: distB } = b;
-
-        // Prioritize Hydrogen Bombs
-        if (
-          unitA.type() === UnitType.HydrogenBomb &&
-          unitB.type() !== UnitType.HydrogenBomb
-        )
-          return -1;
-        if (
-          unitA.type() !== UnitType.HydrogenBomb &&
-          unitB.type() === UnitType.HydrogenBomb
-        )
-          return 1;
-
-        // If both are the same type, sort by distance (lower `distSquared` means closer)
-        return distA - distB;
-      })[0]?.unit ?? null
-    );
-  }
-
   private isHit(type: UnitType, random: number): boolean {
     if (!this.sam) return false; // Should not happen
     const healthPercentage = this.sam.hasHealth()
@@ -118,6 +193,16 @@ export class SAMLauncherExecution implements Execution {
       }
       this.sam = this.player.buildUnit(UnitType.SAMLauncher, spawnTile, {});
     }
+    this.targetingSystem ??= new SAMTargetingSystem(
+      this.mg,
+      this.player,
+      this.sam,
+    );
+
+    if (this.sam.isInCooldown()) {
+      return;
+    }
+
     if (!this.sam.isActive()) {
       this.active = false;
       return;
@@ -147,9 +232,9 @@ export class SAMLauncherExecution implements Execution {
       },
     );
 
-    let target: Unit | null = null;
+    let target: Target | null = null;
     if (mirvWarheadTargets.length === 0) {
-      target = this.getSingleTarget();
+      target = this.targetingSystem.getSingleTarget();
     }
 
     const cooldown = this.sam.ticksLeftInCooldown();
@@ -157,15 +242,16 @@ export class SAMLauncherExecution implements Execution {
       this.sam.touch();
     }
 
-    const isSingleTarget = target && !target.targetedBySAM();
+    const isSingleTarget = !!(target && !target.unit.targetedBySAM());
     if (
       (isSingleTarget || mirvWarheadTargets.length > 0) &&
-      !this.sam.isInCooldown() &&
       !isPeaceTimerActive
     ) {
       this.sam.launch();
       const type =
-        mirvWarheadTargets.length > 0 ? UnitType.MIRVWarhead : target?.type();
+        mirvWarheadTargets.length > 0
+          ? UnitType.MIRVWarhead
+          : target?.unit.type();
       if (type === undefined) throw new Error("Unknown unit type");
       const random = this.pseudoRandom.next();
       const hit = this.isHit(type, random);
@@ -198,20 +284,19 @@ export class SAMLauncherExecution implements Execution {
             UnitType.MIRVWarhead,
             mirvWarheadTargets.length,
           );
-      } else if (target !== null && hit) {
-        target.setTargetedBySAM(true);
+      } else if (target !== null) {
+        target.unit.setTargetedBySAM(true);
         this.mg.addExecution(
           new SAMMissileExecution(
             this.sam.tile(),
             this.sam.owner(),
             this.sam,
-            target,
+            target.unit,
+            target.tile,
           ),
         );
-      } else if (target !== null) {
-        // Do nothing, the missile missed
       } else {
-        throw new Error("target is null");
+        // No valid target to engage (should not happen when firing)
       }
     }
     if ((this.mg.ticks() + this.cargoPlaneCheckOffset) % 20 === 0) {
@@ -302,6 +387,7 @@ export class SAMLauncherExecution implements Execution {
             this.sam!.owner(),
             this.sam!,
             targetPlane,
+            targetPlane.tile(),
           ),
         );
       } else {
