@@ -506,7 +506,6 @@ const IntentSchema = z.discriminatedUnion("type", [
   BuildUnitIntentSchema,
   PurchaseUpgradeIntentSchema,
   UpgradeStructureIntentSchema,
-  UpgradeStructureIntentSchema,
   ResearchTreeSelectIntentSchema,
   EmbargoIntentSchema,
   MoveWarshipIntentSchema,
