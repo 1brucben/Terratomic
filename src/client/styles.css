@@ -57,7 +57,6 @@
 @import url("./styles/components/controls.css");
 @import url("./styles/core/cursors.css");
 :root {
-  --ui-scale: 1;
   /* Spacing scale (rem-based) */
   --space-1: 0.25rem; /* 4px */
   --space-2: 0.5rem; /* 8px */
@@ -115,12 +114,6 @@ body {
 
 /* Text sizing now uses semantic utilities in styles/core/typography.css */
 
-.ui-scale-surface {
-  --ui-scale-base: 1;
-  --ui-scale-origin: center;
-  transform-origin: var(--ui-scale-origin);
-  transform: scale(calc(var(--ui-scale) * var(--ui-scale-base)));
-}
 * {
   -webkit-box-sizing: border-box;
   -moz-box-sizing: border-box;

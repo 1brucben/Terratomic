@@ -8,15 +8,6 @@ import { UserSettings } from "../../../core/game/UserSettings";
 import { AlternateViewEvent, RefreshGraphicsEvent } from "../../InputHandler";
 import { PauseGameEvent } from "../../Transport";
 import { translateText } from "../../Utils";
-import {
-  adjustUiScalePercent,
-  applyUiScalePercent,
-  getStoredUiScalePercent,
-  saveUiScalePercent,
-  UI_SCALE_CHANGED_EVENT,
-  UI_SCALE_DEFAULT_PERCENT,
-  UI_SCALE_STEP_PERCENT,
-} from "../../uiScale";
 import { Layer } from "./Layer";
 
 const button = ({
@@ -65,9 +56,6 @@ export class OptionsMenu extends LitElement implements Layer {
   @state()
   private showSettings: boolean = false;
 
-  @state()
-  private uiScalePercent = UI_SCALE_DEFAULT_PERCENT;
-
   private isVisible = false;
 
   private hasWinner = false;
@@ -105,25 +93,11 @@ export class OptionsMenu extends LitElement implements Layer {
     this.requestUpdate();
   }
 
-  private handleUiScaleChanged = (event: Event) => {
-    const detail = (event as CustomEvent<{ percent: number }>).detail;
-    if (!detail) return;
-    const { percent } = detail;
-    if (typeof percent !== "number" || percent === this.uiScalePercent) return;
-    this.uiScalePercent = percent;
-  };
-
   connectedCallback() {
     super.connectedCallback();
-    this.uiScalePercent = getStoredUiScalePercent();
-    window.addEventListener(UI_SCALE_CHANGED_EVENT, this.handleUiScaleChanged);
   }
 
   disconnectedCallback() {
-    window.removeEventListener(
-      UI_SCALE_CHANGED_EVENT,
-      this.handleUiScaleChanged,
-    );
     super.disconnectedCallback();
   }
 
@@ -165,20 +139,6 @@ export class OptionsMenu extends LitElement implements Layer {
   private onToggleLeftClickOpensMenu() {
     this.userSettings.toggleLeftClickOpenMenu();
     this.requestUpdate();
-  }
-
-  private changeUiScale(delta: number) {
-    const next = adjustUiScalePercent(this.uiScalePercent, delta);
-    if (next === this.uiScalePercent) return;
-    this.uiScalePercent = next;
-    saveUiScalePercent(next);
-    applyUiScalePercent(next);
-  }
-
-  private onUiScaleReset() {
-    this.uiScalePercent = UI_SCALE_DEFAULT_PERCENT;
-    saveUiScalePercent(UI_SCALE_DEFAULT_PERCENT);
-    applyUiScalePercent(UI_SCALE_DEFAULT_PERCENT);
   }
 
   init() {
@@ -319,35 +279,6 @@ export class OptionsMenu extends LitElement implements Layer {
                 ? "Opens menu"
                 : "Attack"),
           })}
-          <div class="flex flex-col gap-1 px-1 text-white">
-            <span class="text-sm text-center">
-              ${translateText("user_setting.ui_scale_label")}
-            </span>
-            <div class="flex items-center gap-2 flex-wrap">
-              <button
-                class="w-8 h-8 rounded bg-white/10 text-white text-lg font-semibold hover:bg-white/20 transition"
-                @click=${() => this.changeUiScale(-UI_SCALE_STEP_PERCENT)}
-              >
-                -
-              </button>
-              <span class="w-12 text-center text-sm font-semibold">${this.uiScalePercent}%</span>
-              <button
-                class="w-8 h-8 rounded bg-white/10 text-white text-lg font-semibold hover:bg-white/20 transition"
-                @click=${() => this.changeUiScale(UI_SCALE_STEP_PERCENT)}
-              >
-                +
-              </button>
-              <button
-                class="text-[0.625rem] px-2 py-1 rounded bg-white/10 hover:bg-white/20 transition text-white uppercase tracking-wide"
-                @click=${this.onUiScaleReset}
-              >
-                ${translateText("user_setting.ui_scale_reset")}
-              </button>
-            </div>
-            <span class="text-[0.625rem] uppercase tracking-wide opacity-70">
-              ${translateText("user_setting.ui_scale_desc")}
-            </span>
-          </div>
 
           <!-- ${button({
             onClick: this.onToggleFocusLockedButtonClick,

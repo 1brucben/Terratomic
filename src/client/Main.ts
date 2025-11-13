@@ -35,7 +35,6 @@ import "./components/baseComponents/Modal";
 import { isLoggedIn } from "./jwt";
 import "./styles.css";
 import { applyUiPalette, getUiPalette } from "./theme/UiPaletteLoader";
-import { initializeUiScaleFromStorage } from "./uiScale";
 
 declare global {
   interface Window {
@@ -109,7 +108,6 @@ class Client {
   }
 
   initialize(): void {
-    initializeUiScaleFromStorage();
     this.applyUiPaletteFromSettings();
     window.addEventListener(
       "dark-mode-changed",
