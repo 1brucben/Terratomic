@@ -1200,6 +1200,11 @@ export class DefaultConfig implements Config {
     return 70;
   }
 
+  samRangeUpgradePercent(): number {
+    // Each upgrade increases range by 35%; level 3 > H-bomb range, level 2 does not
+    return 0.35;
+  }
+
   defaultSamMissileSpeed(): number {
     return 12;
   }
@@ -1316,6 +1321,8 @@ export class DefaultConfig implements Config {
         return 4; // Default 80% -> 4/5
       case UnitType.MissileSilo:
         return 1; // Missile silo: 50% -> 1/2
+      case UnitType.SAMLauncher:
+        return 2; // SAM: 40% -> 2/5
       default:
         return 1;
     }
@@ -1329,6 +1336,8 @@ export class DefaultConfig implements Config {
         return 5; // Default 80% -> 4/5
       case UnitType.MissileSilo:
         return 2; // Missile silo: 50% -> 1/2
+      case UnitType.SAMLauncher:
+        return 5; // SAM: 40% -> 2/5
       default:
         return 1;
     }

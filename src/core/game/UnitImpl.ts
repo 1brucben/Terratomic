@@ -254,6 +254,20 @@ export class UnitImpl implements Unit {
         this.mg.addUpdate(this.toUpdate());
         return;
       }
+      case UnitType.SAMLauncher: {
+        // Cap SAM upgrades at level 3
+        if (this._level >= 3) {
+          return;
+        }
+        this._level += 1;
+        // Small durability boost per upgrade, aligned with MissileSilo behavior
+        this._bonusMaxHealth += 250;
+        const healed = Number(this._health) + 250;
+        const capped = Math.min(healed, this.effectiveMaxHealth());
+        this._health = toInt(capped);
+        this.mg.addUpdate(this.toUpdate());
+        return;
+      }
       case UnitType.Port: {
         this._level += 1;
         this._bonusMaxHealth += 1000;

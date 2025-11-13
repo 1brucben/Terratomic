@@ -42,9 +42,19 @@ class SAMTargetingSystem {
     this.nukesToIgnore.add(nukeId);
   }
 
+  private effectiveSamRange(): number {
+    const base = this.mg.config().defaultSamRange();
+    const bonus = this.mg.config().samRangeUpgradePercent();
+    const lvl = this.sam.level?.() ?? 1;
+    if (lvl <= 1) return base;
+    // Apply per-upgrade multiplicative increase
+    const factor = Math.pow(1 + bonus, lvl - 1);
+    return Math.round(base * factor);
+  }
+
   private isInRange(tile: TileRef) {
     const samTile = this.sam.tile();
-    const rangeSquared = this.mg.config().defaultSamRange() ** 2;
+    const rangeSquared = this.effectiveSamRange() ** 2;
     return this.mg.euclideanDistSquared(samTile, tile) <= rangeSquared;
   }
 
@@ -74,7 +84,7 @@ class SAMTargetingSystem {
 
   public getSingleTarget(): Target | null {
     // Look beyond the SAM range so it can preshot nukes
-    const detectionRange = this.mg.config().defaultSamRange() * 1.5;
+    const detectionRange = this.effectiveSamRange() * 1.5;
     const nukes = this.mg.nearbyUnits(
       this.sam.tile(),
       detectionRange,
@@ -309,9 +319,18 @@ export class SAMLauncherExecution implements Execution {
       this.mg.peaceTimerEndsAtTick !== null &&
       this.mg.ticks() < this.mg.peaceTimerEndsAtTick;
 
+    const effectiveRange = (() => {
+      const base = this.mg.config().defaultSamRange();
+      const bonus = this.mg.config().samRangeUpgradePercent();
+      const lvl = this.sam!.level?.() ?? 1;
+      if (lvl <= 1) return base;
+      const factor = Math.pow(1 + bonus, lvl - 1);
+      return Math.round(base * factor);
+    })();
+
     const potentialAirborneTargets = this.mg.nearbyUnits(
       this.sam!.tile(),
-      this.cargoPlaneSearchRadius,
+      effectiveRange,
       [
         UnitType.CargoPlane,
         UnitType.Bomber,

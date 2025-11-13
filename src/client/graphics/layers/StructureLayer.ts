@@ -796,12 +796,20 @@ export class StructureLayer implements Layer {
           clickedUnit.type() === UnitType.Port ||
           clickedUnit.type() === UnitType.Hospital ||
           clickedUnit.type() === UnitType.Academy ||
-          clickedUnit.type() === UnitType.MissileSilo)
+          clickedUnit.type() === UnitType.MissileSilo ||
+          clickedUnit.type() === UnitType.SAMLauncher)
       ) {
         // Only if affordable
         // And only if not at level cap for Missile Silo
         if (
           clickedUnit.type() === UnitType.MissileSilo &&
+          clickedUnit.level() >= 3
+        ) {
+          return;
+        }
+        // SAMs also cap at level 3
+        if (
+          clickedUnit.type() === UnitType.SAMLauncher &&
           clickedUnit.level() >= 3
         ) {
           return;

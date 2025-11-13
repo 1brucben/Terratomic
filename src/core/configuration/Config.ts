@@ -234,6 +234,8 @@ export interface Config {
   defaultNukeTargetableRange(): number;
   defaultSamMissileSpeed(): number;
   defaultSamRange(): number;
+  // Percentage (0..1) increase applied per SAM level beyond 1
+  samRangeUpgradePercent(): number;
   nukeDeathFactor(humans: number, tilesOwned: number): number;
   structureMinDist(): number;
   isReplay(): boolean;
