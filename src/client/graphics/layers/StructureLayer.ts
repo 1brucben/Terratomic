@@ -18,6 +18,7 @@ import { ToggleUpgradeModeEvent } from "../../events/ToggleUpgradeModeEvent";
 import { UnitCooldownEndedEvent } from "../../events/UnitCooldownEndedEvent";
 import { MouseMoveEvent, MouseUpEvent } from "../../InputHandler";
 import { SendUpgradeStructureIntentEvent } from "../../Transport";
+import { renderNumber } from "../../Utils";
 import { TransformHandler } from "../TransformHandler";
 import { Layer } from "./Layer";
 class StructureRenderInfo {
@@ -172,6 +173,8 @@ export class StructureLayer implements Layer {
       // Force redraw so highlight state applies instantly.
       this.shouldRedraw = true;
       this.updateHighlights();
+      // Rebuild price labels when toggling upgrade mode
+      this.updateLabels();
       if (this.renderer) this.renderer.render(this.stage);
     });
   }
@@ -292,6 +295,41 @@ export class StructureLayer implements Layer {
     const scaledMultiplier = BigInt(Math.round(multiplier * Number(scale)));
     const upgradeCost = (baseCost * scaledMultiplier) / scale;
     return me.gold() >= upgradeCost;
+  }
+
+  // Compute raw upgrade cost for a given structure type for the current player
+  private computeUpgradeCostForType(unitType: UnitType): bigint {
+    const me = this.game.myPlayer();
+    if (!me) return 0n;
+    const cfg = this.game.config();
+    const baseCost = cfg.unitInfo(unitType).cost(me as any);
+    const multiplier = cfg.structureUpgradeCostMultiplier(unitType);
+    const scale = 100n; // fixed-point precision: 2 decimals
+    const scaledMultiplier = BigInt(Math.round(multiplier * Number(scale)));
+    const upgradeCost = (baseCost * scaledMultiplier) / scale;
+    return upgradeCost;
+  }
+
+  // Compact gold formatter using k/m lowercase suffixes
+  private formatGoldCompact(amount: bigint): string {
+    // Reuse renderNumber for thresholds, then lowercase the suffix
+    const s = renderNumber(amount).replace("K", "k").replace("M", "m");
+    return s;
+  }
+
+  private isUpgradeableStructure(unit: UnitView): boolean {
+    if (
+      unit.type() !== UnitType.City &&
+      unit.type() !== UnitType.Port &&
+      unit.type() !== UnitType.Hospital &&
+      unit.type() !== UnitType.Academy &&
+      unit.type() !== UnitType.MissileSilo &&
+      unit.type() !== UnitType.SAMLauncher
+    )
+      return false;
+    if (unit.type() === UnitType.MissileSilo && unit.level() >= 3) return false;
+    if (unit.type() === UnitType.SAMLauncher && unit.level() >= 3) return false;
+    return true;
   }
 
   private updateHighlights() {
@@ -661,24 +699,7 @@ export class StructureLayer implements Layer {
     const me = this.game.myPlayer();
     if (!me) return false;
     if (unit.type() === UnitType.Construction) return false;
-    // Upgrades apply to City, Port, Hospital, Academy, Missile Silo
-    if (
-      unit.type() !== UnitType.City &&
-      unit.type() !== UnitType.Port &&
-      unit.type() !== UnitType.Hospital &&
-      unit.type() !== UnitType.Academy &&
-      unit.type() !== UnitType.MissileSilo &&
-      unit.type() !== UnitType.SAMLauncher
-    )
-      return false;
-    // Do not highlight missile silos at max level (3)
-    if (unit.type() === UnitType.MissileSilo && unit.level() >= 3) {
-      return false;
-    }
-    // Do not highlight SAM launchers at max level (3)
-    if (unit.type() === UnitType.SAMLauncher && unit.level() >= 3) {
-      return false;
-    }
+    if (!this.isUpgradeableStructure(unit)) return false;
     return unit.owner().id() === me.id() && this.canAffordUpgrade(unit);
   }
 
@@ -913,97 +934,170 @@ export class StructureLayer implements Layer {
   private updateLabels() {
     // Clear existing labels
     this.labelContainer.removeChildren();
+
+    // 1) If hovering a structure, show its levels ABOVE (existing behavior)
     const unit = this.hoveredStructure;
-    if (!unit || unit.type() === UnitType.Construction) return;
-    const levels = this.structureLevels.get(unit.id());
-    if (!levels) return;
+    if (unit && unit.type() !== UnitType.Construction) {
+      const levels = this.structureLevels.get(unit.id());
+      if (levels) {
+        const tile = unit.tile();
+        const worldX = this.game.x(tile);
+        const worldY = this.game.y(tile);
+        const screenPos = this.transformHandler.worldToScreenCoordinates(
+          new Cell(worldX, worldY),
+        );
+        const shape: BgShape =
+          STRUCTURE_BG_SHAPES[unit.type() as UnitType] ?? "circle";
+        const iconDim = ICON_SIZES[shape] ?? ICON_SIZE;
+        const scale = this.iconScreenScale();
 
-    const tile = unit.tile();
-    const worldX = this.game.x(tile);
-    const worldY = this.game.y(tile);
-    const screenPos = this.transformHandler.worldToScreenCoordinates(
-      new Cell(worldX, worldY),
-    );
+        const baseColorStr = this.relationshipColorHexStr(unit); // "#RRGGBB"
+        const baseRaw = baseColorStr.replace(/^#/, "");
+        const secondaryRaw = colord(`#${baseRaw}`)
+          .desaturate(0.2)
+          .lighten(0.35)
+          .toHex()
+          .replace(/^#/, "");
+        const baseFill = parseInt(baseRaw, 16);
+        const secondaryFill = parseInt(secondaryRaw, 16);
+        const fontSize = Math.max(10, Math.round(iconDim * scale * 0.55));
+        const stylePrimary = new PIXI.TextStyle({
+          fontFamily: "system-ui, -apple-system, Segoe UI, Roboto, sans-serif",
+          fontSize,
+          fontWeight: "600",
+          fill: baseFill,
+          align: "center",
+        });
+        const styleSecondary = new PIXI.TextStyle({
+          fontFamily: "system-ui, -apple-system, Segoe UI, Roboto, sans-serif",
+          fontSize,
+          fontWeight: "600",
+          fill: secondaryFill,
+          align: "center",
+        });
 
-    // Determine icon size for offset
-    const shape: BgShape =
-      STRUCTURE_BG_SHAPES[unit.type() as UnitType] ?? "circle";
-    const iconDim = ICON_SIZES[shape] ?? ICON_SIZE;
-    const scale = this.iconScreenScale();
-
-    // Build texts
-    const baseColorStr = this.relationshipColorHexStr(unit); // "#RRGGBB"
-    const baseRaw = baseColorStr.replace(/^#/, "");
-    const secondaryRaw = colord(`#${baseRaw}`)
-      .desaturate(0.2)
-      .lighten(0.35)
-      .toHex()
-      .replace(/^#/, "");
-    // Use numeric fills (PIXIs accepts number) to avoid string parsing edge cases
-    const baseFill = parseInt(baseRaw, 16);
-    const secondaryFill = parseInt(secondaryRaw, 16);
-    const fontSize = Math.max(10, Math.round(iconDim * scale * 0.55));
-    const stylePrimary = new PIXI.TextStyle({
-      fontFamily: "system-ui, -apple-system, Segoe UI, Roboto, sans-serif",
-      fontSize,
-      fontWeight: "600",
-      fill: baseFill,
-      align: "center",
-    });
-    const styleSecondary = new PIXI.TextStyle({
-      fontFamily: "system-ui, -apple-system, Segoe UI, Roboto, sans-serif",
-      fontSize,
-      fontWeight: "600",
-      fill: secondaryFill,
-      align: "center",
-    });
-
-    const tPrimary = new PIXI.Text(String(levels.primary), stylePrimary);
-    const showSecondary = (levels.secondary ?? 0) > 0;
-    const tSecondary = showSecondary
-      ? new PIXI.Text(String(levels.secondary), styleSecondary)
-      : null;
-    // Measure and layout
-    const gap = Math.round(fontSize * 0.4);
-    const paddingX = Math.round(fontSize * 0.5);
-    const paddingY = Math.round(fontSize * 0.35);
-    const contentWidth = showSecondary
-      ? tPrimary.width + (tSecondary?.width ?? 0) + gap
-      : tPrimary.width;
-    const contentHeight = showSecondary
-      ? Math.max(tPrimary.height, tSecondary!.height)
-      : tPrimary.height;
-    const pillWidth = contentWidth + paddingX * 2;
-    const pillHeight = contentHeight + paddingY * 2;
-    const bg = new PIXI.Graphics();
-    const bgX = Math.round(screenPos.x - pillWidth / 2);
-    const bgY = Math.round(
-      screenPos.y -
-        (iconDim * scale) / 2 -
-        pillHeight -
-        Math.max(4, Math.round(6 * scale)),
-    );
-    // PIXI v8+: use the new Graphics fill API instead of beginFill/endFill
-    bg.roundRect(bgX, bgY, pillWidth, pillHeight, Math.min(14, fontSize)).fill({
-      color: 0x000000,
-      alpha: 0.55,
-    });
-    this.labelContainer.addChild(bg);
-
-    // Position texts inside pill
-    if (showSecondary && tSecondary) {
-      tPrimary.x = bgX + paddingX;
-      tPrimary.y = bgY + Math.round((pillHeight - tPrimary.height) / 2);
-      tSecondary.x = tPrimary.x + tPrimary.width + gap;
-      tSecondary.y = bgY + Math.round((pillHeight - tSecondary.height) / 2);
-      this.labelContainer.addChild(tPrimary, tSecondary);
-    } else {
-      // Center the single primary value
-      tPrimary.x = bgX + Math.round((pillWidth - tPrimary.width) / 2);
-      tPrimary.y = bgY + Math.round((pillHeight - tPrimary.height) / 2);
-      this.labelContainer.addChild(tPrimary);
+        const tPrimary = new PIXI.Text(String(levels.primary), stylePrimary);
+        const showSecondary = (levels.secondary ?? 0) > 0;
+        const tSecondary = showSecondary
+          ? new PIXI.Text(String(levels.secondary), styleSecondary)
+          : null;
+        const gap = Math.round(fontSize * 0.4);
+        const paddingX = Math.round(fontSize * 0.5);
+        const paddingY = Math.round(fontSize * 0.35);
+        const contentWidth = showSecondary
+          ? tPrimary.width + (tSecondary?.width ?? 0) + gap
+          : tPrimary.width;
+        const contentHeight = showSecondary
+          ? Math.max(tPrimary.height, tSecondary!.height)
+          : tPrimary.height;
+        const pillWidth = contentWidth + paddingX * 2;
+        const pillHeight = contentHeight + paddingY * 2;
+        const bg = new PIXI.Graphics();
+        const bgX = Math.round(screenPos.x - pillWidth / 2);
+        const bgY = Math.round(
+          screenPos.y -
+            (iconDim * scale) / 2 -
+            pillHeight -
+            Math.max(4, Math.round(6 * scale)),
+        );
+        bg.roundRect(
+          bgX,
+          bgY,
+          pillWidth,
+          pillHeight,
+          Math.min(14, fontSize),
+        ).fill({
+          color: 0x000000,
+          alpha: 0.55,
+        });
+        this.labelContainer.addChild(bg);
+        if (showSecondary && tSecondary) {
+          tPrimary.x = bgX + paddingX;
+          tPrimary.y = bgY + Math.round((pillHeight - tPrimary.height) / 2);
+          tSecondary.x = tPrimary.x + tPrimary.width + gap;
+          tSecondary.y = bgY + Math.round((pillHeight - tSecondary.height) / 2);
+          this.labelContainer.addChild(tPrimary, tSecondary);
+        } else {
+          tPrimary.x = bgX + Math.round((pillWidth - tPrimary.width) / 2);
+          tPrimary.y = bgY + Math.round((pillHeight - tPrimary.height) / 2);
+          this.labelContainer.addChild(tPrimary);
+        }
+      }
     }
-    // Force a re-render so hover feedback is immediate
+
+    // 2) In upgrade mode, show UPGRADE PRICE BELOW for all upgradeable structures owned by me
+    if (this.upgradeMode) {
+      const me = this.game.myPlayer();
+      if (me) {
+        // Style for price labels
+        const priceFontSizeBase = 12;
+        for (const r of this.renders) {
+          const u = r.unit;
+          if (!u.isActive()) continue;
+          if (u.owner() !== me) continue;
+          if (!this.isUpgradeableStructure(u)) continue;
+
+          const tile = u.tile();
+          const worldX = this.game.x(tile);
+          const worldY = this.game.y(tile);
+          const screenPos = this.transformHandler.worldToScreenCoordinates(
+            new Cell(worldX, worldY),
+          );
+          const shape: BgShape =
+            STRUCTURE_BG_SHAPES[u.type() as UnitType] ?? "circle";
+          const iconDim = ICON_SIZES[shape] ?? ICON_SIZE;
+          const scale = this.iconScreenScale();
+
+          const fontSize = Math.max(
+            10,
+            Math.round(iconDim * scale * 0.5 || priceFontSizeBase),
+          );
+          // Match the primary level label color (relationship color), which is green for self
+          const baseColorStr = this.relationshipColorHexStr(u); // "#RRGGBB"
+          const baseRaw = baseColorStr.replace(/^#/, "");
+          const baseFill = parseInt(baseRaw, 16);
+          const style = new PIXI.TextStyle({
+            fontFamily:
+              "system-ui, -apple-system, Segoe UI, Roboto, sans-serif",
+            fontSize,
+            fontWeight: "600",
+            fill: baseFill,
+            align: "center",
+          });
+          const priceText = this.formatGoldCompact(
+            this.computeUpgradeCostForType(u.type()),
+          );
+          const t = new PIXI.Text(priceText, style);
+
+          const paddingX = Math.round(fontSize * 0.5);
+          const paddingY = Math.round(fontSize * 0.35);
+          const pillWidth = t.width + paddingX * 2;
+          const pillHeight = t.height + paddingY * 2;
+          const bg = new PIXI.Graphics();
+          const gapBelow = Math.max(4, Math.round(6 * scale));
+          const bgX = Math.round(screenPos.x - pillWidth / 2);
+          const bgY = Math.round(
+            screenPos.y + (iconDim * scale) / 2 + gapBelow,
+          );
+          bg.roundRect(
+            bgX,
+            bgY,
+            pillWidth,
+            pillHeight,
+            Math.min(14, fontSize),
+          ).fill({
+            color: 0x000000,
+            alpha: 0.55,
+          });
+          this.labelContainer.addChild(bg);
+          t.x = bgX + Math.round((pillWidth - t.width) / 2);
+          t.y = bgY + Math.round((pillHeight - t.height) / 2);
+          this.labelContainer.addChild(t);
+        }
+      }
+    }
+
+    // Request redraw after rebuilding labels
     this.shouldRedraw = true;
     if (this.renderer) {
       this.renderer.render(this.stage);
