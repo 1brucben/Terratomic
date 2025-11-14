@@ -173,6 +173,7 @@ export class Leaderboard extends LitElement implements Layer {
           .visible
           ? ""
           : "hidden"}"
+        style="zoom: 0.9"
         @contextmenu=${(e: Event) => e.preventDefault()}
       >
         <div
