@@ -173,12 +173,11 @@ export class Leaderboard extends LitElement implements Layer {
           .visible
           ? ""
           : "hidden"}"
-        style="zoom: 0.9"
         @contextmenu=${(e: Event) => e.preventDefault()}
       >
         <div
-          class="grid submarine-panel w-full text-xs md:text-xs lg:text-sm"
-          style="box-shadow: var(--ui-panel-shadow); grid-template-columns: 30px 100px 70px 55px 75px;"
+          class="grid w-full text-xs md:text-xs lg:text-sm"
+          style="box-shadow: var(--ui-panel-shadow); grid-template-columns: 30px 100px 70px 55px 75px; background: linear-gradient(to bottom, var(--ui-panel-shell-top), var(--ui-panel-shell-bottom)); border: 2px solid var(--ui-panel-border); border-radius: 10px; padding: 2px; color: var(--ui-text-accent); font-family: monospace;"
         >
           <div class="contents font-bold">
             <div class="py-1 md:py-2 text-center border-b border-slate-500">
