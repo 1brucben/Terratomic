@@ -1206,9 +1206,7 @@ export class ResearchTreeModal extends LitElement {
               transform 0.12s ease,
               box-shadow 0.12s ease,
               opacity 0.2s;
-            /* Ensure cards are tall enough for: title + cost + progress bar + pills */
-            min-height: 132px;
-            line-height: 1.5;
+            min-height: 72px;
             width: 100%;
             text-align: left;
             box-shadow:
@@ -1385,7 +1383,6 @@ export class ResearchTreeModal extends LitElement {
             color: var(--ui-text-accent);
             opacity: 0.95;
             margin: 2px 0 4px;
-            line-height: 1.5;
           }
           .cost-inline img {
             width: 14px;
@@ -1393,16 +1390,12 @@ export class ResearchTreeModal extends LitElement {
             transform: translateY(-1px);
             opacity: 0.95;
           }
-          .pill-container {
-            min-height: 18px;
-          }
           .pill {
             font-size: 10px;
             border-radius: 999px;
             padding: 2px 6px;
             display: inline-block;
             margin-right: 6px;
-            line-height: 1.5;
           }
           .pill-req {
             background: color-mix(in srgb, var(--ui-alert) 18%, transparent);
@@ -1630,7 +1623,7 @@ export class ResearchTreeModal extends LitElement {
                                               : "";
                                           })()
                                         : ""}
-                                      <div class="pill-container">
+                                      <div>
                                         ${tech.requiresAllOf?.length
                                           ? html`<span class="pill pill-req"
                                               >Requires:
