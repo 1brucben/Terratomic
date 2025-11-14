@@ -105,8 +105,11 @@
   padding: 2px;
   color: var(--ui-text-accent);
   font-family: monospace;
-  /* Default downscale for panels without affecting transforms used elsewhere */
-  zoom: var(--ui-panel-zoom, 0.9);
+  /* Default downscale for panels using transform (replaces non-standard zoom) */
+  --panel-scale: var(--ui-panel-zoom, 0.9);
+  transform: scale(var(--panel-scale));
+  transform-origin: top left;
+  will-change: transform;
 }
 /* Typography inside submarine panels */
 .submarine-panel .military-heading {
