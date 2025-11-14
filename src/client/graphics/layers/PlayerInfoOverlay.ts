@@ -410,7 +410,7 @@ export class PlayerInfoOverlay extends LitElement implements Layer {
       >
         <div
           class="absolute top-0 lg:top-2.5 left-1/2 transform -translate-x-1/2 origin-top submarine-panel transition-all duration-300 text-lg md:text-base ${containerClasses}"
-          style="--tw-scale-x: var(--ui-panel-zoom); --tw-scale-y: var(--ui-panel-zoom); box-shadow: inset 0 0 18px rgba(2, 8, 20, 0.8), 0 2px 6px rgba(0, 0, 0, 0.5);"
+          style="box-shadow: inset 0 0 18px rgba(2, 8, 20, 0.8), 0 2px 6px rgba(0, 0, 0, 0.5);"
         >
           ${this.player !== null ? this.renderPlayerInfo(this.player) : ""}
           ${this.unit !== null ? this.renderUnitInfo(this.unit) : ""}
