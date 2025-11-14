@@ -1052,16 +1052,18 @@ export class StructureLayer implements Layer {
             10,
             Math.round(iconDim * scale * 0.5 || priceFontSizeBase),
           );
-          // Match the primary level label color (relationship color), which is green for self
-          const baseColorStr = this.relationshipColorHexStr(u); // "#RRGGBB"
+          // Use green (self relationship color) only when affordable; otherwise white
+          const baseColorStr = this.relationshipColorHexStr(u); // "#RRGGBB" (self => green)
           const baseRaw = baseColorStr.replace(/^#/, "");
           const baseFill = parseInt(baseRaw, 16);
+          const affordable = this.canAffordUpgradeForType(u.type());
+          const fillColor = affordable ? baseFill : 0xffffff;
           const style = new PIXI.TextStyle({
             fontFamily:
               "system-ui, -apple-system, Segoe UI, Roboto, sans-serif",
             fontSize,
             fontWeight: "600",
-            fill: baseFill,
+            fill: fillColor,
             align: "center",
           });
           const priceText = this.formatGoldCompact(
