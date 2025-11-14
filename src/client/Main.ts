@@ -35,10 +35,7 @@ import "./components/baseComponents/Modal";
 import { isLoggedIn } from "./jwt";
 import "./styles.css";
 import { applyUiPalette, getUiPalette } from "./theme/UiPaletteLoader";
-import {
-  initializeResolutionScale,
-  initializeUiScaleFromStorage,
-} from "./uiScale";
+import { initializeResolutionScale } from "./uiScale";
 
 declare global {
   interface Window {
@@ -112,9 +109,8 @@ class Client {
   }
 
   initialize(): void {
-    // Apply resolution-aware baseline scale first, then user preference scale
+    // Apply resolution-aware baseline scale
     initializeResolutionScale();
-    initializeUiScaleFromStorage();
     this.applyUiPaletteFromSettings();
     window.addEventListener(
       "dark-mode-changed",

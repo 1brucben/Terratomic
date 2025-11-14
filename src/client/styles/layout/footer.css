@@ -14,7 +14,8 @@
 
 /* Compact/10% smaller variant without transform hacks */
 .l-footer--compact {
-  --footer-scale: 0.9;
+  /* Tie footer compact scale to uiScale's panel zoom */
+  --footer-scale: var(--ui-panel-zoom, 0.9);
 }
 
 .l-footer__content {
