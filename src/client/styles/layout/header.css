@@ -34,7 +34,7 @@
   z-index: 10;
   color: #fff; /* version badge color */
   font-weight: 900;
-  font-size: 1rem; /* 10% smaller than original 1.25rem */
+  font-size: calc(1rem * var(--ui-panel-zoom, 1));
   font-family: "Anton", "Bebas Neue", "Impact", sans-serif; /* Cold War feel */
   letter-spacing: 1px;
   text-transform: uppercase;
