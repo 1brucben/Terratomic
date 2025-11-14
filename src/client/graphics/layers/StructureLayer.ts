@@ -958,13 +958,20 @@ export class StructureLayer implements Layer {
     });
 
     const tPrimary = new PIXI.Text(String(levels.primary), stylePrimary);
-    const tSecondary = new PIXI.Text(String(levels.secondary), styleSecondary);
+    const showSecondary = (levels.secondary ?? 0) > 0;
+    const tSecondary = showSecondary
+      ? new PIXI.Text(String(levels.secondary), styleSecondary)
+      : null;
     // Measure and layout
     const gap = Math.round(fontSize * 0.4);
     const paddingX = Math.round(fontSize * 0.5);
     const paddingY = Math.round(fontSize * 0.35);
-    const contentWidth = tPrimary.width + tSecondary.width + gap;
-    const contentHeight = Math.max(tPrimary.height, tSecondary.height);
+    const contentWidth = showSecondary
+      ? tPrimary.width + (tSecondary?.width ?? 0) + gap
+      : tPrimary.width;
+    const contentHeight = showSecondary
+      ? Math.max(tPrimary.height, tSecondary!.height)
+      : tPrimary.height;
     const pillWidth = contentWidth + paddingX * 2;
     const pillHeight = contentHeight + paddingY * 2;
     const bg = new PIXI.Graphics();
@@ -983,11 +990,18 @@ export class StructureLayer implements Layer {
     this.labelContainer.addChild(bg);
 
     // Position texts inside pill
-    tPrimary.x = bgX + paddingX;
-    tPrimary.y = bgY + Math.round((pillHeight - tPrimary.height) / 2);
-    tSecondary.x = tPrimary.x + tPrimary.width + gap;
-    tSecondary.y = bgY + Math.round((pillHeight - tSecondary.height) / 2);
-    this.labelContainer.addChild(tPrimary, tSecondary);
+    if (showSecondary && tSecondary) {
+      tPrimary.x = bgX + paddingX;
+      tPrimary.y = bgY + Math.round((pillHeight - tPrimary.height) / 2);
+      tSecondary.x = tPrimary.x + tPrimary.width + gap;
+      tSecondary.y = bgY + Math.round((pillHeight - tSecondary.height) / 2);
+      this.labelContainer.addChild(tPrimary, tSecondary);
+    } else {
+      // Center the single primary value
+      tPrimary.x = bgX + Math.round((pillWidth - tPrimary.width) / 2);
+      tPrimary.y = bgY + Math.round((pillHeight - tPrimary.height) / 2);
+      this.labelContainer.addChild(tPrimary);
+    }
     // Force a re-render so hover feedback is immediate
     this.shouldRedraw = true;
     if (this.renderer) {
