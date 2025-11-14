@@ -159,6 +159,9 @@ export class BuildMenu extends LitElement {
   @state()
   private hotkeyMap: Map<UnitType, string> = new Map();
 
+  @state()
+  private _lastSubmarineUpgradeState: boolean = false;
+
   // Recompute once after first render, and whenever relevant inputs change
   protected firstUpdated(): void {
     this.recomputeFilteredTable();
@@ -168,6 +171,18 @@ export class BuildMenu extends LitElement {
   protected updated(changed: Map<string, unknown>): void {
     if (changed.has("unitFilter") || changed.has("game")) {
       this.recomputeFilteredTable();
+    }
+  }
+
+  protected willUpdate(changed: Map<string, unknown>): void {
+    // Check if submarine upgrade state changed - lightweight check before render
+    const player = this.game?.myPlayer();
+    if (player) {
+      const hasSubUpgrade = player.hasUpgrade(UpgradeType.SubmarineResearch);
+      if (hasSubUpgrade !== this._lastSubmarineUpgradeState) {
+        this._lastSubmarineUpgradeState = hasSubUpgrade;
+        this.recomputeFilteredTable();
+      }
     }
   }
 
