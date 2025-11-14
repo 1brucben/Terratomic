@@ -1311,35 +1311,20 @@ export class DefaultConfig implements Config {
   automationTroopRegenMultiplierDen(): number {
     return 5;
   }
-  // --- Structure upgrade cost fractions ---
-  structureUpgradeCostNum(type: UnitType): number {
+  // --- Structure upgrade cost multipliers ---
+  structureUpgradeCostMultiplier(type: UnitType): number {
     switch (type) {
       case UnitType.City:
       case UnitType.Port:
       case UnitType.Hospital:
       case UnitType.Academy:
-        return 4; // Default 80% -> 4/5
+        return 0.8; // Default 80%
       case UnitType.MissileSilo:
-        return 1; // Missile silo: 50% -> 1/2
+        return 0.2; // Missile silo: 20%
       case UnitType.SAMLauncher:
-        return 2; // SAM: 40% -> 2/5
+        return 0.4; // SAM: 40%
       default:
-        return 1;
-    }
-  }
-  structureUpgradeCostDen(type: UnitType): number {
-    switch (type) {
-      case UnitType.City:
-      case UnitType.Port:
-      case UnitType.Hospital:
-      case UnitType.Academy:
-        return 5; // Default 80% -> 4/5
-      case UnitType.MissileSilo:
-        return 2; // Missile silo: 50% -> 1/2
-      case UnitType.SAMLauncher:
-        return 5; // SAM: 40% -> 2/5
-      default:
-        return 1;
+        return 1.0;
     }
   }
   // --- Research system defaults ---

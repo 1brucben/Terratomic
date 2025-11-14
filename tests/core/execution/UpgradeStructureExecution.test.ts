@@ -14,8 +14,7 @@ describe("UpgradeStructureExecution", () => {
         cost: jest.fn().mockReturnValue(1_250_000n as Gold),
       }),
       config: jest.fn().mockReturnValue({
-        structureUpgradeCostNum: jest.fn().mockImplementation(() => 4),
-        structureUpgradeCostDen: jest.fn().mockImplementation(() => 5),
+        structureUpgradeCostMultiplier: jest.fn().mockImplementation(() => 0.8),
       }),
     } as unknown as jest.Mocked<GameImpl>;
 
@@ -62,19 +61,18 @@ describe("UpgradeStructureExecution", () => {
     expect(mockUnit.upgradeStructure).not.toHaveBeenCalled();
   });
 
-  it("charges 50% of base cost and upgrades a Missile Silo", () => {
+  it("charges 20% of base cost and upgrades a Missile Silo", () => {
     const { mockPlayer, mockGame, mockUnit } = makeMocks(UnitType.MissileSilo);
-    // Override config for silo to 1/2
+    // Override config for silo to 0.2
     (mockGame.config as jest.Mock).mockReturnValue({
-      structureUpgradeCostNum: jest.fn().mockImplementation(() => 1),
-      structureUpgradeCostDen: jest.fn().mockImplementation(() => 2),
+      structureUpgradeCostMultiplier: jest.fn().mockImplementation(() => 0.2),
     });
 
     const exec = new UpgradeStructureExecution(mockPlayer, mockUnit);
     exec.init(mockGame, 0);
 
-    // 50% of 1,250,000 = 625,000
-    expect(mockPlayer.removeGold).toHaveBeenCalledWith(625_000n);
+    // 20% of 1,250,000 = 250,000
+    expect(mockPlayer.removeGold).toHaveBeenCalledWith(250_000n);
     expect(mockUnit.upgradeStructure).toHaveBeenCalled();
   });
 

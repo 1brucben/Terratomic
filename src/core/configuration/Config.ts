@@ -177,9 +177,8 @@ export interface Config {
   automationTroopRegenMultiplierNum(): number;
   automationTroopRegenMultiplierDen(): number;
 
-  // Structure upgrade cost fraction per structure type (e.g., 4/5 for 80%)
-  structureUpgradeCostNum(type: UnitType): number;
-  structureUpgradeCostDen(type: UnitType): number;
+  // Structure upgrade cost multiplier per structure type (e.g., 0.8 for 80%)
+  structureUpgradeCostMultiplier(type: UnitType): number;
 
   cargoPlaneGold(dist: number): Gold;
   cargoPlaneSpawnRate(numberOfAirplanes: number): number;

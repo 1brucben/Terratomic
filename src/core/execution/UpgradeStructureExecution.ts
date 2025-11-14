@@ -53,10 +53,13 @@ export class UpgradeStructureExecution implements Execution {
           return;
         }
         const baseCost: Gold = this.mg.unitInfo(unitType).cost(this.player);
-        const num = BigInt(this.mg.config().structureUpgradeCostNum(unitType));
-        const den = BigInt(this.mg.config().structureUpgradeCostDen(unitType));
-        const upgradeCost: Gold =
-          den === 0n ? baseCost : (baseCost * num) / den;
+        // Use decimal multiplier; compute BigInt-safe using fixed scale
+        const multiplier = this.mg
+          .config()
+          .structureUpgradeCostMultiplier(unitType);
+        const scale = 100n; // two decimal digits of precision
+        const scaledMultiplier = BigInt(Math.round(multiplier * Number(scale)));
+        const upgradeCost: Gold = (baseCost * scaledMultiplier) / scale;
         if (this.player.gold() < upgradeCost) {
           this._isActive = false;
           return;

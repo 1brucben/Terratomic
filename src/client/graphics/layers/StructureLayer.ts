@@ -287,9 +287,10 @@ export class StructureLayer implements Layer {
     if (!me) return false;
     const cfg = this.game.config();
     const baseCost = cfg.unitInfo(unitType).cost(me as any);
-    const num = BigInt(cfg.structureUpgradeCostNum(unitType));
-    const den = BigInt(cfg.structureUpgradeCostDen(unitType));
-    const upgradeCost = den === 0n ? baseCost : (baseCost * num) / den;
+    const multiplier = cfg.structureUpgradeCostMultiplier(unitType);
+    const scale = 100n; // fixed-point precision: 2 decimals
+    const scaledMultiplier = BigInt(Math.round(multiplier * Number(scale)));
+    const upgradeCost = (baseCost * scaledMultiplier) / scale;
     return me.gold() >= upgradeCost;
   }
 
