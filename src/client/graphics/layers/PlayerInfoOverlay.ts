@@ -238,7 +238,7 @@ export class PlayerInfoOverlay extends LitElement implements Layer {
 
     return html`
       <div class="flex flex-col p-2 min-w-max">
-        <!-- Box 0: Name, Relation, Type -->
+        <!-- Box 0: Name, Relation, Type, Team -->
         <div
           class="flex justify-center items-center gap-2 mb-2 w-full border border-gray-400 rounded p-1"
         >
@@ -265,6 +265,12 @@ export class PlayerInfoOverlay extends LitElement implements Layer {
                   : ""}"
               >${playerType}</span
             >
+            ${player.team() !== null
+              ? html`<span class="ml-1"
+                  >· ${translateText("player_info_overlay.team")}
+                  ${player.team()}</span
+                >`
+              : ""}
           </div>
         </div>
 
@@ -276,12 +282,6 @@ export class PlayerInfoOverlay extends LitElement implements Layer {
           >
             <!-- Box 2 Content -->
             <div class="flex items-center gap-2 text-sm opacity-80">
-              ${player.team() !== null
-                ? html`<span
-                    >${translateText("player_info_overlay.team")}:
-                    ${player.team()}</span
-                  >`
-                : ""}
               ${player.troops() >= 1
                 ? html`<span translate="no">
                     <img
