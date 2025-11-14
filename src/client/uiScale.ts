@@ -24,7 +24,7 @@ export const initializeResolutionScale = () => {
     const h =
       (window.screen && window.screen.height) || window.innerHeight || 800;
     const resScale = Math.min(w / 1280, h / 800);
-    const panelZoom = 0.9 * resScale;
+    const panelZoom = 0.8 * resScale;
 
     // Debug: log the computed resolution scale
     console.log("w", w, "h", h);
