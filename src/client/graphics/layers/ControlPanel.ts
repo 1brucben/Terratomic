@@ -338,7 +338,7 @@ export class ControlPanel extends LitElement implements Layer {
       ${this._isVisible
         ? html`
             <!-- Root panel shell (submarine-panel provides background/border/colors) -->
-            <div class="relative submarine-panel">
+            <div class="relative submarine-panel" style="width: 270px">
               <div
                 class="w-full h-[255px] text-sm lg:text-m bg-transparent border-0 shadow-inner p-2 pr-3 lg:p-4 rounded-md flex"
                 @contextmenu=${(e: MouseEvent) => e.preventDefault()}
