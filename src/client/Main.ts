@@ -35,7 +35,10 @@ import "./components/baseComponents/Modal";
 import { isLoggedIn } from "./jwt";
 import "./styles.css";
 import { applyUiPalette, getUiPalette } from "./theme/UiPaletteLoader";
-import { initializeUiScaleFromStorage } from "./uiScale";
+import {
+  initializeResolutionScale,
+  initializeUiScaleFromStorage,
+} from "./uiScale";
 
 declare global {
   interface Window {
@@ -109,6 +112,8 @@ class Client {
   }
 
   initialize(): void {
+    // Apply resolution-aware baseline scale first, then user preference scale
+    initializeResolutionScale();
     initializeUiScaleFromStorage();
     this.applyUiPaletteFromSettings();
     window.addEventListener(
