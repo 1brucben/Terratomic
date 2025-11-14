@@ -264,25 +264,24 @@
         class="flex items-end ui-scale-surface"
         style="
           pointer-events: auto;
-          --ui-scale-base: 0.9;
+          --ui-scale-base: 1;
           --ui-scale-origin: bottom left;
         "
       >
         <control-panel
-          class="w-1/4 max-w-[270px] min-w-[270px]"
-          style="pointer-events: auto"
+          style="pointer-events: auto; width: 14vw"
         ></control-panel>
         <control-panel2
-          class="max-w-[620px] min-w-[620px]"
-          style="pointer-events: auto; margin-left: 32px"
+          style="pointer-events: auto; margin-left: 32px; width: 45vw"
         ></control-panel2>
       </div>
       <div
-        class="ui-scale-surface max-w-[260px] min-w-[260px] flex flex-col"
+        class="ui-scale-surface flex flex-col"
         style="
           pointer-events: auto;
-          --ui-scale-base: 0.9;
+          --ui-scale-base: 1;
           --ui-scale-origin: bottom right;
+          width: 14vw;
         "
       >
         <chat-display></chat-display>
