@@ -31,7 +31,7 @@ export const initializeResolutionScale = () => {
     console.log("resScale", resScale);
 
     root.style.setProperty("--resolution-scale", resScale.toString());
-    root.style.setProperty("--ui-scale-base", resScale.toString());
+    root.style.setProperty("--ui-scale-base", panelZoom.toString());
     root.style.setProperty("--ui-panel-zoom", panelZoom.toString());
   };
 
