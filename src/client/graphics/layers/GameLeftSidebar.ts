@@ -92,7 +92,7 @@ export class GameLeftSidebar extends LitElement implements Layer {
         class=${`submarine-panel fixed top-[50px] lg:top-[10px] left-0 z-[1000] flex flex-col max-h-[calc(100vh-80px)] overflow-y-auto p-2 transition-transform duration-300 ease-out transform origin-top-left ${
           this.isVisible ? "translate-x-0" : "-translate-x-full"
         }`}
-        style="--tw-scale-x: var(--ui-panel-zoom); --tw-scale-y: var(--ui-panel-zoom); box-shadow: inset 0 0 18px rgba(2, 8, 20, 0.8), 0 2px 6px rgba(0, 0, 0, 0.5);"
+        style="zoom: 1; box-shadow: inset 0 0 18px rgba(2, 8, 20, 0.8), 0 2px 6px rgba(0, 0, 0, 0.5);"
       >
         ${this.isPlayerTeamLabelVisible
           ? html`
