@@ -23,6 +23,7 @@ import { OptionsMenu } from "./layers/OptionsMenu";
 import { PlayerInfoOverlay } from "./layers/PlayerInfoOverlay";
 import { PlayerPanel } from "./layers/PlayerPanel";
 import { RadialMenu } from "./layers/RadialMenu";
+import { RangeOverlayLayer } from "./layers/RangeOverlayLayer";
 import { ReplayPanel } from "./layers/ReplayPanel";
 import { ResearchToggleButton } from "./layers/ResearchToggleButton";
 import { RoadLayer } from "./layers/RoadLayer";
@@ -235,6 +236,8 @@ export function createRenderer(
     new TerritoryLayer(game, eventBus, transformHandler),
     new RoadLayer(game, transformHandler),
     new CargoTruckLayer(game, transformHandler),
+    // World-space ring overlay for Defense Posts/SAMs
+    new RangeOverlayLayer(game, eventBus, transformHandler),
     structureLayer,
     new UnitLayer(game, eventBus, transformHandler),
     new FxLayer(game),
