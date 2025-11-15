@@ -1134,11 +1134,12 @@ export class EventsDisplay extends LitElement implements Layer {
 
               <!-- Content Area -->
               <div
-                class="rounded-b-none md:rounded-b-md flex flex-col-reverse overflow-y-auto w-full h-[178px]"
+                class="rounded-b-none md:rounded-b-md flex flex-col-reverse overflow-y-auto w-full max-h-[178px] min-h-[2rem]"
+                style="height: auto;"
               >
                 <div>
                   <table
-                    class="w-full max-h-none border-collapse text-gray-200 shadow-lg text-[0.7rem] leading-[0.7rem]"
+                    class="w-full max-h-none border-collapse text-gray-200 shadow-lg text-[0.95rem] leading-[1rem]"
                     style="pointer-events: auto;"
                   >
                     <tbody>
