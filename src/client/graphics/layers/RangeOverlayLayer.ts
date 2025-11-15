@@ -79,11 +79,12 @@ export class RangeOverlayLayer implements Layer {
         screenScale) /
       s;
 
-    const relationColor = this.relationshipColor(u);
-    const glow = relationColor.alpha(0.6).toRgbString();
-    const fill = relationColor.alpha(0.14).toRgbString();
-    const stroke = relationColor.alpha(0.85).toRgbString();
-    const outline = relationColor.darken(0.4).alpha(0.8).toRgbString();
+    // Use the owner's LIGHT border color as the base hue
+    const baseColor = this.ownerLightBorderColor(u);
+    const glow = baseColor.alpha(0.6).toRgbString();
+    const fill = baseColor.alpha(0.14).toRgbString();
+    const stroke = baseColor.alpha(0.85).toRgbString();
+    const outline = baseColor.darken(0.4).alpha(0.8).toRgbString();
 
     // Filled translucent disk + soft glow
     ctx.save();
@@ -154,11 +155,8 @@ export class RangeOverlayLayer implements Layer {
     return 0;
   }
 
-  private relationshipColor(u: UnitView): Colord {
-    const me = this.game.myPlayer();
+  private ownerLightBorderColor(u: UnitView): Colord {
     const owner = u.owner();
-    if (me && owner === me) return this.theme.selfColor();
-    if (me && me.isFriendly(owner)) return this.theme.allyColor();
-    return this.theme.enemyColor();
+    return this.theme.defendedBorderColors(owner).light;
   }
 }
