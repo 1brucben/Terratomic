@@ -142,7 +142,8 @@ export class RangeOverlayLayer implements Layer {
 
   private operationRadius(u: UnitView): number {
     if (u.type() === UnitType.DefensePost) {
-      return this.game.config().defensePostTargettingRange();
+      // Show the Defense Post's defensive aura radius, not its shell targeting range
+      return this.game.config().defensePostRange();
     }
     if (u.type() === UnitType.SAMLauncher) {
       const base = this.game.config().defaultSamRange();
