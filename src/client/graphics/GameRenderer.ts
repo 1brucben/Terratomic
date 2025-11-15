@@ -19,6 +19,7 @@ import { Layer } from "./layers/Layer";
 import { Leaderboard } from "./layers/Leaderboard";
 import { MultiTabModal } from "./layers/MultiTabModal";
 import { NameLayer } from "./layers/NameLayer";
+import { NukeTargetingLayer } from "./layers/NukeTargetingLayer";
 import { OptionsMenu } from "./layers/OptionsMenu";
 import { PlayerInfoOverlay } from "./layers/PlayerInfoOverlay";
 import { PlayerPanel } from "./layers/PlayerPanel";
@@ -229,6 +230,11 @@ export function createRenderer(
   };
 
   const structureLayer = new StructureLayer(game, eventBus, transformHandler);
+  const nukeTargetingLayer = new NukeTargetingLayer(
+    game,
+    uiState,
+    transformHandler,
+  );
 
   const layers: Layer[] = [
     new TerrainLayer(game, transformHandler),
@@ -237,11 +243,12 @@ export function createRenderer(
     new CargoTruckLayer(game, transformHandler),
     structureLayer,
     new UnitLayer(game, eventBus, transformHandler),
-    new FxLayer(game),
+    new FxLayer(game, eventBus),
     // Draw name labels in world space along with other transformed layers
     new NameLayer(game, transformHandler, eventBus),
     // UI layer comes after world-space drawing to minimize save/restore
     new UILayer(game, eventBus, transformHandler),
+    nukeTargetingLayer,
     eventsDisplay,
     chatDisplay,
     new RadialMenu(
@@ -283,6 +290,7 @@ export function createRenderer(
 
 export class GameRenderer {
   private context: CanvasRenderingContext2D;
+  private nukeTargetingLayer: NukeTargetingLayer | null = null;
 
   constructor(
     private game: GameView,
@@ -295,6 +303,20 @@ export class GameRenderer {
     const context = canvas.getContext("2d");
     if (context === null) throw new Error("2d context not supported");
     this.context = context;
+
+    // Cache reference to NukeTargetingLayer for type-safe access
+    this.nukeTargetingLayer =
+      layers.find(
+        (l): l is NukeTargetingLayer => l instanceof NukeTargetingLayer,
+      ) ?? null;
+  }
+
+  getLayers(): Layer[] {
+    return this.layers;
+  }
+
+  getNukeTargetingLayer(): NukeTargetingLayer | null {
+    return this.nukeTargetingLayer;
   }
 
   initialize() {

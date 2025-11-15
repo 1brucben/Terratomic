@@ -1,7 +1,9 @@
+import { EventBus } from "../../../core/EventBus";
 import { Theme } from "../../../core/configuration/Config";
 import { UnitType } from "../../../core/game/Game";
 import { GameUpdateType } from "../../../core/game/GameUpdates";
 import { GameView, UnitView } from "../../../core/game/GameView";
+import { NukeImpactEvent } from "../../InputHandler";
 import { AnimatedSpriteLoader } from "../AnimatedSpriteLoader";
 import { Fx, FxType } from "../fx/Fx";
 import { nukeFxFactory, ShockwaveFx } from "../fx/NukeFx";
@@ -24,7 +26,10 @@ export class FxLayer implements Layer {
 
   private allFx: Fx[] = [];
 
-  constructor(private game: GameView) {
+  constructor(
+    private game: GameView,
+    private eventBus: EventBus,
+  ) {
     this.theme = this.game.config().theme();
   }
 
@@ -124,6 +129,15 @@ export class FxLayer implements Layer {
       } else {
         // Kaboom
         this.handleNukeExplosion(unit, radius);
+
+        // Emit event for halo layer
+        this.eventBus.emit(
+          new NukeImpactEvent(
+            this.game.x(unit.lastTile()),
+            this.game.y(unit.lastTile()),
+            unit.type(),
+          ),
+        );
       }
     }
   }

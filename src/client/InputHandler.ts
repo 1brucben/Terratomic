@@ -42,6 +42,14 @@ export class MouseMoveEvent implements GameEvent {
   ) {}
 }
 
+export class NukeImpactEvent implements GameEvent {
+  constructor(
+    public readonly worldX: number,
+    public readonly worldY: number,
+    public readonly nukeType: UnitType,
+  ) {}
+}
+
 export class ContextMenuEvent implements GameEvent {
   constructor(
     public readonly x: number,

@@ -564,6 +564,12 @@ export class ClientGameRunner {
   private onMouseMove(event: MouseMoveEvent) {
     this.lastMousePosition = { x: event.x, y: event.y };
     this.checkTileUnderCursor();
+
+    // Update nuke targeting halo position (type-safe reference)
+    const nukeLayer = this.renderer.getNukeTargetingLayer();
+    if (nukeLayer) {
+      nukeLayer.updateCursorPosition(event.x, event.y);
+    }
   }
 
   private checkTileUnderCursor() {
