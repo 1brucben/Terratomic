@@ -1,5 +1,4 @@
-import { Colord } from "colord";
-import { Theme } from "../../../core/configuration/Config";
+// No theme color usage here; ring uses a fixed fallback color
 import { EventBus } from "../../../core/EventBus";
 import { Cell, UnitType } from "../../../core/game/Game";
 import { GameView, UnitView } from "../../../core/game/GameView";
@@ -15,22 +14,17 @@ import { Layer } from "./Layer";
  * - Subtle transparency and glow to fit the game's aesthetic
  */
 export class RangeOverlayLayer implements Layer {
-  private theme: Theme;
   private lastMouse: { x: number; y: number } | null = null;
   private hovered: UnitView | null = null;
 
   // Rendering constants (screen pixels)
-  private static readonly RING_BASE_WIDTH = 2.5; // stroke width at/under threshold
-  private static readonly RING_OUTLINE_EXTRA = 1.5; // additional px for outer outline
   private static readonly GROW_ZOOM_THRESHOLD = 2; // match Structure/Road layers' behavior
 
   constructor(
     private game: GameView,
     private eventBus: EventBus,
     private transform: TransformHandler,
-  ) {
-    this.theme = game.config().theme();
-  }
+  ) {}
 
   shouldTransform(): boolean {
     return true; // render in world space
@@ -71,40 +65,19 @@ export class RangeOverlayLayer implements Layer {
     const s = this.transform.scale || 1;
     const t = RangeOverlayLayer.GROW_ZOOM_THRESHOLD;
     const screenScale = s <= t ? Math.min(1, s) : s / t;
-    const innerWorldWidth =
-      (RangeOverlayLayer.RING_BASE_WIDTH * screenScale) / s;
-    const outlineWorldWidth =
-      ((RangeOverlayLayer.RING_BASE_WIDTH +
-        RangeOverlayLayer.RING_OUTLINE_EXTRA) *
-        screenScale) /
-      s;
+    // Thin 1px stroke in screen space, no fill/glow
+    const worldLineWidth = (1 * screenScale) / s;
 
-    // Use the owner's LIGHT border color as the base hue
-    const baseColor = this.ownerLightBorderColor(u);
-    const glow = baseColor.alpha(0.6).toRgbString();
-    const fill = baseColor.alpha(0.14).toRgbString();
-    const stroke = baseColor.alpha(0.85).toRgbString();
-    const outline = baseColor.darken(0.4).alpha(0.8).toRgbString();
+    // Always use the fallback color, no theme border color
+    const strokeStyle = "rgba(230, 230, 230, 0.9)";
 
-    // Filled translucent disk + soft glow
     ctx.save();
     ctx.beginPath();
     ctx.arc(wx, wy, radiusTiles, 0, Math.PI * 2);
-    ctx.fillStyle = fill;
-    ctx.shadowColor = glow;
-    ctx.shadowBlur = 8 * screenScale;
-    ctx.fill();
-    ctx.shadowBlur = 0;
-
-    // Outer darker outline
-    ctx.strokeStyle = outline;
-    ctx.lineWidth = outlineWorldWidth;
+    ctx.lineWidth = worldLineWidth;
+    // Solid stroke (not dashed)
     ctx.setLineDash([]);
-    ctx.stroke();
-
-    // Inner bright stroke for definition
-    ctx.strokeStyle = stroke;
-    ctx.lineWidth = innerWorldWidth;
+    ctx.strokeStyle = strokeStyle;
     ctx.stroke();
     ctx.restore();
   }
@@ -156,8 +129,5 @@ export class RangeOverlayLayer implements Layer {
     return 0;
   }
 
-  private ownerLightBorderColor(u: UnitView): Colord {
-    const owner = u.owner();
-    return this.theme.defendedBorderColors(owner).light;
-  }
+  // Intentionally empty: no helpers needed after style simplification
 }
