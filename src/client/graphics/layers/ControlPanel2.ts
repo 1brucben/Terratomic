@@ -1323,7 +1323,7 @@ export class ControlPanel2 extends LitElement implements Layer {
                     class="upgrade-structures-button ${this._multibuildEnabled
                       ? "selected"
                       : ""}"
-                    title="Multi-Build Structures"
+                    title="Multi-Build Units"
                     @click=${this._handleMultibuildToggle}
                   >
                     <img
@@ -1331,13 +1331,13 @@ export class ControlPanel2 extends LitElement implements Layer {
                       src=${multiBuildIcon}
                       alt="Multi-Build"
                     />
-                    <span>Multi-Build Structures</span>
+                    <span>Multi-Build Units</span>
                   </button>
                   <button
                     class="upgrade-structures-button ${this.uiState.upgradeMode
                       ? "selected"
                       : ""}"
-                    title="Upgrade structures"
+                    title="Upgrade Structures"
                     @click=${() => {
                       const enabled = !this.uiState.upgradeMode;
                       this.uiState.upgradeMode = enabled;
@@ -1359,7 +1359,7 @@ export class ControlPanel2 extends LitElement implements Layer {
                       src=${upgradeArrowIcon}
                       alt="Upgrade"
                     />
-                    <span>Upgrade structures</span>
+                    <span>Upgrade Structures</span>
                   </button>
                 </div>
                 <build-menu
