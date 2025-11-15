@@ -445,7 +445,8 @@ export class PlayerImpl implements Player {
           u.type() === UnitType.City ||
           u.type() === UnitType.Port ||
           u.type() === UnitType.Hospital ||
-          u.type() === UnitType.Academy
+          u.type() === UnitType.Academy ||
+          u.type() === UnitType.ResearchLab
             ? baseMax + 1000 * Math.max(0, level - 1)
             : baseMax;
         const healthRatio = u.hasHealth()

@@ -298,6 +298,17 @@ export class UnitImpl implements Unit {
         this.mg.addUpdate(this.toUpdate());
         return;
       }
+      case UnitType.ResearchLab: {
+        // Research Lab upgrades: increase level only (counts as multiples), no health changes
+        this._level += 1;
+        this._bonusMaxHealth += 1000;
+        const healed = Number(this._health) + 1000;
+        const capped = Math.min(healed, this.effectiveMaxHealth());
+        this._health = toInt(capped);
+        this._owner.invalidateEffectiveUnitsCache(UnitType.ResearchLab);
+        this.mg.addUpdate(this.toUpdate());
+        return;
+      }
       default:
         // Unsupported structure types: no-op for now
         return;

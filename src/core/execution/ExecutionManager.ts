@@ -150,12 +150,13 @@ export class Executor {
       case "upgrade_structure": {
         const unit = player.units().find((u) => u.id() === intent.unitId);
         if (!unit || unit.owner() !== player) return new NoOpExecution();
-        // Allow upgrades for City, Port, Hospital, Academy, Missile Silo, SAM Launcher
+        // Allow upgrades for City, Port, Hospital, Academy, Research Lab, Missile Silo, SAM Launcher
         const allowed =
           intent.unitType === UnitType.City ||
           intent.unitType === UnitType.Port ||
           intent.unitType === UnitType.Hospital ||
           intent.unitType === UnitType.Academy ||
+          intent.unitType === UnitType.ResearchLab ||
           intent.unitType === UnitType.MissileSilo ||
           intent.unitType === UnitType.SAMLauncher;
         if (!allowed || unit.type() !== intent.unitType) {

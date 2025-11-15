@@ -275,7 +275,9 @@ export class SinglePlayerModal extends LitElement {
                   @change=${this.handleInstantResearchHumanOnlyChange}
                   .checked=${this.instantResearchHumanOnly}
                 />
-                <div class="option-card-title">Instant Research</div>
+                <div class="option-card-title">
+                  ${translateText("single_modal.instant_research")}
+                </div>
               </label>
 
               <label

@@ -377,6 +377,7 @@ export class InputHandler {
       [this.keybinds.buildAirfield]: UnitType.Airfield,
       [this.keybinds.buildHospital]: UnitType.Hospital,
       [this.keybinds.buildAcademy]: UnitType.Academy,
+      [this.keybinds.buildResearchLab]: UnitType.ResearchLab,
       [this.keybinds.buildMissileSilo]: UnitType.MissileSilo,
       [this.keybinds.buildSAMLauncher]: UnitType.SAMLauncher,
       [this.keybinds.buildDefensePost]: UnitType.DefensePost,

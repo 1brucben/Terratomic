@@ -22,6 +22,7 @@ const unitOptions: { type: UnitType; translationKey: string }[] = [
   { type: UnitType.MIRV, translationKey: "unit_type.mirv" },
   { type: UnitType.Hospital, translationKey: "unit_type.hospital" },
   { type: UnitType.Academy, translationKey: "unit_type.academy" },
+  { type: UnitType.ResearchLab, translationKey: "unit_type.research_lab" },
 ];
 
 export function renderUnitTypeOptions({

@@ -125,9 +125,10 @@
     "bots": "Bots: ",
     "bots_disabled": "Disabled",
     "disable_nations": "Disable Nations",
-    "instant_build": "Instant build",
-    "infinite_gold": "Infinite gold",
-    "infinite_troops": "Infinite troops",
+    "instant_build": "Instant Build",
+    "instant_research": "Instant Research",
+    "infinite_gold": "Infinite Gold",
+    "infinite_troops": "Infinite Troops",
     "disable_nukes": "Disable Nukes",
     "enables_title": "Enable Settings",
     "start": "Start Game"
@@ -168,7 +169,7 @@
     "fantasy": "Other"
   },
   "starting_gold": {
-    "label": "Starting gold",
+    "label": "Starting Gold",
     "default": "0 (default)",
     "millions": "{amount}M"
   },
@@ -206,9 +207,10 @@
     "bots": "Bots: ",
     "bots_disabled": "Disabled",
     "disable_nations": "Disable Nations",
-    "instant_build": "Instant build",
-    "infinite_gold": "Infinite gold",
-    "infinite_troops": "Infinite troops",
+    "instant_build": "Instant Build",
+    "instant_research": "Instant Research",
+    "infinite_gold": "Infinite Gold",
+    "infinite_troops": "Infinite Troops",
     "peace_timer": "Protected Start",
     "peace_timer_none": "None",
     "peace_timer_minutes": "{minutes} minutes",
@@ -262,6 +264,7 @@
     "mirv": "MIRV",
     "hospital": "Hospital",
     "academy": "Military Academy",
+    "research_lab": "Research Lab",
     "airfield": "Airfield",
     "air_field": "Airfield",
     "fighter_jet": "Fighter Jet"
@@ -348,6 +351,8 @@
     "build_hospital_desc": "Set the hotkey to build a Hospital.",
     "build_academy": "Build Academy",
     "build_academy_desc": "Set the hotkey to build an Academy.",
+    "build_research_lab": "Build Research Lab",
+    "build_research_lab_desc": "Set the hotkey to build a Research Lab.",
     "build_missile_silo": "Build Missile Silo",
     "build_missile_silo_desc": "Set the hotkey to build a Missile Silo.",
     "build_sam_launcher": "Build SAM Launcher",

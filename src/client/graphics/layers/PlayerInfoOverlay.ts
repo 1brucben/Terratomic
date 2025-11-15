@@ -214,6 +214,7 @@ export class PlayerInfoOverlay extends LitElement implements Layer {
       UnitType.City,
       UnitType.Hospital,
       UnitType.Academy,
+      UnitType.ResearchLab,
       UnitType.Port,
       UnitType.Warship,
       UnitType.MissileSilo,
@@ -227,6 +228,7 @@ export class PlayerInfoOverlay extends LitElement implements Layer {
       [UnitType.City]: "/images/CityIconWhite.svg",
       [UnitType.Hospital]: "/images/HospitalIconWhite.svg",
       [UnitType.Academy]: "/images/AcademyIconWhite.png",
+      [UnitType.ResearchLab]: "/images/researchlab.png",
       [UnitType.Port]: "/images/PortIcon.svg",
       [UnitType.Warship]: "/images/BattleshipIconWhite.svg",
       [UnitType.MissileSilo]: "/images/MissileSiloIconWhite.svg",
@@ -345,7 +347,8 @@ export class PlayerInfoOverlay extends LitElement implements Layer {
                 unitType === UnitType.City ||
                 unitType === UnitType.Port ||
                 unitType === UnitType.Hospital ||
-                unitType === UnitType.Academy
+                unitType === UnitType.Academy ||
+                unitType === UnitType.ResearchLab
                   ? player.unitsOwned(unitType)
                   : player.units(unitType).length;
 

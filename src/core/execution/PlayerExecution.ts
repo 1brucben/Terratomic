@@ -152,8 +152,20 @@ export class PlayerExecution implements Execution {
     const investment = Math.max(0, grossGold * investRate);
     const A = this.config.researchAlpha();
     const B = this.config.researchBeta();
-    const xTotal = A * Math.pow(investment, B);
+    let xTotal = A * Math.pow(investment, B);
     if (!Number.isFinite(xTotal) || xTotal <= 0) return;
+
+    // Apply Research Lab multiplier: +40% for first, +20% for second, halving thereafter
+    // Upgrades count as multiples via effectiveUnits (level-weighted)
+    const labsEff = Math.max(
+      0,
+      (this.player as any).effectiveUnits?.(UnitType.ResearchLab) ?? 0,
+    );
+    if (labsEff > 0) {
+      const boostSum = (0.4 * (1 - Math.pow(0.5, labsEff))) / (1 - 0.5); // geometric series
+      const multiplier = 1 + boostSum; // caps at 1.8 as labs -> infinity
+      xTotal *= multiplier;
+    }
 
     // Build researched set and available techs
     const nodes = getTechNodes();

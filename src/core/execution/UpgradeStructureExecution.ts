@@ -40,6 +40,7 @@ export class UpgradeStructureExecution implements Execution {
       case UnitType.Port:
       case UnitType.Hospital:
       case UnitType.Academy:
+      case UnitType.ResearchLab:
       case UnitType.MissileSilo:
       case UnitType.SAMLauncher: {
         const unitType = this.unit.type();

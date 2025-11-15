@@ -373,7 +373,7 @@ export class HostLobbyModal extends LitElement {
                     .checked=${this.instantResearchHumanOnly}
                   />
                   <div class="option-card-title">
-                    Instant Research
+                    ${translateText("host_modal.instant_research")}
                   </div>
                 </label>
 
