@@ -15,12 +15,10 @@ import portIcon from "../../../../resources/images/PortIcon.svg";
 import samlauncherIcon from "../../../../resources/images/SamLauncherIconWhite.svg";
 import shieldIcon from "../../../../resources/images/ShieldIconWhite.svg";
 import submarineIcon from "../../../../resources/images/submarine.svg";
-import upgradeArrowIcon from "../../../../resources/images/UpgradeArrowIcon.svg";
 import { translateText } from "../../../client/Utils";
 import { EventBus } from "../../../core/EventBus";
 import { Gold, UnitType, UpgradeType } from "../../../core/game/Game";
 import { GameView } from "../../../core/game/GameView";
-import { ToggleUpgradeModeEvent } from "../../events/ToggleUpgradeModeEvent";
 import { CloseViewEvent } from "../../InputHandler";
 import { displayKey, renderNumber } from "../../Utils";
 import { UIState } from "../UIState";
@@ -417,58 +415,6 @@ export class BuildMenu extends LitElement {
       font-weight: bold;
       font-size: 10px;
     }
-    .upgrade-button-container {
-      align-self: flex-end;
-      margin: 8px 4px 4px auto;
-    }
-    .upgrade-button {
-      width: 70px;
-      height: 70px;
-      border: 2px solid var(--ui-panel-border);
-      background: var(--ui-primary);
-      color: var(--ui-text-accent);
-      border-radius: 6px;
-      box-shadow:
-        inset 0 0 10px rgba(0, 0, 0, 0.5),
-        0 2px 6px rgba(0, 0, 0, 0.4);
-      cursor: pointer;
-      transition: all 0.3s ease;
-      display: flex;
-      flex-direction: column;
-      justify-content: center;
-      align-items: center;
-      gap: 4px;
-    }
-    .upgrade-button.selected {
-      border-color: var(--ui-secondary-hover);
-      box-shadow:
-        0 0 12px rgba(50, 98, 155, 0.75),
-        inset 0 0 12px rgba(0, 0, 0, 0.6);
-      background: var(--ui-secondary);
-      transform: scale(1.05);
-    }
-    .upgrade-button:hover {
-      background-color: var(--ui-secondary);
-      transform: scale(1.05);
-      border-color: var(--ui-secondary);
-    }
-    .upgrade-button:active {
-      background: linear-gradient(
-        to bottom,
-        var(--ui-secondary-hover),
-        var(--ui-secondary)
-      );
-      transform: scale(0.95);
-    }
-    .upgrade-icon {
-      width: 32px;
-      height: 32px;
-    }
-    .upgrade-label {
-      font-size: 11px;
-      font-weight: bold;
-      text-transform: lowercase;
-    }
   `;
 
   private canBuild(item: BuildItemDisplay): boolean {
@@ -588,22 +534,6 @@ export class BuildMenu extends LitElement {
             </div>
           `,
         )}
-        <div class="upgrade-button-container">
-          <button
-            class="upgrade-button ${this.uiState.upgradeMode ? "selected" : ""}"
-            title="Upgrade"
-            aria-label="Upgrade Mode"
-            @click=${() => {
-              const enabled = !this.uiState.upgradeMode;
-              this.uiState.upgradeMode = enabled;
-              this.eventBus.emit(new ToggleUpgradeModeEvent(enabled));
-              this.requestUpdate();
-            }}
-          >
-            <img class="upgrade-icon" src=${upgradeArrowIcon} alt="Upgrade" />
-            <span class="upgrade-label" translate="no">upgrade</span>
-          </button>
-        </div>
       </div>
     `;
   }

@@ -1,5 +1,7 @@
 import { html, LitElement } from "lit";
 import { customElement, state } from "lit/decorators.js";
+import multiBuildIcon from "../../../../resources/images/MultiBuildIcon.svg";
+import upgradeArrowIcon from "../../../../resources/images/UpgradeArrowIcon.svg";
 import { EventBus } from "../../../core/EventBus";
 import {
   Gold,
@@ -18,6 +20,7 @@ import {
   type InvestmentSyncDetail,
 } from "../../events/InvestmentEvents";
 import { PlayerListChangedEvent } from "../../events/PlayerListChangedEvent";
+import { ToggleUpgradeModeEvent } from "../../events/ToggleUpgradeModeEvent";
 import { AttackRatioEvent } from "../../InputHandler";
 import {
   SendBomberIntentEvent,
@@ -840,10 +843,15 @@ export class ControlPanel2 extends LitElement implements Layer {
     this._lastSelectedBomberTarget = select.value;
   }
 
-  private _handleMultibuildToggle(event: Event) {
-    const checkbox = event.target as HTMLInputElement;
-    this._multibuildEnabled = checkbox.checked;
-    this.uiState.multibuildEnabled = checkbox.checked;
+  private _handleMultibuildToggle() {
+    this._multibuildEnabled = !this._multibuildEnabled;
+    this.uiState.multibuildEnabled = this._multibuildEnabled;
+    // Disable upgrade mode if mass production is enabled
+    if (this._multibuildEnabled && this.uiState.upgradeMode) {
+      this.uiState.upgradeMode = false;
+      this.eventBus.emit(new ToggleUpgradeModeEvent(false));
+    }
+    this.requestUpdate();
   }
 
   private _changeTab(tab: "Build" | "Attack" | "Economy" | "Bombers") {
@@ -1228,20 +1236,52 @@ export class ControlPanel2 extends LitElement implements Layer {
             : ""}
           ${this.activeTab === "Build"
             ? html`
-                <div class="flex items-center mb-2">
-                  <input
-                    type="checkbox"
-                    id="multibuild-toggle"
-                    class="mr-2"
-                    .checked=${this._multibuildEnabled}
-                    @change=${this._handleMultibuildToggle}
-                  />
-                  <label for="multibuild-toggle" class="military-label"
-                    >Enable Mass Production</label
+                <div class="flex items-center mb-2 gap-4 ml-1">
+                  <button
+                    class="upgrade-structures-button ${this._multibuildEnabled
+                      ? "selected"
+                      : ""}"
+                    title="Multi-Build Structures"
+                    @click=${this._handleMultibuildToggle}
                   >
+                    <img
+                      class="upgrade-icon"
+                      src=${multiBuildIcon}
+                      alt="Multi-Build"
+                    />
+                    <span>Multi-Build Structures</span>
+                  </button>
+                  <button
+                    class="upgrade-structures-button ${this.uiState.upgradeMode
+                      ? "selected"
+                      : ""}"
+                    title="Upgrade Structures"
+                    @click=${() => {
+                      const enabled = !this.uiState.upgradeMode;
+                      this.uiState.upgradeMode = enabled;
+                      this.eventBus.emit(new ToggleUpgradeModeEvent(enabled));
+                      // Disable mass production if upgrade is enabled
+                      if (enabled && this._multibuildEnabled) {
+                        this._multibuildEnabled = false;
+                        this.uiState.multibuildEnabled = false;
+                      }
+                      // Clear pending build selection when upgrade is enabled
+                      if (enabled) {
+                        this.uiState.pendingBuildUnitType = null;
+                      }
+                      this.requestUpdate();
+                    }}
+                  >
+                    <img
+                      class="upgrade-icon"
+                      src=${upgradeArrowIcon}
+                      alt="Upgrade"
+                    />
+                    <span>Upgrade Structures</span>
+                  </button>
                 </div>
                 <build-menu
-                  style="width: 100%;"
+                  style="width: 100%; display: block;"
                   .game=${this.game}
                   .eventBus=${this.eventBus}
                   .uiState=${this.uiState}
@@ -1251,20 +1291,52 @@ export class ControlPanel2 extends LitElement implements Layer {
             : ""}
           ${this.activeTab === "Attack"
             ? html`
-                <div class="flex items-center mb-2">
-                  <input
-                    type="checkbox"
-                    id="multibuild-toggle"
-                    class="mr-2"
-                    .checked=${this._multibuildEnabled}
-                    @change=${this._handleMultibuildToggle}
-                  />
-                  <label for="multibuild-toggle" class="military-label"
-                    >Enable Mass Production</label
+                <div class="flex items-center mb-2 gap-4 ml-1">
+                  <button
+                    class="upgrade-structures-button ${this._multibuildEnabled
+                      ? "selected"
+                      : ""}"
+                    title="Multi-Build Structures"
+                    @click=${this._handleMultibuildToggle}
                   >
+                    <img
+                      class="upgrade-icon"
+                      src=${multiBuildIcon}
+                      alt="Multi-Build"
+                    />
+                    <span>Multi-Build Structures</span>
+                  </button>
+                  <button
+                    class="upgrade-structures-button ${this.uiState.upgradeMode
+                      ? "selected"
+                      : ""}"
+                    title="Upgrade structures"
+                    @click=${() => {
+                      const enabled = !this.uiState.upgradeMode;
+                      this.uiState.upgradeMode = enabled;
+                      this.eventBus.emit(new ToggleUpgradeModeEvent(enabled));
+                      // Disable mass production if upgrade is enabled
+                      if (enabled && this._multibuildEnabled) {
+                        this._multibuildEnabled = false;
+                        this.uiState.multibuildEnabled = false;
+                      }
+                      // Clear pending build selection when upgrade is enabled
+                      if (enabled) {
+                        this.uiState.pendingBuildUnitType = null;
+                      }
+                      this.requestUpdate();
+                    }}
+                  >
+                    <img
+                      class="upgrade-icon"
+                      src=${upgradeArrowIcon}
+                      alt="Upgrade"
+                    />
+                    <span>Upgrade structures</span>
+                  </button>
                 </div>
                 <build-menu
-                  style="width: 100%;"
+                  style="width: 100%; display: block;"
                   .game=${this.game}
                   .eventBus=${this.eventBus}
                   .uiState=${this.uiState}
@@ -1665,4 +1737,56 @@ export class ControlPanel2 extends LitElement implements Layer {
   createRenderRoot() {
     return this; // Disable shadow DOM to allow Tailwind styles
   }
+}
+
+// Add styles for upgrade button in global scope
+const style = document.createElement("style");
+style.textContent = `
+  .upgrade-structures-button {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 12px;
+    border: 2px solid var(--ui-panel-border);
+    background: var(--ui-primary);
+    color: var(--ui-text-accent);
+    border-radius: 6px;
+    box-shadow:
+      inset 0 0 10px rgba(0, 0, 0, 0.5),
+      0 2px 6px rgba(0, 0, 0, 0.4);
+    cursor: pointer;
+    transition: all 0.3s ease;
+    font-size: 13px;
+    font-weight: bold;
+    white-space: nowrap;
+  }
+  .upgrade-structures-button .upgrade-icon {
+    width: 18px;
+    height: 18px;
+  }
+  .upgrade-structures-button.selected {
+    border-color: var(--ui-secondary-hover);
+    box-shadow:
+      0 0 12px rgba(50, 98, 155, 0.75),
+      inset 0 0 12px rgba(0, 0, 0, 0.6);
+    background: var(--ui-secondary);
+    transform: scale(1.05);
+  }
+  .upgrade-structures-button:hover {
+    background-color: var(--ui-secondary);
+    transform: scale(1.05);
+    border-color: var(--ui-secondary);
+  }
+  .upgrade-structures-button:active {
+    background: linear-gradient(
+      to bottom,
+      var(--ui-secondary-hover),
+      var(--ui-secondary)
+    );
+    transform: scale(0.95);
+  }
+`;
+if (!document.head.querySelector("style[data-upgrade-button]")) {
+  style.setAttribute("data-upgrade-button", "true");
+  document.head.appendChild(style);
 }
