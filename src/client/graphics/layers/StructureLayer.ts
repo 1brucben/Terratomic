@@ -312,6 +312,8 @@ export class StructureLayer implements Layer {
 
   // Compact gold formatter using k/m lowercase suffixes
   private formatGoldCompact(amount: bigint): string {
+    // Special-case zero to preserve 'k' alignment in UI (show 0k)
+    if (amount === 0n) return "0k";
     // Reuse renderNumber for thresholds, then lowercase the suffix
     const s = renderNumber(amount).replace("K", "k").replace("M", "m");
     return s;
