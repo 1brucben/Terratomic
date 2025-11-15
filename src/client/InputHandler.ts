@@ -111,6 +111,7 @@ export class CenterCameraEvent implements GameEvent {
 
 import { UnitType } from "../core/game/Game";
 import { GameView } from "../core/game/GameView";
+import { ToggleUpgradeModeEvent } from "./events/ToggleUpgradeModeEvent";
 import { TransformHandler } from "./graphics/TransformHandler";
 import { UIState } from "./graphics/UIState";
 import { BuildUnitIntentEvent } from "./Transport";
@@ -373,6 +374,11 @@ export class InputHandler {
 
     const unitType = buildHotkeys[code];
     if (unitType) {
+      // Any build action should disable upgrade mode and unhighlight its button
+      if (this.uiState.upgradeMode) {
+        this.uiState.upgradeMode = false;
+        this.eventBus.emit(new ToggleUpgradeModeEvent(false));
+      }
       const cell = this.transformHandler.screenToWorldCoordinates(
         this.lastPointerX,
         this.lastPointerY,
@@ -459,6 +465,11 @@ export class InputHandler {
       }
 
       const tile = this.game.ref(cell.x, cell.y);
+      // Placing a structure should also ensure upgrade mode is disabled
+      if (this.uiState.upgradeMode) {
+        this.uiState.upgradeMode = false;
+        this.eventBus.emit(new ToggleUpgradeModeEvent(false));
+      }
       this.eventBus.emit(
         new BuildUnitIntentEvent(this.uiState.pendingBuildUnitType, tile),
       );

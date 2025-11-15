@@ -19,6 +19,7 @@ import { translateText } from "../../../client/Utils";
 import { EventBus } from "../../../core/EventBus";
 import { Gold, UnitType, UpgradeType } from "../../../core/game/Game";
 import { GameView } from "../../../core/game/GameView";
+import { ToggleUpgradeModeEvent } from "../../events/ToggleUpgradeModeEvent";
 import { CloseViewEvent } from "../../InputHandler";
 import { displayKey, renderNumber } from "../../Utils";
 import { UIState } from "../UIState";
@@ -462,6 +463,11 @@ export class BuildMenu extends LitElement {
   }
 
   public onBuildSelected = (item: BuildItemDisplay) => {
+    // Selecting a build item should exit upgrade mode and unhighlight the button
+    if (this.uiState?.upgradeMode) {
+      this.uiState.upgradeMode = false;
+      this.eventBus?.emit(new ToggleUpgradeModeEvent(false));
+    }
     if (this.uiState.pendingBuildUnitType === item.unitType) {
       this.uiState.pendingBuildUnitType = null;
     } else {
