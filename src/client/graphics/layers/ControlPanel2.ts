@@ -124,6 +124,7 @@ export class ControlPanel2 extends LitElement implements Layer {
     Hospital: "/images/HospitalIconWhite.svg",
     "Research Lab": "/images/researchlab.png",
     Academy: "/images/AcademyIconWhite.png",
+    Factory: "/images/factoryicon.png",
     Port: "/images/PortIcon.svg",
     "Missile Silo": "/images/MissileSiloIconWhite.svg",
     "SAM Launcher": "/images/SamLauncherIconWhite.svg",
@@ -137,6 +138,7 @@ export class ControlPanel2 extends LitElement implements Layer {
     [UnitType.Hospital]: 1,
     [UnitType.ResearchLab]: 1.1,
     [UnitType.Academy]: 1,
+    [UnitType.Factory]: 1,
     [UnitType.Port]: 1,
     [UnitType.MissileSilo]: 1,
     [UnitType.SAMLauncher]: 1,
@@ -179,6 +181,7 @@ export class ControlPanel2 extends LitElement implements Layer {
     UnitType.Hospital,
     UnitType.ResearchLab,
     UnitType.Academy,
+    UnitType.Factory,
     UnitType.City,
   ];
 

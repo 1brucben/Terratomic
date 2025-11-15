@@ -6,6 +6,7 @@ import academyIcon from "../../../../resources/images/buildings/academy_icon.png
 import airfieldIcon from "../../../../resources/images/buildings/airfield.png";
 import hospitalIcon from "../../../../resources/images/buildings/hospital.png";
 import cityIcon from "../../../../resources/images/CityIcon.png";
+import factoryIcon from "../../../../resources/images/factoryicon.png";
 import missileSiloIcon from "../../../../resources/images/MissileSiloUnit.png";
 import SAMMissileIcon from "../../../../resources/images/SamLauncherUnit.png";
 // Use the standard shield icon from resources/images
@@ -63,6 +64,7 @@ const STRUCTURE_BG_SHAPES: Partial<Record<UnitType, BgShape>> = {
   [UnitType.Hospital]: "square",
   [UnitType.ResearchLab]: "square",
   [UnitType.Academy]: "square",
+  [UnitType.Factory]: "circle",
 };
 
 export class StructureLayer implements Layer {
@@ -106,6 +108,7 @@ export class StructureLayer implements Layer {
     [UnitType.Hospital, { iconPath: hospitalIcon, image: null }],
     [UnitType.ResearchLab, { iconPath: researchLabIcon, image: null }],
     [UnitType.Academy, { iconPath: academyIcon, image: null }],
+    [UnitType.Factory, { iconPath: factoryIcon, image: null }],
     [UnitType.DefensePost, { iconPath: shieldIcon, image: null }],
     [UnitType.Port, { iconPath: anchorIcon, image: null }],
     [UnitType.MissileSilo, { iconPath: missileSiloIcon, image: null }],
@@ -119,6 +122,7 @@ export class StructureLayer implements Layer {
     [UnitType.Hospital]: 1,
     [UnitType.ResearchLab]: 1.4,
     [UnitType.Academy]: 1,
+    [UnitType.Factory]: 1,
     [UnitType.DefensePost]: 1,
     [UnitType.Port]: 1,
     [UnitType.MissileSilo]: 1,
@@ -705,6 +709,7 @@ export class StructureLayer implements Layer {
       UnitType.Hospital,
       UnitType.Academy,
       UnitType.ResearchLab,
+      UnitType.Factory,
     ]);
     if (centerScaledTypes.has(structureType as UnitType)) {
       const padded = 4;

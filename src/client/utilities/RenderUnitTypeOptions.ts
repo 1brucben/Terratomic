@@ -23,6 +23,7 @@ const unitOptions: { type: UnitType; translationKey: string }[] = [
   { type: UnitType.Hospital, translationKey: "unit_type.hospital" },
   { type: UnitType.Academy, translationKey: "unit_type.academy" },
   { type: UnitType.ResearchLab, translationKey: "unit_type.research_lab" },
+  { type: UnitType.Factory, translationKey: "unit_type.factory" },
 ];
 
 export function renderUnitTypeOptions({

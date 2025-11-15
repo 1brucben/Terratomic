@@ -161,6 +161,7 @@ export enum UnitType {
   Hospital = "Hospital",
   ResearchLab = "Research Lab",
   Academy = "Academy",
+  Factory = "Factory",
   Airfield = "Air Field",
   CargoPlane = "Cargo Plane",
   Bomber = "Bomber",
@@ -211,6 +212,7 @@ const _structureTypes: ReadonlySet<UnitType> = new Set([
   UnitType.Hospital,
   UnitType.ResearchLab,
   UnitType.Academy,
+  UnitType.Factory,
 ]);
 
 export function isStructureType(type: UnitType): boolean {
@@ -275,6 +277,8 @@ export interface UnitParamsMap {
   [UnitType.ResearchLab]: Record<string, never>;
 
   [UnitType.Academy]: Record<string, never>;
+
+  [UnitType.Factory]: Record<string, never>;
 
   [UnitType.MIRVWarhead]: {
     targetTile?: number;

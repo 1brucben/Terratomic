@@ -5,6 +5,7 @@ import airfieldIcon from "../../../../resources/images/AirfieldIcon.svg";
 import warshipIcon from "../../../../resources/images/BattleshipIconWhite.svg";
 import academyIcon from "../../../../resources/images/buildings/academy_icon.png";
 import cityIcon from "../../../../resources/images/CityIconWhite.svg";
+import factoryIcon from "../../../../resources/images/factoryicon.png";
 import fighterJetIcon from "../../../../resources/images/FighterJetIcon.svg";
 import goldCoinIcon from "../../../../resources/images/GoldCoinIcon.svg";
 import hospitalIcon from "../../../../resources/images/HospitalIconWhite.svg";
@@ -112,6 +113,13 @@ const buildTable: BuildItemDisplay[][] = [
       countable: true,
     },
     {
+      unitType: UnitType.Factory,
+      icon: factoryIcon,
+      description: undefined,
+      key: undefined,
+      countable: true,
+    },
+    {
       unitType: UnitType.Academy,
       icon: academyIcon,
       description: "build_menu.desc.academy",
@@ -177,6 +185,7 @@ export class BuildMenu extends LitElement {
     [UnitType.Hospital]: 1,
     [UnitType.ResearchLab]: 1.3,
     [UnitType.Academy]: 1,
+    [UnitType.Factory]: 1,
     [UnitType.MissileSilo]: 1,
     [UnitType.SAMLauncher]: 1,
     [UnitType.DefensePost]: 1,

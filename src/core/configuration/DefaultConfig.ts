@@ -699,6 +699,21 @@ export class DefaultConfig implements Config {
           constructionDuration: this.instantBuild() ? 0 : 2 * 10,
           maxHealth: 1000,
         };
+      case UnitType.Factory:
+        return {
+          cost: (p: Player) =>
+            p.type() === PlayerType.Human && this.infiniteGold()
+              ? 0n
+              : BigInt(
+                  Math.min(
+                    3_000_000,
+                    Math.pow(2, p.unitsOwned(UnitType.Factory)) * 1_500_000,
+                  ),
+                ),
+          territoryBound: true,
+          constructionDuration: this.instantBuild() ? 0 : 2 * 10,
+          maxHealth: 1000,
+        };
       case UnitType.Airfield:
         return {
           cost: (p: Player) =>
