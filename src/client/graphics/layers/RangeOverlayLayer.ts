@@ -48,9 +48,14 @@ export class RangeOverlayLayer implements Layer {
   }
 
   renderLayer(ctx: CanvasRenderingContext2D) {
-    // If in build (ghost) mode for SAM/Defense Post, show ring at cursor
+    // If in build (ghost) mode for selected unit types, show ring at cursor
     const pending = this.uiState.pendingBuildUnitType;
-    if (pending === UnitType.SAMLauncher || pending === UnitType.DefensePost) {
+    if (
+      pending === UnitType.SAMLauncher ||
+      pending === UnitType.DefensePost ||
+      pending === UnitType.AtomBomb ||
+      pending === UnitType.HydrogenBomb
+    ) {
       if (!this.lastMouse) return;
       const cell = this.transform.screenToWorldCoordinates(
         this.lastMouse.x,
@@ -133,7 +138,12 @@ export class RangeOverlayLayer implements Layer {
     search: number = 10,
   ): UnitView | null {
     const ref = this.game.ref(cell.x, cell.y);
-    const types = [UnitType.DefensePost, UnitType.SAMLauncher];
+    const types = [
+      UnitType.DefensePost,
+      UnitType.SAMLauncher,
+      UnitType.AtomBomb,
+      UnitType.HydrogenBomb,
+    ];
     const nearby = this.game.nearbyUnits(ref, search, types);
     for (const { unit } of nearby) {
       if (unit.isActive() && types.includes(unit.type())) {
@@ -156,6 +166,9 @@ export class RangeOverlayLayer implements Layer {
       const factor = Math.pow(1 + bonus, lvl - 1);
       return Math.round(base * factor);
     }
+    if (u.type() === UnitType.AtomBomb || u.type() === UnitType.HydrogenBomb) {
+      return this.game.config().nukeMagnitudes(u.type()).outer;
+    }
     return 0;
   }
 
@@ -164,6 +177,8 @@ export class RangeOverlayLayer implements Layer {
       return this.game.config().defensePostRange();
     if (type === UnitType.SAMLauncher)
       return this.game.config().defaultSamRange();
+    if (type === UnitType.AtomBomb || type === UnitType.HydrogenBomb)
+      return this.game.config().nukeMagnitudes(type).outer;
     return 0;
   }
 
