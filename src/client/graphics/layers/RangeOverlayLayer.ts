@@ -4,6 +4,7 @@ import { Cell, UnitType } from "../../../core/game/Game";
 import { GameView, UnitView } from "../../../core/game/GameView";
 import { MouseOverEvent } from "../../InputHandler";
 import { TransformHandler } from "../TransformHandler";
+import { UIState } from "../UIState";
 import { Layer } from "./Layer";
 
 /**
@@ -24,6 +25,7 @@ export class RangeOverlayLayer implements Layer {
     private game: GameView,
     private eventBus: EventBus,
     private transform: TransformHandler,
+    private uiState: UIState,
   ) {}
 
   shouldTransform(): boolean {
@@ -46,6 +48,25 @@ export class RangeOverlayLayer implements Layer {
   }
 
   renderLayer(ctx: CanvasRenderingContext2D) {
+    // If in build (ghost) mode for SAM/Defense Post, show ring at cursor
+    const pending = this.uiState.pendingBuildUnitType;
+    if (pending === UnitType.SAMLauncher || pending === UnitType.DefensePost) {
+      if (!this.lastMouse) return;
+      const cell = this.transform.screenToWorldCoordinates(
+        this.lastMouse.x,
+        this.lastMouse.y,
+      );
+      if (!this.game.isValidCoord(cell.x, cell.y)) return;
+      const radiusTiles = this.buildModeRadius(pending);
+      if (radiusTiles <= 0) return;
+      // world-space center (map origin centered)
+      const wx = cell.x - this.game.width() / 2 + 0.5;
+      const wy = cell.y - this.game.height() / 2 + 0.5;
+      this.strokeRing(ctx, wx, wy, radiusTiles);
+      return;
+    }
+
+    // Otherwise, show when hovering an existing structure
     if (!this.hovered) return;
 
     const u = this.hovered;
@@ -65,17 +86,26 @@ export class RangeOverlayLayer implements Layer {
     const s = this.transform.scale || 1;
     const t = RangeOverlayLayer.GROW_ZOOM_THRESHOLD;
     const screenScale = s <= t ? Math.min(1, s) : s / t;
+    // Draw the ring at computed world coordinates
+    this.strokeRing(ctx, wx, wy, radiusTiles);
+  }
+
+  private strokeRing(
+    ctx: CanvasRenderingContext2D,
+    wx: number,
+    wy: number,
+    radiusTiles: number,
+  ) {
+    const s = this.transform.scale || 1;
+    const t = RangeOverlayLayer.GROW_ZOOM_THRESHOLD;
+    const screenScale = s <= t ? Math.min(1, s) : s / t;
     // Thin 1px stroke in screen space, no fill/glow
     const worldLineWidth = (1 * screenScale) / s;
-
-    // Always use the fallback color, no theme border color
     const strokeStyle = "rgba(230, 230, 230, 0.9)";
-
     ctx.save();
     ctx.beginPath();
     ctx.arc(wx, wy, radiusTiles, 0, Math.PI * 2);
     ctx.lineWidth = worldLineWidth;
-    // Solid stroke (not dashed)
     ctx.setLineDash([]);
     ctx.strokeStyle = strokeStyle;
     ctx.stroke();
@@ -126,6 +156,14 @@ export class RangeOverlayLayer implements Layer {
       const factor = Math.pow(1 + bonus, lvl - 1);
       return Math.round(base * factor);
     }
+    return 0;
+  }
+
+  private buildModeRadius(type: UnitType): number {
+    if (type === UnitType.DefensePost)
+      return this.game.config().defensePostRange();
+    if (type === UnitType.SAMLauncher)
+      return this.game.config().defaultSamRange();
     return 0;
   }
 

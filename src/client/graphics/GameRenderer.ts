@@ -237,7 +237,7 @@ export function createRenderer(
     new RoadLayer(game, transformHandler),
     new CargoTruckLayer(game, transformHandler),
     // World-space ring overlay for Defense Posts/SAMs
-    new RangeOverlayLayer(game, eventBus, transformHandler),
+    new RangeOverlayLayer(game, eventBus, transformHandler, uiState),
     structureLayer,
     new UnitLayer(game, eventBus, transformHandler),
     new FxLayer(game),
