@@ -1,9 +1,9 @@
 import { colord } from "colord";
 import * as PIXI from "pixi.js";
+import airfieldIcon from "../../../../proprietary/images/airfieldicon2.png";
 import researchLabIcon from "../../../../proprietary/images/researchlab.png";
 import anchorIcon from "../../../../resources/images/AnchorIcon.png";
 import academyIcon from "../../../../resources/images/buildings/academy_icon.png";
-import airfieldIcon from "../../../../resources/images/buildings/airfield.png";
 import hospitalIcon from "../../../../resources/images/buildings/hospital.png";
 import cityIcon from "../../../../resources/images/CityIcon.png";
 import factoryIcon from "../../../../resources/images/factoryicon.png";
@@ -119,7 +119,7 @@ export class StructureLayer implements Layer {
   // Per-structure icon scale factor (1 = default size)
   private static readonly ICON_DRAW_SCALE: Partial<Record<UnitType, number>> = {
     [UnitType.City]: 1,
-    [UnitType.Airfield]: 1,
+    [UnitType.Airfield]: 1.4,
     [UnitType.Hospital]: 1,
     [UnitType.ResearchLab]: 1.4,
     [UnitType.Academy]: 1,
