@@ -220,6 +220,10 @@ export class MoveFighterJetIntentEvent implements GameEvent {
   ) {}
 }
 
+export class SendUpgradeUnitIntentEvent implements GameEvent {
+  constructor(public readonly unitId: number) {}
+}
+
 export class SendBomberIntentEvent implements GameEvent {
   constructor(
     public readonly targetID: PlayerID | null, // who to attack
@@ -352,6 +356,9 @@ export class Transport {
     });
     this.eventBus.on(SendKickPlayerIntentEvent, (e) =>
       this.onSendKickPlayerIntent(e),
+    );
+    this.eventBus.on(SendUpgradeUnitIntentEvent, (e) =>
+      this.onSendUpgradeUnitIntent(e),
     );
   }
 
@@ -859,6 +866,14 @@ export class Transport {
       targetID: event.targetID ?? null,
       troops: event.troops,
       dst: event.dst,
+    });
+  }
+
+  private onSendUpgradeUnitIntent(event: SendUpgradeUnitIntentEvent) {
+    this.sendIntent({
+      type: "upgrade_unit",
+      clientID: this.lobbyConfig.clientID,
+      unitId: event.unitId,
     });
   }
 

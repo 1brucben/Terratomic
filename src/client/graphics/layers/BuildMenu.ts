@@ -26,6 +26,7 @@ import {
   isUpgradeableStructure,
   maxStructureLevel,
 } from "../../../core/game/Upgradeables";
+import { ToggleUnitUpgradeModeEvent } from "../../events/ToggleUnitUpgradeModeEvent";
 import { ToggleUpgradeModeEvent } from "../../events/ToggleUpgradeModeEvent";
 import { CloseViewEvent } from "../../InputHandler";
 import { displayKey, renderNumber } from "../../Utils";
@@ -544,6 +545,11 @@ export class BuildMenu extends LitElement {
     if (this.uiState?.upgradeMode) {
       this.uiState.upgradeMode = false;
       this.eventBus?.emit(new ToggleUpgradeModeEvent(false));
+    }
+    // Also exit unit upgrade mode immediately when any build button is clicked
+    if (this.uiState?.unitUpgradeMode) {
+      this.uiState.unitUpgradeMode = false;
+      this.eventBus?.emit(new ToggleUnitUpgradeModeEvent(false));
     }
     if (this.uiState.pendingBuildUnitType === item.unitType) {
       this.uiState.pendingBuildUnitType = null;

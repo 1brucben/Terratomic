@@ -55,6 +55,8 @@ export function createRenderer(
     pendingBuildUnitType: null,
     multibuildEnabled: false,
     upgradeMode: false,
+    unitUpgradeMode: false,
+    unitLevels: {},
   };
 
   //hide when the game renders
@@ -239,7 +241,7 @@ export function createRenderer(
     // World-space ring overlay for Defense Posts/SAMs
     new RangeOverlayLayer(game, eventBus, transformHandler, uiState),
     structureLayer,
-    new UnitLayer(game, eventBus, transformHandler),
+    new UnitLayer(game, eventBus, transformHandler, uiState),
     new FxLayer(game),
     // Draw name labels in world space along with other transformed layers
     new NameLayer(game, transformHandler, eventBus),

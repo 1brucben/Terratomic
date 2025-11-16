@@ -46,6 +46,7 @@ export type Intent =
   | ResearchInvestmentIntent
   | BuildUnitIntent
   | PurchaseUpgradeIntent
+  | UpgradeUnitIntent
   | ResearchTreeSelectIntent
   | EmbargoIntent
   | QuickChatIntent
@@ -89,6 +90,7 @@ export type PurchaseUpgradeIntent = z.infer<typeof PurchaseUpgradeIntentSchema>;
 export type ResearchTreeSelectIntent = z.infer<
   typeof ResearchTreeSelectIntentSchema
 >;
+export type UpgradeUnitIntent = z.infer<typeof UpgradeUnitIntentSchema>;
 export type MoveWarshipIntent = z.infer<typeof MoveWarshipIntentSchema>;
 export type MoveSubmarineIntent = z.infer<typeof MoveSubmarineIntentSchema>;
 export type MoveFighterJetIntent = z.infer<typeof MoveFighterJetIntentSchema>;
@@ -447,6 +449,12 @@ export const MoveFighterJetIntentSchema = BaseIntentSchema.extend({
   unitId: z.number(),
   tile: z.number(),
 });
+
+// Upgrade an individual combat unit (e.g., Warship, Submarine, FighterJet)
+export const UpgradeUnitIntentSchema = BaseIntentSchema.extend({
+  type: z.literal("upgrade_unit"),
+  unitId: z.number(),
+});
 export const BomberIntentSchema = BaseIntentSchema.extend({
   type: z.literal("bomber_intent"),
   targetID: ID.nullable(), // who to attack
@@ -509,6 +517,7 @@ const IntentSchema = z.discriminatedUnion("type", [
   BuildUnitIntentSchema,
   PurchaseUpgradeIntentSchema,
   UpgradeStructureIntentSchema,
+  UpgradeUnitIntentSchema,
   ResearchTreeSelectIntentSchema,
   EmbargoIntentSchema,
   MoveWarshipIntentSchema,

@@ -22,6 +22,7 @@ import {
   type InvestmentSyncDetail,
 } from "../../events/InvestmentEvents";
 import { PlayerListChangedEvent } from "../../events/PlayerListChangedEvent";
+import { ToggleUnitUpgradeModeEvent } from "../../events/ToggleUnitUpgradeModeEvent";
 import { ToggleUpgradeModeEvent } from "../../events/ToggleUpgradeModeEvent";
 import { AttackRatioEvent } from "../../InputHandler";
 import {
@@ -877,6 +878,11 @@ export class ControlPanel2 extends LitElement implements Layer {
       this.uiState.upgradeMode = false;
       this.eventBus.emit(new ToggleUpgradeModeEvent(false));
     }
+    // Disable unit upgrade mode immediately when toggling multi-build
+    if (this._multibuildEnabled && this.uiState.unitUpgradeMode) {
+      this.uiState.unitUpgradeMode = false;
+      this.eventBus.emit(new ToggleUnitUpgradeModeEvent(false));
+    }
     this.requestUpdate();
   }
 
@@ -1393,20 +1399,23 @@ export class ControlPanel2 extends LitElement implements Layer {
                     <span>Multi-Build Units</span>
                   </button>
                   <button
-                    class="upgrade-structures-button ${this.uiState.upgradeMode
+                    class="upgrade-structures-button ${this.uiState
+                      .unitUpgradeMode
                       ? "selected"
                       : ""}"
-                    title="Upgrade Structures"
+                    title="Click combat units to upgrade them"
                     @click=${() => {
-                      const enabled = !this.uiState.upgradeMode;
-                      this.uiState.upgradeMode = enabled;
-                      this.eventBus.emit(new ToggleUpgradeModeEvent(enabled));
-                      // Disable mass production if upgrade is enabled
+                      const enabled = !this.uiState.unitUpgradeMode;
+                      this.uiState.unitUpgradeMode = enabled;
+                      this.eventBus.emit(
+                        new ToggleUnitUpgradeModeEvent(enabled),
+                      );
+                      // Disable multibuild if enabling upgrade mode
                       if (enabled && this._multibuildEnabled) {
                         this._multibuildEnabled = false;
                         this.uiState.multibuildEnabled = false;
                       }
-                      // Clear pending build selection when upgrade is enabled
+                      // Clear any pending build selection while in upgrade mode
                       if (enabled) {
                         this.uiState.pendingBuildUnitType = null;
                       }
@@ -1418,7 +1427,7 @@ export class ControlPanel2 extends LitElement implements Layer {
                       src=${upgradeArrowIcon}
                       alt="Upgrade"
                     />
-                    <span>Upgrade Structures</span>
+                    <span>Upgrade Units</span>
                   </button>
                 </div>
                 <build-menu

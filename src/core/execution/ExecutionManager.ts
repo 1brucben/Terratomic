@@ -37,6 +37,7 @@ import { SpawnExecution } from "./SpawnExecution";
 import { TargetPlayerExecution } from "./TargetPlayerExecution";
 import { TransportShipExecution } from "./TransportShipExecution";
 import { UpgradeStructureExecution } from "./UpgradeStructureExecution";
+import { UpgradeUnitExecution } from "./UpgradeUnitExecution";
 
 export class Executor {
   // private random = new PseudoRandom(999)
@@ -152,6 +153,8 @@ export class Executor {
         );
       case "purchase_upgrade":
         return new PurchaseUpgradeExecution(player, intent.upgrade);
+      case "upgrade_unit":
+        return new UpgradeUnitExecution(player, intent.unitId);
       case "upgrade_structure": {
         const unit = player.units().find((u) => u.id() === intent.unitId);
         if (!unit || unit.owner() !== player) return new NoOpExecution();

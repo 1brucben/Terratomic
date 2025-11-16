@@ -11,8 +11,19 @@ export const UPGRADEABLE_STRUCTURES: ReadonlySet<UnitType> = new Set<UnitType>([
   UnitType.SAMLauncher,
 ]);
 
+// Units that can be upgraded (placeholder list; logic TBD)
+export const UPGRADEABLE_UNITS: ReadonlySet<UnitType> = new Set<UnitType>([
+  UnitType.Warship,
+  UnitType.FighterJet,
+  UnitType.Submarine,
+]);
+
 export function isUpgradeableStructure(type: UnitType): boolean {
   return UPGRADEABLE_STRUCTURES.has(type);
+}
+
+export function isUpgradeableUnit(type: UnitType): boolean {
+  return UPGRADEABLE_UNITS.has(type);
 }
 
 export function maxStructureLevel(type: UnitType): number {
@@ -20,6 +31,20 @@ export function maxStructureLevel(type: UnitType): number {
     return 3;
   }
   return isUpgradeableStructure(type) ? 99 : 1;
+}
+
+// Return maximum upgrade level for upgradeable combat units.
+// Warship & Submarine: 3 levels. Fighter Jet: 4 levels. Non-upgradeable units: 1.
+export function maxUnitLevel(type: UnitType): number {
+  switch (type) {
+    case UnitType.FighterJet:
+      return 4;
+    case UnitType.Warship:
+    case UnitType.Submarine:
+      return 3;
+    default:
+      return 1;
+  }
 }
 
 // Resolve a UnitType value from a stored string value (String(UnitType.X))
