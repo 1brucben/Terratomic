@@ -794,6 +794,13 @@ export class StructureLayer implements Layer {
     sprite.scale.set(this.iconScreenScale());
     // Add sprite below label container so labels render on top
     this.stage.addChildAt(sprite, Math.max(0, this.stage.children.length - 1));
+    // Ensure label container remains the topmost child after inserting sprites
+    if (this.labelContainer && this.stage.children.length > 1) {
+      this.stage.setChildIndex(
+        this.labelContainer,
+        this.stage.children.length - 1,
+      );
+    }
     return sprite;
   }
 
@@ -1028,7 +1035,11 @@ export class StructureLayer implements Layer {
         const shape: BgShape =
           STRUCTURE_BG_SHAPES[unit.type() as UnitType] ?? "circle";
         const iconDim = ICON_SIZES[shape] ?? ICON_SIZE;
-        const scale = this.iconScreenScale();
+        // Use icon scale for positioning relative to icon size, but compute
+        // label sizing using a complementary scale that ignores the texture
+        // quality downscale applied to sprites so zoom behavior matches.
+        const iconScale = this.iconScreenScale();
+        const labelScale = iconScale * ICON_TEXTURE_QUALITY;
 
         const baseColorStr = this.relationshipColorHexStr(unit); // "#RRGGBB"
         const baseRaw = baseColorStr.replace(/^#/, "");
@@ -1039,7 +1050,8 @@ export class StructureLayer implements Layer {
           .replace(/^#/, "");
         const baseFill = parseInt(baseRaw, 16);
         const secondaryFill = parseInt(secondaryRaw, 16);
-        const fontSize = Math.max(10, Math.round(iconDim * scale * 0.55));
+        // Shrink level indicator by 50%
+        const fontSize = Math.round(iconDim * labelScale * 0.275);
         const stylePrimary = new PIXI.TextStyle({
           fontFamily: "system-ui, -apple-system, Segoe UI, Roboto, sans-serif",
           fontSize,
@@ -1075,9 +1087,9 @@ export class StructureLayer implements Layer {
         const bgX = Math.round(screenPos.x - pillWidth / 2);
         const bgY = Math.round(
           screenPos.y -
-            (iconDim * scale) / 2 -
+            (iconDim * labelScale) / 2 -
             pillHeight -
-            Math.max(4, Math.round(6 * scale)),
+            Math.round(1 * labelScale),
         );
         bg.roundRect(
           bgX,
@@ -1125,12 +1137,11 @@ export class StructureLayer implements Layer {
           const shape: BgShape =
             STRUCTURE_BG_SHAPES[u.type() as UnitType] ?? "circle";
           const iconDim = ICON_SIZES[shape] ?? ICON_SIZE;
-          const scale = this.iconScreenScale();
+          const iconScale = this.iconScreenScale();
+          const labelScale = iconScale * ICON_TEXTURE_QUALITY;
 
-          const fontSize = Math.max(
-            10,
-            Math.round(iconDim * scale * 0.5 || priceFontSizeBase),
-          );
+          // Shrink cost indicator by 50%
+          const fontSize = Math.round(iconDim * labelScale * 0.25);
           // Use green (self relationship color) only when affordable; otherwise white
           const baseColorStr = this.relationshipColorHexStr(u); // "#RRGGBB" (self => green)
           const baseRaw = baseColorStr.replace(/^#/, "");
@@ -1155,10 +1166,11 @@ export class StructureLayer implements Layer {
           const pillWidth = t.width + paddingX * 2;
           const pillHeight = t.height + paddingY * 2;
           const bg = new PIXI.Graphics();
-          const gapBelow = Math.max(4, Math.round(6 * scale));
+          // Nudge even closer to icon (further up)
+          const gapBelow = Math.round(1 * labelScale);
           const bgX = Math.round(screenPos.x - pillWidth / 2);
           const bgY = Math.round(
-            screenPos.y + (iconDim * scale) / 2 + gapBelow,
+            screenPos.y + (iconDim * labelScale) / 2 + gapBelow,
           );
           bg.roundRect(
             bgX,
