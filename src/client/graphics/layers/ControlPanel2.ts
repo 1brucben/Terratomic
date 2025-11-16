@@ -12,6 +12,8 @@ import {
 } from "../../../core/game/Game";
 import { GameView, PlayerView } from "../../../core/game/GameView";
 import { getTechMeta, RESEARCH_TECH_IDS } from "../../../core/tech/TechEffects";
+// Ensure modal custom element registers at runtime
+import "../../BuildSettingsModal";
 import {
   INVESTMENT_REQUEST_EVENT,
   INVESTMENT_SYNC_EVENT,
@@ -878,6 +880,41 @@ export class ControlPanel2 extends LitElement implements Layer {
     this.requestUpdate();
   }
 
+  private _openBuildSettings() {
+    const modal =
+      (document.querySelector("build-settings-modal") as any) ||
+      this._ensureBuildSettingsModal();
+    if (!modal) {
+      console.warn("BuildSettingsModal element not found or failed to create");
+      return;
+    }
+    const openFn = modal.open;
+    if (typeof openFn !== "function") {
+      // Fallback if element existed before registration; re-import then retry
+      import("../../BuildSettingsModal").then(() => {
+        const retryOpen = modal.open;
+        if (typeof retryOpen === "function") {
+          retryOpen.call(modal, this.StructureTypes, this.unitIconMap);
+        } else {
+          console.warn("BuildSettingsModal still missing open() after import");
+        }
+      });
+      return;
+    }
+    openFn.call(modal, this.StructureTypes, this.unitIconMap);
+  }
+
+  private _ensureBuildSettingsModal(): HTMLElement | null {
+    let el = document.querySelector(
+      "build-settings-modal",
+    ) as HTMLElement | null;
+    if (!el) {
+      el = document.createElement("build-settings-modal");
+      document.body.appendChild(el);
+    }
+    return el;
+  }
+
   private _changeTab(tab: "Build" | "Attack" | "Economy" | "Bombers") {
     this.activeTab = tab;
     if (this.uiState.pendingBuildUnitType) {
@@ -1282,34 +1319,52 @@ export class ControlPanel2 extends LitElement implements Layer {
                     />
                     <span>Multi-Build Structures</span>
                   </button>
-                  <button
-                    class="upgrade-structures-button ${this.uiState.upgradeMode
-                      ? "selected"
-                      : ""}"
-                    title="Click structures to upgrade them"
-                    @click=${() => {
-                      const enabled = !this.uiState.upgradeMode;
-                      this.uiState.upgradeMode = enabled;
-                      this.eventBus.emit(new ToggleUpgradeModeEvent(enabled));
-                      // Disable mass production if upgrade is enabled
-                      if (enabled && this._multibuildEnabled) {
-                        this._multibuildEnabled = false;
-                        this.uiState.multibuildEnabled = false;
-                      }
-                      // Clear pending build selection when upgrade is enabled
-                      if (enabled) {
-                        this.uiState.pendingBuildUnitType = null;
-                      }
-                      this.requestUpdate();
-                    }}
-                  >
-                    <img
-                      class="upgrade-icon"
-                      src=${upgradeArrowIcon}
-                      alt="Upgrade"
-                    />
-                    <span>Upgrade Structures</span>
-                  </button>
+                  <div class="relative inline-block">
+                    <button
+                      class="upgrade-structures-button ${this.uiState
+                        .upgradeMode
+                        ? "selected"
+                        : ""}"
+                      title="Click structures to upgrade them"
+                      @click=${() => {
+                        const enabled = !this.uiState.upgradeMode;
+                        this.uiState.upgradeMode = enabled;
+                        this.eventBus.emit(new ToggleUpgradeModeEvent(enabled));
+                        // Disable mass production if upgrade is enabled
+                        if (enabled && this._multibuildEnabled) {
+                          this._multibuildEnabled = false;
+                          this.uiState.multibuildEnabled = false;
+                        }
+                        // Clear pending build selection when upgrade is enabled
+                        if (enabled) {
+                          this.uiState.pendingBuildUnitType = null;
+                        }
+                        this.requestUpdate();
+                      }}
+                    >
+                      <img
+                        class="upgrade-icon"
+                        src=${upgradeArrowIcon}
+                        alt="Upgrade"
+                      />
+                      <span>Upgrade Structures</span>
+                    </button>
+                    <div
+                      class="gear-settings-btn"
+                      role="button"
+                      tabindex="0"
+                      @click=${(e: Event) => {
+                        e.stopPropagation();
+                        this._openBuildSettings();
+                      }}
+                    >
+                      <img
+                        src="/images/SettingIconWhite.svg"
+                        alt="Settings"
+                        class="gear-settings-icon"
+                      />
+                    </div>
+                  </div>
                 </div>
                 <build-menu
                   style="width: 100%; display: block;"
@@ -1816,6 +1871,54 @@ style.textContent = `
       var(--ui-secondary)
     );
     transform: scale(0.95);
+  }
+  .gear-settings-btn {
+    position: absolute;
+    top: -8px;
+    right: -8px;
+    width: 22px;
+    height: 22px;
+    border-radius: 9999px;
+    background: var(--ui-primary);
+    border: 2px solid var(--ui-panel-border);
+    box-shadow:
+      inset 0 0 10px rgba(0, 0, 0, 0.5),
+      0 2px 6px rgba(0, 0, 0, 0.4);
+    color: var(--ui-text-accent);
+    display: grid;
+    place-items: center;
+    box-sizing: border-box;
+    line-height: 0;
+    overflow: hidden;
+    transform-origin: center;
+    cursor: pointer;
+    z-index: 1;
+  }
+  .gear-settings-btn:hover {
+    background-color: var(--ui-secondary);
+    border-color: var(--ui-secondary);
+    transform: scale(1.05);
+  }
+  .gear-settings-btn:active {
+    background: linear-gradient(
+      to bottom,
+      var(--ui-secondary-hover),
+      var(--ui-secondary)
+    );
+    transform: scale(0.95);
+  }
+  .gear-settings-btn svg {
+    width: 12px;
+    height: 12px;
+    fill: currentColor;
+    pointer-events: none;
+  }
+  .gear-settings-btn img.gear-settings-icon {
+    width: 12px;
+    height: 12px;
+    object-fit: contain;
+    pointer-events: none;
+    display: block;
   }
 `;
 if (!document.head.querySelector("style[data-upgrade-button]")) {
