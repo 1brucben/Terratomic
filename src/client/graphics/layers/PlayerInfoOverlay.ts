@@ -350,7 +350,8 @@ export class PlayerInfoOverlay extends LitElement implements Layer {
                 unitType === UnitType.Port ||
                 unitType === UnitType.Hospital ||
                 unitType === UnitType.Academy ||
-                unitType === UnitType.ResearchLab
+                unitType === UnitType.ResearchLab ||
+                unitType === UnitType.Factory
                   ? player.unitsOwned(unitType)
                   : player.units(unitType).length;
 

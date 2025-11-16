@@ -92,6 +92,7 @@ export class StructureLayer implements Layer {
   private lastAffordableForUpgradeResearchLab: boolean | null = null;
   private lastAffordableForUpgradeSilo: boolean | null = null;
   private lastAffordableForUpgradeSAM: boolean | null = null;
+  private lastAffordableForUpgradeFactory: boolean | null = null;
   // Client-side level tracking for structures (temporary)
   private structureLevels = new Map<
     number,
@@ -186,7 +187,9 @@ export class StructureLayer implements Layer {
           r.unit.type() === UnitType.Hospital ||
           r.unit.type() === UnitType.Academy ||
           r.unit.type() === UnitType.MissileSilo ||
-          r.unit.type() === UnitType.SAMLauncher
+          r.unit.type() === UnitType.SAMLauncher ||
+          r.unit.type() === UnitType.ResearchLab ||
+          r.unit.type() === UnitType.Factory
         ) {
           r.pixiSprite.texture = this.createTexture(r.unit);
         }
@@ -347,6 +350,7 @@ export class StructureLayer implements Layer {
       unit.type() !== UnitType.Hospital &&
       unit.type() !== UnitType.Academy &&
       unit.type() !== UnitType.ResearchLab &&
+      unit.type() !== UnitType.Factory &&
       unit.type() !== UnitType.MissileSilo &&
       unit.type() !== UnitType.SAMLauncher
     )
@@ -366,6 +370,7 @@ export class StructureLayer implements Layer {
     const affordableResearchLab = this.canAffordUpgradeForType(
       UnitType.ResearchLab,
     );
+    const affordableFactory = this.canAffordUpgradeForType(UnitType.Factory);
     if (!this.upgradeMode) {
       if (
         this.lastAffordableForUpgradeCity !== null ||
@@ -374,7 +379,8 @@ export class StructureLayer implements Layer {
         this.lastAffordableForUpgradeAcademy !== null ||
         this.lastAffordableForUpgradeResearchLab !== null ||
         this.lastAffordableForUpgradeSilo !== null ||
-        this.lastAffordableForUpgradeSAM !== null
+        this.lastAffordableForUpgradeSAM !== null ||
+        this.lastAffordableForUpgradeFactory !== null
       ) {
         for (const r of this.renders) {
           if (
@@ -384,7 +390,8 @@ export class StructureLayer implements Layer {
             r.unit.type() === UnitType.Academy ||
             r.unit.type() === UnitType.ResearchLab ||
             r.unit.type() === UnitType.MissileSilo ||
-            r.unit.type() === UnitType.SAMLauncher
+            r.unit.type() === UnitType.SAMLauncher ||
+            r.unit.type() === UnitType.Factory
           ) {
             r.pixiSprite.texture = this.createTexture(r.unit);
           }
@@ -394,6 +401,7 @@ export class StructureLayer implements Layer {
         this.lastAffordableForUpgradeHospital = null;
         this.lastAffordableForUpgradeAcademy = null;
         this.lastAffordableForUpgradeResearchLab = null;
+        this.lastAffordableForUpgradeFactory = null;
         this.lastAffordableForUpgradeSilo = null;
         this.lastAffordableForUpgradeSAM = null;
         this.shouldRedraw = true;
@@ -421,6 +429,8 @@ export class StructureLayer implements Layer {
     const samChanged = this.lastAffordableForUpgradeSAM !== affordableSAM;
     const labChanged =
       this.lastAffordableForUpgradeResearchLab !== affordableResearchLab;
+    const factoryChanged =
+      this.lastAffordableForUpgradeFactory !== affordableFactory;
     if (
       cityChanged ||
       portChanged ||
@@ -428,7 +438,8 @@ export class StructureLayer implements Layer {
       academyChanged ||
       siloChanged ||
       samChanged ||
-      labChanged
+      labChanged ||
+      factoryChanged
     ) {
       for (const r of this.renders) {
         const t = r.unit.type();
@@ -439,7 +450,8 @@ export class StructureLayer implements Layer {
           (academyChanged && t === UnitType.Academy) ||
           (labChanged && t === UnitType.ResearchLab) ||
           (siloChanged && t === UnitType.MissileSilo) ||
-          (samChanged && t === UnitType.SAMLauncher)
+          (samChanged && t === UnitType.SAMLauncher) ||
+          (factoryChanged && t === UnitType.Factory)
         ) {
           r.pixiSprite.texture = this.createTexture(r.unit);
         }
@@ -451,6 +463,7 @@ export class StructureLayer implements Layer {
       this.lastAffordableForUpgradeResearchLab = affordableResearchLab;
       this.lastAffordableForUpgradeSilo = affordableSilo;
       this.lastAffordableForUpgradeSAM = affordableSAM;
+      this.lastAffordableForUpgradeFactory = affordableFactory;
       this.shouldRedraw = true;
     }
 
@@ -464,6 +477,7 @@ export class StructureLayer implements Layer {
         t !== UnitType.Hospital &&
         t !== UnitType.Academy &&
         t !== UnitType.ResearchLab &&
+        t !== UnitType.Factory &&
         t !== UnitType.MissileSilo &&
         t !== UnitType.SAMLauncher
       ) {
@@ -564,7 +578,9 @@ export class StructureLayer implements Layer {
         t === UnitType.Hospital ||
         t === UnitType.Academy ||
         t === UnitType.MissileSilo ||
-        t === UnitType.SAMLauncher
+        t === UnitType.SAMLauncher ||
+        t === UnitType.ResearchLab ||
+        t === UnitType.Factory
       ) {
         const hl = this.shouldHighlight(unit) ? 1 : 0;
         cacheKey += `-hl${hl}`;
@@ -621,6 +637,7 @@ export class StructureLayer implements Layer {
         structureType === UnitType.Hospital ||
         structureType === UnitType.Academy ||
         structureType === UnitType.ResearchLab ||
+        structureType === UnitType.Factory ||
         structureType === UnitType.MissileSilo ||
         structureType === UnitType.SAMLauncher) &&
       this.shouldHighlight(unit)
@@ -897,6 +914,7 @@ export class StructureLayer implements Layer {
           clickedUnit.type() === UnitType.Hospital ||
           clickedUnit.type() === UnitType.Academy ||
           clickedUnit.type() === UnitType.ResearchLab ||
+          clickedUnit.type() === UnitType.Factory ||
           clickedUnit.type() === UnitType.MissileSilo ||
           clickedUnit.type() === UnitType.SAMLauncher)
       ) {

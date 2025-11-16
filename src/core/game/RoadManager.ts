@@ -118,6 +118,8 @@ export class RoadManager {
     UnitType.Hospital,
     UnitType.Academy,
     UnitType.Airfield,
+    UnitType.Factory,
+    UnitType.ResearchLab,
   ];
 
   private hasNodesChanged(currentNodes: Unit[]): boolean {

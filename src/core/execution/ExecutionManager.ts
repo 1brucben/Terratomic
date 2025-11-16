@@ -157,6 +157,7 @@ export class Executor {
           intent.unitType === UnitType.Hospital ||
           intent.unitType === UnitType.Academy ||
           intent.unitType === UnitType.ResearchLab ||
+          intent.unitType === UnitType.Factory ||
           intent.unitType === UnitType.MissileSilo ||
           intent.unitType === UnitType.SAMLauncher;
         if (!allowed || unit.type() !== intent.unitType) {

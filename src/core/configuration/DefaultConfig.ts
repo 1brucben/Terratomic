@@ -677,7 +677,7 @@ export class DefaultConfig implements Config {
               : BigInt(
                   Math.min(
                     3_000_000,
-                    Math.pow(2, p.unitsOwned(UnitType.Hospital)) * 1_500_000,
+                    Math.pow(2, p.unitsOwned(UnitType.ResearchLab)) * 1_500_000,
                   ),
                 ),
           territoryBound: true,
@@ -706,8 +706,8 @@ export class DefaultConfig implements Config {
               ? 0n
               : BigInt(
                   Math.min(
-                    3_000_000,
-                    Math.pow(2, p.unitsOwned(UnitType.Factory)) * 1_500_000,
+                    1_000_000,
+                    Math.pow(2, p.unitsOwned(UnitType.Factory)) * 500_000,
                   ),
                 ),
           territoryBound: true,
@@ -1164,7 +1164,9 @@ export class DefaultConfig implements Config {
   grossGoldAdditionRate(player: Player | PlayerView): number {
     const base = 0.06 * Math.pow(player.workers(), 0.65);
     const productivity = player.productivity();
-    const grossGold = base * productivity;
+    const k = player.effectiveUnits(UnitType.Factory);
+    const factoryFactor = Math.pow(1 + k, 0.35);
+    const grossGold = base * productivity * factoryFactor;
     return Number.isFinite(grossGold) && grossGold >= 0 ? grossGold : 0;
   }
 
@@ -1349,6 +1351,7 @@ export class DefaultConfig implements Config {
       case UnitType.Hospital:
       case UnitType.Academy:
       case UnitType.ResearchLab:
+      case UnitType.Factory:
         return 0.8; // Default 80%
       case UnitType.MissileSilo:
         return 0.2; // Missile silo: 20%

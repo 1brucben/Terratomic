@@ -1187,6 +1187,7 @@ export class ControlPanel2 extends LitElement implements Layer {
                                 UnitType.Hospital,
                                 UnitType.Academy,
                                 UnitType.ResearchLab,
+                                UnitType.Factory,
                               ].map((s) => {
                                 return html`
                                   <label

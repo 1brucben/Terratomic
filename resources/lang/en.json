@@ -265,6 +265,7 @@
     "hospital": "Hospital",
     "academy": "Military Academy",
     "research_lab": "Research Lab",
+    "factory": "Factory",
     "airfield": "Airfield",
     "air_field": "Airfield",
     "fighter_jet": "Fighter Jet"
@@ -353,6 +354,8 @@
     "build_academy_desc": "Set the hotkey to build an Academy.",
     "build_research_lab": "Build Research Lab",
     "build_research_lab_desc": "Set the hotkey to build a Research Lab.",
+    "build_factory": "Build Factory",
+    "build_factory_desc": "Set the hotkey to build a Factory.",
     "build_missile_silo": "Build Missile Silo",
     "build_missile_silo_desc": "Set the hotkey to build a Missile Silo.",
     "build_sam_launcher": "Build SAM Launcher",
