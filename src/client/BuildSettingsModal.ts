@@ -1,4 +1,4 @@
-import { LitElement, css, html } from "lit";
+import { LitElement, html } from "lit";
 import { customElement, query, state } from "lit/decorators.js";
 import { UnitType } from "../core/game/Game";
 import "./components/baseComponents/Modal";
@@ -47,93 +47,8 @@ export class BuildSettingsModal extends LitElement {
     this.levels = { ...this.levels, [id]: Math.max(1, cur - 1) };
   }
 
-  static styles = css`
-    :host {
-      display: block;
-    }
-    .bs-list {
-      display: flex;
-      flex-direction: column;
-      gap: 4px;
-    }
-    .bs-row {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      gap: 12px;
-      padding: 6px 10px;
-      border: 1px solid var(--ui-panel-border);
-      border-radius: 6px;
-      background: var(--ui-primary);
-      min-height: 40px;
-    }
-    .bs-row:hover {
-      background: var(--ui-secondary);
-    }
-    .bs-left {
-      display: flex;
-      align-items: center;
-      gap: 10px;
-      min-width: 0;
-      flex: 1 1 auto;
-    }
-    .bs-icon {
-      width: 22px !important;
-      height: 22px !important;
-      max-width: 22px;
-      max-height: 22px;
-      object-fit: contain;
-      flex-shrink: 0;
-      display: block;
-      filter: drop-shadow(0 0 2px rgba(0, 0, 0, 0.35));
-    }
-    .bs-name {
-      font-size: 13px;
-      color: var(--ui-text-default);
-      white-space: nowrap;
-      overflow: hidden;
-      text-overflow: ellipsis;
-      flex: 1 1 auto;
-    }
-    .bs-controls {
-      display: inline-flex;
-      align-items: center;
-      gap: 4px;
-    }
-    button.bs-btn {
-      width: 24px;
-      height: 22px;
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      border: 1px solid var(--ui-panel-border);
-      background: #111a2e;
-      color: var(--ui-text-default);
-      border-radius: 4px;
-      cursor: pointer;
-      font-size: 11px;
-      line-height: 1;
-    }
-    button.bs-btn:hover {
-      border-color: var(--ui-secondary-hover);
-      box-shadow: 0 0 0 1px rgba(39, 71, 110, 0.35) inset;
-    }
-    .bs-val {
-      min-width: 22px;
-      text-align: center;
-      font-variant-numeric: tabular-nums;
-      font-size: 12px;
-    }
-    .hint {
-      font-size: 11px;
-      color: var(--ui-text-muted, #94a3b8);
-      margin-bottom: 8px;
-    }
-  `;
-
   render() {
-    // IMPORTANT: Shadow DOM disabled, so Lit's static styles do not apply.
-    // Inject a style tag directly so our layout rules take effect.
+    // Light DOM: provide styles inline (avoids shadow + Tailwind conflicts).
     return html`
       <o-modal title="Build Settings" max-width="520px" max-height="65dvh">
         <style>
