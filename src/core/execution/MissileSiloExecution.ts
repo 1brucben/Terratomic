@@ -9,6 +9,7 @@ export class MissileSiloExecution implements Execution {
   constructor(
     private player: Player,
     private tile: TileRef,
+    private desiredLevel?: number,
   ) {}
 
   init(mg: Game, ticks: number): void {
@@ -27,6 +28,13 @@ export class MissileSiloExecution implements Execution {
       }
       this.silo = this.player.buildUnit(UnitType.MissileSilo, spawn, {});
 
+      // Apply upgrades up to cap 3 if requested
+      const level = this.computeDesiredLevel(
+        UnitType.MissileSilo,
+        this.desiredLevel,
+      );
+      this.applyUpgrades(this.silo, level);
+
       if (this.player !== this.silo.owner()) {
         this.player = this.silo.owner();
       }
@@ -44,5 +52,18 @@ export class MissileSiloExecution implements Execution {
 
   activeDuringSpawnPhase(): boolean {
     return false;
+  }
+
+  private computeDesiredLevel(_type: UnitType, target?: number): number {
+    if (target === undefined || target < 1) return 1;
+    return Math.min(3, Math.max(1, target));
+  }
+  private applyUpgrades(unit: Unit, desiredLevel: number) {
+    const steps = Math.max(0, desiredLevel - 1);
+    if (steps <= 0) return;
+    const impl = unit as any;
+    if (typeof impl.upgradeStructure === "function") {
+      for (let i = 0; i < steps; i++) impl.upgradeStructure();
+    }
   }
 }

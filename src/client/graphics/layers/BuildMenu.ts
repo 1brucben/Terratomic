@@ -19,8 +19,13 @@ import shieldIcon from "../../../../resources/images/ShieldIconWhite.svg";
 import submarineIcon from "../../../../resources/images/submarine.svg";
 import { translateText } from "../../../client/Utils";
 import { EventBus } from "../../../core/EventBus";
+import { aggregateStructureBuildCost } from "../../../core/game/Costs";
 import { Gold, UnitType, UpgradeType } from "../../../core/game/Game";
 import { GameView } from "../../../core/game/GameView";
+import {
+  isUpgradeableStructure,
+  maxStructureLevel,
+} from "../../../core/game/Upgradeables";
 import { ToggleUpgradeModeEvent } from "../../events/ToggleUpgradeModeEvent";
 import { CloseViewEvent } from "../../InputHandler";
 import { displayKey, renderNumber } from "../../Utils";
@@ -493,10 +498,31 @@ export class BuildMenu extends LitElement {
   }
 
   private cost(item: BuildItemDisplay): Gold {
-    return this.game
+    const base = this.game
       .config()
       .unitInfo(item.unitType)
       .cost(this.game.myPlayer()!);
+    if (!isUpgradeableStructure(item.unitType)) return base;
+    const desired = this._desiredLevel(item.unitType);
+    if (desired <= 1) return base;
+    const multiplier = this.game
+      .config()
+      .structureUpgradeCostMultiplier(item.unitType);
+    return aggregateStructureBuildCost(base, desired, multiplier);
+  }
+
+  private _desiredLevel(type: UnitType): number {
+    try {
+      const raw = localStorage.getItem("buildSettings.levels");
+      if (!raw) return 1;
+      const obj = JSON.parse(raw);
+      const key = String(type);
+      const val = obj?.[key];
+      if (typeof val !== "number" || val < 1) return 1;
+      return Math.min(maxStructureLevel(type), val);
+    } catch (_) {
+      return 1;
+    }
   }
 
   private count(item: BuildItemDisplay): string {
@@ -543,6 +569,9 @@ export class BuildMenu extends LitElement {
                   : String(item.unitType);
                 const price =
                   this.game && this.game.myPlayer() ? this.cost(item) : 0;
+                const desiredLevel = isUpgradeableStructure(item.unitType)
+                  ? this._desiredLevel(item.unitType)
+                  : 1;
 
                 return html`
                   <button
@@ -579,6 +608,12 @@ export class BuildMenu extends LitElement {
                           height="12"
                           style="vertical-align: middle;"
                         />
+                        ${desiredLevel > 1
+                          ? html`<span
+                              style="margin-left:4px;font-size:9px;color:var(--ui-text-muted)"
+                              >L${desiredLevel}</span
+                            >`
+                          : ""}
                       </span>
                     </div>
                     ${item.countable

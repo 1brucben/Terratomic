@@ -399,6 +399,9 @@ export const BuildUnitIntentSchema = BaseIntentSchema.extend({
   type: z.literal("build_unit"),
   unit: z.enum(UnitType),
   tile: z.number(),
+  // Optional desired starting level for upgradeable structures.
+  // Server will clamp based on type and game rules.
+  targetLevel: z.number().int().min(1).max(10).optional(),
 });
 
 export const PurchaseUpgradeIntentSchema = BaseIntentSchema.extend({

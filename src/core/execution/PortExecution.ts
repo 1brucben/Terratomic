@@ -13,6 +13,7 @@ export class PortExecution implements Execution {
   constructor(
     private player: Player,
     private tile: TileRef,
+    private desiredLevel?: number,
   ) {}
 
   init(mg: Game, ticks: number): void {
@@ -36,6 +37,9 @@ export class PortExecution implements Execution {
         return;
       }
       this.port = this.player.buildUnit(UnitType.Port, spawn, {});
+      // Apply upgrades if requested
+      const level = this.computeDesiredLevel(UnitType.Port, this.desiredLevel);
+      this.applyUpgrades(this.port, level);
     }
 
     if (!this.port.isActive()) {
@@ -80,5 +84,18 @@ export class PortExecution implements Execution {
 
   activeDuringSpawnPhase(): boolean {
     return false;
+  }
+
+  private computeDesiredLevel(_type: UnitType, target?: number): number {
+    if (target === undefined || target < 1) return 1;
+    return Math.max(1, Math.min(10, target));
+  }
+  private applyUpgrades(unit: Unit, desiredLevel: number) {
+    const steps = Math.max(0, desiredLevel - 1);
+    if (steps <= 0) return;
+    const impl = unit as any;
+    if (typeof impl.upgradeStructure === "function") {
+      for (let i = 0; i < steps; i++) impl.upgradeStructure();
+    }
   }
 }

@@ -12,6 +12,7 @@ import {
 } from "../core/game/Game";
 import { TileRef } from "../core/game/GameMap";
 import { PlayerView } from "../core/game/GameView";
+import { maxStructureLevel } from "../core/game/Upgradeables";
 import {
   AllPlayersStats,
   ClientHashMessage,
@@ -426,7 +427,6 @@ export class Transport {
         }
         this.socket.send(msg);
       }
-      onconnect();
     };
     this.socket.onmessage = (event: MessageEvent) => {
       try {
@@ -677,11 +677,30 @@ export class Transport {
     this._lastBuildUnit = event.unit;
     this._lastBuildAt = now;
 
+    // Compute desired starting level for upgradeable structures from local settings.
+    let targetLevel: number | undefined;
+    try {
+      const raw = localStorage.getItem("buildSettings.levels");
+      if (raw) {
+        const obj = JSON.parse(raw) as Record<string, number>;
+        const key = String(event.unit);
+        const val = obj?.[key];
+        if (typeof val === "number" && val > 1) {
+          // Enforce cap for missile silo / SAM launcher locally (server re-validates).
+          targetLevel = Math.min(maxStructureLevel(event.unit), val);
+        }
+      }
+    } catch {
+      // Ignore malformed local storage.
+      targetLevel = undefined;
+    }
+
     this.sendIntent({
       type: "build_unit",
       clientID: this.lobbyConfig.clientID,
       unit: event.unit,
       tile: event.tile,
+      targetLevel,
     });
   }
 

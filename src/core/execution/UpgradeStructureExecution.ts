@@ -1,6 +1,11 @@
+import { computeUpgradeStepCost } from "../game/Costs";
 import { Execution, Gold, Player, Unit, UnitType } from "../game/Game";
 import { GameImpl } from "../game/GameImpl";
 import { UnitImpl } from "../game/UnitImpl";
+import {
+  isUpgradeableStructure,
+  maxStructureLevel,
+} from "../game/Upgradeables";
 import { NoOpExecution } from "./NoOpExecution";
 
 /**
@@ -34,49 +39,29 @@ export class UpgradeStructureExecution implements Execution {
       this._isActive = false;
       return;
     }
-
-    switch (this.unit.type()) {
-      case UnitType.City:
-      case UnitType.Port:
-      case UnitType.Hospital:
-      case UnitType.Academy:
-      case UnitType.ResearchLab:
-      case UnitType.Factory:
-      case UnitType.MissileSilo:
-      case UnitType.SAMLauncher: {
-        const unitType = this.unit.type();
-        // Enforce missile silo max level 3 on the executor side to avoid charging when capped
-        if (
-          (unitType === UnitType.MissileSilo ||
-            unitType === UnitType.SAMLauncher) &&
-          (this.unit.level?.call(this.unit) ?? 1) >= 3
-        ) {
-          this._isActive = false;
-          return;
-        }
-        const baseCost: Gold = this.mg.unitInfo(unitType).cost(this.player);
-        // Use decimal multiplier; compute BigInt-safe using fixed scale
-        const multiplier = this.mg
-          .config()
-          .structureUpgradeCostMultiplier(unitType);
-        const scale = 100n; // two decimal digits of precision
-        const scaledMultiplier = BigInt(Math.round(multiplier * Number(scale)));
-        const upgradeCost: Gold = (baseCost * scaledMultiplier) / scale;
-        if (this.player.gold() < upgradeCost) {
-          this._isActive = false;
-          return;
-        }
-        this.player.removeGold(upgradeCost);
-        (this.unit as UnitImpl).upgradeStructure();
-        this._isActive = false;
-        return;
-      }
-      default: {
-        // Unsupported structure type for upgrade at this time
-        this._isActive = false;
-        return;
-      }
+    const unitType = this.unit.type();
+    if (!isUpgradeableStructure(unitType)) {
+      this._isActive = false;
+      return;
     }
+    const currentLevel = this.unit.level?.call(this.unit) ?? 1;
+    if (currentLevel >= maxStructureLevel(unitType)) {
+      this._isActive = false;
+      return;
+    }
+    const baseCost: Gold = this.mg.unitInfo(unitType).cost(this.player);
+    const multiplier = this.mg
+      .config()
+      .structureUpgradeCostMultiplier(unitType);
+    const upgradeCost: Gold = computeUpgradeStepCost(baseCost, multiplier);
+    if (this.player.gold() < upgradeCost) {
+      this._isActive = false;
+      return;
+    }
+    this.player.removeGold(upgradeCost);
+    (this.unit as UnitImpl).upgradeStructure();
+    this._isActive = false;
+    return;
   }
 
   tick(_ticks: number): void {

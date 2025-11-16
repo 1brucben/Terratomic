@@ -152,6 +152,7 @@ export class SAMLauncherExecution implements Execution {
     private player: Player,
     private tile: TileRef | null,
     private sam: Unit | null = null,
+    private desiredLevel?: number,
   ) {
     if (sam !== null) {
       this.tile = sam.tile();
@@ -202,6 +203,12 @@ export class SAMLauncherExecution implements Execution {
         return;
       }
       this.sam = this.player.buildUnit(UnitType.SAMLauncher, spawnTile, {});
+      // Apply upgrades up to cap 3 if requested
+      const level = this.computeDesiredLevel(
+        UnitType.SAMLauncher,
+        this.desiredLevel,
+      );
+      this.applyUpgrades(this.sam, level);
     }
     this.targetingSystem ??= new SAMTargetingSystem(
       this.mg,
@@ -425,5 +432,18 @@ export class SAMLauncherExecution implements Execution {
 
   activeDuringSpawnPhase(): boolean {
     return false;
+  }
+
+  private computeDesiredLevel(_type: UnitType, target?: number): number {
+    if (target === undefined || target < 1) return 1;
+    return Math.min(3, Math.max(1, target));
+  }
+  private applyUpgrades(unit: Unit, desiredLevel: number) {
+    const steps = Math.max(0, desiredLevel - 1);
+    if (steps <= 0) return;
+    const impl = unit as any;
+    if (typeof impl.upgradeStructure === "function") {
+      for (let i = 0; i < steps; i++) impl.upgradeStructure();
+    }
   }
 }

@@ -1,6 +1,11 @@
 import { LitElement, html } from "lit";
 import { customElement, query, state } from "lit/decorators.js";
 import { UnitType } from "../core/game/Game";
+import {
+  isUpgradeableStructure,
+  maxStructureLevel,
+  tryParseUnitType,
+} from "../core/game/Upgradeables";
 import "./components/baseComponents/Modal";
 
 interface BuildSettingsItem {
@@ -20,12 +25,15 @@ export class BuildSettingsModal extends LitElement {
   @state() private items: BuildSettingsItem[] = [];
   @state() private levels: Record<string, number> = {};
 
-  /** Populate and open the modal. Defaults all levels to 1. */
+  /** Populate and open the modal. Loads persisted levels; defaults to 1 */
   public open(
     structureTypes: UnitType[] = [],
     unitIconMap: Record<string, string | undefined> = {},
   ) {
-    this.items = structureTypes.map((t) => {
+    const upgradeables = structureTypes.filter((t) =>
+      isUpgradeableStructure(t),
+    );
+    this.items = upgradeables.map((t) => {
       const id = String(t);
       return {
         id,
@@ -33,18 +41,54 @@ export class BuildSettingsModal extends LitElement {
         icon: unitIconMap[id] || "",
       };
     });
+    const persisted = this._loadPersisted();
     const lvls: Record<string, number> = {};
-    this.items.forEach((i) => (lvls[i.id] = 1));
+    this.items.forEach((i) => {
+      const raw = persisted[i.id];
+      const parsed = typeof raw === "number" && raw >= 1 ? raw : 1;
+      lvls[i.id] = this._applyCap(i.id, parsed);
+    });
     this.levels = lvls;
     this.updateComplete.then(() => this.modalEl?.open());
   }
 
+  private _loadPersisted(): Record<string, number> {
+    try {
+      const json = localStorage.getItem("buildSettings.levels") ?? "{}";
+      const data = JSON.parse(json);
+      if (data && typeof data === "object")
+        return data as Record<string, number>;
+    } catch (_) {
+      /* ignore parse errors */
+    }
+    return {};
+  }
+
+  private _persist() {
+    try {
+      localStorage.setItem("buildSettings.levels", JSON.stringify(this.levels));
+    } catch (_) {
+      /* ignore quota issues */
+    }
+  }
+
+  // Apply structure-specific level caps via shared rule
+  private _applyCap(id: string, desired: number): number {
+    const t = tryParseUnitType(id);
+    if (!t) return Math.max(1, desired);
+    return Math.min(maxStructureLevel(t), Math.max(1, desired));
+  }
+
   private _inc(id: string) {
-    this.levels = { ...this.levels, [id]: (this.levels[id] ?? 1) + 1 };
+    const next = this._applyCap(id, (this.levels[id] ?? 1) + 1);
+    this.levels = { ...this.levels, [id]: next };
+    this._persist();
   }
   private _dec(id: string) {
     const cur = this.levels[id] ?? 1;
-    this.levels = { ...this.levels, [id]: Math.max(1, cur - 1) };
+    const next = Math.max(1, cur - 1);
+    this.levels = { ...this.levels, [id]: next };
+    this._persist();
   }
 
   render() {
@@ -129,7 +173,9 @@ export class BuildSettingsModal extends LitElement {
             margin-bottom: 8px;
           }
         </style>
-        <div class="hint">Default upgrade levels (not applied yet)</div>
+        <div class="hint">
+          Default structure levels (persistent; capped where applicable)
+        </div>
         <div class="bs-list">
           ${this.items.map(
             (i) => html`

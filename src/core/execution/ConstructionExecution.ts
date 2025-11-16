@@ -1,3 +1,4 @@
+import { computeUpgradeStepCost } from "../game/Costs";
 import {
   Execution,
   Game,
@@ -10,12 +11,10 @@ import {
   UpgradeType,
 } from "../game/Game";
 import { TileRef } from "../game/GameMap";
-import { AcademyExecution } from "./AcademyExecution";
+import { maxStructureLevel } from "../game/Upgradeables";
 import { AirfieldExecution } from "./AirfieldExecution";
-import { CityExecution } from "./CityExecution";
 import { DefensePostExecution } from "./DefensePostExecution";
 import { FighterJetExecution } from "./FighterJetExecution";
-import { HospitalExecution } from "./HospitalExecution";
 import { MirvExecution } from "./MIRVExecution";
 import { MissileSiloExecution } from "./MissileSiloExecution";
 import { NukeExecution } from "./NukeExecution";
@@ -31,12 +30,15 @@ export class ConstructionExecution implements Execution {
 
   private ticksUntilComplete: Tick;
 
-  private cost: Gold;
+  private reservedTotalCost: Gold = 0n;
+  private baseCost: Gold = 0n;
+  private desiredLevel: number = 1;
 
   constructor(
     private player: Player,
     private constructionType: UnitType,
     private tile: TileRef,
+    private targetLevel?: number,
   ) {}
 
   init(mg: Game, ticks: number): void {
@@ -61,10 +63,71 @@ export class ConstructionExecution implements Execution {
     if (this.construction === null) {
       const info = this.mg.unitInfo(this.constructionType);
       if (info.constructionDuration === undefined) {
+        // No construction phase; treat as instant build path
+        // Compute and reserve total aggregated cost first
+        this.baseCost = this.mg
+          .unitInfo(this.constructionType)
+          .cost(this.player);
+        this.desiredLevel = this.computeDesiredLevel(
+          this.constructionType,
+          this.targetLevel,
+        );
+        // Validate build feasibility BEFORE charging any gold
+        const canSpawnInstant = this.player.canBuild(
+          this.constructionType,
+          this.tile,
+        );
+        if (canSpawnInstant === false) {
+          console.warn(`cannot build ${this.constructionType}`);
+          this.active = false;
+          return;
+        }
+        const steps = Math.max(0, this.desiredLevel - 1);
+        const stepCost = computeUpgradeStepCost(
+          this.baseCost,
+          this.mg
+            .config()
+            .structureUpgradeCostMultiplier(this.constructionType),
+        );
+        const total = this.baseCost + stepCost * BigInt(steps);
+        if (this.player.gold() < total) {
+          console.warn(
+            `cannot afford construction ${this.constructionType} at level ${this.desiredLevel}`,
+          );
+          this.active = false;
+          return;
+        }
+        this.player.removeGold(total);
+        // Refund base before constructing final unit (buildUnit deducts base)
+        if (this.baseCost > 0n) {
+          this.player.addGold(this.baseCost);
+        }
+        // Immediately complete construction logic
         this.completeConstruction();
         this.active = false;
         return;
       }
+      // Timed construction path: compute and reserve aggregate cost upfront
+      this.baseCost = this.mg.unitInfo(this.constructionType).cost(this.player);
+      this.desiredLevel = this.computeDesiredLevel(
+        this.constructionType,
+        this.targetLevel,
+      );
+      const upgradeSteps = Math.max(0, this.desiredLevel - 1);
+      const upgradeCostPerStep = computeUpgradeStepCost(
+        this.baseCost,
+        this.mg.config().structureUpgradeCostMultiplier(this.constructionType),
+      );
+      const totalCost =
+        this.baseCost + upgradeCostPerStep * BigInt(upgradeSteps);
+      if (this.player.gold() < totalCost) {
+        console.warn(
+          `cannot afford construction ${this.constructionType} at level ${this.desiredLevel}`,
+        );
+        this.active = false;
+        return;
+      }
+      this.reservedTotalCost = totalCost;
       const spawnTile = this.player.canBuild(this.constructionType, this.tile);
       if (spawnTile === false) {
         console.warn(`cannot build ${this.constructionType}`);
@@ -76,10 +139,10 @@ export class ConstructionExecution implements Execution {
         spawnTile,
         {},
       );
-      this.cost = this.mg.unitInfo(this.constructionType).cost(this.player);
-      this.player.removeGold(this.cost);
+      // Reserve total aggregated cost upfront so funds are locked during construction
+      this.player.removeGold(this.reservedTotalCost);
       this.construction.setConstructionType(this.constructionType);
-      this.ticksUntilComplete = info.constructionDuration;
+      this.ticksUntilComplete = info.constructionDuration!;
       return;
     }
 
@@ -95,8 +158,11 @@ export class ConstructionExecution implements Execution {
     if (this.ticksUntilComplete === 0) {
       this.player = this.construction.owner();
       this.construction.delete(false);
-      // refund the cost so player has the gold to build the unit
-      this.player.addGold(this.cost);
+      // Refund only base cost; PlayerImpl.buildUnit will deduct base again.
+      // Net effect over the flow is total aggregated cost.
+      if (this.baseCost > 0n) {
+        this.player.addGold(this.baseCost);
+      }
       this.completeConstruction();
       this.active = false;
       return;
@@ -132,10 +198,14 @@ export class ConstructionExecution implements Execution {
         );
         break;
       case UnitType.Port:
-        this.mg.addExecution(new PortExecution(player, this.tile));
+        this.mg.addExecution(
+          new PortExecution(player, this.tile, this.desiredLevel),
+        );
         break;
       case UnitType.MissileSilo:
-        this.mg.addExecution(new MissileSiloExecution(player, this.tile));
+        this.mg.addExecution(
+          new MissileSiloExecution(player, this.tile, this.desiredLevel),
+        );
         break;
       case UnitType.DefensePost:
         this.mg.addExecution(new DefensePostExecution(player, this.tile));
@@ -147,31 +217,52 @@ export class ConstructionExecution implements Execution {
         ) {
           player.addUpgrade(UpgradeType.CityAntiAir);
         }
-        this.mg.addExecution(new SAMLauncherExecution(player, this.tile));
+        this.mg.addExecution(
+          new SAMLauncherExecution(player, this.tile, null, this.desiredLevel),
+        );
         break;
       case UnitType.City:
-        this.mg.addExecution(new CityExecution(player, this.tile));
-        break;
       case UnitType.Hospital:
-        this.mg.addExecution(new HospitalExecution(player, this.tile));
-        break;
       case UnitType.Academy:
-        this.mg.addExecution(new AcademyExecution(player, this.tile));
+      case UnitType.ResearchLab:
+      case UnitType.Factory:
+        {
+          const canSpawn = this.player.canBuild(
+            this.constructionType,
+            this.tile,
+          );
+          if (canSpawn === false) {
+            console.warn(`cannot build ${this.constructionType}`);
+            return;
+          }
+          const built = this.player.buildUnit(
+            this.constructionType,
+            canSpawn,
+            {},
+          );
+          this.applyUpgradesIfNeeded(built, this.desiredLevel);
+        }
         break;
       case UnitType.Airfield:
         this.mg.addExecution(new AirfieldExecution(player, this.tile));
         break;
       default:
-        // Try to build the unit directly if it has no specific execution
-        const spawnTile = this.player.canBuild(
-          this.constructionType,
-          this.tile,
-        );
-        if (spawnTile === false) {
-          console.warn(`cannot build ${this.constructionType}`);
-          return;
+        {
+          const canSpawn = this.player.canBuild(
+            this.constructionType,
+            this.tile,
+          );
+          if (canSpawn === false) {
+            console.warn(`cannot build ${this.constructionType}`);
+            return;
+          }
+          const built = this.player.buildUnit(
+            this.constructionType,
+            canSpawn,
+            {},
+          );
+          this.applyUpgradesIfNeeded(built, this.desiredLevel);
         }
-        this.player.buildUnit(this.constructionType, spawnTile, {});
         break;
     }
   }
@@ -182,5 +273,24 @@ export class ConstructionExecution implements Execution {
 
   activeDuringSpawnPhase(): boolean {
     return false;
+  }
+
+  private computeDesiredLevel(type: UnitType, target?: number): number {
+    if (target === undefined || target < 1) return 1;
+    const cap = maxStructureLevel(type);
+    return Math.max(1, Math.min(cap, target));
+  }
+
+  // step cost is centralized in ../game/Costs
+
+  private applyUpgradesIfNeeded(unit: Unit, desiredLevel: number) {
+    const steps = Math.max(0, desiredLevel - 1);
+    if (steps <= 0) return;
+    const impl = unit as any; // UnitImpl
+    if (typeof impl.upgradeStructure === "function") {
+      for (let i = 0; i < steps; i++) {
+        impl.upgradeStructure();
+      }
+    }
   }
 }

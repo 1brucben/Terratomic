@@ -144,7 +144,12 @@ export class Executor {
       case "embargo":
         return new EmbargoExecution(player, intent.targetID, intent.action);
       case "build_unit":
-        return new ConstructionExecution(player, intent.unit, intent.tile);
+        return new ConstructionExecution(
+          player,
+          intent.unit,
+          intent.tile,
+          intent.targetLevel,
+        );
       case "purchase_upgrade":
         return new PurchaseUpgradeExecution(player, intent.upgrade);
       case "upgrade_structure": {
