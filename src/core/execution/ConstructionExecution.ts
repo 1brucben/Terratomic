@@ -1,4 +1,4 @@
-import { computeUpgradeStepCost } from "../game/Costs";
+import { aggregateStructureBuildCost } from "../game/Costs";
 import {
   Execution,
   Game,
@@ -82,14 +82,15 @@ export class ConstructionExecution implements Execution {
           this.active = false;
           return;
         }
-        const steps = Math.max(0, this.desiredLevel - 1);
-        const stepCost = computeUpgradeStepCost(
-          this.baseCost,
+        const total = aggregateStructureBuildCost(
+          this.mg,
+          this.player,
+          this.constructionType,
+          this.desiredLevel,
           this.mg
             .config()
             .structureUpgradeCostMultiplier(this.constructionType),
         );
-        const total = this.baseCost + stepCost * BigInt(steps);
         if (this.player.gold() < total) {
           console.warn(
             `cannot afford construction ${this.constructionType} at level ${this.desiredLevel}`,
@@ -113,13 +114,13 @@ export class ConstructionExecution implements Execution {
         this.constructionType,
         this.targetLevel,
       );
-      const upgradeSteps = Math.max(0, this.desiredLevel - 1);
-      const upgradeCostPerStep = computeUpgradeStepCost(
-        this.baseCost,
+      const totalCost = aggregateStructureBuildCost(
+        this.mg,
+        this.player,
+        this.constructionType,
+        this.desiredLevel,
         this.mg.config().structureUpgradeCostMultiplier(this.constructionType),
       );
-      const totalCost =
-        this.baseCost + upgradeCostPerStep * BigInt(upgradeSteps);
       if (this.player.gold() < totalCost) {
         console.warn(
           `cannot afford construction ${this.constructionType} at level ${this.desiredLevel}`,

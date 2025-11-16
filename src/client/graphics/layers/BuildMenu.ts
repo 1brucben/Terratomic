@@ -508,7 +508,13 @@ export class BuildMenu extends LitElement {
     const multiplier = this.game
       .config()
       .structureUpgradeCostMultiplier(item.unitType);
-    return aggregateStructureBuildCost(base, desired, multiplier);
+    return aggregateStructureBuildCost(
+      this.game.config(),
+      this.game.myPlayer()!,
+      item.unitType,
+      desired,
+      multiplier,
+    );
   }
 
   private _desiredLevel(type: UnitType): number {
