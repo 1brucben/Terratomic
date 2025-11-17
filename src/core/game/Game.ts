@@ -518,6 +518,9 @@ export interface Unit {
   setTradeRouteOwners(startOwner: Player | null, endOwner: Player | null): void;
   tradeRouteStartOwner(): Player | null;
   tradeRouteEndOwner(): Player | null;
+  // Trade navigation phase (null when idle/returning or no active assignment)
+  setTradePhase(phase: "toStart" | "toEnd" | null): void;
+  tradePhase(): "toStart" | "toEnd" | null;
 
   // Trade ship cargo (gold carried during a route; awarded on capture return)
   setCargoGold(amount: Gold): void;

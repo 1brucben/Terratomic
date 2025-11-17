@@ -62,6 +62,7 @@ export class UnitImpl implements Unit {
   private _tradeRouteEndOwner: PlayerImpl | null = null;
   // Trade-ship specific: cargo carried (gold)
   private _cargoGold: bigint = 0n;
+  private _tradePhase: "toStart" | "toEnd" | null = null;
 
   constructor(
     private _type: UnitType,
@@ -173,6 +174,22 @@ export class UnitImpl implements Unit {
       returning: this.returning(),
       isAttacking: this.isAttacking,
       isDetectedByNavalUnit: this.isDetectedByNavalUnit,
+      // Trade metadata
+      tradeRouteStartOwnerID: this._tradeRouteStartOwner
+        ? this._tradeRouteStartOwner.smallID()
+        : undefined,
+      tradeRouteEndOwnerID: this._tradeRouteEndOwner
+        ? this._tradeRouteEndOwner.smallID()
+        : undefined,
+      tradePhase: this._tradePhase ?? undefined,
+      dockedAtPortOwnerID: (() => {
+        if (this._type !== UnitType.TradeShip) return undefined;
+        const here = this._tile;
+        const portHere = this.mg
+          .unitsAt(here)
+          .find((u) => u.type() === UnitType.Port) as UnitImpl | undefined;
+        return portHere ? portHere.owner().smallID() : undefined;
+      })(),
     };
   }
 
@@ -669,6 +686,13 @@ export class UnitImpl implements Unit {
   }
   tradeRouteEndOwner(): PlayerImpl | null {
     return this._tradeRouteEndOwner;
+  }
+
+  setTradePhase(phase: "toStart" | "toEnd" | null): void {
+    this._tradePhase = phase;
+  }
+  tradePhase(): "toStart" | "toEnd" | null {
+    return this._tradePhase;
   }
 
   setCargoGold(amount: bigint): void {

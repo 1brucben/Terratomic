@@ -161,6 +161,30 @@ export class UnitView {
     return this.data.targetedBySAM ?? false;
   }
 
+  // Trade metadata (optional)
+  tradeRouteStartOwner(): PlayerView | null {
+    const id = (this.data as any).tradeRouteStartOwnerID as number | undefined;
+    return id !== undefined
+      ? (this.gameView.playerBySmallID(id) as PlayerView)
+      : null;
+  }
+  tradeRouteEndOwner(): PlayerView | null {
+    const id = (this.data as any).tradeRouteEndOwnerID as number | undefined;
+    return id !== undefined
+      ? (this.gameView.playerBySmallID(id) as PlayerView)
+      : null;
+  }
+  tradePhase(): "toStart" | "toEnd" | null {
+    const v = (this.data as any).tradePhase as "toStart" | "toEnd" | undefined;
+    return v ?? null;
+  }
+  dockedAtPortOwner(): PlayerView | null {
+    const id = (this.data as any).dockedAtPortOwnerID as number | undefined;
+    return id !== undefined
+      ? (this.gameView.playerBySmallID(id) as PlayerView)
+      : null;
+  }
+
   // Structure upgrade level (>=1). Defaults to 1 when undefined in updates.
   level(): number {
     return (this.data as any).level ?? 1;

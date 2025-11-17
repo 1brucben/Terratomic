@@ -10,7 +10,7 @@ import {
   UnitType,
   UpgradeType,
 } from "../../../core/game/Game";
-import { GameView, PlayerView } from "../../../core/game/GameView";
+import { GameView, PlayerView, UnitView } from "../../../core/game/GameView";
 import { getTechMeta, RESEARCH_TECH_IDS } from "../../../core/tech/TechEffects";
 // Ensure modal custom elements register at runtime
 import "../../BuildSettingsModal";
@@ -87,7 +87,8 @@ export class ControlPanel2 extends LitElement implements Layer {
   private init_: boolean = false;
 
   @state()
-  private activeTab: "Build" | "Attack" | "Economy" | "Bombers" = "Build";
+  private activeTab: "Build" | "Attack" | "Economy" | "Bombers" | "Trade" =
+    "Build";
 
   @state()
   private _lastAirfieldCount: number = 0;
@@ -235,6 +236,11 @@ export class ControlPanel2 extends LitElement implements Layer {
       this.investmentSyncRequestHandler,
     );
     super.disconnectedCallback();
+  }
+
+  // Restore disabled shadow DOM so legacy global CSS and querySelector usage continue working
+  protected createRenderRoot(): HTMLElement | DocumentFragment {
+    return this; // Render into light DOM
   }
 
   init() {
@@ -950,7 +956,9 @@ export class ControlPanel2 extends LitElement implements Layer {
     return el;
   }
 
-  private _changeTab(tab: "Build" | "Attack" | "Economy" | "Bombers") {
+  private _changeTab(
+    tab: "Build" | "Attack" | "Economy" | "Bombers" | "Trade",
+  ) {
     this.activeTab = tab;
     if (this.uiState.pendingBuildUnitType) {
       this.uiState.pendingBuildUnitType = null;
@@ -1169,6 +1177,15 @@ export class ControlPanel2 extends LitElement implements Layer {
             @click=${() => this._changeTab("Economy")}
           >
             Economy
+          </button>
+          <button
+            class="py-2 px-4 text-center font-ocr uppercase cp2-tab ${this
+              .activeTab === "Trade"
+              ? "active"
+              : ""}"
+            @click=${() => this._changeTab("Trade")}
+          >
+            Trade
           </button>
           ${this._hasAirfields
             ? html`
@@ -1834,13 +1851,80 @@ export class ControlPanel2 extends LitElement implements Layer {
                 </div>
               `
             : ""}
+          ${this.activeTab === "Trade" ? this._renderTradeTab() : ""}
         </div>
       </div>
     `;
   }
 
-  createRenderRoot() {
-    return this; // Disable shadow DOM to allow Tailwind styles
+  private _renderTradeTab() {
+    const me = this.game.myPlayer();
+    if (!me) return html``;
+    const ships = me.units(UnitType.TradeShip).filter((u) => u.isActive());
+
+    const rows = ships.map((ship) => {
+      const tile = ship.tile();
+      const x = this.game.x(tile);
+      const y = this.game.y(tile);
+      const status = this._computeTradeShipStatus(ship);
+      return html`
+        <div
+          class="flex items-center justify-between py-1 px-2 border-b"
+          style="border-color: var(--ui-panel-border)"
+        >
+          <div class="truncate">
+            <span class="text-blue-200">Ship #${ship.id()}</span>
+            <span class="text-gray-400 ml-2">${status}</span>
+          </div>
+          <div class="text-gray-300 font-mono">(${x}, ${y})</div>
+        </div>
+      `;
+    });
+
+    return html`
+      <div class="w-full">
+        <h3 class="military-heading mb-2">Trade Ships</h3>
+        ${ships.length === 0
+          ? html`<div class="text-gray-400">No active trade ships.</div>`
+          : html`<div class="divide-y">${rows}</div>`}
+      </div>
+    `;
+  }
+
+  private _computeTradeShipStatus(ship: UnitView): string {
+    const ownerName = (pv: PlayerView | null) => pv?.displayName() ?? "Unknown";
+    const dockOwner = ship.dockedAtPortOwner();
+    const startOwner = ship.tradeRouteStartOwner();
+    const endOwner = ship.tradeRouteEndOwner();
+    const targetId = ship.targetUnitId();
+    const targetUnit =
+      targetId !== undefined ? this.game.unit(targetId) : undefined;
+
+    if (dockOwner && !ship.returning() && targetId === undefined) {
+      return `in port owned by ${ownerName(dockOwner)}`;
+    }
+
+    if (ship.returning()) {
+      if (targetUnit && targetUnit.type() === UnitType.Port) {
+        return `returning to port owned by ${ownerName(targetUnit.owner())}`;
+      }
+      return "returning to port";
+    }
+
+    const phase = ship.tradePhase();
+    if (phase === "toStart") {
+      return `traveling to start port owned by ${ownerName(startOwner)}`;
+    }
+    if (phase === "toEnd") {
+      if (startOwner || endOwner) {
+        return `trading between ${ownerName(startOwner)} and ${ownerName(endOwner)}`;
+      }
+      if (targetUnit && targetUnit.type() === UnitType.Port) {
+        return `traveling to port owned by ${ownerName(targetUnit.owner())}`;
+      }
+    }
+
+    return "at sea";
   }
 }
 
