@@ -127,15 +127,9 @@ export class SubmarineExecution implements Execution {
         continue;
       }
       if (unit.type() === UnitType.TradeShip) {
-        if (
-          !hasPort ||
-          unit.isSafeFromPirates() ||
-          unit.targetUnit()?.owner() === this.submarine.owner() || // trade ship is coming to my port
-          unit
-            .targetUnit()
-            ?.owner()
-            .isFriendly(this.submarine.owner() as any) // trade ship is coming to my ally
-        ) {
+        if (!hasPort || unit.isSafeFromPirates()) {
+          // Submarines only engage enemy trade ships when at war, but still
+          // respect basic protections like safe-from-pirates and owner having a port.
           continue;
         }
         if (
