@@ -1,5 +1,2 @@
-import { GameEvent } from "../../core/EventBus";
-
-export class ToggleUnitUpgradeModeEvent implements GameEvent {
-  constructor(public readonly enabled: boolean) {}
-}
+// Deprecated placeholder to maintain git history; file will be removed.
+export {};

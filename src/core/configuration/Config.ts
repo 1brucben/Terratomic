@@ -179,6 +179,8 @@ export interface Config {
 
   // Structure upgrade cost multiplier per structure type (e.g., 0.8 for 80%)
   structureUpgradeCostMultiplier(type: UnitType): number;
+  // Unit upgrade cost multiplier per unit type (e.g., 0.2 for 20%)
+  unitUpgradeCostMultiplier(type: UnitType): number;
 
   cargoPlaneGold(dist: number): Gold;
   cargoPlaneSpawnRate(numberOfAirplanes: number): number;

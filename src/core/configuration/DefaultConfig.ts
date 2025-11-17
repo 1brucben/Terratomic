@@ -1361,6 +1361,17 @@ export class DefaultConfig implements Config {
         return 1.0;
     }
   }
+  // --- Unit upgrade cost multipliers ---
+  unitUpgradeCostMultiplier(type: UnitType): number {
+    switch (type) {
+      case UnitType.Warship:
+      case UnitType.FighterJet:
+      case UnitType.Submarine:
+        return 0.2; // Default 20% per step for upgradeable units
+      default:
+        return 1.0;
+    }
+  }
   // --- Research system defaults ---
   // f(x) = A * investment^B, where investment is gold allocated to research this tick
   researchAlpha(): number {

@@ -23,6 +23,7 @@ export class FighterJetExecution implements Execution {
 
   constructor(
     private input: (UnitParams<UnitType.FighterJet> & OwnerComp) | Unit,
+    private desiredLevel: number = 1,
   ) {}
 
   init(mg: GameImpl): void {
@@ -42,6 +43,11 @@ export class FighterJetExecution implements Execution {
       this.fighterJet = this.input.owner.buildUnit(UnitType.FighterJet, spawn, {
         patrolTile: this.input.patrolTile,
       });
+      const lvl = Math.max(1, this.desiredLevel | 0);
+      if (lvl > 1) {
+        (this.fighterJet as any)._level = lvl;
+        this.mg.addUpdate(this.fighterJet.toUpdate());
+      }
     }
   }
 

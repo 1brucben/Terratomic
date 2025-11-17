@@ -542,11 +542,13 @@ export class BuildMenu extends LitElement {
         multiplier,
       );
     }
-    // Units: apply 20% per upgrade step for upgradeable combat units
+    // Units: apply configured per-step multiplier for upgradeable combat units
     if (isUpgradeableUnit(item.unitType)) {
       const desired = this._desiredUnitLevel(item.unitType);
       if (desired <= 1) return base;
-      const multiplier = 0.2; // 20%
+      const multiplier = this.game
+        .config()
+        .unitUpgradeCostMultiplier(item.unitType);
       return aggregateStructureBuildCost(
         this.game.config(),
         this.game.myPlayer()!,

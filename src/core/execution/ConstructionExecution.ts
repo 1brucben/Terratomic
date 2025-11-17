@@ -11,7 +11,11 @@ import {
   UpgradeType,
 } from "../game/Game";
 import { TileRef } from "../game/GameMap";
-import { maxStructureLevel } from "../game/Upgradeables";
+import {
+  isUpgradeableUnit,
+  maxStructureLevel,
+  maxUnitLevel,
+} from "../game/Upgradeables";
 import { AirfieldExecution } from "./AirfieldExecution";
 import { DefensePostExecution } from "./DefensePostExecution";
 import { FighterJetExecution } from "./FighterJetExecution";
@@ -87,9 +91,11 @@ export class ConstructionExecution implements Execution {
           this.player,
           this.constructionType,
           this.desiredLevel,
-          this.mg
-            .config()
-            .structureUpgradeCostMultiplier(this.constructionType),
+          isUpgradeableUnit(this.constructionType)
+            ? this.mg.config().unitUpgradeCostMultiplier(this.constructionType)
+            : this.mg
+                .config()
+                .structureUpgradeCostMultiplier(this.constructionType),
         );
         if (this.player.gold() < total) {
           console.warn(
@@ -119,7 +125,11 @@ export class ConstructionExecution implements Execution {
         this.player,
         this.constructionType,
         this.desiredLevel,
-        this.mg.config().structureUpgradeCostMultiplier(this.constructionType),
+        isUpgradeableUnit(this.constructionType)
+          ? this.mg.config().unitUpgradeCostMultiplier(this.constructionType)
+          : this.mg
+              .config()
+              .structureUpgradeCostMultiplier(this.constructionType),
       );
       if (this.player.gold() < totalCost) {
         console.warn(
@@ -185,17 +195,26 @@ export class ConstructionExecution implements Execution {
         break;
       case UnitType.Warship:
         this.mg.addExecution(
-          new WarshipExecution({ owner: player, patrolTile: this.tile }),
+          new WarshipExecution(
+            { owner: player, patrolTile: this.tile },
+            this.desiredLevel,
+          ),
         );
         break;
       case UnitType.Submarine:
         this.mg.addExecution(
-          new SubmarineExecution({ owner: player, patrolTile: this.tile }),
+          new SubmarineExecution(
+            { owner: player, patrolTile: this.tile },
+            this.desiredLevel,
+          ),
         );
         break;
       case UnitType.FighterJet:
         this.mg.addExecution(
-          new FighterJetExecution({ owner: player, patrolTile: this.tile }),
+          new FighterJetExecution(
+            { owner: player, patrolTile: this.tile },
+            this.desiredLevel,
+          ),
         );
         break;
       case UnitType.Port:
@@ -278,7 +297,9 @@ export class ConstructionExecution implements Execution {
 
   private computeDesiredLevel(type: UnitType, target?: number): number {
     if (target === undefined || target < 1) return 1;
-    const cap = maxStructureLevel(type);
+    const cap = isUpgradeableUnit(type)
+      ? maxUnitLevel(type)
+      : maxStructureLevel(type);
     return Math.max(1, Math.min(cap, target));
   }
 

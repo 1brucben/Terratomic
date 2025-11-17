@@ -8,6 +8,7 @@ import {
   UnitType,
   UpgradeType,
 } from "../game/Game";
+import { GameImpl } from "../game/GameImpl";
 import { TileRef } from "../game/GameMap";
 import { PathFindResultType } from "../pathfinding/AStar";
 import { PathFinder } from "../pathfinding/PathFinding";
@@ -18,7 +19,7 @@ import { ShellExecution } from "./ShellExecution";
 export class WarshipExecution implements Execution {
   private random: PseudoRandom;
   private warship: Unit;
-  private mg: Game;
+  private mg: GameImpl;
   private pathfinder: PathFinder;
   private lastShellAttack = 0;
   private alreadySentShell = new Set<Unit>();
@@ -28,10 +29,11 @@ export class WarshipExecution implements Execution {
 
   constructor(
     private input: (UnitParams<UnitType.Warship> & OwnerComp) | Unit,
+    private desiredLevel: number = 1,
   ) {}
 
   init(mg: Game, ticks: number): void {
-    this.mg = mg;
+    this.mg = mg as GameImpl;
     this.pathfinder = PathFinder.Mini(mg, 10_000, true, 100);
     this.random = new PseudoRandom(mg.ticks());
     if (isUnit(this.input)) {
@@ -50,6 +52,11 @@ export class WarshipExecution implements Execution {
       this.warship = this.input.owner.buildUnit(UnitType.Warship, spawn, {
         patrolTile: this.input.patrolTile,
       });
+      const lvl = Math.max(1, this.desiredLevel | 0);
+      if (lvl > 1) {
+        (this.warship as any)._level = lvl;
+        this.mg.addUpdate(this.warship.toUpdate());
+      }
     }
     this.pseudoRandom = new PseudoRandom(this.warship.id());
   }

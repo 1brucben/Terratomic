@@ -12,7 +12,11 @@ import {
 } from "../core/game/Game";
 import { TileRef } from "../core/game/GameMap";
 import { PlayerView } from "../core/game/GameView";
-import { maxStructureLevel } from "../core/game/Upgradeables";
+import {
+  isUpgradeableUnit,
+  maxStructureLevel,
+  maxUnitLevel,
+} from "../core/game/Upgradeables";
 import {
   AllPlayersStats,
   ClientHashMessage,
@@ -679,16 +683,27 @@ export class Transport {
     this._lastBuildAt = now;
 
     // Compute desired starting level for upgradeable structures from local settings.
+    // Compute desired starting level for upgradeable structures or units from local settings.
     let targetLevel: number | undefined;
     try {
-      const raw = localStorage.getItem("buildSettings.levels");
-      if (raw) {
-        const obj = JSON.parse(raw) as Record<string, number>;
-        const key = String(event.unit);
-        const val = obj?.[key];
-        if (typeof val === "number" && val > 1) {
-          // Enforce cap for missile silo / SAM launcher locally (server re-validates).
-          targetLevel = Math.min(maxStructureLevel(event.unit), val);
+      const key = String(event.unit);
+      if (isUpgradeableUnit(event.unit)) {
+        const rawUnits = localStorage.getItem("unitUpgradeSettings.levels");
+        if (rawUnits) {
+          const obj = JSON.parse(rawUnits) as Record<string, number>;
+          const val = obj?.[key];
+          if (typeof val === "number" && val > 1) {
+            targetLevel = Math.min(maxUnitLevel(event.unit), val);
+          }
+        }
+      } else {
+        const rawStruct = localStorage.getItem("buildSettings.levels");
+        if (rawStruct) {
+          const obj = JSON.parse(rawStruct) as Record<string, number>;
+          const val = obj?.[key];
+          if (typeof val === "number" && val > 1) {
+            targetLevel = Math.min(maxStructureLevel(event.unit), val);
+          }
         }
       }
     } catch {
