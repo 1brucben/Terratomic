@@ -1951,9 +1951,11 @@ export class ControlPanel2 extends LitElement implements Layer {
               <div class="divide-y">${pendingRows}</div>
             </div>`
           : ""}
-        ${ships.length === 0
-          ? html`<div class="text-gray-400">No active trade ships.</div>`
-          : html`<div class="divide-y">${rows}</div>`}
+        ${ships.length > 0
+          ? html`<div class="divide-y">${rows}</div>`
+          : ships.length === 0 && pendingRows.length === 0
+            ? html`<div class="text-gray-400">No active trade ships.</div>`
+            : ""}
       </div>
     `;
   }
