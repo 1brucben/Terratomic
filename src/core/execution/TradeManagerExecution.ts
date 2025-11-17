@@ -167,8 +167,10 @@ export class TradeManagerExecution implements Execution {
         const demandDelta =
           worldGDP > 0 ? (K * a.gdp() * b.gdp()) / dist / worldGDP : 0;
         const k = this.key(a, b);
-        const prev = this.demand.get(k) ?? 0;
-        const next = prev + demandDelta;
+        // Initialize with a uniform random fractional remainder in [0,1) once per pair
+        let prev = this.demand.get(k);
+        if (prev === undefined) prev = Math.random();
+        const next = (prev as number) + demandDelta;
         // Enqueue integer demand, keep fractional remainder
         if (next >= 1) {
           const count = Math.floor(next);
@@ -361,6 +363,8 @@ export class TradeManagerExecution implements Execution {
       if (!ship.isActive()) continue;
       // Do not consider ships that are flagged as returning
       if (ship.returning()) continue;
+      // Exclude ships already on a trade assignment this tick (phase set)
+      if (ship.tradePhase && ship.tradePhase() !== null) continue;
       // Idle and docked: considered available
       if (ship.targetUnit() !== undefined) continue;
       // Consider available if docked at ANY port tile (regardless of owner)
@@ -408,7 +412,7 @@ export class TradeManagerExecution implements Execution {
       // Assign: set target to start port if not already there; execution will handle moves
       this.queue.shift();
       this.mg.addExecution(
-        new AssignedTradeRouteExecution(ship, startPort, endPort),
+        new AssignedTradeRouteExecution(this, ship, startPort, endPort),
       );
       this.logShip(
         ship,
@@ -419,6 +423,11 @@ export class TradeManagerExecution implements Execution {
           .displayName()}' queueRemaining=${this.queue.length}`,
       );
     }
+  }
+
+  // Requeue a route demand back into FIFO queue (called by executions on abort)
+  public requeueRoute(from: Player, to: Player): void {
+    this.queue.push({ from, to });
   }
 }
 
@@ -431,6 +440,7 @@ export class AssignedTradeRouteExecution implements Execution {
   private lastPort: Unit | null = null;
 
   constructor(
+    private manager: TradeManagerExecution,
     private ship: Unit,
     private startPort: Unit,
     private endPort: Unit,
@@ -438,7 +448,7 @@ export class AssignedTradeRouteExecution implements Execution {
 
   init(mg: Game, ticks: number): void {
     this.mg = mg;
-    this.path = PathFinder.Mini(mg, 10000);
+    this.path = PathFinder.Mini(mg, 30000, true, 100);
     this.lastMoveTick = ticks;
     // Ensure ship is not in a stale 'returning' state from a prior turnaround
     this.ship.setReturning(false);
@@ -782,10 +792,24 @@ export class AssignedTradeRouteExecution implements Execution {
             targetTile,
           )},${this.mg.y(targetTile)}) manhattanDist=${failDist} iterationsBudget=2500`,
         );
+        // Reset ship to idle-at-port state and clear trade metadata
+        this.ship.setReturning(false);
         this.ship.setTradePhase(null);
+        this.ship.setTargetUnit(undefined);
+        this.ship.setTradeRouteOwners(null, null);
+        this.ship.setCargoGold(0n);
+        // Return the demanded route to the queue for future assignment (only if not in 'returning')
+        if (!this.ship.returning()) {
+          this.manager.requeueRoute(
+            this.startPort.owner(),
+            this.endPort.owner(),
+          );
+        }
         this.active = false;
         this.log(
-          `abort ship=${this.ship.id()} reason=pathNotFound phase=${this.phase}`,
+          `abort ship=${this.ship.id()} reason=pathNotFound phase=${this.phase} requeuedRoute=(${this.startPort.owner().smallID()}->${this.endPort
+            .owner()
+            .smallID()})`,
         );
         break;
     }
