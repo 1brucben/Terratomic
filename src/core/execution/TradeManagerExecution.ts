@@ -496,9 +496,31 @@ export class TradeManagerExecution implements Execution {
         continue;
       }
 
-      // Pick a random available ship (uniform) and remove it from availability for this tick
-      const idx = Math.floor(Math.random() * available.length);
-      const [ship] = available.splice(idx, 1);
+      // Pick an available ship weighted by inverse Manhattan distance to start port (closer ships favored)
+      const sx = this.mg.x(startPort.tile());
+      const sy = this.mg.y(startPort.tile());
+      let totalWeight = 0;
+      const weights: number[] = new Array(available.length);
+      for (let i = 0; i < available.length; i++) {
+        const ship = available[i];
+        const dx = Math.abs(this.mg.x(ship.tile()) - sx);
+        const dy = Math.abs(this.mg.y(ship.tile()) - sy);
+        const dist = dx + dy;
+        const w = 1 / (dist + 1); // distance 0 -> weight 1, dist 1 -> 0.5, etc.
+        weights[i] = w;
+        totalWeight += w;
+      }
+      const r = Math.random() * totalWeight;
+      let acc = 0;
+      let chosenIndex = 0;
+      for (let i = 0; i < weights.length; i++) {
+        acc += weights[i];
+        if (r <= acc) {
+          chosenIndex = i;
+          break;
+        }
+      }
+      const [ship] = available.splice(chosenIndex, 1);
 
       // Assign: set target to start port if not already there; execution will handle moves
       this.queue.shift();
