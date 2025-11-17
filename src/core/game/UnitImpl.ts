@@ -63,8 +63,9 @@ export class UnitImpl implements Unit {
   // Trade-ship specific: cargo carried (gold)
   private _cargoGold: bigint = 0n;
   private _tradePhase: "toStart" | "toEnd" | null = null;
-  // Port-specific: pending trade ship construction due tick (if a trade ship is scheduled for this port)
-  private _pendingTradeShipDueTick: Tick | null = null;
+  // Port-specific: pending trade ship construction due tick (legacy single) and multiple concurrent builds
+  private _pendingTradeShipDueTick: Tick | null = null; // deprecated after multi-build
+  private _pendingTradeShipDueTicks: Tick[] = [];
 
   constructor(
     private _type: UnitType,
@@ -196,6 +197,11 @@ export class UnitImpl implements Unit {
         this._type === UnitType.Port && this._pendingTradeShipDueTick !== null
           ? this._pendingTradeShipDueTick
           : undefined,
+      pendingTradeShipDueTicks:
+        this._type === UnitType.Port &&
+        this._pendingTradeShipDueTicks.length > 0
+          ? [...this._pendingTradeShipDueTicks]
+          : undefined,
     };
   }
 
@@ -252,7 +258,7 @@ export class UnitImpl implements Unit {
     return this._level;
   }
 
-  // Port-specific accessor/mutator for scheduled trade ship construction
+  // Port-specific accessor/mutator for scheduled trade ship construction (single legacy)
   setPendingTradeShipDueTick(due: Tick | null): void {
     if (this._pendingTradeShipDueTick !== due) {
       this._pendingTradeShipDueTick = due;
@@ -264,6 +270,20 @@ export class UnitImpl implements Unit {
   }
   pendingTradeShipDueTick(): Tick | null {
     return this._pendingTradeShipDueTick;
+  }
+  // Multi-build: replace entire set
+  setPendingTradeShipDueTicks(dueTicks: Tick[]): void {
+    // Normalize & sort ascending for UI consistency
+    const normalized = [...dueTicks].sort((a, b) => a - b);
+    const changed =
+      normalized.length !== this._pendingTradeShipDueTicks.length ||
+      normalized.some((v, i) => v !== this._pendingTradeShipDueTicks[i]);
+    if (!changed) return;
+    this._pendingTradeShipDueTicks = normalized;
+    if (this._type === UnitType.Port) this.mg.addUpdate(this.toUpdate());
+  }
+  pendingTradeShipDueTicks(): Tick[] {
+    return [...this._pendingTradeShipDueTicks];
   }
 
   /**

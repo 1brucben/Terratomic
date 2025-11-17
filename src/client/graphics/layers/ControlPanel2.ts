@@ -1864,39 +1864,40 @@ export class ControlPanel2 extends LitElement implements Layer {
     const ports = me.units(UnitType.Port).filter((p) => p.isActive());
     const ticks = this.game.ticks();
     const delay = this.game.config().tradeShipReplacementDelayTicks();
-    const pendingPorts = ports
-      .map((p) => ({
-        port: p,
-        due: (p as any).pendingTradeShipDueTick?.() ?? null,
-      }))
-      .filter((x) => x.due !== null && x.due! > ticks);
-
-    const pendingRows = pendingPorts.map(({ port, due }) => {
-      const remaining = due! - ticks;
+    // Multi-build: gather all pending construction due ticks across ports
+    const pendingEntries: Array<{ port: UnitView; due: number }> = [];
+    for (const p of ports) {
+      const arr: number[] = (p as any).pendingTradeShipDueTicks?.() ?? [];
+      for (const due of arr) {
+        if (due > ticks) pendingEntries.push({ port: p, due });
+      }
+    }
+    pendingEntries.sort((a, b) => a.due - b.due);
+    const pendingRows = pendingEntries.map(({ port, due }, idx) => {
+      const remaining = due - ticks;
       const pct = Math.min(
         100,
         Math.max(0, Math.round(((delay - remaining) / delay) * 100)),
       );
-      return html` <div
+      return html`<div
         class="py-1 px-2 border-b"
         style="border-color: var(--ui-panel-border)"
       >
-        <div class="flex justify-between items-center mb-1">
-          <div class="text-gray-300">
-            Trade Ship (Port #${port.id()}) constructing…
-          </div>
-          <div class="text-gray-400 text-xs font-mono">${remaining} ticks</div>
+        <div class="mb-1 text-gray-300">
+          Trade Ship #${idx + 1} (Port #${port.id()}) constructing…
         </div>
-        <div class="w-full h-2 rounded bg-gray-700 overflow-hidden">
-          <div class="h-2 bg-green-500" style="width:${pct}%;"></div>
+        <div class="progress-track" style="height:6px;">
+          <div class="progress-fill" style="width:${pct}%;"></div>
         </div>
       </div>`;
     });
 
+    const mapHeight = this.game.height();
     const rows = ships.map((ship) => {
       const tile = ship.tile();
       const x = this.game.x(tile);
-      const y = this.game.y(tile);
+      const topOriginY = this.game.y(tile);
+      const y = mapHeight - 1 - topOriginY; // display with bottom-left origin
       const status = this._computeTradeShipStatus(ship);
       return html`
         <div
@@ -1918,6 +1919,35 @@ export class ControlPanel2 extends LitElement implements Layer {
         ${pendingRows.length > 0
           ? html`<div class="mb-2">
               <h4 class="text-gray-200 text-sm mb-1">Under Construction</h4>
+              <style>
+                /* Reuse research progress bar styling */
+                .progress-track {
+                  width: 100%;
+                  background: color-mix(
+                    in srgb,
+                    var(--ui-secondary) 25%,
+                    transparent
+                  );
+                  border: 1px solid
+                    color-mix(in srgb, var(--ui-secondary) 35%, transparent);
+                  border-radius: 6px;
+                  overflow: hidden;
+                  margin: 0;
+                }
+                .progress-fill {
+                  height: 100%;
+                  background: linear-gradient(
+                    90deg,
+                    color-mix(in srgb, var(--ui-info) 90%, transparent) 0%,
+                    color-mix(in srgb, var(--ui-info) 70%, transparent) 100%
+                  );
+                  box-shadow:
+                    0 0 10px color-mix(in srgb, var(--ui-info) 55%, transparent),
+                    0 0 16px color-mix(in srgb, var(--ui-info) 35%, transparent),
+                    inset 0 0 4px
+                      color-mix(in srgb, var(--ui-text-light) 10%, transparent);
+                }
+              </style>
               <div class="divide-y">${pendingRows}</div>
             </div>`
           : ""}

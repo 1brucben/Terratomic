@@ -147,6 +147,8 @@ export interface UnitUpdate {
   dockedAtPortOwnerID?: number; // smallID of the owner of the port the ship is currently docked at (if any)
   // Port-specific: when a trade ship is scheduled from this port, its construction completion tick
   pendingTradeShipDueTick?: Tick;
+  // Port-specific: support multiple concurrent trade ship constructions
+  pendingTradeShipDueTicks?: Tick[];
 }
 
 export interface AttackUpdate {

@@ -195,6 +195,13 @@ export class UnitView {
     const v = (this.data as any).pendingTradeShipDueTick as Tick | undefined;
     return v !== undefined ? v : null;
   }
+  // Port-specific: multiple pending trade ship construction due ticks
+  pendingTradeShipDueTicks(): Tick[] {
+    const arr = (this.data as any).pendingTradeShipDueTicks as
+      | Tick[]
+      | undefined;
+    return Array.isArray(arr) ? [...arr] : [];
+  }
 }
 
 export class PlayerView {
