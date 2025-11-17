@@ -165,6 +165,7 @@ export function getMessageTypeClasses(type: MessageType): string {
   switch (type) {
     case MessageType.SAM_HIT:
     case MessageType.CAPTURED_ENEMY_UNIT:
+    case MessageType.TRADE_SHIP_CAPTURED_ENEMY:
     case MessageType.RECEIVED_GOLD_FROM_TRADE:
     case MessageType.CONQUERED_PLAYER:
     case MessageType.INSURANCE_REFUND:
@@ -174,6 +175,8 @@ export function getMessageTypeClasses(type: MessageType): string {
     case MessageType.ALLIANCE_BROKEN:
     case MessageType.UNIT_CAPTURED_BY_ENEMY:
     case MessageType.UNIT_DESTROYED:
+    case MessageType.TRADE_SHIP_CAPTURED:
+    case MessageType.TRADE_SHIP_SUNK:
       return severityColors["fail"];
     case MessageType.ATTACK_CANCELLED:
     case MessageType.ATTACK_REQUEST:
@@ -192,6 +195,7 @@ export function getMessageTypeClasses(type: MessageType): string {
     case MessageType.PARATROOPER_INBOUND:
     case MessageType.WARN:
     case MessageType.PEACE_TIMER_BLOCKED:
+    case MessageType.TRADE_SHIP_TURNED_AROUND:
       return severityColors["warn"];
     case MessageType.WAR_DECLARED:
       return severityColors["warn"]; // war start: highlight prominently

@@ -889,7 +889,7 @@ export class ControlPanel2 extends LitElement implements Layer {
 
   private _openBuildSettings() {
     const modal =
-      (document.querySelector("build-settings-modal") as any) ||
+      (document.querySelector("build-settings-modal") as any) ??
       this._ensureBuildSettingsModal();
     if (!modal) {
       console.warn("BuildSettingsModal element not found or failed to create");
@@ -1913,9 +1913,12 @@ export class ControlPanel2 extends LitElement implements Layer {
       `;
     });
 
-    // Compute demand indicator
-    const totalShips = ships.length;
-    const availableShips = ships.filter((s) => {
+    // Compute demand indicator (global: all trade ships, not just mine)
+    const allTradeShips = this.game
+      .units(UnitType.TradeShip)
+      .filter((u) => u.isActive());
+    const totalShips = allTradeShips.length;
+    const availableShips = allTradeShips.filter((s) => {
       const isReturning = s.returning();
       const phase = s.tradePhase();
       const hasTarget = s.targetUnitId() !== undefined;
@@ -2006,6 +2009,7 @@ export class ControlPanel2 extends LitElement implements Layer {
   }
 
   private _computeTradeShipStatus(ship: UnitView): string {
+    // Debug ship status logging removed
     const ownerName = (pv: PlayerView | null) => pv?.displayName() ?? "Unknown";
     const dockOwner = ship.dockedAtPortOwner();
     const startOwner = ship.tradeRouteStartOwner();
@@ -2026,6 +2030,7 @@ export class ControlPanel2 extends LitElement implements Layer {
     }
 
     const phase = ship.tradePhase();
+
     if (phase === "toStart") {
       return `traveling to start port owned by ${ownerName(startOwner)}`;
     }

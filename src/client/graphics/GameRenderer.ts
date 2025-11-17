@@ -22,6 +22,7 @@ import { NameLayer } from "./layers/NameLayer";
 import { OptionsMenu } from "./layers/OptionsMenu";
 import { PlayerInfoOverlay } from "./layers/PlayerInfoOverlay";
 import { PlayerPanel } from "./layers/PlayerPanel";
+import { PointerCoordsLayer } from "./layers/PointerCoordsLayer";
 import { RadialMenu } from "./layers/RadialMenu";
 import { RangeOverlayLayer } from "./layers/RangeOverlayLayer";
 import { ReplayPanel } from "./layers/ReplayPanel";
@@ -37,6 +38,9 @@ import { TopBar } from "./layers/TopBar";
 import { UILayer } from "./layers/UILayer";
 import { UnitLayer } from "./layers/UnitLayer";
 import { WinModal } from "./layers/WinModal";
+
+// Debug flags (keep off for normal gameplay)
+const DEBUG_SHOW_POINTER_COORDS = false;
 
 export function createRenderer(
   canvas: HTMLCanvasElement,
@@ -246,6 +250,10 @@ export function createRenderer(
     new NameLayer(game, transformHandler, eventBus),
     // UI layer comes after world-space drawing to minimize save/restore
     new UILayer(game, eventBus, transformHandler),
+    // Pointer coordinates (screen-space, debug only)
+    ...(DEBUG_SHOW_POINTER_COORDS
+      ? [new PointerCoordsLayer(game, eventBus, transformHandler)]
+      : []),
     eventsDisplay,
     chatDisplay,
     new RadialMenu(

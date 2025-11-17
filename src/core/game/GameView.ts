@@ -193,7 +193,7 @@ export class UnitView {
   // Port-specific: pending trade ship construction due tick (or null if none scheduled)
   pendingTradeShipDueTick(): Tick | null {
     const v = (this.data as any).pendingTradeShipDueTick as Tick | undefined;
-    return v !== undefined ? v : null;
+    return v ?? null;
   }
   // Port-specific: multiple pending trade ship construction due ticks
   pendingTradeShipDueTicks(): Tick[] {

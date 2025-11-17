@@ -2,6 +2,7 @@ import {
   Cell,
   Execution,
   Game,
+  MessageType,
   Player,
   PlayerType,
   Tick,
@@ -48,42 +49,12 @@ export class TradeManagerExecution implements Execution {
   private knownPortIds: Set<number> = new Set();
 
   // --- Debug helpers (human owners only) ---
-  private log(msg: string): void {
-    console.log(`[TRADE] ${msg}`);
-  }
-  private logShip(ship: Unit, msg: string): void {
-    const owner = ship.owner();
-    if (owner.type() === PlayerType.Human) {
-      this.log(
-        `t=${this.mg.ticks()} ship=${ship.id()} owner='${owner.displayName()}' ${msg}`,
-      );
-    }
-  }
+  // Logging removed per request; retain no-op stubs to avoid refactor churn
+  private log(_msg: string): void {}
+  private logShip(_ship: Unit, _msg: string): void {}
 
   init(mg: Game, _ticks: number): void {
     this.mg = mg;
-    // Start periodic queue length logging (every 5 seconds)
-    if (!this.queueLogIntervalId) {
-      this.queueLogIntervalId = setInterval(() => {
-        // Keep lightweight and consistent with other [TRADE] logs
-        console.log(`[TRADE] queue length=${this.queue.length}`);
-        // Also, per human player, report active trade ships and queued replacements
-        for (const p of this.mg.players()) {
-          if (p.type() !== PlayerType.Human) continue;
-          // Active trade ships owned by this player
-          const active = p
-            .units(UnitType.TradeShip)
-            .filter((u) => u.isActive()).length;
-          // Trade ships queued for replacement (scheduled but not yet built) for this player
-          const queued = Array.from(this.replacementDueAt.entries())
-            .filter(([portID]) => this.portOwnerById.get(portID) === p)
-            .reduce((sum, [, arr]) => sum + arr.length, 0);
-          console.log(
-            `[TRADE] ${p.displayName()} trade ships: active=${active} queued=${queued}`,
-          );
-        }
-      }, 5000);
-    }
   }
 
   isActive(): boolean {
@@ -103,35 +74,11 @@ export class TradeManagerExecution implements Execution {
     // 1) Periodic gravity-based demand accumulation
     const interval = this.mg.config().tradeDemandTickInterval();
     if (this.lastDemandTick === -1) this.lastDemandTick = ticks;
+    let didAccumulateThisTick = false;
     if (ticks - this.lastDemandTick >= interval) {
       this.lastDemandTick = ticks;
-      const beforeQL = this.queue.length;
       this.accumulateDemand();
-      const afterQL = this.queue.length;
-      // Instrumentation: log demand tick metrics and per-human indicator inputs
-      this.log(
-        `demandTick t=${ticks} interval=${interval} queue ${beforeQL}->${afterQL}`,
-      );
-      for (const p of this.mg.players()) {
-        if (p.type() !== PlayerType.Human) continue;
-        const totalShips = p
-          .units(UnitType.TradeShip)
-          .filter((u) => u.isActive()).length;
-        const availableCount = this.availableShipsFor(p).length;
-        const denom = Math.max(1, totalShips);
-        const queuedPct = afterQL / denom;
-        const availablePct = availableCount / denom;
-        let label = "Medium";
-        if (queuedPct > 0.5) label = "Very High";
-        else if (queuedPct > 0.25) label = "High";
-        else if (availablePct > 0.5) label = "Very Low";
-        else if (availablePct > 0.25) label = "Low";
-        this.log(
-          `demandInputs player='${p.displayName()}' ships total=${totalShips} available=${availableCount} queue=${afterQL} queuedPct=${Math.round(
-            queuedPct * 100,
-          )}% availablePct=${Math.round(availablePct * 100)}% label=${label}`,
-        );
-      }
+      didAccumulateThisTick = true;
     }
 
     // 2) Maintain per-port replacement timers and spawn replacements when due
@@ -141,10 +88,13 @@ export class TradeManagerExecution implements Execution {
     this.pruneEmbargoedRoutes();
 
     // 4) Assign ships to queued routes when available
+    const preAssignQueueLen = this.queue.length;
     this.assignRoutes(hadCarryOverAtStart);
 
-    // 5) Expose current queue length to the game for UI indicators
+    // 5) Expose current queue length to the game for UI indicators (post-assignment)
     (this.mg as any).setTradeDemandQueueLength?.(this.queue.length);
+
+    // 6) Periodic demand logging removed per user request; UI now derives state from queue length alone.
   }
 
   private playersForTrade(): Player[] {
@@ -203,7 +153,7 @@ export class TradeManagerExecution implements Execution {
         const k = this.key(a, b);
         // Initialize with a uniform random fractional remainder in [0,1) once per pair
         let prev = this.demand.get(k);
-        if (prev === undefined) prev = Math.random();
+        prev ??= 0.6 + Math.random() * 0.4;
         const next = (prev as number) + demandDelta;
         // Enqueue integer demand, keep fractional remainder
         if (next >= 1) {
@@ -254,6 +204,19 @@ export class TradeManagerExecution implements Execution {
       const currOwner = ship.owner();
       if (prevOwner && prevOwner !== currOwner) {
         // Captured by another nation -> schedule replacement for its last known home port
+        const shipLabel = `Trade Ship #${sid}`;
+        // Notify previous owner they lost their ship to capture
+        this.mg.displayMessage(
+          `${shipLabel} was captured by ${currOwner.displayName()}`,
+          MessageType.TRADE_SHIP_CAPTURED,
+          prevOwner.id(),
+        );
+        // Notify new owner of successful capture
+        this.mg.displayMessage(
+          `You captured ${shipLabel} from ${prevOwner.displayName()}`,
+          MessageType.TRADE_SHIP_CAPTURED_ENEMY,
+          currOwner.id(),
+        );
         const homePortId = this.shipHomePortById.get(sid);
         if (homePortId !== undefined) {
           const port = this.mg
@@ -302,6 +265,13 @@ export class TradeManagerExecution implements Execution {
     // Detect deletions (sunk etc.) -> schedule replacement at last known home port
     for (const [sid, prevOwner] of Array.from(this.shipOwnerById.entries())) {
       if (!currentShipIds.has(sid)) {
+        // Ship was destroyed/lost (sunk). Notify previous owner.
+        const shipLabel = `Trade Ship #${sid}`;
+        this.mg.displayMessage(
+          `${shipLabel} was sunk at sea`,
+          MessageType.TRADE_SHIP_SUNK,
+          prevOwner.id(),
+        );
         const homePortId = this.shipHomePortById.get(sid);
         if (homePortId !== undefined) {
           const port = this.mg
@@ -700,7 +670,7 @@ export class AssignedTradeRouteExecution implements Execution {
     // Ensure ship is not in a stale 'returning' state from a prior turnaround
     this.ship.setReturning(false);
     // Mark phase as heading to start when assignment begins
-    this.ship.setTradePhase("toStart");
+    this.setPhaseWithLog("toStart", "init_toStart");
     // Store route owners on the ship for warship logic
     this.ship.setTradeRouteOwners(this.startPort.owner(), this.endPort.owner());
     // Load cargo equal to the route's fixed income; used if captured and returned
@@ -729,8 +699,8 @@ export class AssignedTradeRouteExecution implements Execution {
   tick(ticks: number): void {
     if (!this.active) return;
     if (!this.ship.isActive()) {
-      // Clear phase if ship ceases to exist
-      this.ship.setTradePhase(null);
+      // Keep current phase value even if destroyed (avoid null)
+      this.setPhaseWithLog(this.phase, "destroyed_mid_route");
       this.active = false;
       this.log(`destroyed mid-route ship=${this.ship.id()}`);
       return;
@@ -739,18 +709,20 @@ export class AssignedTradeRouteExecution implements Execution {
     let expectedTargetUnit =
       this.phase === "toStart" ? this.startPort : this.endPort;
     if (this.ship.returning()) {
-      // Clear trade phase immediately when returning
-      this.ship.setTradePhase(null);
-      // Always return to the last port actually docked at.
-      if (this.lastPort) {
+      // Keep current trade phase while returning (avoid null)
+      this.ship.setTradePhase(this.phase);
+      // Prefer lastPort only if it still exists; otherwise choose a domestic fallback
+      if (this.lastPort && this.lastPort.isActive()) {
         expectedTargetUnit = this.lastPort;
       } else {
-        // No recorded last port: pick a domestic fallback or scuttle.
+        // No valid last port: pick a domestic fallback or scuttle
         const domesticFallback = this.selectRandomDomesticPort(
           this.ship.owner(),
         );
         if (domesticFallback) {
           expectedTargetUnit = domesticFallback;
+          // Treat chosen fallback as the new lastPort to avoid redirect loops
+          this.lastPort = domesticFallback;
         } else {
           // Nowhere sensible to return to -> scuttle the ship and end.
           this.ship.delete(false);
@@ -767,8 +739,7 @@ export class AssignedTradeRouteExecution implements Execution {
         if (this.phase === "toEnd") {
           // Replace endPort with nearest active port owned by the original end owner
           const endOwner =
-            (this.ship.tradeRouteEndOwner && this.ship.tradeRouteEndOwner()) ||
-            this.endPort.owner();
+            this.ship.tradeRouteEndOwner?.() ?? this.endPort.owner();
           const replacement = endOwner
             ? this.selectNearestPort(endOwner)
             : null;
@@ -781,9 +752,7 @@ export class AssignedTradeRouteExecution implements Execution {
         } else {
           // phase === "toStart": replace startPort similarly
           const startOwner =
-            (this.ship.tradeRouteStartOwner &&
-              this.ship.tradeRouteStartOwner()) ||
-            this.startPort.owner();
+            this.ship.tradeRouteStartOwner?.() ?? this.startPort.owner();
           const replacement = startOwner
             ? this.selectNearestPort(startOwner)
             : null;
@@ -807,14 +776,40 @@ export class AssignedTradeRouteExecution implements Execution {
               : domesticFallback;
           if (fallback) {
             this.ship.setReturning(true);
-            this.ship.setTradePhase(null);
+            this.setPhaseWithLog(
+              this.phase,
+              "dest_lost_set_returning_clear_phase",
+            );
+            // Notify the ship owner that this ship was turned around (likely blockade/destination lost)
+            try {
+              const shipLabel = `Trade Ship #${this.ship.id()}`;
+              const otherOwner =
+                this.phase === "toEnd"
+                  ? (this.ship.tradeRouteEndOwner?.() ?? this.endPort.owner())
+                  : (this.ship.tradeRouteStartOwner?.() ??
+                    this.startPort.owner());
+              const otherName = otherOwner?.displayName();
+              const msg = otherName
+                ? `${shipLabel} was turned around due to blockade by ${otherName}`
+                : `${shipLabel} was turned around due to blockade`;
+              this.mg.displayMessage(
+                msg,
+                MessageType.TRADE_SHIP_TURNED_AROUND,
+                this.ship.owner().id(),
+              );
+            } catch (_e) {
+              // no-op: best-effort message emission
+            }
             this.ship.setTargetUnit(fallback);
             this.log(
               `returning ship=${this.ship.id()} reason=destinationLost fallbackPort=${fallback.id()}`,
             );
           } else {
             // Nowhere sensible to return to -> scuttle the ship
-            this.ship.setTradePhase(null);
+            this.setPhaseWithLog(
+              this.phase,
+              "dest_lost_no_fallback_clear_phase",
+            );
             this.ship.delete(false);
             this.active = false;
             this.log(
@@ -824,12 +819,17 @@ export class AssignedTradeRouteExecution implements Execution {
         } else {
           if (domesticFallback) {
             this.ship.setTargetUnit(domesticFallback);
+            // Pin fallback as lastPort so subsequent ticks keep a stable target
+            this.lastPort = domesticFallback;
             this.log(
               `redirectReturn ship=${this.ship.id()} newPort=${domesticFallback.id()} reason=destinationLostWhileReturning`,
             );
           } else {
             // Already returning but no valid fallback -> scuttle the ship
-            this.ship.setTradePhase(null);
+            this.setPhaseWithLog(
+              this.phase,
+              "returning_dest_lost_no_fallback_clear_phase",
+            );
             this.ship.delete(false);
             this.active = false;
             this.log(
@@ -848,8 +848,10 @@ export class AssignedTradeRouteExecution implements Execution {
       this.ship.targetUnit() !== undefined &&
       this.ship.targetUnit() !== expectedTargetUnit
     ) {
-      // External retargeting cancels the assignment; clear phase
-      this.ship.setTradePhase(null);
+      // External retargeting cancels the assignment; clear trade phase so this ship is no longer considered in-route
+      this.setPhaseWithLog(null, "external_retarget_cancel_clear_phase");
+      // Propagate cleared phase immediately
+      this.ship.touch();
       this.active = false;
       this.log(
         `externalRetargetCancel ship=${this.ship.id()} oldTargetUnit=${this.ship
@@ -879,13 +881,16 @@ export class AssignedTradeRouteExecution implements Execution {
       if (portHere) this.lastPort = portHere;
       // (removed) arrival logs for human-owned trade ships
       if (this.ship.returning()) {
-        // Clear returning state upon successful return dock
+        // Clear returning state upon successful return dock; keep phase
         this.ship.setReturning(false);
-        this.ship.setTradePhase(null);
+        // Clear trade phase so ship becomes idle/assignable
+        this.setPhaseWithLog(null, "returned_clear_phase");
         // Cancel route on return to last port
         this.ship.setTargetUnit(undefined);
         this.ship.setTradeRouteOwners(null, null);
         this.ship.setCargoGold(0n);
+        // Force an immediate update so targetId and trade metadata clear client-side
+        this.ship.touch();
         this.active = false;
         this.log(
           `returned ship=${this.ship.id()} port=${this.lastPort?.id()} cargoGoldCleared`,
@@ -895,7 +900,7 @@ export class AssignedTradeRouteExecution implements Execution {
       if (this.phase === "toStart") {
         // Arrived at start; proceed to end
         this.phase = "toEnd";
-        this.ship.setTradePhase("toEnd");
+        this.setPhaseWithLog("toEnd", "arrived_start_toEnd");
         this.ship.setTargetUnit(this.endPort);
         this.log(
           `arrivedStart ship=${this.ship.id()} startPort=${this.startPort.id()} switchingPhase=toEnd`,
@@ -976,10 +981,13 @@ export class AssignedTradeRouteExecution implements Execution {
       }
       // (removed) arrival logs when already on port tile
       if (this.ship.returning()) {
-        // Clear returning state upon successful return dock
+        // Clear returning state upon successful return dock; keep phase
         this.ship.setReturning(false);
-        this.ship.setTradePhase(null);
+        // Clear trade phase so ship becomes idle/assignable
+        this.setPhaseWithLog(null, "returned_on_port_clear_phase");
         this.ship.setTargetUnit(undefined);
+        // Ensure UI receives cleared target immediately
+        this.ship.touch();
         this.active = false;
         this.log(
           `returned ship=${this.ship.id()} (alreadyOnPortTile) port=${this.lastPort?.id()} cargoCleared`,
@@ -988,7 +996,7 @@ export class AssignedTradeRouteExecution implements Execution {
       }
       if (this.phase === "toStart") {
         this.phase = "toEnd";
-        this.ship.setTradePhase("toEnd");
+        this.setPhaseWithLog("toEnd", "arrived_start_on_port_toEnd");
         this.ship.setTargetUnit(this.endPort);
         this.log(
           `arrivedStart ship=${this.ship.id()} (alreadyOnPortTile) startPort=${this.startPort.id()} switchingPhase=toEnd`,
@@ -1041,10 +1049,13 @@ export class AssignedTradeRouteExecution implements Execution {
         );
         // Reset ship to idle-at-port state and clear trade metadata
         this.ship.setReturning(false);
-        this.ship.setTradePhase(null);
+        // Clear trade phase since this assignment is aborted
+        this.setPhaseWithLog(null, "path_not_found_clear_phase");
         this.ship.setTargetUnit(undefined);
         this.ship.setTradeRouteOwners(null, null);
         this.ship.setCargoGold(0n);
+        // Immediately propagate cleared state to the client
+        this.ship.touch();
         // Return the demanded route to the queue for future assignment (only if not in 'returning')
         if (!this.ship.returning()) {
           this.manager.requeueRoute(
@@ -1074,14 +1085,27 @@ export class AssignedTradeRouteExecution implements Execution {
     b.addGold(third);
     owner.addGold(third + remainder);
 
-    this.ship.setTradePhase(null);
+    // Clear trade phase upon successful completion so the ship is eligible for reassignment
+    this.setPhaseWithLog(null, "complete_clear_phase");
     this.ship.setTargetUnit(undefined);
     this.ship.setTradeRouteOwners(null, null);
     this.ship.setCargoGold(0n);
+    // Force an update so the cleared targetId reflects this tick
+    this.ship.touch();
     this.active = false;
     this.log(
       `completed ship=${this.ship.id()} startPort=${this.startPort.id()} endPort=${this.endPort.id()} income=${total} ownerShare=${third + remainder}`,
     );
+  }
+
+  // Wrapper to set trade phase and log for human-owned ships with a reason tag
+  private setPhaseWithLog(
+    phase: "toStart" | "toEnd" | null,
+    reason: string,
+  ): void {
+    this.ship.setTradePhase(phase);
+    const owner = this.ship.owner();
+    // Trade phase transition logging removed
   }
 
   // Pick an ocean tile adjacent to the port (targetTile) as navigation target
@@ -1162,9 +1186,7 @@ export class AssignedTradeRouteExecution implements Execution {
   // --- Logging helpers (human owners only) ---
   private log(msg: string): void {
     const owner = this.ship.owner();
-    if (owner.type() === PlayerType.Human) {
-      console.log(`[TRADE] t=${this.mg.ticks()} ${msg}`);
-    }
+    // Per-request: trade logging removed
   }
   // Per-tile movement logging removed per user request.
 }

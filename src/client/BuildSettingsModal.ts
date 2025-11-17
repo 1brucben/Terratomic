@@ -38,7 +38,7 @@ export class BuildSettingsModal extends LitElement {
       return {
         id,
         name: id,
-        icon: unitIconMap[id] || "",
+        icon: unitIconMap[id] ?? "",
       };
     });
     const persisted = this._loadPersisted();
