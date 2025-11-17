@@ -97,6 +97,9 @@ export class TradeManagerExecution implements Execution {
   tick(ticks: number): void {
     if (!this.active) return;
 
+    // Capture whether there was carry-over demand before new accumulation this tick
+    const hadCarryOverAtStart = this.queue.length > 0;
+
     // 1) Periodic gravity-based demand accumulation
     const interval = this.mg.config().tradeDemandTickInterval();
     if (this.lastDemandTick === -1) this.lastDemandTick = ticks;
@@ -112,7 +115,7 @@ export class TradeManagerExecution implements Execution {
     this.pruneEmbargoedRoutes();
 
     // 4) Assign ships to queued routes when available
-    this.assignRoutes();
+    this.assignRoutes(hadCarryOverAtStart);
   }
 
   private playersForTrade(): Player[] {
@@ -479,10 +482,108 @@ export class TradeManagerExecution implements Execution {
     return count;
   }
 
-  private assignRoutes(): void {
+  private assignRoutes(carryOverMode: boolean): void {
     if (this.queue.length === 0) return;
     const available = this.availableShips();
     if (available.length === 0) return;
+
+    // When there was carry-over demand, each available ship gets a weighted draw over all routes.
+    if (carryOverMode) {
+      // Iterate over ships; for each, select a route weighted by inverse distance to its closest start port
+      for (
+        let sIdx = 0;
+        sIdx < available.length && this.queue.length > 0;
+        sIdx++
+      ) {
+        const ship = available[sIdx];
+        const shipX = this.mg.x(ship.tile());
+        const shipY = this.mg.y(ship.tile());
+
+        // Build candidate list: each route with at least one active start & end port
+        const candidates: Array<{
+          routeIndex: number;
+          startPort: Unit;
+          endPorts: Unit[];
+          weight: number;
+        }> = [];
+        let totalWeight = 0;
+        for (let rIdx = 0; rIdx < this.queue.length; rIdx++) {
+          const route = this.queue[rIdx];
+          const startPorts = route.from
+            .units(UnitType.Port)
+            .filter((p) => p.isActive());
+          const endPorts = route.to
+            .units(UnitType.Port)
+            .filter((p) => p.isActive());
+          if (startPorts.length === 0 || endPorts.length === 0) continue; // unassignable this tick
+          // Find closest start port to this ship (Manhattan)
+          let bestPort: Unit = startPorts[0];
+          let bestDist =
+            Math.abs(this.mg.x(bestPort.tile()) - shipX) +
+            Math.abs(this.mg.y(bestPort.tile()) - shipY);
+          for (let k = 1; k < startPorts.length; k++) {
+            const sp = startPorts[k];
+            const d =
+              Math.abs(this.mg.x(sp.tile()) - shipX) +
+              Math.abs(this.mg.y(sp.tile()) - shipY);
+            if (d < bestDist) {
+              bestDist = d;
+              bestPort = sp;
+            }
+          }
+          const weight = 1 / (bestDist + 1); // inverse distance weighting
+          candidates.push({
+            routeIndex: rIdx,
+            startPort: bestPort,
+            endPorts,
+            weight,
+          });
+          totalWeight += weight;
+        }
+        if (candidates.length === 0) break; // nothing can be assigned
+
+        // Weighted random selection among candidates
+        let r = Math.random() * totalWeight;
+        let chosen = candidates[0];
+        for (const c of candidates) {
+          if (r <= c.weight) {
+            chosen = c;
+            break;
+          }
+          r -= c.weight;
+        }
+
+        // Remove selected route from queue
+        const [route] = this.queue.splice(chosen.routeIndex, 1);
+        // Pick end port randomly (uniform among active end ports)
+        const endPort =
+          chosen.endPorts[Math.floor(Math.random() * chosen.endPorts.length)];
+
+        this.mg.addExecution(
+          new AssignedTradeRouteExecution(
+            this,
+            ship,
+            chosen.startPort,
+            endPort,
+          ),
+        );
+        this.logShip(
+          ship,
+          `assigned (carryOver) route startPort=${chosen.startPort.id()} startOwner='${chosen.startPort
+            .owner()
+            .displayName()}' endPort=${endPort.id()} endOwner='${endPort
+            .owner()
+            .displayName()}' queueRemaining=${this.queue.length}`,
+        );
+      }
+      // Optionally prune any remaining routes that are unassignable (no ports)
+      this.queue = this.queue.filter(
+        (r) =>
+          r.from.units(UnitType.Port).some((p) => p.isActive()) &&
+          r.to.units(UnitType.Port).some((p) => p.isActive()),
+      );
+      return;
+    }
 
     // Assign as many routes as possible this tick while ships and routes are available
     while (this.queue.length > 0 && available.length > 0) {
