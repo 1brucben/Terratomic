@@ -423,6 +423,12 @@ export class Transport {
         console.error("socket is null");
         return;
       }
+      // Notify the client code that we are connected (mirrors local behavior)
+      try {
+        this.onconnect?.();
+      } catch (err) {
+        console.error("Error in onconnect handler:", err);
+      }
       while (this.buffer.length > 0) {
         console.log("sending dropped message");
         const msg = this.buffer.pop();
