@@ -1861,6 +1861,37 @@ export class ControlPanel2 extends LitElement implements Layer {
     const me = this.game.myPlayer();
     if (!me) return html``;
     const ships = me.units(UnitType.TradeShip).filter((u) => u.isActive());
+    const ports = me.units(UnitType.Port).filter((p) => p.isActive());
+    const ticks = this.game.ticks();
+    const delay = this.game.config().tradeShipReplacementDelayTicks();
+    const pendingPorts = ports
+      .map((p) => ({
+        port: p,
+        due: (p as any).pendingTradeShipDueTick?.() ?? null,
+      }))
+      .filter((x) => x.due !== null && x.due! > ticks);
+
+    const pendingRows = pendingPorts.map(({ port, due }) => {
+      const remaining = due! - ticks;
+      const pct = Math.min(
+        100,
+        Math.max(0, Math.round(((delay - remaining) / delay) * 100)),
+      );
+      return html` <div
+        class="py-1 px-2 border-b"
+        style="border-color: var(--ui-panel-border)"
+      >
+        <div class="flex justify-between items-center mb-1">
+          <div class="text-gray-300">
+            Trade Ship (Port #${port.id()}) constructing…
+          </div>
+          <div class="text-gray-400 text-xs font-mono">${remaining} ticks</div>
+        </div>
+        <div class="w-full h-2 rounded bg-gray-700 overflow-hidden">
+          <div class="h-2 bg-green-500" style="width:${pct}%;"></div>
+        </div>
+      </div>`;
+    });
 
     const rows = ships.map((ship) => {
       const tile = ship.tile();
@@ -1884,6 +1915,12 @@ export class ControlPanel2 extends LitElement implements Layer {
     return html`
       <div class="w-full">
         <h3 class="military-heading mb-2">Trade Ships</h3>
+        ${pendingRows.length > 0
+          ? html`<div class="mb-2">
+              <h4 class="text-gray-200 text-sm mb-1">Under Construction</h4>
+              <div class="divide-y">${pendingRows}</div>
+            </div>`
+          : ""}
         ${ships.length === 0
           ? html`<div class="text-gray-400">No active trade ships.</div>`
           : html`<div class="divide-y">${rows}</div>`}

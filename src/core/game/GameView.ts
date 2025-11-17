@@ -189,6 +189,12 @@ export class UnitView {
   level(): number {
     return (this.data as any).level ?? 1;
   }
+
+  // Port-specific: pending trade ship construction due tick (or null if none scheduled)
+  pendingTradeShipDueTick(): Tick | null {
+    const v = (this.data as any).pendingTradeShipDueTick as Tick | undefined;
+    return v !== undefined ? v : null;
+  }
 }
 
 export class PlayerView {

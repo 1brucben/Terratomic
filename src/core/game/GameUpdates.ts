@@ -145,6 +145,8 @@ export interface UnitUpdate {
   tradeRouteEndOwnerID?: number; // smallID of end port owner
   tradePhase?: "toStart" | "toEnd"; // current navigation phase (returning is provided separately)
   dockedAtPortOwnerID?: number; // smallID of the owner of the port the ship is currently docked at (if any)
+  // Port-specific: when a trade ship is scheduled from this port, its construction completion tick
+  pendingTradeShipDueTick?: Tick;
 }
 
 export interface AttackUpdate {

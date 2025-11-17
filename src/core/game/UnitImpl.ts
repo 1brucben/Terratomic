@@ -63,6 +63,8 @@ export class UnitImpl implements Unit {
   // Trade-ship specific: cargo carried (gold)
   private _cargoGold: bigint = 0n;
   private _tradePhase: "toStart" | "toEnd" | null = null;
+  // Port-specific: pending trade ship construction due tick (if a trade ship is scheduled for this port)
+  private _pendingTradeShipDueTick: Tick | null = null;
 
   constructor(
     private _type: UnitType,
@@ -190,6 +192,10 @@ export class UnitImpl implements Unit {
           .find((u) => u.type() === UnitType.Port) as UnitImpl | undefined;
         return portHere ? portHere.owner().smallID() : undefined;
       })(),
+      pendingTradeShipDueTick:
+        this._type === UnitType.Port && this._pendingTradeShipDueTick !== null
+          ? this._pendingTradeShipDueTick
+          : undefined,
     };
   }
 
@@ -244,6 +250,20 @@ export class UnitImpl implements Unit {
 
   level(): number {
     return this._level;
+  }
+
+  // Port-specific accessor/mutator for scheduled trade ship construction
+  setPendingTradeShipDueTick(due: Tick | null): void {
+    if (this._pendingTradeShipDueTick !== due) {
+      this._pendingTradeShipDueTick = due;
+      // Only emit update for ports
+      if (this._type === UnitType.Port) {
+        this.mg.addUpdate(this.toUpdate());
+      }
+    }
+  }
+  pendingTradeShipDueTick(): Tick | null {
+    return this._pendingTradeShipDueTick;
   }
 
   /**
