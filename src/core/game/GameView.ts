@@ -467,6 +467,10 @@ export class PlayerView {
   isDisconnected(): boolean {
     return this.data.isDisconnected;
   }
+  // Trade: global demand queue length (server-provided; default 0)
+  tradeDemandQueueLength(): number {
+    return (this.data as any).tradeDemandQueueLength ?? 0;
+  }
 }
 
 export class GameView implements GameMap {

@@ -1913,9 +1913,54 @@ export class ControlPanel2 extends LitElement implements Layer {
       `;
     });
 
+    // Compute demand indicator
+    const totalShips = ships.length;
+    const availableShips = ships.filter((s) => {
+      const isReturning = s.returning();
+      const phase = s.tradePhase();
+      const hasTarget = s.targetUnitId() !== undefined;
+      const dockOwner = s.dockedAtPortOwner();
+      return !isReturning && phase === null && !hasTarget && dockOwner !== null;
+    }).length;
+    const queueLen = me.tradeDemandQueueLength();
+    const denom = Math.max(1, totalShips);
+    const queuedPct = queueLen / denom;
+    const availablePct = availableShips / denom;
+    let demandLabel = "Medium";
+    let demandColor = "var(--ui-text-default)";
+    if (queuedPct > 0.5) {
+      demandLabel = "Very High";
+      demandColor = "var(--ui-alert)";
+    } else if (queuedPct > 0.25) {
+      demandLabel = "High";
+      demandColor = "var(--ui-warning)";
+    } else if (availablePct > 0.5) {
+      demandLabel = "Very Low";
+      demandColor = "var(--ui-info)";
+    } else if (availablePct > 0.25) {
+      demandLabel = "Low";
+      demandColor = "var(--ui-success)";
+    } else {
+      demandLabel = "Medium";
+      demandColor = "var(--ui-text-default)";
+    }
+
     return html`
       <div class="w-full">
-        <h3 class="military-heading mb-2">Trade Ships</h3>
+        <div class="flex items-center justify-between mb-2">
+          <h3 class="military-heading">Trade Ships</h3>
+          <div
+            class="text-sm"
+            title="Demand is based on queued routes vs total ships and available ships"
+          >
+            <span
+              class="px-2 py-0.5 rounded-full border"
+              style="border-color: var(--ui-panel-border); color: ${demandColor};"
+            >
+              Trade Demand: ${demandLabel}
+            </span>
+          </div>
+        </div>
         ${pendingRows.length > 0
           ? html`<div class="mb-2">
               <h4 class="text-gray-200 text-sm mb-1">Under Construction</h4>

@@ -185,6 +185,8 @@ export interface PlayerUpdate {
   productivity: number;
   productivityGrowthPerMinute: number;
   investmentRate: number;
+  // Trade: current global demand queue length (for UI indicators)
+  tradeDemandQueueLength?: number;
   // Road KPIs (percent values 0..100)
   roadNetworkQuality?: number;
   roadNetworkCompletion?: number;

@@ -188,6 +188,8 @@ export class PlayerImpl implements Player {
       roadNetworkCompletion: this.roadNetworkCompletion(),
       roadNetworkLength: this.mg.getRoadLengthForPlayer(this.id()),
       roadNetPixelsPerSecond: this.mg.getRoadNetPixelsPerSecond(this.id()),
+      // Trade: expose current global demand queue length
+      tradeDemandQueueLength: (this.mg as any).tradeDemandQueueLength?.() ?? 0,
       troops: this.troops(),
       attackingTroops: this.attackingTroops(),
       targetTroopRatio: this.targetTroopRatio(),

@@ -105,7 +105,33 @@ export class TradeManagerExecution implements Execution {
     if (this.lastDemandTick === -1) this.lastDemandTick = ticks;
     if (ticks - this.lastDemandTick >= interval) {
       this.lastDemandTick = ticks;
+      const beforeQL = this.queue.length;
       this.accumulateDemand();
+      const afterQL = this.queue.length;
+      // Instrumentation: log demand tick metrics and per-human indicator inputs
+      this.log(
+        `demandTick t=${ticks} interval=${interval} queue ${beforeQL}->${afterQL}`,
+      );
+      for (const p of this.mg.players()) {
+        if (p.type() !== PlayerType.Human) continue;
+        const totalShips = p
+          .units(UnitType.TradeShip)
+          .filter((u) => u.isActive()).length;
+        const availableCount = this.availableShipsFor(p).length;
+        const denom = Math.max(1, totalShips);
+        const queuedPct = afterQL / denom;
+        const availablePct = availableCount / denom;
+        let label = "Medium";
+        if (queuedPct > 0.5) label = "Very High";
+        else if (queuedPct > 0.25) label = "High";
+        else if (availablePct > 0.5) label = "Very Low";
+        else if (availablePct > 0.25) label = "Low";
+        this.log(
+          `demandInputs player='${p.displayName()}' ships total=${totalShips} available=${availableCount} queue=${afterQL} queuedPct=${Math.round(
+            queuedPct * 100,
+          )}% availablePct=${Math.round(availablePct * 100)}% label=${label}`,
+        );
+      }
     }
 
     // 2) Maintain per-port replacement timers and spawn replacements when due
@@ -116,6 +142,9 @@ export class TradeManagerExecution implements Execution {
 
     // 4) Assign ships to queued routes when available
     this.assignRoutes(hadCarryOverAtStart);
+
+    // 5) Expose current queue length to the game for UI indicators
+    (this.mg as any).setTradeDemandQueueLength?.(this.queue.length);
   }
 
   private playersForTrade(): Player[] {
@@ -469,6 +498,10 @@ export class TradeManagerExecution implements Execution {
       ships.push(ship);
     }
     return ships;
+  }
+
+  private availableShipsFor(owner: Player): Unit[] {
+    return this.availableShips().filter((s) => s.owner() === owner);
   }
 
   private activeHomeSupplyCount(port: Unit): number {
