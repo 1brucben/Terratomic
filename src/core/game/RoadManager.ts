@@ -574,9 +574,7 @@ export class RoadManager {
       else this.nodesByOwner.set(pid, [node]);
     }
 
-    // Process pathfinding queue in chunks for better performance
-    const startTime = performance.now();
-    const MAX_PROCESSING_TIME = 16; // Max 16ms per frame to prevent stuttering
+    // Process pathfinding queue in deterministic chunks per tick
     const isBulkOperation = this.pathfindingQueue.length > 100;
 
     // Sort queue to process priority connections first in bulk operations
@@ -606,11 +604,6 @@ export class RoadManager {
       }
 
       const canonicalSegment = this.getCanonicalSegment(from, to);
-
-      // Check processing time limit
-      if (performance.now() - startTime > MAX_PROCESSING_TIME) {
-        break; // Continue next frame if we're taking too long
-      }
 
       processedThisTick++;
       this.pathfindingQueue.shift(); // Only remove if we're actually processing it

@@ -774,7 +774,7 @@ export class GameServer {
 
     const lastHashTurn = this.turns.length - 10;
 
-    const { mostCommonHash, outOfSyncClients } =
+    const { mostCommonHash, outOfSyncClients, numClientsWithMostCommonHash } =
       this.findOutOfSyncClients(lastHashTurn);
 
     if (outOfSyncClients.length === 0) {
@@ -786,8 +786,7 @@ export class GameServer {
       type: "desync",
       turn: lastHashTurn,
       correctHash: mostCommonHash,
-      clientsWithCorrectHash:
-        this.activeClients.length - outOfSyncClients.length,
+      clientsWithCorrectHash: numClientsWithMostCommonHash,
       totalActiveClients: this.activeClients.length,
     });
     if (!serverDesync.success) {
@@ -817,6 +816,7 @@ export class GameServer {
   findOutOfSyncClients(turnNumber: number): {
     mostCommonHash: number | null;
     outOfSyncClients: Client[];
+    numClientsWithMostCommonHash: number;
   } {
     const counts = new Map<number, number>();
 
@@ -851,7 +851,8 @@ export class GameServer {
       }
     }
 
-    // If half clients out of sync assume all are out of sync.
+    // If half clients out of sync assume all are out of sync for remediation,
+    // but keep the true count of clients with most-common hash for reporting.
     if (outOfSyncClients.length >= Math.floor(this.activeClients.length / 2)) {
       outOfSyncClients = this.activeClients;
     }
@@ -859,6 +860,7 @@ export class GameServer {
     return {
       mostCommonHash,
       outOfSyncClients,
+      numClientsWithMostCommonHash: maxCount,
     };
   }
 }

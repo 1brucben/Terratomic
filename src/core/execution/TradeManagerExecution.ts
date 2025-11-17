@@ -12,6 +12,13 @@ import {
 import { TileRef } from "../game/GameMap";
 import { PathFindResultType } from "../pathfinding/AStar";
 import { PathFinder } from "../pathfinding/PathFinding";
+import { PseudoRandom } from "../PseudoRandom";
+import { simpleHash } from "../Util";
+
+function rand01(...keys: (string | number)[]): number {
+  const seedStr = keys.join("|");
+  return new PseudoRandom(simpleHash(String(seedStr))).next();
+}
 
 type PairKey = string; // `${fromId}->${toId}`
 
@@ -89,7 +96,7 @@ export class TradeManagerExecution implements Execution {
 
     // 4) Assign ships to queued routes when available
     const preAssignQueueLen = this.queue.length;
-    this.assignRoutes(hadCarryOverAtStart);
+    this.assignRoutes(hadCarryOverAtStart, ticks);
 
     // 5) Expose current queue length to the game for UI indicators (post-assignment)
     (this.mg as any).setTradeDemandQueueLength?.(this.queue.length);
@@ -153,7 +160,7 @@ export class TradeManagerExecution implements Execution {
         const k = this.key(a, b);
         // Initialize with a uniform random fractional remainder in [0,1) once per pair
         let prev = this.demand.get(k);
-        prev ??= 0.6 + Math.random() * 0.4;
+        prev ??= 0.6 + rand01("demand", a.id(), b.id()) * 0.4;
         const next = (prev as number) + demandDelta;
         // Enqueue integer demand, keep fractional remainder
         if (next >= 1) {
@@ -446,7 +453,9 @@ export class TradeManagerExecution implements Execution {
   private selectRandomPort(player: Player): Unit | null {
     const ports = player.units(UnitType.Port).filter((p) => p.isActive());
     if (ports.length === 0) return null;
-    const idx = Math.floor(Math.random() * ports.length);
+    const idx = Math.floor(
+      rand01("selectPort", player.id(), this.mg.ticks()) * ports.length,
+    );
     return ports[idx];
   }
 
@@ -485,7 +494,7 @@ export class TradeManagerExecution implements Execution {
     return count;
   }
 
-  private assignRoutes(carryOverMode: boolean): void {
+  private assignRoutes(carryOverMode: boolean, ticks: Tick): void {
     if (this.queue.length === 0) return;
     const available = this.availableShips();
     if (available.length === 0) return;
@@ -545,8 +554,8 @@ export class TradeManagerExecution implements Execution {
         }
         if (candidates.length === 0) break; // nothing can be assigned
 
-        // Weighted random selection among candidates
-        let r = Math.random() * totalWeight;
+        // Weighted deterministic selection among candidates
+        let r = rand01("carryAssign", ticks, ship.id()) * totalWeight;
         let chosen = candidates[0];
         for (const c of candidates) {
           if (r <= c.weight) {
@@ -560,7 +569,11 @@ export class TradeManagerExecution implements Execution {
         const [route] = this.queue.splice(chosen.routeIndex, 1);
         // Pick end port randomly (uniform among active end ports)
         const endPort =
-          chosen.endPorts[Math.floor(Math.random() * chosen.endPorts.length)];
+          chosen.endPorts[
+            Math.floor(
+              rand01("endPort", ticks, ship.id()) * chosen.endPorts.length,
+            )
+          ];
 
         this.mg.addExecution(
           new AssignedTradeRouteExecution(
@@ -614,7 +627,8 @@ export class TradeManagerExecution implements Execution {
         weights[i] = w;
         totalWeight += w;
       }
-      const r = Math.random() * totalWeight;
+      const r =
+        rand01("assign", ticks, next.from.id(), next.to.id()) * totalWeight;
       let acc = 0;
       let chosenIndex = 0;
       for (let i = 0; i < weights.length; i++) {
@@ -1131,7 +1145,10 @@ export class AssignedTradeRouteExecution implements Execution {
       .units(UnitType.Port)
       .filter((p) => p.isActive() && p.owner() === owner);
     if (ports.length === 0) return null;
-    const idx = Math.floor(Math.random() * ports.length);
+    const idx = Math.floor(
+      rand01("domesticPort", owner.id(), this.mg.ticks(), this.ship.id()) *
+        ports.length,
+    );
     return ports[idx];
   }
 
