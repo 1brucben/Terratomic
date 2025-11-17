@@ -13,12 +13,6 @@ import { TileRef } from "../game/GameMap";
 import { PathFindResultType } from "../pathfinding/AStar";
 import { PathFinder } from "../pathfinding/PathFinding";
 import { PseudoRandom } from "../PseudoRandom";
-import { simpleHash } from "../Util";
-
-function rand01(...keys: (string | number)[]): number {
-  const seedStr = keys.join("|");
-  return new PseudoRandom(simpleHash(String(seedStr))).next();
-}
 
 type PairKey = string; // `${fromId}->${toId}`
 
@@ -42,6 +36,7 @@ export class TradeManagerExecution implements Execution {
   private lastDemandTick: Tick = -1;
   private demand: Map<PairKey, number> = new Map();
   private queue: DemandRoute[] = [];
+  private rand!: PseudoRandom; // Global PRNG for trade decisions
   // Periodic logger for queue length
   private queueLogIntervalId: any;
   // Port -> list of replacement due ticks (supports multiple concurrent builds per port level)
@@ -62,6 +57,15 @@ export class TradeManagerExecution implements Execution {
 
   init(mg: Game, _ticks: number): void {
     this.mg = mg;
+    // Seed with a constant to satisfy request; deterministic across peers
+    this.rand = new PseudoRandom(123);
+  }
+
+  public randomNext(): number {
+    return this.rand.next();
+  }
+  public randomNextInt(min: number, max: number): number {
+    return this.rand.nextInt(min, max);
   }
 
   isActive(): boolean {
@@ -160,7 +164,7 @@ export class TradeManagerExecution implements Execution {
         const k = this.key(a, b);
         // Initialize with a uniform random fractional remainder in [0,1) once per pair
         let prev = this.demand.get(k);
-        prev ??= 0.6 + rand01("demand", a.id(), b.id()) * 0.4;
+        prev ??= 0.8 + this.rand.next() * 0.2;
         const next = (prev as number) + demandDelta;
         // Enqueue integer demand, keep fractional remainder
         if (next >= 1) {
@@ -453,9 +457,7 @@ export class TradeManagerExecution implements Execution {
   private selectRandomPort(player: Player): Unit | null {
     const ports = player.units(UnitType.Port).filter((p) => p.isActive());
     if (ports.length === 0) return null;
-    const idx = Math.floor(
-      rand01("selectPort", player.id(), this.mg.ticks()) * ports.length,
-    );
+    const idx = this.rand.nextInt(0, ports.length);
     return ports[idx];
   }
 
@@ -554,8 +556,8 @@ export class TradeManagerExecution implements Execution {
         }
         if (candidates.length === 0) break; // nothing can be assigned
 
-        // Weighted deterministic selection among candidates
-        let r = rand01("carryAssign", ticks, ship.id()) * totalWeight;
+        // Weighted selection via global PRNG
+        let r = this.rand.next() * totalWeight;
         let chosen = candidates[0];
         for (const c of candidates) {
           if (r <= c.weight) {
@@ -569,11 +571,7 @@ export class TradeManagerExecution implements Execution {
         const [route] = this.queue.splice(chosen.routeIndex, 1);
         // Pick end port randomly (uniform among active end ports)
         const endPort =
-          chosen.endPorts[
-            Math.floor(
-              rand01("endPort", ticks, ship.id()) * chosen.endPorts.length,
-            )
-          ];
+          chosen.endPorts[this.rand.nextInt(0, chosen.endPorts.length)];
 
         this.mg.addExecution(
           new AssignedTradeRouteExecution(
@@ -627,8 +625,7 @@ export class TradeManagerExecution implements Execution {
         weights[i] = w;
         totalWeight += w;
       }
-      const r =
-        rand01("assign", ticks, next.from.id(), next.to.id()) * totalWeight;
+      const r = this.rand.next() * totalWeight;
       let acc = 0;
       let chosenIndex = 0;
       for (let i = 0; i < weights.length; i++) {
@@ -1145,10 +1142,7 @@ export class AssignedTradeRouteExecution implements Execution {
       .units(UnitType.Port)
       .filter((p) => p.isActive() && p.owner() === owner);
     if (ports.length === 0) return null;
-    const idx = Math.floor(
-      rand01("domesticPort", owner.id(), this.mg.ticks(), this.ship.id()) *
-        ports.length,
-    );
+    const idx = this.manager.randomNextInt(0, ports.length);
     return ports[idx];
   }
 

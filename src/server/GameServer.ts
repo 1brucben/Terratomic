@@ -129,6 +129,15 @@ export class GameServer {
   }
 
   public addClient(client: Client, lastTurn: number) {
+    // If this is a private lobby and no creator is set, assign the first joiner as creator
+    if (!this.isPublic() && this.LobbyCreatorID === undefined) {
+      this.LobbyCreatorID = client.clientID;
+      this.log.info("Assigned lobby creator to first joiner", {
+        gameID: this.id,
+        creatorID: this.LobbyCreatorID,
+      });
+    }
+
     // Authorization check
     if (this._hasStarted) {
       const isOriginalPlayer =
@@ -148,13 +157,17 @@ export class GameServer {
       }
     }
 
-    this.websockets.add(client.ws);
     if (this.kickedClients.has(client.clientID)) {
       this.log.warn(`cannot add client, already kicked`, {
         clientID: client.clientID,
       });
+      // Ensure the connection is closed so the client does not linger
+      if (client.ws.readyState === WebSocket.OPEN) {
+        client.ws.close(1008, "Kicked from lobby");
+      }
       return;
     }
+    this.websockets.add(client.ws);
     // Log when lobby creator joins private game
     if (client.clientID === this.LobbyCreatorID) {
       this.log.info("Lobby creator joined", {

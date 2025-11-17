@@ -95,7 +95,9 @@
   background: var(--ui-alert);
   color: var(--ui-button-text);
   border-radius: 50%;
-  font-size: 0.6875em;
+  font-size: 14px; /* Larger glyph, same button size */
+  font-weight: 700; /* Thicker X for readability */
+  line-height: 1;
   cursor: pointer;
   display: inline-flex;
   align-items: center;
