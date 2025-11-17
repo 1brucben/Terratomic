@@ -12,7 +12,7 @@ import {
 } from "../../../core/game/Game";
 import { GameView, PlayerView } from "../../../core/game/GameView";
 import { getTechMeta, RESEARCH_TECH_IDS } from "../../../core/tech/TechEffects";
-// Ensure modal custom element registers at runtime
+// Ensure modal custom elements register at runtime
 import "../../BuildSettingsModal";
 import {
   INVESTMENT_REQUEST_EVENT,
@@ -22,7 +22,6 @@ import {
   type InvestmentSyncDetail,
 } from "../../events/InvestmentEvents";
 import { PlayerListChangedEvent } from "../../events/PlayerListChangedEvent";
-import { ToggleUnitUpgradeModeEvent } from "../../events/ToggleUnitUpgradeModeEvent";
 import { ToggleUpgradeModeEvent } from "../../events/ToggleUpgradeModeEvent";
 import { AttackRatioEvent } from "../../InputHandler";
 import {
@@ -33,6 +32,7 @@ import {
   SendSetRoadInvestmentEvent,
   SendSetTargetTroopRatioEvent,
 } from "../../Transport";
+import "../../UnitUpgradeSettingsModal";
 import { UIState } from "../UIState";
 import { ToggleBuildPanelEvent } from "./ControlPanel";
 import { Layer } from "./Layer";
@@ -878,11 +878,6 @@ export class ControlPanel2 extends LitElement implements Layer {
       this.uiState.upgradeMode = false;
       this.eventBus.emit(new ToggleUpgradeModeEvent(false));
     }
-    // Disable unit upgrade mode immediately when toggling multi-build
-    if (this._multibuildEnabled && this.uiState.unitUpgradeMode) {
-      this.uiState.unitUpgradeMode = false;
-      this.eventBus.emit(new ToggleUnitUpgradeModeEvent(false));
-    }
     this.requestUpdate();
   }
 
@@ -916,6 +911,40 @@ export class ControlPanel2 extends LitElement implements Layer {
     ) as HTMLElement | null;
     if (!el) {
       el = document.createElement("build-settings-modal");
+      document.body.appendChild(el);
+    }
+    return el;
+  }
+
+  private _openUnitUpgradeSettings() {
+    const modal =
+      (document.querySelector("unit-upgrade-settings-modal") as any) ||
+      this._ensureUnitUpgradeSettingsModal();
+    if (!modal) {
+      console.warn(
+        "UnitUpgradeSettingsModal element not found or failed to create",
+      );
+      return;
+    }
+    const openFn = modal.open;
+    const unitTypes = [
+      UnitType.Warship,
+      UnitType.FighterJet,
+      UnitType.Submarine,
+    ];
+    if (typeof openFn !== "function") {
+      console.warn("UnitUpgradeSettingsModal missing open() method");
+      return;
+    }
+    openFn.call(modal, unitTypes, {});
+  }
+
+  private _ensureUnitUpgradeSettingsModal(): HTMLElement | null {
+    let el = document.querySelector(
+      "unit-upgrade-settings-modal",
+    ) as HTMLElement | null;
+    if (!el) {
+      el = document.createElement("unit-upgrade-settings-modal");
       document.body.appendChild(el);
     }
     return el;
@@ -1399,28 +1428,9 @@ export class ControlPanel2 extends LitElement implements Layer {
                     <span>Multi-Build Units</span>
                   </button>
                   <button
-                    class="upgrade-structures-button ${this.uiState
-                      .unitUpgradeMode
-                      ? "selected"
-                      : ""}"
-                    title="Click combat units to upgrade them"
-                    @click=${() => {
-                      const enabled = !this.uiState.unitUpgradeMode;
-                      this.uiState.unitUpgradeMode = enabled;
-                      this.eventBus.emit(
-                        new ToggleUnitUpgradeModeEvent(enabled),
-                      );
-                      // Disable multibuild if enabling upgrade mode
-                      if (enabled && this._multibuildEnabled) {
-                        this._multibuildEnabled = false;
-                        this.uiState.multibuildEnabled = false;
-                      }
-                      // Clear any pending build selection while in upgrade mode
-                      if (enabled) {
-                        this.uiState.pendingBuildUnitType = null;
-                      }
-                      this.requestUpdate();
-                    }}
+                    class="upgrade-structures-button"
+                    title="Set default upgrade levels for units"
+                    @click=${() => this._openUnitUpgradeSettings()}
                   >
                     <img
                       class="upgrade-icon"

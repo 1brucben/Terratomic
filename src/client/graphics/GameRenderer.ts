@@ -55,7 +55,6 @@ export function createRenderer(
     pendingBuildUnitType: null,
     multibuildEnabled: false,
     upgradeMode: false,
-    unitUpgradeMode: false,
     unitLevels: {},
   };
 

@@ -220,10 +220,6 @@ export class MoveFighterJetIntentEvent implements GameEvent {
   ) {}
 }
 
-export class SendUpgradeUnitIntentEvent implements GameEvent {
-  constructor(public readonly unitId: number) {}
-}
-
 export class SendBomberIntentEvent implements GameEvent {
   constructor(
     public readonly targetID: PlayerID | null, // who to attack
@@ -357,9 +353,7 @@ export class Transport {
     this.eventBus.on(SendKickPlayerIntentEvent, (e) =>
       this.onSendKickPlayerIntent(e),
     );
-    this.eventBus.on(SendUpgradeUnitIntentEvent, (e) =>
-      this.onSendUpgradeUnitIntent(e),
-    );
+    // unit upgrade intent removed
   }
 
   private startPing() {
@@ -869,13 +863,7 @@ export class Transport {
     });
   }
 
-  private onSendUpgradeUnitIntent(event: SendUpgradeUnitIntentEvent) {
-    this.sendIntent({
-      type: "upgrade_unit",
-      clientID: this.lobbyConfig.clientID,
-      unitId: event.unitId,
-    });
-  }
+  // unit upgrade intent handler removed
 
   private sendIntent(intent: Intent) {
     if (this.isLocal || this.socket?.readyState === WebSocket.OPEN) {

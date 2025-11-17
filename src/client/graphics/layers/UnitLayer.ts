@@ -4,7 +4,6 @@ import { Theme } from "../../../core/configuration/Config";
 import { UnitType } from "../../../core/game/Game";
 import { TileRef } from "../../../core/game/GameMap";
 import { GameView, UnitView } from "../../../core/game/GameView";
-import { isUpgradeableUnit } from "../../../core/game/Upgradeables";
 import { BezenhamLine } from "../../../core/utilities/Line";
 import {
   AlternateViewEvent,
@@ -15,7 +14,6 @@ import {
   MoveFighterJetIntentEvent,
   MoveSubmarineIntentEvent, // <-- Add this
   MoveWarshipIntentEvent,
-  SendUpgradeUnitIntentEvent,
 } from "../../Transport";
 import { TransformHandler } from "../TransformHandler";
 import { UIState } from "../UIState";
@@ -180,22 +178,7 @@ export class UnitLayer implements Layer {
     const nearbySubmarines = this.findSubmarinesNearCell(cell);
     const nearbyFighterJets = this.findFighterJetsNearCell(cell);
 
-    // If in unit-upgrade mode, clicking attempts to upgrade nearest upgradeable owned unit
-    if (this.uiState?.unitUpgradeMode) {
-      const candidates = [
-        ...nearbyWarships,
-        ...nearbySubmarines,
-        ...nearbyFighterJets,
-      ].filter(
-        (u) =>
-          u.owner() === this.game.myPlayer() && isUpgradeableUnit(u.type()),
-      );
-      if (candidates.length > 0) {
-        const target = candidates[0];
-        this.eventBus.emit(new SendUpgradeUnitIntentEvent(target.id()));
-      }
-      return;
-    }
+    // unit upgrade mode removed: proceed with selection/move logic only
 
     if (this.selectedUnit) {
       const clickRef = this.game.ref(cell.x, cell.y);
