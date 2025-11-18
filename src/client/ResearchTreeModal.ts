@@ -392,12 +392,12 @@ export class ResearchTreeModal extends LitElement {
           <div class="investment-track-bg"></div>
           <div
             class="investment-track-fill"
-            style="width:${Math.min(100, Math.max(0, percent))}%;"
+            style="width:${Math.min(100, Math.max(0, percent * 2))}%;"
           ></div>
           <input
             type="range"
             min="0"
-            max="100"
+            max="50"
             step="1"
             .value=${percent.toString()}
             class="investment-input ${this.lockResearch ? "locked" : ""}"

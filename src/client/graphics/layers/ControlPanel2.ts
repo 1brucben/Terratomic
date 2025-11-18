@@ -1709,7 +1709,7 @@ export class ControlPanel2 extends LitElement implements Layer {
                       <div
                         class="absolute left-0 top-3 h-2 rounded transition-all duration-300"
                         style="width:${(
-                          (hasRoads ? this._roadInvestmentRate : 0) * 100
+                          (hasRoads ? this._roadInvestmentRate : 0) * 200
                         ).toFixed(
                           2,
                         )}%; background-color: var(--ui-slider-troop);"
@@ -1765,7 +1765,7 @@ export class ControlPanel2 extends LitElement implements Layer {
                       <input
                         type="range"
                         min="0"
-                        max="100"
+                        max="50"
                         step="1"
                         .value=${(this._roadInvestmentRate * 100).toString()}
                         ?disabled=${!hasRoads}
@@ -1847,7 +1847,7 @@ export class ControlPanel2 extends LitElement implements Layer {
                       <div
                         class="absolute left-0 top-3 h-2 rounded transition-all duration-300"
                         style="width:${(
-                          this._researchInvestmentRate * 100
+                          this._researchInvestmentRate * 200
                         ).toFixed(
                           2,
                         )}%; background-color: var(--ui-slider-troop);"
@@ -1855,7 +1855,7 @@ export class ControlPanel2 extends LitElement implements Layer {
                       <input
                         type="range"
                         min="0"
-                        max="100"
+                        max="50"
                         step="1"
                         .value=${(
                           this._researchInvestmentRate * 100
@@ -1911,7 +1911,7 @@ export class ControlPanel2 extends LitElement implements Layer {
                       <input
                         type="range"
                         min="0"
-                        max="100"
+                        max="50"
                         step="1"
                         .value=${"0"}
                         disabled
