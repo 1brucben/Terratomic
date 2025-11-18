@@ -9,7 +9,7 @@ import {
   ReplaySpeedChangeEvent,
   UnitSelectionEvent,
 } from "../../InputHandler";
-import { PauseGameEvent } from "../../Transport";
+import { MoveFighterJetIntentEvent, PauseGameEvent } from "../../Transport";
 import { TransformHandler } from "../TransformHandler";
 import { Layer } from "./Layer";
 
@@ -126,9 +126,21 @@ export class FighterPixiLayer implements Layer {
       const unit = e.unit;
       if (unit && unit.type() === UnitType.FighterJet) {
         this.selectedFighterId = e.isSelected ? unit.id() : null;
+        if (FighterPixiLayer.DEBUG_HITTEST) {
+          console.debug("[FighterSelect] fighter selection changed", {
+            unitId: unit.id(),
+            isSelected: e.isSelected,
+            selectedFighterId: this.selectedFighterId,
+          });
+        }
       } else if (e.isSelected) {
         // Selecting a non-fighter should clear any fighter selection outline
         this.selectedFighterId = null;
+        if (FighterPixiLayer.DEBUG_HITTEST) {
+          console.debug(
+            "[FighterSelect] non-fighter selected; clearing fighter selection",
+          );
+        }
       }
       if (this.selectedFighterId === null) {
         this.clearSelectionGraphics();
@@ -698,6 +710,15 @@ export class FighterPixiLayer implements Layer {
     }
 
     if (best) {
+      // If a fighter is already selected, do not allow selecting a different one
+      if (
+        this.selectedFighterId !== null &&
+        this.selectedFighterId !== best.unit.id()
+      ) {
+        // Ignore this click for selection changes but consume it to avoid attacks
+        e.consumed = true;
+        return;
+      }
       if (FighterPixiLayer.DEBUG_HITTEST) {
         console.debug("[FighterHitTest] select", {
           id: best.unit.id(),
@@ -706,8 +727,49 @@ export class FighterPixiLayer implements Layer {
         });
       }
       this.eventBus.emit(new UnitSelectionEvent(best.unit, true));
-    } else if (FighterPixiLayer.DEBUG_HITTEST) {
-      console.debug("[FighterHitTest] no hit");
+      // Consume click so global handlers (e.g., ground attack) don't process it
+      e.consumed = true;
+    } else {
+      // No fighter under cursor; if a fighter is currently selected, treat this click
+      // as a move command for that fighter (do not trigger ground attack logic).
+      if (this.selectedFighterId !== null) {
+        if (FighterPixiLayer.DEBUG_HITTEST) {
+          console.debug("[FighterMove] click with fighter selected", {
+            selectedFighterId: this.selectedFighterId,
+            screen: { x: clickX, y: clickY },
+          });
+        }
+        const cell = this.transformHandler.screenToWorldCoordinates(
+          clickX,
+          clickY,
+        );
+        if (this.game.isValidCoord(cell.x, cell.y)) {
+          const tile = this.game.ref(cell.x, cell.y);
+          if (FighterPixiLayer.DEBUG_HITTEST) {
+            console.debug("[FighterMove] emitting MoveFighterJetIntentEvent", {
+              selectedFighterId: this.selectedFighterId,
+              cell,
+              tile,
+            });
+          }
+          this.eventBus.emit(
+            new MoveFighterJetIntentEvent(this.selectedFighterId, tile),
+          );
+          // Deselect fighter after assigning move intent
+          const u = this.game.unit(this.selectedFighterId);
+          if (u) {
+            this.eventBus.emit(new UnitSelectionEvent(u, false));
+          }
+          this.selectedFighterId = null;
+          this.clearSelectionGraphics();
+        }
+        // Consume click to avoid ground attack and stop further processing
+        e.consumed = true;
+        return;
+      }
+      if (FighterPixiLayer.DEBUG_HITTEST) {
+        console.debug("[FighterHitTest] no hit");
+      }
     }
   }
 }

@@ -5,6 +5,7 @@ import { UserSettings } from "../core/game/UserSettings";
 import { ReplaySpeedMultiplier } from "./utilities/ReplaySpeedMultiplier";
 
 export class MouseUpEvent implements GameEvent {
+  public consumed: boolean = false;
   constructor(
     public readonly x: number,
     public readonly y: number,

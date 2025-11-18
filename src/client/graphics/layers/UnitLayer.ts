@@ -208,7 +208,8 @@ export class UnitLayer implements Layer {
 
     // unit upgrade mode removed: proceed with selection/move logic only
 
-    if (this.selectedUnit) {
+    // Only handle clicks-as-move for naval units here; ignore fighter selection
+    if (this.selectedUnit && this.selectedUnit.type() !== UnitType.FighterJet) {
       const clickRef = this.game.ref(cell.x, cell.y);
       if (
         this.selectedUnit.type() === UnitType.Warship &&
@@ -217,6 +218,10 @@ export class UnitLayer implements Layer {
         this.eventBus.emit(
           new MoveWarshipIntentEvent(this.selectedUnit.id(), clickRef),
         );
+        console.debug("[UnitLayer] MoveWarshipIntentEvent", {
+          unitId: this.selectedUnit.id(),
+          tile: clickRef,
+        });
       } else if (
         this.selectedUnit.type() === UnitType.Submarine &&
         this.game.isOcean(clickRef)
@@ -224,18 +229,37 @@ export class UnitLayer implements Layer {
         this.eventBus.emit(
           new MoveSubmarineIntentEvent(this.selectedUnit.id(), clickRef),
         );
+        console.debug("[UnitLayer] MoveSubmarineIntentEvent", {
+          unitId: this.selectedUnit.id(),
+          tile: clickRef,
+        });
       }
       // Deselect
-      this.eventBus.emit(new UnitSelectionEvent(this.selectedUnit, false));
+      const unit = this.selectedUnit; // preserve reference before event clears selection
+      this.eventBus.emit(new UnitSelectionEvent(unit, false));
+      console.debug("[UnitLayer] Deselect after naval move", {
+        unitId: unit?.id(),
+        type: unit?.type(),
+      });
+      // Consume click so global click-to-attack does not trigger
+      event.consumed = true;
       return;
     } else if (nearbyWarships.length > 0) {
       // Toggle selection of the closest warship
       const clickedUnit = nearbyWarships[0];
       this.eventBus.emit(new UnitSelectionEvent(clickedUnit, true));
+      console.debug("[UnitLayer] Select warship", { unitId: clickedUnit.id() });
+      // Consume click so global click-to-attack does not trigger
+      event.consumed = true;
     } else if (nearbySubmarines.length > 0) {
       // Toggle selection of the closest submarine
       const clickedUnit = nearbySubmarines[0];
       this.eventBus.emit(new UnitSelectionEvent(clickedUnit, true));
+      console.debug("[UnitLayer] Select submarine", {
+        unitId: clickedUnit.id(),
+      });
+      // Consume click so global click-to-attack does not trigger
+      event.consumed = true;
     }
   }
 

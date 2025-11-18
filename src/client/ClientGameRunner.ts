@@ -389,11 +389,20 @@ export class ClientGameRunner {
     if (!this.isActive) {
       return;
     }
+    // If a prior layer handled this click, skip global processing.
+    if (event.consumed) {
+      return;
+    }
     const cell = this.renderer.transformHandler.screenToWorldCoordinates(
       event.x,
       event.y,
     );
     if (!this.gameView.isValidCoord(cell.x, cell.y)) {
+      return;
+    }
+    // If a unit is currently selected, defer to layer-specific handlers (move/select)
+    // and skip global click-to-attack processing.
+    if (this.selectedUnit) {
       return;
     }
     console.log(`clicked cell ${cell}`);
@@ -420,13 +429,7 @@ export class ClientGameRunner {
       return;
     }
 
-    if (
-      this.selectedUnit &&
-      this.selectedUnit.type() === UnitType.FighterJet &&
-      this.selectedUnit.owner() === this.myPlayer
-    ) {
-      return; // Skip attack — click is for moving the jet
-    }
+    // Note: when a unit is selected, we already returned above to avoid attacks.
 
     if (
       this.gameView.isLand(tile) &&

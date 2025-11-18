@@ -841,6 +841,10 @@ export class Transport {
   }
 
   private onMoveFighterJetEvent(event: MoveFighterJetIntentEvent) {
+    console.debug("[Transport] move_fighter_jet intent", {
+      unitId: event.unitId,
+      tile: event.tile,
+    });
     this.sendIntent({
       type: "move_fighter_jet",
       clientID: this.lobbyConfig.clientID,
