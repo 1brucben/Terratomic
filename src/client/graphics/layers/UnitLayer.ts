@@ -249,6 +249,8 @@ export class UnitLayer implements Layer {
           new MoveSubmarineIntentEvent(this.selectedUnit.id(), clickRef),
         );
       }
+      // Mark click as consumed whenever a unit was selected, so other handlers don't also treat it as an attack
+      event.consumed = true;
       // Deselect
       this.eventBus.emit(new UnitSelectionEvent(this.selectedUnit, false));
       return;

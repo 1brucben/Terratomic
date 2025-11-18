@@ -246,7 +246,7 @@ export class ClientGameRunner {
         1000,
       );
     }, 20000);
-    this.eventBus.on(MouseUpEvent, this.inputEvent.bind(this));
+    // Register most listeners early, but delay MouseUpEvent until after layers init
     this.eventBus.on(MouseMoveEvent, this.onMouseMove.bind(this));
     this.eventBus.on(
       DoBoatAttackEvent,
@@ -265,6 +265,8 @@ export class ClientGameRunner {
     });
 
     this.renderer.initialize();
+    // Ensure UI layers (e.g., UnitLayer) consume clicks first if needed
+    this.eventBus.on(MouseUpEvent, this.inputEvent.bind(this));
     this.input.initialize();
     this.worker.start((gu: GameUpdateViewData | ErrorUpdate) => {
       if (this.lobby.gameStartInfo === undefined) {
@@ -382,6 +384,10 @@ export class ClientGameRunner {
 
   private inputEvent(event: MouseUpEvent) {
     if (!this.isActive) {
+      return;
+    }
+    // If another listener (like UnitLayer) already used this click, skip processing
+    if (event.consumed) {
       return;
     }
     const cell = this.renderer.transformHandler.screenToWorldCoordinates(
