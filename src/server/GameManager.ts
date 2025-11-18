@@ -46,6 +46,7 @@ export class GameManager {
         infiniteGold: false,
         infiniteTroops: false,
         instantBuild: false,
+        researchAllTechs: false,
         gameMode: GameMode.FFA,
         bots: 400,
         disabledUnits: [],

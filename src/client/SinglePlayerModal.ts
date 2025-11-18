@@ -48,6 +48,7 @@ export class SinglePlayerModal extends LitElement {
   @state() private infiniteTroops: boolean = false;
   @state() private instantBuild: boolean = false;
   @state() private instantResearchHumanOnly: boolean = false;
+  @state() private researchAllTechs: boolean = false;
   @state() private useRandomMap: boolean = false;
   @state() private gameMode: GameMode = GameMode.FFA;
   @state() private teamCount: TeamCountConfig = 2;
@@ -277,6 +278,25 @@ export class SinglePlayerModal extends LitElement {
                 />
                 <div class="option-card-title">
                   ${translateText("single_modal.instant_research")}
+                </div>
+              </label>
+
+              <label
+                for="singleplayer-modal-research-all-techs"
+                class="option-card ${this.researchAllTechs ? "selected" : ""}"
+              >
+                <div class="checkbox-icon"></div>
+                <input
+                  type="checkbox"
+                  id="singleplayer-modal-research-all-techs"
+                  @change=${(e: Event) =>
+                    (this.researchAllTechs = Boolean(
+                      (e.target as HTMLInputElement).checked,
+                    ))}
+                  .checked=${this.researchAllTechs}
+                />
+                <div class="option-card-title">
+                  ${translateText("single_modal.research_all_techs")}
                 </div>
               </label>
 
@@ -531,6 +551,7 @@ export class SinglePlayerModal extends LitElement {
               infiniteTroops: this.infiniteTroops,
               instantBuild: this.instantBuild,
               instantResearchHumanOnly: this.instantResearchHumanOnly,
+              researchAllTechs: this.researchAllTechs,
               disabledUnits: this.disabledUnits
                 .map((u) => Object.values(UnitType).find((ut) => ut === u))
                 .filter((ut): ut is UnitType => ut !== undefined),

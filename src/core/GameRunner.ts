@@ -34,6 +34,7 @@ import {
 import { loadTerrainMap as loadGameMap } from "./game/TerrainMapLoader";
 import { PseudoRandom } from "./PseudoRandom";
 import { ClientID, GameStartInfo, Turn } from "./Schemas";
+import { getTechNodes } from "./tech/ResearchTree";
 import { sanitize, simpleHash } from "./Util";
 import { fixProfaneUsername } from "./validations/username";
 
@@ -233,6 +234,16 @@ export class GameRunner {
   }
 
   init() {
+    // Optionally grant all techs to all players at game start
+    if (this.game.config().gameConfig().researchAllTechs) {
+      const nodes = getTechNodes();
+      const techIds = nodes.map((n) => n.id);
+      this.game
+        .players()
+        .forEach((p) =>
+          techIds.forEach((id) => (p as any).addResearchedTech?.(id)),
+        );
+    }
     if (this.game.config().bots() > 0) {
       this.game.addExecution(
         ...this.execManager.spawnBots(this.game.config().numBots()),

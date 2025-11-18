@@ -103,6 +103,9 @@ export class GameServer {
       this.gameConfig.instantResearchHumanOnly =
         gameConfig.instantResearchHumanOnly;
     }
+    if (gameConfig.researchAllTechs !== undefined) {
+      this.gameConfig.researchAllTechs = gameConfig.researchAllTechs;
+    }
     if (gameConfig.gameMode !== undefined) {
       this.gameConfig.gameMode = gameConfig.gameMode;
     }

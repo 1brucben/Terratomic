@@ -222,6 +222,8 @@ export const GameConfigSchema = z.object({
   instantBuild: z.boolean(),
   // If true, human player's tech selection instantly researches that tech
   instantResearchHumanOnly: z.boolean().optional(),
+  // If true, all players start with all techs researched
+  researchAllTechs: z.boolean().optional(),
   maxPlayers: z.number().optional(),
   disabledUnits: z.enum(UnitType).array().optional(),
   playerTeams: TeamCountConfigSchema.optional(),

@@ -54,6 +54,7 @@ export class HostLobbyModal extends LitElement {
   @state() private infiniteTroops: boolean = false;
   @state() private instantBuild: boolean = false;
   @state() private instantResearchHumanOnly: boolean = false;
+  @state() private researchAllTechs: boolean = false;
   @state() private lobbyId = "";
   @state() private copySuccess = false;
   @state() private clients: ClientInfo[] = [];
@@ -374,6 +375,27 @@ export class HostLobbyModal extends LitElement {
                   />
                   <div class="option-card-title">
                     ${translateText("host_modal.instant_research")}
+                  </div>
+                </label>
+
+                <label
+                  for="research-all-techs"
+                  class="option-card ${this.researchAllTechs ? "selected" : ""}"
+                >
+                  <div class="checkbox-icon"></div>
+                  <input
+                    type="checkbox"
+                    id="research-all-techs"
+                    @change=${(e: Event) => {
+                      this.researchAllTechs = Boolean(
+                        (e.target as HTMLInputElement).checked,
+                      );
+                      this.putGameConfig();
+                    }}
+                    .checked=${this.researchAllTechs}
+                  />
+                  <div class="option-card-title">
+                    ${translateText("host_modal.research_all_techs")}
                   </div>
                 </label>
 
@@ -942,6 +964,7 @@ export class HostLobbyModal extends LitElement {
           infiniteTroops: this.infiniteTroops,
           instantBuild: this.instantBuild,
           instantResearchHumanOnly: this.instantResearchHumanOnly,
+          researchAllTechs: this.researchAllTechs,
           gameMode: this.gameMode,
           disabledUnits: this.disabledUnits,
           playerTeams: this.teamCount,
@@ -1073,6 +1096,9 @@ export class HostLobbyModal extends LitElement {
         }
         if (data.gameConfig?.startingGold !== undefined) {
           this.startingGold = data.gameConfig.startingGold;
+        }
+        if (data.gameConfig?.researchAllTechs !== undefined) {
+          this.researchAllTechs = Boolean(data.gameConfig.researchAllTechs);
         }
       });
   }
