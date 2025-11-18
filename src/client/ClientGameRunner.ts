@@ -11,7 +11,7 @@ import {
 import { createGameRecord } from "../core/Util";
 import { ServerConfig } from "../core/configuration/Config";
 import { getConfig } from "../core/configuration/ConfigLoader";
-import { PlayerActions, UnitType } from "../core/game/Game";
+import { PlayerActions, PlayerType, UnitType } from "../core/game/Game";
 import { TileRef } from "../core/game/GameMap";
 import {
   ErrorUpdate,
@@ -43,6 +43,7 @@ import {
 } from "./Transport";
 import { createCanvas } from "./Utils";
 import { createRenderer, GameRenderer } from "./graphics/GameRenderer";
+import { AVAILABLE_STATS, computeStatValue } from "./stats/StatDefinitions";
 import statsStore from "./stats/StatsStore";
 
 export interface LobbyConfig {
@@ -238,6 +239,24 @@ export class ClientGameRunner {
 
   public start() {
     console.log("starting client game");
+
+    // Initialize stats collection
+    for (const metric of AVAILABLE_STATS) {
+      statsStore.start(
+        metric,
+        () =>
+          this.gameView
+            .players()
+            .filter((p) =>
+              [PlayerType.Human, PlayerType.FakeHuman].includes(
+                p.type() as PlayerType,
+              ),
+            ),
+        (m, p) => computeStatValue(this.gameView, m, p).sortValue,
+        (p) => p.isAlive(),
+        () => this.gameView.ticks(),
+      );
+    }
 
     this.isActive = true;
     this.lastMessageTime = Date.now();
