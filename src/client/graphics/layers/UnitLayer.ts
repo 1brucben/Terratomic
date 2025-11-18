@@ -976,24 +976,32 @@ export class UnitLayer implements Layer {
       );
 
       // Draw a tiny top-right corner badge offset 1px outside the sprite
-      const level = unit.level ? unit.level() : 1;
-      // Tier color mapping: 1→bronze, 2→silver, 3→gold, 4+→platinum
-      const tierColor =
-        level >= 4
-          ? "#E5E4E2" /* platinum */
-          : level === 3
-            ? "#FFD700" /* gold */
-            : level === 2
-              ? "#C0C0C0" /* silver */
-              : "#CD7F32"; /* bronze */
-      // Badge size: crisp 2–3 px depending on sprite size
-      const badgeSize = Math.max(2, Math.min(3, Math.round(newWidth * 0.18)));
-      // Offset 1px to the right and 1px above the sprite's top-right corner
-      const offset = 1;
-      const badgeLeft = Math.round(cx + newWidth / 2 + offset);
-      const badgeTop = Math.round(cy - newHeight / 2 - badgeSize - offset);
-      this.context.fillStyle = tierColor;
-      this.context.fillRect(badgeLeft, badgeTop, badgeSize, badgeSize);
+      // Only for Warships, FighterJets, and Submarines
+      const type = unit.type();
+      if (
+        type === UnitType.Warship ||
+        type === UnitType.FighterJet ||
+        type === UnitType.Submarine
+      ) {
+        const level = unit.level ? unit.level() : 1;
+        // Tier color mapping: 1→bronze, 2→silver, 3→gold, 4+→platinum
+        const tierColor =
+          level >= 4
+            ? "#E5E4E2" /* platinum */
+            : level === 3
+              ? "#FFD700" /* gold */
+              : level === 2
+                ? "#C0C0C0" /* silver */
+                : "#CD7F32"; /* bronze */
+        // Badge size: crisp 2–3 px depending on sprite size
+        const badgeSize = Math.max(2, Math.min(3, Math.round(newWidth * 0.18)));
+        // Offset 1px to the right and 1px above the sprite's top-right corner
+        const offset = 1;
+        const badgeLeft = Math.round(cx + newWidth / 2 + offset);
+        const badgeTop = Math.round(cy - newHeight / 2 - badgeSize - offset);
+        this.context.fillStyle = tierColor;
+        this.context.fillRect(badgeLeft, badgeTop, badgeSize, badgeSize);
+      }
 
       if (angle !== null) {
         this.context.restore();
