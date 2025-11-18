@@ -67,6 +67,10 @@ export class ControlPanel2 extends LitElement implements Layer {
   @state()
   private _lockResearch: boolean = false;
 
+  // Track if we've set the default road investment when Roads upgrade is unlocked
+  @state()
+  private _hasSetRoadInvestmentDefault: boolean = false;
+
   @state()
   private _population: number;
 
@@ -251,11 +255,14 @@ export class ControlPanel2 extends LitElement implements Layer {
     this.targetTroopRatio = Number(
       localStorage.getItem("settings.troopRatio") ?? "0.6",
     );
-    // Force both investment sliders to start at 0 at the beginning of the game
-    this.investmentRate = 0;
-    this._roadInvestmentRate = 0;
-    this._researchInvestmentRate = 0;
-    // Persist zeros so UI and any other readers start from 0
+    // Set default investment values to help new players discover these features
+    // Values are configurable in DefaultConfig
+    this.investmentRate = 0; // Production investment starts at 0%
+    this._roadInvestmentRate = 0; // Roads start at 0% (will be set when unlocked)
+    this._researchInvestmentRate = this.game
+      .config()
+      .defaultResearchInvestment();
+    // Persist default values so UI and other readers start with these defaults
     localStorage.setItem(
       "settings.investmentRate",
       this.investmentRate.toString(),
@@ -362,6 +369,25 @@ export class ControlPanel2 extends LitElement implements Layer {
         "settings.roadInvestmentRate",
         this._roadInvestmentRate.toString(),
       );
+      // Reset the flag so we can set default again if they re-research it
+      this._hasSetRoadInvestmentDefault = false;
+    }
+
+    // Auto-activate road investment when Roads upgrade is first unlocked
+    // This helps new players discover the road investment feature
+    // Default value is configurable in DefaultConfig
+    if (
+      hasRoadsUpgrade &&
+      !this._hasSetRoadInvestmentDefault &&
+      this._roadInvestmentRate === 0
+    ) {
+      this._roadInvestmentRate = this.game.config().defaultRoadInvestment();
+      this.onRoadInvestmentChange(this._roadInvestmentRate);
+      localStorage.setItem(
+        "settings.roadInvestmentRate",
+        this._roadInvestmentRate.toString(),
+      );
+      this._hasSetRoadInvestmentDefault = true;
     }
 
     // Enforce cap so UI never exceeds allowed total; prefer reducing unlocked sliders first

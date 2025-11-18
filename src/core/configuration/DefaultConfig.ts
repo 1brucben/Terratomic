@@ -1324,6 +1324,15 @@ export class DefaultConfig implements Config {
     return 0.5; // 50%
   }
 
+  // Default investment rates for new players (0-1)
+  defaultResearchInvestment(): number {
+    return 0.1; // 10% - encourages tech progression from game start
+  }
+
+  defaultRoadInvestment(): number {
+    return 0.05; // 5% - auto-activates when Roads upgrade is unlocked
+  }
+
   // --- International Cargo Trucks ---
 
   internationalCargoTrucksEnabled(): boolean {

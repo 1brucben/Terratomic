@@ -236,6 +236,9 @@ export interface Config {
   traitorDefenseDebuff(): number;
   traitorDuration(): number;
   maxInvestmentRate(): number;
+  // Default investment rates for new players (0-1)
+  defaultResearchInvestment(): number;
+  defaultRoadInvestment(): number;
   nukeMagnitudes(unitType: UnitType): NukeMagnitude;
   // Number of tiles destroyed to break an alliance
   nukeAllianceBreakThreshold(): number;
