@@ -619,10 +619,14 @@ export class StatisticsModal extends LitElement {
     };
     const formatTime = (t: number) => {
       // t is in ticks. 10 ticks = 1 second.
-      const seconds = Math.floor(t / 10);
+      const spawnDuration = this.game?.config().numSpawnPhaseTurns() ?? 0;
+      const adjustedT = t - spawnDuration;
+      const sign = adjustedT < 0 ? "-" : "";
+      const absT = Math.abs(adjustedT);
+      const seconds = Math.floor(absT / 10);
       const m = Math.floor(seconds / 60);
       const s = seconds % 60;
-      return `${m}:${String(s).padStart(2, "0")}`;
+      return `${sign}${m}:${String(s).padStart(2, "0")}`;
     };
     if (!this._graphPaused) this._startGraphRenderLoop();
     return html`<div class="stats-section">
