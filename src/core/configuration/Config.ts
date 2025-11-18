@@ -225,6 +225,10 @@ export interface Config {
   fighterJetTargetReachedDistance(): number;
   fighterJetDogfightDistance(): number;
   fighterJetMinDogfightDistance(): number;
+  // Fighter Jet: per-level max health
+  fighterJetLevelMaxHealth(level: number): number;
+  // Fighter Jet: per-level damage range (inclusive)
+  fighterJetDamageRange(level: number): { min: number; max: number };
   warshipAARange(): number;
   warshipAACooldown(): number;
   warshipAAScanInterval(): number;

@@ -306,6 +306,10 @@ export class UILayer implements Layer {
       if (typeof maxHealth === "number") {
         maxHealth = maxHealth + (lvl - 1) * 1000;
       }
+    } else if (unit.type() === UnitType.FighterJet) {
+      // Fighter Jet: per-level max health from config
+      const lvl = unit.level ? unit.level() : 1;
+      maxHealth = this.game.config().fighterJetLevelMaxHealth(lvl);
     }
     if (maxHealth === undefined || this.context === null) {
       return;

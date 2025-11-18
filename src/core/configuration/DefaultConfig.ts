@@ -481,6 +481,40 @@ export class DefaultConfig implements Config {
     return 10;
   }
 
+  // Fighter Jet per-level stats
+  fighterJetLevelMaxHealth(level: number): number {
+    const lvl = Math.max(1, Math.min(4, Math.floor(level)));
+    switch (lvl) {
+      case 1:
+        return 750; // default
+      case 2:
+        return 1000;
+      case 3:
+        return 1250;
+      case 4:
+        return 1500;
+      default:
+        return 750;
+    }
+  }
+
+  fighterJetDamageRange(level: number): { min: number; max: number } {
+    const lvl = Math.max(1, Math.min(4, Math.floor(level)));
+    switch (lvl) {
+      case 1:
+        // Level 1 fighter damage
+        return { min: 200, max: 325 };
+      case 2:
+        return { min: 300, max: 425 };
+      case 3:
+        return { min: 400, max: 525 };
+      case 4:
+        return { min: 500, max: 625 };
+      default:
+        return { min: 200, max: 325 };
+    }
+  }
+
   // Paratroopers/Air attack
   paratrooperMaxNumber(): number {
     return 3;

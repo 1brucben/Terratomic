@@ -46,6 +46,13 @@ export class FighterJetExecution implements Execution {
       const lvl = Math.max(1, this.desiredLevel | 0);
       if (lvl > 1) {
         (this.fighterJet as any)._level = lvl;
+        // Apply per-level max health using config
+        const base =
+          this.mg.config().unitInfo(UnitType.FighterJet).maxHealth ?? 750;
+        const desired = this.mg.config().fighterJetLevelMaxHealth(lvl);
+        const bonus = Math.max(0, desired - base);
+        (this.fighterJet as any)._bonusMaxHealth = bonus;
+        (this.fighterJet as any)._health = BigInt(desired);
         this.mg.addUpdate(this.fighterJet.toUpdate());
       }
     }

@@ -70,12 +70,21 @@ export class ShellExecution implements Execution {
   }
 
   private effectOnTarget(): number {
+    // Fighter Jets use per-level configurable damage ranges
+    if (this.ownerUnit.type() === UnitType.FighterJet) {
+      const level = this.ownerUnit.level ? this.ownerUnit.level() : 1;
+      const range = this.mg.config().fighterJetDamageRange(level);
+      // Use 6-step discrete spread between min and max (inclusive)
+      const roll = this.random.nextInt(0, 5); // 0..5
+      const step = (range.max - range.min) / 5;
+      return Math.round(range.min + roll * step);
+    }
+
+    // Default: shell damage based on base value and 5-step multiplier
     const { damage } = this.mg.config().unitInfo(UnitType.Shell);
     const baseDamage = damage ?? 250;
-
     const roll = this.random.nextInt(1, 6);
     const damageMultiplier = (roll - 1) * 25 + 200;
-
     return Math.round((baseDamage / 250) * damageMultiplier);
   }
 
