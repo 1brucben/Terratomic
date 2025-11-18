@@ -44,6 +44,23 @@ export class StatisticsModal extends LitElement {
   @state() private activeTab: "Overview" | "List" | "Graph" = "Overview";
   @property({ type: Object }) game: GameView | null = null;
   @state() private selectedPlayerId: string | null = null;
+  // List tab state
+  @state() private _listRefreshTick = 0;
+  @state() private _listSelectedStats: [
+    string,
+    string,
+    string,
+    string,
+    string,
+  ] = [
+    "Industrial Production",
+    "Population",
+    "Productivity %",
+    "Road Quality %",
+    "Researched Techs",
+  ];
+  @state() private _listSortIndex: number | null = null; // 0..3
+  @state() private _listSortDir: "asc" | "desc" = "desc";
 
   private _playersForDropdown(): PlayerView[] {
     if (!this.game) return [];
@@ -80,6 +97,12 @@ export class StatisticsModal extends LitElement {
 
   private _changeTab(tab: "Overview" | "List" | "Graph") {
     this.activeTab = tab;
+    // Stop auto-refresh on List tab; resume elsewhere
+    if (tab === "List") {
+      this._stopAutoRefresh();
+    } else if (!this._intervalId) {
+      this._startAutoRefresh();
+    }
   }
 
   private _renderTabs() {
@@ -304,25 +327,142 @@ export class StatisticsModal extends LitElement {
           </div>
         </div>`;
       }
-      case "List":
+      case "List": {
+        const allPlayers = (this.game?.players?.() ?? []).filter((p) =>
+          [PlayerType.Human, PlayerType.FakeHuman].includes(
+            p.type() as PlayerType,
+          ),
+        );
+        const opts = this._availableListStats();
+        const rows = allPlayers.map((p) => {
+          const values = this._listSelectedStats.map((key) =>
+            this._computeStatValue(key, p),
+          );
+          return { player: p, values };
+        });
+        // Sorting
+        const sorted = rows.slice();
+        if (this._listSortIndex !== null) {
+          const idx = this._listSortIndex;
+          const dir = this._listSortDir;
+          sorted.sort((a, b) => {
+            // Special case: sort by player name when idx === -1
+            if (idx === -1) {
+              const an = a.player.displayName?.() ?? a.player.name?.() ?? "";
+              const bn = b.player.displayName?.() ?? b.player.name?.() ?? "";
+              const cmp = an.localeCompare(bn);
+              return dir === "asc" ? cmp : -cmp;
+            }
+            const at = a.values[idx]?.sortText;
+            const bt = b.values[idx]?.sortText;
+            if (typeof at === "string" || typeof bt === "string") {
+              const as = (at ?? "").toString().toLowerCase();
+              const bs = (bt ?? "").toString().toLowerCase();
+              const cmp = as.localeCompare(bs);
+              return dir === "asc" ? cmp : -cmp;
+            }
+            const av = a.values[idx]?.sortValue ?? 0;
+            const bv = b.values[idx]?.sortValue ?? 0;
+            return dir === "asc" ? av - bv : bv - av;
+          });
+        }
+
+        const headerCell = (label: string, i: number) => {
+          const isActive = this._listSortIndex === i;
+          const dir = isActive ? this._listSortDir : null;
+          return html`<button
+            class="list-th ${isActive ? "active" : ""}"
+            @click=${() => this._toggleSort(i)}
+            title="Sort by ${label}"
+          >
+            <span>${label}</span>
+            <span class="sort-icons"
+              ><span class="tri ${dir === "asc" ? "on" : ""}">▲</span
+              ><span class="tri ${dir === "desc" ? "on" : ""}">▼</span></span
+            >
+          </button>`;
+        };
+
         return html`<div class="stats-section">
-          <h3 class="stats-heading">List</h3>
-          <p class="stats-text">
-            Per-player rows / sortable table placeholder.
-          </p>
-          <div class="stats-table-placeholder">
-            <div class="placeholder-row header">
-              <span>Player</span><span>Industrial Prod.</span
-              ><span>Population</span>
+          <div class="list-controls">
+            ${[0, 1, 2, 3, 4].map((i) => {
+              const current = this._listSelectedStats[i];
+              return html`<label class="sel-group"
+                >Col ${i + 1}
+                <select
+                  @change=${(e: Event) =>
+                    this._updateListStat(
+                      i,
+                      (e.target as HTMLSelectElement).value,
+                    )}
+                >
+                  ${opts.map(
+                    (o) =>
+                      html`<option value=${o} ?selected=${o === current}>
+                        ${o}
+                      </option>`,
+                  )}
+                </select>
+              </label>`;
+            })}
+            <button class="btn" @click=${() => this._refreshList()}>
+              Refresh
+            </button>
+          </div>
+          <div class="list-table">
+            <div class="list-header">
+              <button
+                class="list-th sticky ${this._listSortIndex === -1
+                  ? "active"
+                  : ""}"
+                @click=${() => this._toggleSort(-1)}
+                title="Sort by Player"
+              >
+                <span>Player</span>
+                <span class="sort-icons"
+                  ><span
+                    class="tri ${this._listSortIndex === -1 &&
+                    this._listSortDir === "asc"
+                      ? "on"
+                      : ""}"
+                    >▲</span
+                  ><span
+                    class="tri ${this._listSortIndex === -1 &&
+                    this._listSortDir === "desc"
+                      ? "on"
+                      : ""}"
+                    >▼</span
+                  ></span
+                >
+              </button>
+              ${this._listSelectedStats.map((l, i) => headerCell(l, i))}
             </div>
-            ${[1, 2, 3].map(
-              (i) =>
-                html`<div class="placeholder-row">
-                  <span>Player ${i}</span><span>—</span><span>—</span>
-                </div>`,
-            )}
+            <div class="list-body">
+              ${sorted.map(
+                (r) =>
+                  html`<div class="list-row">
+                    <div class="list-td sticky">
+                      ${r.player.displayName?.() ??
+                      r.player.name?.() ??
+                      "Player"}
+                    </div>
+                    ${r.values.map(
+                      (v) =>
+                        html`<div class="list-td">
+                          <div class="primary">${v.displayPrimary}</div>
+                          ${v.displaySecondary
+                            ? html`<div class="secondary">
+                                ${v.displaySecondary}
+                              </div>`
+                            : html``}
+                        </div>`,
+                    )}
+                  </div>`,
+              )}
+            </div>
           </div>
         </div>`;
+      }
       case "Graph":
         return html`<div class="stats-section">
           <h3 class="stats-heading">Graph</h3>
@@ -485,6 +625,95 @@ export class StatisticsModal extends LitElement {
             overflow: hidden;
             background: color-mix(in srgb, var(--ui-primary) 85%, transparent);
           }
+          statistics-modal .list-controls {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            flex-wrap: wrap;
+          }
+          statistics-modal .list-controls .sel-group {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 12px;
+            color: var(--ui-text-muted);
+          }
+          statistics-modal .list-controls select {
+            background: var(--ui-primary);
+            border: 1px solid var(--ui-panel-border);
+            color: var(--ui-text-accent);
+            padding: 4px 8px;
+            font-size: 12px;
+            border-radius: 4px;
+          }
+          statistics-modal .list-controls .btn {
+            background: var(--ui-secondary);
+            border: 1px solid var(--ui-panel-border);
+            color: var(--ui-text-accent);
+            padding: 6px 12px;
+            font-size: 12px;
+            border-radius: 6px;
+            cursor: pointer;
+          }
+          statistics-modal .list-table {
+            margin-top: 8px;
+            border: 1px solid var(--ui-panel-border);
+            border-radius: 6px;
+            overflow: hidden;
+          }
+          statistics-modal .list-header,
+          statistics-modal .list-row {
+            display: grid;
+            grid-template-columns: 1.1fr repeat(5, 1fr);
+            gap: 6px;
+            align-items: center;
+          }
+          statistics-modal .list-header {
+            background: var(--ui-secondary);
+            padding: 4px 6px;
+            color: var(--ui-text-accent);
+            border-bottom: 1px solid var(--ui-panel-border);
+            font-weight: 600;
+          }
+          statistics-modal .list-th {
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            background: transparent;
+            border: none;
+            color: inherit;
+            cursor: pointer;
+            font-weight: inherit;
+          }
+          statistics-modal .sort-icons {
+            display: inline-flex;
+            flex-direction: column;
+            line-height: 10px;
+          }
+          statistics-modal .tri {
+            opacity: 0.35;
+            font-size: 10px;
+          }
+          statistics-modal .tri.on {
+            opacity: 1;
+          }
+          statistics-modal .list-body {
+            max-height: 360px;
+            overflow: auto;
+          }
+          statistics-modal .list-row {
+            padding: 4px 6px;
+          }
+          statistics-modal .list-row:nth-child(odd) {
+            background: color-mix(in srgb, var(--ui-primary) 85%, transparent);
+          }
+          statistics-modal .list-td .primary {
+            font-size: 12px;
+          }
+          statistics-modal .list-td .secondary {
+            font-size: 11px;
+            color: var(--ui-text-muted);
+          }
           statistics-modal .placeholder-row {
             display: grid;
             grid-template-columns: 2fr 1fr 1fr;
@@ -537,9 +766,10 @@ export class StatisticsModal extends LitElement {
             z-index: 2;
           }
         </style>
-        ${this._renderTabs()} ${this._renderContent()}<span style="display:none"
-          >${this._tick}</span
-        >
+        ${this._renderTabs()}
+        ${this._renderContent()}${this.activeTab === "List"
+          ? html`<span style="display:none">${this._listRefreshTick}</span>`
+          : html`<span style="display:none">${this._tick}</span>`}
       </o-modal>
     `;
   }
@@ -551,6 +781,237 @@ export class StatisticsModal extends LitElement {
   connectedCallback(): void {
     super.connectedCallback();
     this.addEventListener("modal-close", () => this._stopAutoRefresh());
+  }
+
+  private _refreshList() {
+    this._listRefreshTick++;
+  }
+  private _updateListStat(idx: number, value: string) {
+    const next = [...this._listSelectedStats] as [
+      string,
+      string,
+      string,
+      string,
+      string,
+    ];
+    next[idx] = value;
+    this._listSelectedStats = next;
+    this._refreshList();
+  }
+  private _toggleSort(idx: number) {
+    if (this._listSortIndex !== idx) {
+      this._listSortIndex = idx;
+      this._listSortDir = "desc";
+    } else {
+      this._listSortDir = this._listSortDir === "desc" ? "asc" : "desc";
+    }
+    this._refreshList();
+  }
+
+  private _availableListStats(): string[] {
+    return [
+      "Gold",
+      "Industrial Production",
+      "Population",
+      "Workers",
+      "Troops",
+      "Productivity %",
+      "Productivity Growth %",
+      "Investment – Production %",
+      "Investment – Production Amount/s",
+      "Investment – Roads %",
+      "Investment – Roads Amount/s",
+      "Investment – Research %",
+      "Investment – Research Amount/s",
+      "Road Quality %",
+      "Road Completion %",
+      // Structures (match PlayerInfoOverlay ordering)
+      "City",
+      "Hospital",
+      "Academy",
+      "Research Lab",
+      "Factory",
+      "Port",
+      "Warship",
+      "Missile Silo",
+      "SAM Launcher",
+      "Air Field",
+      "Fighter Jet",
+      "Defense Post",
+      // Tech overview
+      "Researched Techs",
+      "Research Level",
+      // Tech by category (researched/total; sort by researched)
+      "Land Techs",
+      "Sea Techs",
+      "Air Techs",
+      "Nuclear Techs",
+      "Economy Techs",
+    ];
+  }
+
+  private _computeStatValue(
+    label: string,
+    p: PlayerView,
+  ): {
+    sortValue: number;
+    sortText?: string;
+    displayPrimary: string;
+    displaySecondary?: string;
+  } {
+    const gross = this.game?.config().grossGoldAdditionRate(p) ?? 0;
+    const perSecond = 10;
+    const inv = p.investmentRate?.() ?? (p as any).data?.investmentRate ?? 0;
+    const roadRate =
+      (p as any).roadInvestmentRate?.() ??
+      p.roadInvestmentRate?.() ??
+      (p as any).data?.roadInvestmentRate ??
+      0;
+    const researchRate =
+      (p as any).researchInvestmentRate?.() ??
+      p.researchInvestmentRate?.() ??
+      (p as any).data?.researchInvestmentRate ??
+      0;
+    const prodAmt = gross * inv * perSecond;
+    const roadAmt = gross * roadRate * perSecond;
+    const researchAmt = gross * researchRate * perSecond;
+    const ip =
+      (p as any).industrialProduction?.() ??
+      (p as any).industrialProduction ??
+      (p as any).data?.industrialProduction ??
+      0;
+    switch (label) {
+      case "Gold":
+        return {
+          sortValue: Number(p.gold?.() ?? 0),
+          displayPrimary: String(p.gold?.() ?? 0),
+        };
+      case "Industrial Production":
+        return { sortValue: Number(ip ?? 0), displayPrimary: String(ip ?? 0) };
+      case "Population":
+        return {
+          sortValue: p.population(),
+          displayPrimary: String(p.population()),
+        };
+      case "Workers":
+        return { sortValue: p.workers(), displayPrimary: String(p.workers()) };
+      case "Troops":
+        return { sortValue: p.troops(), displayPrimary: String(p.troops()) };
+      case "Productivity %": {
+        const val = (p.productivity?.() ?? 0) * 100;
+        return { sortValue: val, displayPrimary: `${val.toFixed(1)}%` };
+      }
+      case "Productivity Growth %": {
+        const val = (p.productivityGrowthPerMinute?.() ?? 0) * 100;
+        return { sortValue: val, displayPrimary: `${val.toFixed(1)}%` };
+      }
+      case "Investment – Production %": {
+        const val = (inv ?? 0) * 100;
+        return { sortValue: val, displayPrimary: `${val.toFixed(0)}%` };
+      }
+      case "Investment – Production Amount/s":
+        return { sortValue: prodAmt, displayPrimary: prodAmt.toFixed(2) };
+      case "Investment – Roads %": {
+        const val = (roadRate ?? 0) * 100;
+        return { sortValue: val, displayPrimary: `${val.toFixed(0)}%` };
+      }
+      case "Investment – Roads Amount/s":
+        return { sortValue: roadAmt, displayPrimary: roadAmt.toFixed(2) };
+      case "Investment – Research %": {
+        const val = (researchRate ?? 0) * 100;
+        return { sortValue: val, displayPrimary: `${val.toFixed(0)}%` };
+      }
+      case "Investment – Research Amount/s":
+        return {
+          sortValue: researchAmt,
+          displayPrimary: researchAmt.toFixed(2),
+        };
+      case "Road Quality %": {
+        const val = (p.roadNetworkQuality?.() ??
+          (p as any).data?.roadNetworkQuality ??
+          100) as number;
+        return { sortValue: val, displayPrimary: `${Math.round(val)}%` };
+      }
+      case "Road Completion %": {
+        const val = (p.roadNetworkCompletion?.() ??
+          (p as any).data?.roadNetworkCompletion ??
+          100) as number;
+        return { sortValue: val, displayPrimary: `${Math.round(val)}%` };
+      }
+      // Structures (upgradeOwned use unitsOwned, others use units().length)
+      case "City":
+      case "Hospital":
+      case "Academy":
+      case "Research Lab":
+      case "Factory":
+      case "Port": {
+        const map: Record<string, UnitType> = {
+          City: UnitType.City,
+          Hospital: UnitType.Hospital,
+          Academy: UnitType.Academy,
+          "Research Lab": UnitType.ResearchLab,
+          Factory: UnitType.Factory,
+          Port: UnitType.Port,
+        };
+        const t = map[label];
+        const count = p.unitsOwned(t);
+        return { sortValue: count, displayPrimary: String(count) };
+      }
+      case "Warship":
+      case "Missile Silo":
+      case "SAM Launcher":
+      case "Air Field":
+      case "Fighter Jet":
+      case "Defense Post": {
+        const map: Record<string, UnitType> = {
+          Warship: UnitType.Warship,
+          "Missile Silo": UnitType.MissileSilo,
+          "SAM Launcher": UnitType.SAMLauncher,
+          "Air Field": UnitType.Airfield,
+          "Fighter Jet": UnitType.FighterJet,
+          "Defense Post": UnitType.DefensePost,
+        };
+        const t = map[label];
+        const count = p.units(t).length;
+        return { sortValue: count, displayPrimary: String(count) };
+      }
+      // Tech overview
+      case "Researched Techs": {
+        const n = (p as any).data?.researchTreeTechs?.length ?? 0;
+        return { sortValue: n, displayPrimary: String(n) };
+      }
+      case "Research Level": {
+        const lvl = Number(p.researchTechLevel()) || 0;
+        return { sortValue: lvl, displayPrimary: String(lvl) };
+      }
+
+      // Tech by category (researched/total; sort by researched)
+      case "Land Techs":
+      case "Sea Techs":
+      case "Air Techs":
+      case "Nuclear Techs":
+      case "Economy Techs": {
+        const labelToCat: Record<string, Category> = {
+          "Land Techs": "Land",
+          "Sea Techs": "Sea",
+          "Air Techs": "Air",
+          "Nuclear Techs": "Nuclear",
+          "Economy Techs": "Economy",
+        };
+        const cat = labelToCat[label];
+        const nodes = getTechNodes();
+        const total = nodes.filter((n) => n.category === cat).length;
+        let researched = 0;
+        for (const n of nodes) {
+          if (n.category === cat && p.hasResearchedTech(n.id)) researched++;
+        }
+        return {
+          sortValue: researched,
+          displayPrimary: `${researched}/${total}`,
+        };
+      }
+    }
+    return { sortValue: 0, displayPrimary: "—" };
   }
 }
 
