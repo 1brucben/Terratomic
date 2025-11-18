@@ -610,8 +610,8 @@ export interface Player {
   removeProductivity(amount: number): void;
   investmentRate(): number; // Returns the investment rate (0 to 1)
   setInvestmentRate(rate: number): void;
-  // Economic: Gross Domestic Product proxy
-  gdp(): number; // Computed as config.gdpFactor() * maxPopulation(this)
+  // Economic: Industrial Production proxy (formerly GDP)
+  industrialProduction(): number; // Computed as config.industrialProductionFactor() * maxPopulation(this)
   // Roads: investment ratio (0..1) of per-tick income allocated to roads
   roadInvestmentRate(): number;
   setRoadInvestmentRate(rate: number): void;

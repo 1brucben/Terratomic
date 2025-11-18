@@ -176,8 +176,8 @@ export interface PlayerUpdate {
   capital?: MapPos;
   tilesOwned: number;
   gold: Gold;
-  // Economic: GDP proxy = config.gdpFactor() * maxPopulation(player)
-  gdp: number;
+  // Economic: Industrial Production proxy (formerly GDP) = config.industrialProductionFactor() * maxPopulation(player)
+  industrialProduction: number;
   population: number;
   totalPopulation: number;
   hospitalReturns: number;

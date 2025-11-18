@@ -24,6 +24,7 @@ import {
 import { PlayerListChangedEvent } from "../../events/PlayerListChangedEvent";
 import { ToggleUpgradeModeEvent } from "../../events/ToggleUpgradeModeEvent";
 import { AttackRatioEvent } from "../../InputHandler";
+import "../../StatisticsModal"; // ensure statistics modal is registered
 import {
   SendBomberIntentEvent,
   SendSetAutoBombingEvent,
@@ -965,6 +966,29 @@ export class ControlPanel2 extends LitElement implements Layer {
     }
   }
 
+  private _openStatistics() {
+    const modal =
+      (document.querySelector("statistics-modal") as any) ||
+      this._ensureStatisticsModal();
+    if (!modal) {
+      console.warn("StatisticsModal element not found or failed to create");
+      return;
+    }
+    const openFn = modal.open;
+    if (typeof openFn === "function") {
+      openFn.call(modal);
+    }
+  }
+
+  private _ensureStatisticsModal(): HTMLElement | null {
+    let el = document.querySelector("statistics-modal") as HTMLElement | null;
+    if (!el) {
+      el = document.createElement("statistics-modal");
+      document.body.appendChild(el);
+    }
+    return el;
+  }
+
   render() {
     if (!this.game) {
       return html``;
@@ -1147,7 +1171,7 @@ export class ControlPanel2 extends LitElement implements Layer {
         @contextmenu=${(e: MouseEvent) => e.preventDefault()}
       >
         <div
-          class="flex border-b"
+          class="flex border-b items-stretch"
           style="border-color: var(--ui-panel-border)"
           mb-4
         >
@@ -1200,6 +1224,20 @@ export class ControlPanel2 extends LitElement implements Layer {
                 </button>
               `
             : ""}
+          <div class="ml-auto flex items-center">
+            <button
+              class="cp2-tab flex items-center justify-center mx-1"
+              style="width:34px; height:34px; padding:0;"
+              title="Statistics"
+              @click=${() => this._openStatistics()}
+            >
+              <img
+                src="/images/Statisticsicon.png"
+                alt="Statistics"
+                style="width:27px; height:27px; object-fit:contain; border-radius:4px; display:block;"
+              />
+            </button>
+          </div>
         </div>
 
         <div class="tab-content flex-grow overflow-y-auto max-w-full pr-4 pt-2">

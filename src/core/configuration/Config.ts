@@ -125,8 +125,8 @@ export interface Config {
   proximityBonusPortsNb(totalPorts: number): number;
   proximityBonusAirfieldsNumber(totalAirfields: number): number;
   maxPopulation(player: Player | PlayerView): number;
-  // Multiplier used to compute a player's GDP as: gdpFactor * maxPopulation(player)
-  gdpFactor(): number;
+  // Multiplier used to compute a player's Industrial Production as: industrialProductionFactor * maxPopulation(player)
+  industrialProductionFactor(): number;
   cityPopulationIncrease(): number;
   boatAttackAmount(attacker: Player, defender: Player | TerraNullius): number;
   shellLifetime(): number;
@@ -153,7 +153,7 @@ export interface Config {
   tradeShipGold(dist: number): Gold;
   tradeShipSpawnRate(numberOfPorts: number): number;
   // Trade rework: gravity-based demand and port-supplied ships
-  tradeGravityK(): number; // Coefficient K in K * gdp_i * gdp_j / distance / world_gdp
+  tradeGravityK(): number; // Coefficient K in K * ip_i * ip_j / distance / world_industrial_production
   tradeDemandTickInterval(): number; // Ticks between gravity accumulation (default 10)
   tradeShipPerPortSupply(): number; // Number of trade ships each port supplies (default 1)
   tradeIncomeFixed(): Gold; // Fixed income per completed trade (default 10k)

@@ -1136,8 +1136,8 @@ export class DefaultConfig implements Config {
     }
   }
 
-  // Multiplier for computing GDP relative to max population
-  gdpFactor(): number {
+  // Multiplier for computing Industrial Production relative to max population (formerly GDP)
+  industrialProductionFactor(): number {
     return 1.0;
   }
 

@@ -133,11 +133,11 @@ export class TradeManagerExecution implements Execution {
 
   private accumulateDemand(): void {
     const K = this.mg.config().tradeGravityK();
-    // World GDP = sum of all alive players' GDPs (bots and humans)
-    const worldGDP = this.mg
+    // World Industrial Production = sum of all alive players' industrialProduction values (bots and humans)
+    const worldIndustrialProduction = this.mg
       .players()
       .filter((p) => p.isAlive())
-      .reduce((sum, p) => sum + p.gdp(), 0);
+      .reduce((sum, p) => sum + p.industrialProduction(), 0);
     const players = this.playersForTrade();
     for (let i = 0; i < players.length; i++) {
       for (let j = 0; j < players.length; j++) {
@@ -157,10 +157,14 @@ export class TradeManagerExecution implements Execution {
         const dist = this.capitalDistance(capA, capB);
         if (dist <= 0) continue;
         // New gravity model scaling:
-        // demand += K * gdp_i * gdp_j / distance / world_gdp
-        // Safeguard zero world GDP
+        // demand += K * ip_i * ip_j / distance / world_industrial_production
+        // Safeguard zero world industrial production
         const demandDelta =
-          worldGDP > 0 ? (K * a.gdp() * b.gdp()) / dist / worldGDP : 0;
+          worldIndustrialProduction > 0
+            ? (K * a.industrialProduction() * b.industrialProduction()) /
+              dist /
+              worldIndustrialProduction
+            : 0;
         const k = this.key(a, b);
         // Initialize with a uniform random fractional remainder in [0,1) once per pair
         let prev = this.demand.get(k);

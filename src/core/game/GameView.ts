@@ -366,8 +366,8 @@ export class PlayerView {
   gold(): Gold {
     return this.data.gold;
   }
-  gdp(): number {
-    return this.data.gdp;
+  industrialProduction(): number {
+    return (this.data as any).industrialProduction;
   }
   population(): number {
     return this.data.population;
