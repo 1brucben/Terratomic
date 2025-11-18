@@ -3,8 +3,11 @@ import { customElement, property, state } from "lit/decorators.js";
 import { repeat } from "lit/directives/repeat.js";
 import { translateText } from "../../../client/Utils";
 import { EventBus, GameEvent } from "../../../core/EventBus";
+import { PlayerType } from "../../../core/game/Game";
 import { GameView, PlayerView, UnitView } from "../../../core/game/GameView";
 import { renderNumber } from "../../Utils";
+import "../icons/PlayerIcon";
+import "../icons/RobotIcon";
 import { Layer } from "./Layer";
 
 interface Entry {
@@ -15,6 +18,7 @@ interface Entry {
   troops: string;
   isMyPlayer: boolean;
   player: PlayerView;
+  isHuman: boolean;
 }
 
 export class GoToPlayerEvent implements GameEvent {
@@ -106,6 +110,8 @@ export class Leaderboard extends LitElement implements Layer {
       if (!player.isAlive()) {
         troops = 0;
       }
+      const playerType = player.type();
+      const isHuman = playerType === PlayerType.Human;
       return {
         name: player.displayName(),
         position: index + 1,
@@ -116,6 +122,7 @@ export class Leaderboard extends LitElement implements Layer {
         troops: renderNumber(troops),
         isMyPlayer: player === myPlayer,
         player: player,
+        isHuman: isHuman,
       };
     });
 
@@ -135,6 +142,8 @@ export class Leaderboard extends LitElement implements Layer {
       if (!myPlayer.isAlive()) {
         myPlayerTroops = 0;
       }
+      const myPlayerType = myPlayer.type();
+      const myPlayerIsHuman = myPlayerType === PlayerType.Human;
       this.players.pop();
       this.players.push({
         name: myPlayer.displayName(),
@@ -146,6 +155,7 @@ export class Leaderboard extends LitElement implements Layer {
         troops: renderNumber(myPlayerTroops),
         isMyPlayer: true,
         player: myPlayer,
+        isHuman: myPlayerIsHuman,
       });
     }
 
@@ -235,9 +245,12 @@ export class Leaderboard extends LitElement implements Layer {
                   ${player.position}
                 </div>
                 <div
-                  class="py-1 md:py-2 text-center border-b border-slate-500 truncate"
+                  class="py-1 md:py-2 border-b border-slate-500 truncate flex items-center gap-1"
                 >
-                  ${player.name}
+                  ${player.isHuman
+                    ? html`<player-icon size="16"></player-icon>`
+                    : html`<robot-icon size="16"></robot-icon>`}
+                  <span class="truncate">${player.name}</span>
                 </div>
                 <div class="py-1 md:py-2 text-center border-b border-slate-500">
                   ${player.score}

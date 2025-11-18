@@ -25,9 +25,6 @@ export class UserSettingModal extends LitElement {
 
   @state() private settingsMode: "basic" | "keybinds" = "basic";
   @state() private keybinds: Record<string, string> = {};
-
-  @state() private keySequence: string[] = [];
-  @state() private showEasterEggSettings = false;
   @state() private uiScalePercent = UI_SCALE_DEFAULT_PERCENT;
 
   private handleUiScaleChanged = (event: Event) => {
@@ -40,7 +37,6 @@ export class UserSettingModal extends LitElement {
 
   connectedCallback() {
     super.connectedCallback();
-    window.addEventListener("keydown", this.handleKeyDown);
     window.addEventListener(UI_SCALE_CHANGED_EVENT, this.handleUiScaleChanged);
 
     const savedKeybinds = localStorage.getItem("settings.keybinds");
@@ -66,39 +62,12 @@ export class UserSettingModal extends LitElement {
   }
 
   disconnectedCallback() {
-    window.removeEventListener("keydown", this.handleKeyDown);
     window.removeEventListener(
       UI_SCALE_CHANGED_EVENT,
       this.handleUiScaleChanged,
     );
     super.disconnectedCallback();
     document.body.style.overflow = "auto";
-  }
-
-  private handleKeyDown = (e: KeyboardEvent) => {
-    if (!this.modalEl?.isModalOpen || this.showEasterEggSettings) return;
-
-    const key = e.key.toLowerCase();
-    const nextSequence = [...this.keySequence, key].slice(-4);
-    this.keySequence = nextSequence;
-
-    if (nextSequence.join("") === "evan") {
-      this.triggerEasterEgg();
-      this.keySequence = [];
-    }
-  };
-
-  private triggerEasterEgg() {
-    console.log("🪺 Setting~ unlocked by EVAN combo!");
-    this.showEasterEggSettings = true;
-    const popup = document.createElement("div");
-    popup.className = "easter-egg-popup";
-    popup.textContent = "🎉 You found a secret setting!";
-    document.body.appendChild(popup);
-
-    setTimeout(() => {
-      popup.remove();
-    }, 5000);
   }
 
   toggleDarkMode(e: CustomEvent<{ checked: boolean }>) {
@@ -395,8 +364,9 @@ export class UserSettingModal extends LitElement {
         description="${translateText("user_setting.attack_ratio_desc")}"
         min="1"
         max="100"
-        .value=${Number(localStorage.getItem("settings.attackRatio") ?? "0.2") *
-        100}
+        .value=${
+          Number(localStorage.getItem("settings.attackRatio") ?? "0.2") * 100
+        }
         @change=${this.sliderAttackRatio}
       ></setting-slider>
 
@@ -406,54 +376,11 @@ export class UserSettingModal extends LitElement {
         description="${translateText("user_setting.troop_ratio_desc")}"
         min="1"
         max="100"
-        .value=${Number(localStorage.getItem("settings.troopRatio") ?? "0.95") *
-        100}
+        .value=${
+          Number(localStorage.getItem("settings.troopRatio") ?? "0.95") * 100
+        }
         @change=${this.sliderTroopRatio}
-      ></setting-slider>
-
-      ${this.showEasterEggSettings
-        ? html`
-            <setting-slider
-              label="${translateText(
-                "user_setting.easter_writing_speed_label",
-              )}"
-              description="${translateText(
-                "user_setting.easter_writing_speed_desc",
-              )}"
-              min="0"
-              max="100"
-              value="40"
-              easter="true"
-              @change=${(e: CustomEvent) => {
-                const value = e.detail?.value;
-                if (value !== undefined) {
-                  console.log("Changed:", value);
-                } else {
-                  console.warn("Slider event missing detail.value", e);
-                }
-              }}
-            ></setting-slider>
-
-            <setting-number
-              label="${translateText("user_setting.easter_bug_count_label")}"
-              description="${translateText(
-                "user_setting.easter_bug_count_desc",
-              )}"
-              value="100"
-              min="0"
-              max="1000"
-              easter="true"
-              @change=${(e: CustomEvent) => {
-                const value = e.detail?.value;
-                if (value !== undefined) {
-                  console.log("Changed:", value);
-                } else {
-                  console.warn("Slider event missing detail.value", e);
-                }
-              }}
-            ></setting-number>
-          `
-        : null}
+      </setting-slider>
     `;
   }
 
