@@ -976,6 +976,14 @@ export class ControlPanel2 extends LitElement implements Layer {
     }
     const openFn = modal.open;
     if (typeof openFn === "function") {
+      // Pass current GameView so modal can populate player dropdown
+      try {
+        if (this.game) {
+          modal.game = this.game; // property defined on statistics-modal
+        }
+      } catch (_) {
+        /* non-fatal */
+      }
       openFn.call(modal);
     }
   }
