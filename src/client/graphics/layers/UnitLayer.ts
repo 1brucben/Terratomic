@@ -8,13 +8,18 @@ import { BezenhamLine } from "../../../core/utilities/Line";
 import {
   AlternateViewEvent,
   MouseUpEvent,
+  ReplaySpeedChangeEvent,
   UnitSelectionEvent,
 } from "../../InputHandler";
 import {
   MoveFighterJetIntentEvent,
-  MoveSubmarineIntentEvent, // <-- Add this
+  MoveSubmarineIntentEvent,
   MoveWarshipIntentEvent,
 } from "../../Transport";
+import {
+  defaultReplaySpeedMultiplier,
+  ReplaySpeedMultiplier,
+} from "../../utilities/ReplaySpeedMultiplier";
 import { TransformHandler } from "../TransformHandler";
 import { UIState } from "../UIState";
 import { Layer } from "./Layer";
@@ -37,6 +42,8 @@ export class UnitLayer implements Layer {
   private context: CanvasRenderingContext2D;
   private transportShipTrailCanvas: HTMLCanvasElement;
   private unitTrailContext: CanvasRenderingContext2D;
+  private interpolationCanvas: HTMLCanvasElement;
+  private interpolationContext: CanvasRenderingContext2D;
 
   private unitToTrail = new Map<UnitView, TileRef[]>();
 
@@ -58,6 +65,29 @@ export class UnitLayer implements Layer {
   private readonly SUBMARINE_SELECTION_RADIUS = 10;
   private readonly FIGHTER_JET_SELECTION_RADIUS = 10;
 
+  // Unit types that should be interpolated between ticks
+  private readonly interpolatedUnitTypes: UnitType[] = [
+    UnitType.SAMMissile,
+    UnitType.AtomBomb,
+    UnitType.HydrogenBomb,
+    UnitType.MIRV,
+    UnitType.MIRVWarhead,
+    UnitType.Shell,
+    UnitType.Warship,
+    UnitType.TransportShip,
+    UnitType.TradeShip,
+    UnitType.Submarine,
+    UnitType.Bomber,
+    UnitType.FighterJet,
+    UnitType.CargoPlane,
+  ];
+
+  private baseTickIntervalMs = 100;
+  private tickIntervalMs = 100;
+  private replaySpeedMultiplier: ReplaySpeedMultiplier =
+    defaultReplaySpeedMultiplier;
+  private lastTickTimestamp = 0;
+
   // Cache sprite sizes per UnitType to avoid repeated lookups when clearing
   private spriteSizeCache = new Map<UnitType, number>();
 
@@ -69,6 +99,12 @@ export class UnitLayer implements Layer {
   ) {
     this.theme = game.config().theme();
     this.transformHandler = transformHandler;
+    this.baseTickIntervalMs = this.game
+      .config()
+      .serverConfig()
+      .turnIntervalMs();
+    this.updateTickInterval();
+    this.lastTickTimestamp = this.now();
   }
 
   shouldTransform(): boolean {
@@ -76,6 +112,15 @@ export class UnitLayer implements Layer {
   }
 
   tick() {
+    this.lastTickTimestamp = this.now();
+    const configuredInterval = this.game
+      .config()
+      .serverConfig()
+      .turnIntervalMs();
+    if (configuredInterval !== this.baseTickIntervalMs) {
+      this.baseTickIntervalMs = configuredInterval;
+      this.updateTickInterval();
+    }
     const unitIds = this.game
       .updatesSinceLastTick()
       ?.[GameUpdateType.Unit]?.map((unit) => unit.id);
@@ -87,6 +132,9 @@ export class UnitLayer implements Layer {
     this.eventBus.on(AlternateViewEvent, (e) => this.onAlternativeViewEvent(e));
     this.eventBus.on(MouseUpEvent, (e) => this.onMouseUp(e));
     this.eventBus.on(UnitSelectionEvent, (e) => this.onUnitSelectionChange(e));
+    this.eventBus.on(ReplaySpeedChangeEvent, (e) =>
+      this.onReplaySpeedChange(e.replaySpeedMultiplier),
+    );
     this.redraw();
 
     loadAllSprites();
@@ -241,6 +289,7 @@ export class UnitLayer implements Layer {
   }
 
   renderLayer(context: CanvasRenderingContext2D) {
+    this.updateInterpolatedUnits();
     context.drawImage(
       this.transportShipTrailCanvas,
       -this.game.width() / 2,
@@ -255,6 +304,15 @@ export class UnitLayer implements Layer {
       this.game.width(),
       this.game.height(),
     );
+    if (this.interpolationCanvas) {
+      context.drawImage(
+        this.interpolationCanvas,
+        -this.game.width() / 2,
+        -this.game.height() / 2,
+        this.game.width(),
+        this.game.height(),
+      );
+    }
   }
 
   onAlternativeViewEvent(event: AlternateViewEvent) {
@@ -271,11 +329,18 @@ export class UnitLayer implements Layer {
     const trailContext = this.transportShipTrailCanvas.getContext("2d");
     if (trailContext === null) throw new Error("2d context not supported");
     this.unitTrailContext = trailContext;
+    this.interpolationCanvas = document.createElement("canvas");
+    const interpolationContext = this.interpolationCanvas.getContext("2d");
+    if (interpolationContext === null)
+      throw new Error("2d context not supported");
+    this.interpolationContext = interpolationContext;
 
     this.canvas.width = this.game.width();
     this.canvas.height = this.game.height();
     this.transportShipTrailCanvas.width = this.game.width();
     this.transportShipTrailCanvas.height = this.game.height();
+    this.interpolationCanvas.width = this.game.width();
+    this.interpolationCanvas.height = this.game.height();
 
     this.updateUnitsSprites(this.game.units().map((unit) => unit.id()));
 
@@ -394,6 +459,83 @@ export class UnitLayer implements Layer {
   ) {
     // Pass-through for now; angleByUnit helps avoid recomputation in drawSprite via an overload
     unitViews.forEach((unitView) => this.onUnitEvent(unitView, angleByUnit));
+  }
+
+  private interpolatePosition(unit: UnitView, alpha: number) {
+    const startTile = unit.lastTile();
+    const endTile = unit.tile();
+
+    const startX = this.game.x(startTile);
+    const startY = this.game.y(startTile);
+    const endX = this.game.x(endTile);
+    const endY = this.game.y(endTile);
+
+    return {
+      x: startX + (endX - startX) * alpha,
+      y: startY + (endY - startY) * alpha,
+    };
+  }
+
+  private updateInterpolatedUnits() {
+    if (!this.interpolationContext || !this.interpolationCanvas) {
+      return;
+    }
+
+    this.interpolationContext.clearRect(
+      0,
+      0,
+      this.interpolationCanvas.width,
+      this.interpolationCanvas.height,
+    );
+
+    const alpha = this.computeTickAlpha();
+    const units = this.game.units(...this.interpolatedUnitTypes);
+
+    for (const unit of units) {
+      if (!unit.isActive()) {
+        continue;
+      }
+
+      // Respect submarine visibility rules from onUnitEvent
+      if (
+        unit.type() === UnitType.Submarine &&
+        unit.owner() !== this.game.myPlayer()
+      ) {
+        const isAttacking = unit.isAttacking();
+        const isDetected = unit.isDetectedByNavalUnit();
+        const isOnCooldown = unit.isCooldown();
+        const shouldShow = isAttacking || isDetected || isOnCooldown;
+        if (!shouldShow) {
+          continue;
+        }
+      }
+
+      const position = this.interpolatePosition(unit, alpha);
+
+      if (!isSpriteReady(unit.type())) {
+        continue;
+      }
+
+      this.drawSpriteAtPosition(
+        unit,
+        position,
+        this.getInterpolatedSpriteColor(unit),
+        this.interpolationContext,
+        false,
+      );
+    }
+  }
+
+  private getInterpolatedSpriteColor(unit: UnitView): Colord | undefined {
+    if (unit.targetUnitId()) {
+      if (
+        unit.type() === UnitType.Warship ||
+        unit.type() === UnitType.FighterJet
+      ) {
+        return colord("rgb(200,0,0)");
+      }
+    }
+    return undefined;
   }
 
   private relationship(unit: UnitView): Relationship {
@@ -854,8 +996,74 @@ export class UnitLayer implements Layer {
     }
   }
 
-  // Previously used for colored borders; kept for potential future styling
-  // but currently unused after switching to dot indicators.
+  private drawSpriteAtPosition(
+    unit: UnitView,
+    position: { x: number; y: number },
+    customTerritoryColor?: Colord,
+    context: CanvasRenderingContext2D = this.context,
+    snapToPixel = true,
+  ) {
+    let alternateViewColor: Colord | null = null;
+
+    if (this.alternateView) {
+      let rel = this.relationship(unit);
+      const destinationId = unit.targetUnitId();
+      if (
+        (unit.type() === UnitType.TradeShip ||
+          unit.type() === UnitType.CargoPlane) &&
+        destinationId !== undefined
+      ) {
+        const target = this.game.unit(destinationId)?.owner();
+        const myPlayer = this.game.myPlayer();
+        if (myPlayer !== null && target !== undefined) {
+          if (myPlayer === target) {
+            rel = Relationship.Self;
+          } else if (myPlayer.isFriendly(target)) {
+            rel = Relationship.Ally;
+          }
+        }
+      }
+      switch (rel) {
+        case Relationship.Self:
+          alternateViewColor = this.theme.selfColor();
+          break;
+        case Relationship.Ally:
+          alternateViewColor = this.theme.allyColor();
+          break;
+        case Relationship.Enemy:
+          alternateViewColor = this.theme.enemyColor();
+          break;
+      }
+    }
+
+    const sprite = getColoredSprite(
+      unit,
+      this.theme,
+      alternateViewColor ?? customTerritoryColor,
+      alternateViewColor ?? undefined,
+    );
+
+    if (unit.isActive()) {
+      const targetable = unit.targetable();
+      if (!targetable) {
+        context.save();
+        context.globalAlpha = 0.5;
+      }
+
+      const offsetX = snapToPixel
+        ? Math.round(position.x - sprite.width / 2)
+        : position.x - sprite.width / 2;
+      const offsetY = snapToPixel
+        ? Math.round(position.y - sprite.width / 2)
+        : position.y - sprite.width / 2;
+
+      context.drawImage(sprite, offsetX, offsetY, sprite.width, sprite.width);
+
+      if (!targetable) {
+        context.restore();
+      }
+    }
+  }
 
   private getUnitAngle(unit: UnitView): number | null {
     const lastTile = unit.lastTile();
@@ -938,5 +1146,38 @@ export class UnitLayer implements Layer {
       }
     }
     return 1.0;
+  }
+
+  private computeTickAlpha(): number {
+    const elapsed = Math.min(
+      this.now() - this.lastTickTimestamp,
+      this.tickIntervalMs,
+    );
+    if (this.tickIntervalMs === 0) {
+      return 1;
+    }
+    return Math.max(0, elapsed / this.tickIntervalMs);
+  }
+
+  private onReplaySpeedChange(multiplier: ReplaySpeedMultiplier) {
+    this.replaySpeedMultiplier = multiplier;
+    this.updateTickInterval();
+    this.lastTickTimestamp = this.now();
+  }
+
+  private updateTickInterval() {
+    const baseInterval = this.baseTickIntervalMs;
+    if (baseInterval <= 0) {
+      this.tickIntervalMs = 0;
+      return;
+    }
+    this.tickIntervalMs = baseInterval * this.replaySpeedMultiplier;
+  }
+
+  private now(): number {
+    if (typeof performance !== "undefined" && performance.now) {
+      return performance.now();
+    }
+    return Date.now();
   }
 }
