@@ -65,6 +65,9 @@ export class UnitLayer implements Layer {
   private readonly SUBMARINE_SELECTION_RADIUS = 10;
   private readonly FIGHTER_JET_SELECTION_RADIUS = 10;
 
+  // Indicates we're in the base-canvas draw pass (used to suppress double-draw)
+  private drawingBasePass = false;
+
   // Unit types that should be interpolated between ticks
   private readonly interpolatedUnitTypes: UnitType[] = [
     UnitType.SAMMissile,
@@ -476,8 +479,13 @@ export class UnitLayer implements Layer {
     unitViews: UnitView[],
     angleByUnit: Map<UnitView, number | null>,
   ) {
-    // Pass-through for now; angleByUnit helps avoid recomputation in drawSprite via an overload
-    unitViews.forEach((unitView) => this.onUnitEvent(unitView, angleByUnit));
+    // Suppress base-canvas sprites for units that are also drawn via interpolation overlay
+    this.drawingBasePass = true;
+    try {
+      unitViews.forEach((unitView) => this.onUnitEvent(unitView, angleByUnit));
+    } finally {
+      this.drawingBasePass = false;
+    }
   }
 
   private interpolatePosition(unit: UnitView, alpha: number) {
@@ -904,6 +912,15 @@ export class UnitLayer implements Layer {
       angleByUnit = angleByUnitOrSizeMultiplier;
     }
 
+    // If we're in the base pass and this unit type is interpolated, skip drawing the sprite
+    // to avoid double images (the interpolation overlay will render it smoothly).
+    if (
+      this.drawingBasePass &&
+      this.interpolatedUnitTypes.includes(unit.type())
+    ) {
+      return;
+    }
+
     const x = this.game.x(unit.tile());
     const y = this.game.y(unit.tile());
 
@@ -1074,7 +1091,59 @@ export class UnitLayer implements Layer {
         ? Math.round(position.y - sprite.width / 2)
         : position.y - sprite.width / 2;
 
+      // Apply rotation on interpolation overlay for aircraft
+      const isAircraft =
+        unit.type() === UnitType.Bomber ||
+        unit.type() === UnitType.FighterJet ||
+        unit.type() === UnitType.CargoPlane;
+      let rotated = false;
+      if (isAircraft) {
+        const angle = this.getUnitAngle(unit);
+        if (angle !== null) {
+          const cx = offsetX + sprite.width / 2;
+          const cy = offsetY + sprite.width / 2;
+          context.save();
+          context.translate(cx, cy);
+          context.rotate(angle);
+          context.translate(-cx, -cy);
+          rotated = true;
+        }
+      }
+
       context.drawImage(sprite, offsetX, offsetY, sprite.width, sprite.width);
+
+      // Draw the same tiny badge on interpolation overlay for select unit types
+      const type = unit.type();
+      if (
+        type === UnitType.Warship ||
+        type === UnitType.FighterJet ||
+        type === UnitType.Submarine
+      ) {
+        const level = (unit as any).level ? (unit as any).level() : 1;
+        const tierColor =
+          level >= 4
+            ? "#E5E4E2" /* platinum */
+            : level === 3
+              ? "#FFD700" /* gold */
+              : level === 2
+                ? "#C0C0C0" /* silver */
+                : "#CD7F32"; /* bronze */
+        const badgeSize = Math.max(
+          2,
+          Math.min(3, Math.round(sprite.width * 0.18)),
+        );
+        const offset = 1;
+        const cx = offsetX + sprite.width / 2;
+        const cy = offsetY + sprite.width / 2;
+        const badgeLeft = Math.round(cx + sprite.width / 2 + offset);
+        const badgeTop = Math.round(cy - sprite.width / 2 - badgeSize - offset);
+        context.fillStyle = tierColor;
+        context.fillRect(badgeLeft, badgeTop, badgeSize, badgeSize);
+      }
+
+      if (rotated) {
+        context.restore();
+      }
 
       if (!targetable) {
         context.restore();
