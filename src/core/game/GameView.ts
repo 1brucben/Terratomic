@@ -393,6 +393,12 @@ export class PlayerView {
   investmentRate(): number {
     return this.data.investmentRate;
   }
+  roadInvestmentRate(): number {
+    return (this.data as any).roadInvestmentRate ?? 0;
+  }
+  researchInvestmentRate(): number {
+    return (this.data as any).researchInvestmentRate ?? 0;
+  }
   // Road KPIs (optional on wire; default to 100% quality and 100% completion if absent)
   roadNetworkQuality(): number {
     return this.data.roadNetworkQuality ?? 100;

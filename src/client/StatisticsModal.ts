@@ -110,23 +110,65 @@ export class StatisticsModal extends LitElement {
         const players = this._playersForDropdown();
         const sel = this._selectedPlayer();
         const economy = sel
-          ? [
-              ["Gold", sel.gold().toString()],
-              [
-                "Industrial Production",
-                (sel as any).industrialProduction?.() ??
-                  (sel as any).industrialProduction ??
-                  "—",
-              ],
-              ["Population", sel.population().toString()],
-              ["Workers", sel.workers().toString()],
-              ["Troops", sel.troops().toString()],
-              ["Productivity", (sel.productivity() * 100).toFixed(1) + "%"],
-              [
-                "Productivity Growth / min",
-                (sel.productivityGrowthPerMinute() * 100).toFixed(1) + "%",
-              ],
-            ]
+          ? (() => {
+              const gross = this.game?.config().grossGoldAdditionRate(sel) ?? 0;
+              const prodRate = sel.investmentRate();
+              const roadRate =
+                (sel as any).roadInvestmentRate?.() ??
+                sel.roadInvestmentRate?.() ??
+                (sel as any).data?.roadInvestmentRate ??
+                0;
+              const researchRate =
+                (sel as any).researchInvestmentRate?.() ??
+                sel.researchInvestmentRate?.() ??
+                (sel as any).data?.researchInvestmentRate ??
+                0;
+              const perSecond = 10; // engine ~10 ticks per second
+              const prodAmt = gross * prodRate * perSecond;
+              const roadAmt = gross * roadRate * perSecond;
+              const researchAmt = gross * researchRate * perSecond;
+              const roadQuality =
+                sel.roadNetworkQuality?.() ??
+                sel.roadNetworkQuality?.() ??
+                (sel as any).roadNetworkQuality ??
+                100;
+              const roadCompletion =
+                sel.roadNetworkCompletion?.() ??
+                sel.roadNetworkCompletion?.() ??
+                (sel as any).roadNetworkCompletion ??
+                100;
+              return [
+                ["Gold", sel.gold().toString()],
+                [
+                  "Industrial Production",
+                  (sel as any).industrialProduction?.() ??
+                    (sel as any).industrialProduction ??
+                    "—",
+                ],
+                ["Population", sel.population().toString()],
+                ["Workers", sel.workers().toString()],
+                ["Troops", sel.troops().toString()],
+                ["Productivity", (sel.productivity() * 100).toFixed(1) + "%"],
+                [
+                  "Productivity Growth / min",
+                  (sel.productivityGrowthPerMinute() * 100).toFixed(1) + "%",
+                ],
+                [
+                  "Investment – Production",
+                  `${(prodRate * 100).toFixed(0)}% (${prodAmt.toFixed(2)})`,
+                ],
+                [
+                  "Investment – Roads",
+                  `${(roadRate * 100).toFixed(0)}% (${roadAmt.toFixed(2)})`,
+                ],
+                [
+                  "Investment – Research",
+                  `${(researchRate * 100).toFixed(0)}% (${researchAmt.toFixed(2)})`,
+                ],
+                ["Road Quality", `${Math.round(roadQuality)}%`],
+                ["Road Completion", `${Math.round(roadCompletion)}%`],
+              ] as Array<[string, string]>;
+            })()
           : [];
         // Structures list and counting logic identical to PlayerInfoOverlay ordering & semantics
         const structureTypes: UnitType[] = [

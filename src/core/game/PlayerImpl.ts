@@ -196,6 +196,8 @@ export class PlayerImpl implements Player {
       productivity: this.productivity(),
       productivityGrowthPerMinute: this.productivityGrowthPerMinute(),
       investmentRate: this.investmentRate(),
+      roadInvestmentRate: this.roadInvestmentRate(),
+      researchInvestmentRate: this.researchInvestmentRate(),
       allies: this.alliances().map((a) => a.other(this).smallID()),
       wars: Array.from(this._wars).map((pid) => this.mg.player(pid).smallID()),
       embargoes: new Set([...this.embargoes.keys()].map((p) => p.toString())),
