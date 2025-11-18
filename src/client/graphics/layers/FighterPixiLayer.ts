@@ -314,12 +314,8 @@ export class FighterPixiLayer implements Layer {
   }
 
   private updateSelectionOutline(unit: UnitView, sprite: PIXI.Sprite): void {
-    const ownerId = unit.owner().id();
-    const colorHex = this.theme
-      .territoryColor(this.game.player(ownerId))
-      .lighten(0.2)
-      .toHex();
-    const color = parseInt(colorHex.replace(/^#/, ""), 16);
+    // Use a neutral grey dotted outline (not player-tinted)
+    const color = 0x9ca3af; // approx Tailwind gray-400
 
     const x = Math.round(sprite.x);
     const y = Math.round(sprite.y);
@@ -347,20 +343,9 @@ export class FighterPixiLayer implements Layer {
     g.position.set(x, y);
     g.alpha = 0.95;
 
-    // Draw a solid outline for visibility
+    // Draw only a dotted outline (no solid box)
     const halfW = Math.floor(w / 2);
     const halfH = Math.floor(h / 2);
-    const lineWidth = 2;
-    (g as any).lineStyle?.({
-      width: lineWidth,
-      color,
-      alpha: 1,
-      alignment: 0.5,
-    });
-    g.drawRect(-halfW, -halfH, w, h);
-    (g as any).lineStyle?.(0);
-
-    // Overlay a dotted accent
     const dot = 2; // 2px dot
     const step = 4; // spacing for dotted effect
 
