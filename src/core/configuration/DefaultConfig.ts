@@ -1330,7 +1330,7 @@ export class DefaultConfig implements Config {
   }
 
   defaultRoadInvestment(): number {
-    return 0.05; // 5% - auto-activates when Roads upgrade is unlocked
+    return 0.1; // 10% - auto-activates when Roads upgrade is unlocked
   }
 
   // --- International Cargo Trucks ---
