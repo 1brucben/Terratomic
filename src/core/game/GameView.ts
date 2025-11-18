@@ -491,8 +491,10 @@ export class GameView implements GameMap {
   private _focusedPlayer: PlayerView | null = null;
   private _alliances: AllianceViewData[] = [];
   // Submarine periodic pings removed; ghosts are used instead
-  private _submarineGhosts: Map<number, { pos: TileRef; expiresAt: Tick }> =
-    new Map();
+  private _submarineGhosts: Map<
+    number,
+    { pos: TileRef; expiresAt: Tick; ownerID: number }
+  > = new Map();
   private _cooldownActive = new Set<number>();
 
   private unitGrid: UnitGrid;
@@ -580,6 +582,7 @@ export class GameView implements GameMap {
         this._submarineGhosts.set(update.id, {
           pos: update.pos,
           expiresAt: expiresAt ?? this.ticks() + 300,
+          ownerID: update.ownerID,
         });
       } else if (update.unitType === UnitType.Submarine) {
         // Receiving a real sub update clears any ghost
@@ -647,12 +650,27 @@ export class GameView implements GameMap {
     this._emitEndedUnitCooldowns();
   }
 
-  submarineGhosts(): Array<{ id: number; pos: TileRef; expiresAt: Tick }> {
+  submarineGhosts(): Array<{
+    id: number;
+    pos: TileRef;
+    expiresAt: Tick;
+    ownerID: number;
+  }> {
     const now = this.ticks();
-    const result: Array<{ id: number; pos: TileRef; expiresAt: Tick }> = [];
+    const result: Array<{
+      id: number;
+      pos: TileRef;
+      expiresAt: Tick;
+      ownerID: number;
+    }> = [];
     for (const [id, ghost] of this._submarineGhosts) {
       if (ghost.expiresAt > now) {
-        result.push({ id, pos: ghost.pos, expiresAt: ghost.expiresAt });
+        result.push({
+          id,
+          pos: ghost.pos,
+          expiresAt: ghost.expiresAt,
+          ownerID: ghost.ownerID,
+        });
       } else {
         this._submarineGhosts.delete(id);
       }

@@ -91,6 +91,9 @@ export class UnitLayer implements Layer {
   // Cache sprite sizes per UnitType to avoid repeated lookups when clearing
   private spriteSizeCache = new Map<UnitType, number>();
 
+  private renderedGhosts = new Map<number, TileRef>();
+  private renderedUnits = new Map<number, UnitView>();
+
   constructor(
     private game: GameView,
     private eventBus: EventBus,
@@ -126,6 +129,7 @@ export class UnitLayer implements Layer {
       ?.[GameUpdateType.Unit]?.map((unit) => unit.id);
 
     this.updateUnitsSprites(unitIds ?? []);
+    this.updateGhosts();
   }
 
   init() {
@@ -344,31 +348,22 @@ export class UnitLayer implements Layer {
     this.interpolationCanvas.width = this.game.width();
     this.interpolationCanvas.height = this.game.height();
 
-    this.updateUnitsSprites(this.game.units().map((unit) => unit.id()));
+    this.renderedUnits.clear();
+    const units = this.game.units();
+    units.forEach((u) => this.renderedUnits.set(u.id(), u));
+    this.updateUnitsSprites(units.map((unit) => unit.id()));
 
     // After redrawing units, render submarine ghosts (last known positions)
+    this.renderedGhosts.clear();
     const ghosts = (this.game as any).submarineGhosts?.call(this.game) ?? [];
     for (const ghost of ghosts as Array<{
       id: number;
       pos: number;
       expiresAt: number;
+      ownerID: number;
     }>) {
-      // Draw a faint submarine sprite at ghost.pos
-      const x = this.game.x(ghost.pos);
-      const y = this.game.y(ghost.pos);
-      // Simple faint marker: paint a small translucent cell using enemy color as default
-      this.context.save();
-      this.context.globalAlpha = 0.3;
-      const dummyUnit = {
-        tile: () => ghost.pos,
-        type: () => UnitType.Submarine,
-        owner: () => this.game.myPlayer() ?? (this.game.players()[0] as any),
-        targetable: () => true,
-        isActive: () => false,
-        lastTile: () => ghost.pos,
-      } as unknown as UnitView;
-      this.drawSprite(dummyUnit as UnitView);
-      this.context.restore();
+      this.drawGhost(ghost);
+      this.renderedGhosts.set(ghost.id, ghost.pos);
     }
 
     this.unitToTrail.forEach((trail, unit) => {
@@ -386,13 +381,30 @@ export class UnitLayer implements Layer {
   }
 
   private updateUnitsSprites(unitIds: number[]) {
-    const unitsToUpdate = unitIds
-      ?.map((id) => this.game.unit(id))
-      .filter((unit) => unit !== undefined) as UnitView[] | undefined;
+    const unitsToUpdate: UnitView[] = [];
+    const unitsToRemove: UnitView[] = [];
 
-    if (unitsToUpdate && unitsToUpdate.length > 0) {
+    if (unitIds) {
+      for (const id of unitIds) {
+        const unit = this.game.unit(id);
+        if (unit) {
+          unitsToUpdate.push(unit);
+          this.renderedUnits.set(id, unit);
+        } else {
+          const removed = this.renderedUnits.get(id);
+          if (removed) {
+            unitsToRemove.push(removed);
+            this.renderedUnits.delete(id);
+          }
+        }
+      }
+    }
+
+    const allUnitsToClear = [...unitsToUpdate, ...unitsToRemove];
+
+    if (allUnitsToClear.length > 0) {
       const oldAngleByUnit = new Map<UnitView, number | null>();
-      for (const u of unitsToUpdate) {
+      for (const u of allUnitsToClear) {
         oldAngleByUnit.set(u, this.unitToLastAngle.get(u) ?? null);
       }
 
@@ -405,8 +417,13 @@ export class UnitLayer implements Layer {
 
       // the clearing and drawing of unit sprites need to be done in 2 passes
       // otherwise the sprite of a unit can be drawn on top of another unit
-      this.clearUnitsCells(unitsToUpdate, oldAngleByUnit);
+      this.clearUnitsCells(allUnitsToClear, oldAngleByUnit);
       this.drawUnitsCells(unitsToUpdate, angleByUnit);
+
+      // Handle deactivation for removed units
+      for (const u of unitsToRemove) {
+        this.handleUnitDeactivation(u);
+      }
     }
   }
 
@@ -503,13 +520,7 @@ export class UnitLayer implements Layer {
         unit.type() === UnitType.Submarine &&
         unit.owner() !== this.game.myPlayer()
       ) {
-        const isAttacking = unit.isAttacking();
-        const isDetected = unit.isDetectedByNavalUnit();
-        const isOnCooldown = unit.isCooldown();
-        const shouldShow = isAttacking || isDetected || isOnCooldown;
-        if (!shouldShow) {
-          continue;
-        }
+        // Server handles visibility filtering.
       }
 
       const position = this.interpolatePosition(unit, alpha);
@@ -564,13 +575,9 @@ export class UnitLayer implements Layer {
       unit.type() === UnitType.Submarine &&
       unit.owner() !== this.game.myPlayer()
     ) {
-      const isAttacking = unit.isAttacking();
-      const isDetected = unit.isDetectedByNavalUnit();
-      const isOnCooldown = unit.isCooldown();
-      const shouldShow = isAttacking || isDetected || isOnCooldown;
-      if (!shouldShow) {
-        return; // Hidden submarine (no ghost rendering here; ghosts handled separately)
-      }
+      // Server handles visibility filtering (including linger time).
+      // If we receive an update for an enemy sub, it should be visible.
+      // We trust the server's judgment here to avoid client-side lag when linger is active.
     }
 
     // START: Custom rendering for owner's submarine visibility
@@ -1181,5 +1188,89 @@ export class UnitLayer implements Layer {
       return performance.now();
     }
     return Date.now();
+  }
+
+  private updateGhosts() {
+    const ghosts = (this.game as any).submarineGhosts?.call(this.game) ?? [];
+    const currentGhostIds = new Set<number>();
+
+    for (const ghost of ghosts as Array<{
+      id: number;
+      pos: number;
+      expiresAt: number;
+      ownerID: number;
+    }>) {
+      currentGhostIds.add(ghost.id);
+      if (!this.renderedGhosts.has(ghost.id)) {
+        this.drawGhost(ghost);
+        this.renderedGhosts.set(ghost.id, ghost.pos);
+      }
+    }
+
+    for (const [id, pos] of this.renderedGhosts) {
+      if (!currentGhostIds.has(id)) {
+        this.clearGhost({ pos, ownerID: 0 }); // ownerID not needed for clearing
+        this.renderedGhosts.delete(id);
+        // If a unit is currently at this position, redraw it so it doesn't disappear
+        const unitAtPos = this.game.units().find((u) => u.tile() === pos);
+        if (unitAtPos) {
+          this.drawSprite(unitAtPos);
+        }
+      }
+    }
+  }
+
+  private clearGhost(ghost: { pos: number; ownerID: number }) {
+    // Create a dummy unit to get the sprite size
+    // We need a valid owner for getColoredSprite, but for size it doesn't matter much
+    // as long as it returns a sprite.
+    const dummyUnit = {
+      tile: () => ghost.pos,
+      type: () => UnitType.Submarine,
+      owner: () =>
+        this.game.playerBySmallID(ghost.ownerID) || this.game.players()[0],
+      targetable: () => true,
+      isActive: () => true,
+      lastTile: () => ghost.pos,
+    } as unknown as UnitView;
+
+    const spriteSize = this.getSpriteSize(dummyUnit);
+    const newWidth = spriteSize; // Ghosts are drawn at 1.0 scale
+    const newHeight = spriteSize;
+
+    // Badge overlay parameters: badge sits 1px outside top-right
+    // Ghosts default to level 1 (bronze) badge
+    const badgeSize = Math.max(2, Math.min(3, Math.round(newWidth * 0.18)));
+    const offset = 1;
+    const overlayTop = badgeSize + offset; // extend upwards to cover outside badge
+    const extraRight = badgeSize + offset; // full right-side extension beyond sprite
+
+    const padding = 2; // small safety margin around computed bounds
+    const maxHalfWidth = newWidth / 2 + extraRight;
+
+    const cx = Math.round(this.game.x(ghost.pos));
+    const cy = Math.round(this.game.y(ghost.pos));
+
+    const left = cx - maxHalfWidth - padding;
+    const top = cy - newHeight / 2 - overlayTop - padding;
+    const width = maxHalfWidth * 2 + padding * 2;
+    const height = newHeight + overlayTop + padding * 2;
+
+    this.context.clearRect(left, top, width, height);
+  }
+
+  private drawGhost(ghost: { id: number; pos: number; ownerID: number }) {
+    this.context.save();
+    this.context.globalAlpha = 0.3;
+    const dummyUnit = {
+      tile: () => ghost.pos,
+      type: () => UnitType.Submarine,
+      owner: () => this.game.playerBySmallID(ghost.ownerID),
+      targetable: () => true,
+      isActive: () => true,
+      lastTile: () => ghost.pos,
+    } as unknown as UnitView;
+    this.drawSprite(dummyUnit as UnitView);
+    this.context.restore();
   }
 }

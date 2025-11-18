@@ -47,6 +47,13 @@ export function createRenderer(
   game: GameView,
   eventBus: EventBus,
 ): GameRenderer {
+  // Remove persisted settings modals from previous games so they reset to default levels
+  document.querySelector("build-settings-modal")?.remove();
+  document.querySelector("unit-upgrade-settings-modal")?.remove();
+  // Clear persisted levels so they reset to 1 for the new game
+  localStorage.removeItem("buildSettings.levels");
+  localStorage.removeItem("unitUpgradeSettings.levels");
+
   const transformHandler = new TransformHandler(game, eventBus, canvas);
 
   // Prevent main menu/page scrolling during gameplay
