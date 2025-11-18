@@ -710,12 +710,31 @@ export class FighterPixiLayer implements Layer {
     }
 
     if (best) {
-      // If a fighter is already selected, do not allow selecting a different one
+      // If a fighter is already selected and this click is on a different fighter,
+      // treat it as a move command for the currently selected fighter instead of
+      // switching selection.
       if (
         this.selectedFighterId !== null &&
         this.selectedFighterId !== best.unit.id()
       ) {
-        // Ignore this click for selection changes but consume it to avoid attacks
+        const cell = this.transformHandler.screenToWorldCoordinates(
+          clickX,
+          clickY,
+        );
+        if (this.game.isValidCoord(cell.x, cell.y)) {
+          const tile = this.game.ref(cell.x, cell.y);
+          this.eventBus.emit(
+            new MoveFighterJetIntentEvent(this.selectedFighterId, tile),
+          );
+          // Deselect fighter after assigning move intent to match existing UX
+          const u = this.game.unit(this.selectedFighterId);
+          if (u) {
+            this.eventBus.emit(new UnitSelectionEvent(u, false));
+          }
+          this.selectedFighterId = null;
+          this.clearSelectionGraphics();
+        }
+        // Consume click so global handlers (e.g., ground attack) don't process it
         e.consumed = true;
         return;
       }
