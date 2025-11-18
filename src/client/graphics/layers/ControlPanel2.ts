@@ -924,7 +924,7 @@ export class ControlPanel2 extends LitElement implements Layer {
 
   private _openUnitUpgradeSettings() {
     const modal =
-      (document.querySelector("unit-upgrade-settings-modal") as any) ||
+      (document.querySelector("unit-upgrade-settings-modal") as any) ??
       this._ensureUnitUpgradeSettingsModal();
     if (!modal) {
       console.warn(

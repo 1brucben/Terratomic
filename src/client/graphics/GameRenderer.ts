@@ -247,9 +247,10 @@ export function createRenderer(
     // World-space ring overlay for Defense Posts/SAMs
     new RangeOverlayLayer(game, eventBus, transformHandler, uiState),
     structureLayer,
-    // Render fighter sprites overlay (independent PIXI)
-    fighterLayer,
+    // Ensure UnitLayer registers input handlers before the fighter layer
     new UnitLayer(game, eventBus, transformHandler, uiState),
+    // Render fighter sprites overlay (independent PIXI) after UnitLayer to avoid same-click move
+    fighterLayer,
     new FxLayer(game),
     // Draw name labels in world space along with other transformed layers
     new NameLayer(game, transformHandler, eventBus),

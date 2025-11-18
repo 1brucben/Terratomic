@@ -246,7 +246,8 @@ export class ClientGameRunner {
         1000,
       );
     }, 20000);
-    this.eventBus.on(MouseUpEvent, this.inputEvent.bind(this));
+    // Defer global MouseUp handler registration until after layers initialize
+    // so that selection handlers (e.g., FighterPixiLayer) run first.
     this.eventBus.on(MouseMoveEvent, this.onMouseMove.bind(this));
     this.eventBus.on(
       DoBoatAttackEvent,
@@ -266,6 +267,10 @@ export class ClientGameRunner {
 
     this.renderer.initialize();
     this.input.initialize();
+
+    // Now register MouseUp after layers have attached their listeners.
+    // This ensures selection happens before any attack/move logic here.
+    this.eventBus.on(MouseUpEvent, this.inputEvent.bind(this));
     this.worker.start((gu: GameUpdateViewData | ErrorUpdate) => {
       if (this.lobby.gameStartInfo === undefined) {
         throw new Error("missing gameStartInfo");

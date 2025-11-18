@@ -4,13 +4,19 @@ import { Theme } from "../../../core/configuration/Config";
 import { EventBus } from "../../../core/EventBus";
 import { Cell, UnitType } from "../../../core/game/Game";
 import { GameView, UnitView } from "../../../core/game/GameView";
-import { ReplaySpeedChangeEvent } from "../../InputHandler";
+import {
+  MouseUpEvent,
+  ReplaySpeedChangeEvent,
+  UnitSelectionEvent,
+} from "../../InputHandler";
+import { PauseGameEvent } from "../../Transport";
 import { TransformHandler } from "../TransformHandler";
 import { Layer } from "./Layer";
 
 import fighterSprite from "../../../../proprietary/images/fighter1.png";
 
 export class FighterPixiLayer implements Layer {
+  private static readonly DEBUG_HITTEST = true;
   private stage: PIXI.Container;
   private renderer!: PIXI.Renderer;
   private pixicanvas!: HTMLCanvasElement;
@@ -20,10 +26,21 @@ export class FighterPixiLayer implements Layer {
   private theme: Theme;
 
   // Simple tick-timing to interpolate fighter movement between server ticks
-  private baseTickIntervalMs = 100;
   private tickIntervalMs = 100;
-  private lastTickTimestamp = 0;
+  private baseTickStartTime = 0;
+
+  private replaySpeedMultiplier = 1;
+  private paused = false;
+
   private lastRotation = new Map<number, number>();
+  private selectedFighterId: number | null = null;
+  private selectionGraphics: PIXI.Graphics | null = null;
+  private selectionLastBounds: {
+    x: number;
+    y: number;
+    w: number;
+    h: number;
+  } | null = null;
 
   // Flight model per fighter for straight-line motion with turn radius
   private flight = new Map<
@@ -35,7 +52,7 @@ export class FighterPixiLayer implements Layer {
       speed: number; // tiles/ms
       targetX: number;
       targetY: number;
-      lastTime: number; // ms timestamp
+      lastTime: number; // ms timestamp (per-fighter integrator clock)
     }
   >();
   private readonly turnRadiusPx = 20; // radius in pixels for turning arc
@@ -46,14 +63,14 @@ export class FighterPixiLayer implements Layer {
     private readonly transformHandler: TransformHandler,
   ) {
     this.theme = game.config().theme();
-    this.stage = new PIXI.Container();
+    this.stage = new PIXI.Container({
+      sortableChildren: true,
+    });
+    this.stage.sortableChildren = true; // <-- PIXI 7 sometimes ignores the constructor flag
+
     // Initialize interpolation timing from server config
-    this.baseTickIntervalMs = this.game
-      .config()
-      .serverConfig()
-      .turnIntervalMs();
-    this.tickIntervalMs = this.baseTickIntervalMs;
-    this.lastTickTimestamp = this.now();
+    this.tickIntervalMs = this.game.config().serverConfig().turnIntervalMs();
+    this.baseTickStartTime = this.now();
   }
 
   shouldTransform(): boolean {
@@ -64,12 +81,22 @@ export class FighterPixiLayer implements Layer {
     this.setupRenderer();
     window.addEventListener("resize", () => this.resizeCanvas());
 
-    // Adjust interpolation timing when replay speed changes
+    // Adjust replay speed (we do NOT scale tickIntervalMs here anymore)
     this.eventBus.on(ReplaySpeedChangeEvent, (e) => {
-      const base = this.game.config().serverConfig().turnIntervalMs();
-      this.baseTickIntervalMs = base;
-      this.tickIntervalMs = base * e.replaySpeedMultiplier;
-      this.lastTickTimestamp = this.now();
+      this.replaySpeedMultiplier = e.replaySpeedMultiplier;
+    });
+
+    // Observe explicit pause/resume events from the local server
+    this.eventBus.on(PauseGameEvent, (e) => {
+      const wasPaused = this.paused;
+      this.paused = e.paused;
+      if (!this.paused && wasPaused) {
+        // Avoid large catch-up step after resuming
+        const now = this.now();
+        for (const s of this.flight.values()) {
+          s.lastTime = now;
+        }
+      }
     });
 
     const url = fighterSprite as unknown as string;
@@ -93,18 +120,36 @@ export class FighterPixiLayer implements Layer {
       .catch((err) => console.error("Failed to load fighter1.png", err));
 
     this.syncAllFighters();
+
+    // Listen for fighter selection changes
+    this.eventBus.on(UnitSelectionEvent, (e) => {
+      const unit = e.unit;
+      if (unit && unit.type() === UnitType.FighterJet) {
+        this.selectedFighterId = e.isSelected ? unit.id() : null;
+      } else if (e.isSelected) {
+        // Selecting a non-fighter should clear any fighter selection outline
+        this.selectedFighterId = null;
+      }
+      if (this.selectedFighterId === null) {
+        this.clearSelectionGraphics();
+      }
+    });
+
+    // Handle clicks for fighter selection using PIXI sprite hit-testing
+    this.eventBus.on(MouseUpEvent, (e) => this.onMouseUp(e));
   }
 
   tick(): void {
+    // Mark the beginning of this server tick for interpolation
+    this.baseTickStartTime = this.now();
+
     // Keep interpolation clock in sync with the game tick cadence
-    this.lastTickTimestamp = this.now();
     const configuredInterval = this.game
       .config()
       .serverConfig()
       .turnIntervalMs();
-    if (configuredInterval !== this.baseTickIntervalMs) {
-      this.baseTickIntervalMs = configuredInterval;
-      this.tickIntervalMs = this.baseTickIntervalMs;
+    if (configuredInterval !== this.tickIntervalMs) {
+      this.tickIntervalMs = configuredInterval;
     }
   }
 
@@ -113,7 +158,11 @@ export class FighterPixiLayer implements Layer {
     if (this.renderer) {
       this.renderer.render(this.stage);
       if (mainContext) {
+        // Draw PIXI canvas without the world transform applied to mainContext
+        mainContext.save();
+        mainContext.setTransform(1, 0, 0, 1, 0, 0);
         mainContext.drawImage(this.renderer.canvas, 0, 0);
+        mainContext.restore();
       }
     }
   }
@@ -164,8 +213,16 @@ export class FighterPixiLayer implements Layer {
         // no debug dots in production
       }
 
+      // Update continuous flight model (curved motion)
       this.updateFighterState(unit);
+
+      // Then update sprite from flight state / interpolation
       this.updateFighterSprite(unit, sprite);
+
+      // Update selection outline if this is the selected fighter
+      if (this.selectedFighterId === id) {
+        this.updateSelectionOutline(unit, sprite);
+      }
       // no debug overlay updates
     }
 
@@ -176,13 +233,22 @@ export class FighterPixiLayer implements Layer {
         // no debug overlay cleanup needed
       }
     }
+
+    // If selected fighter no longer exists, clear the outline
+    if (
+      this.selectedFighterId !== null &&
+      !this.fighters.has(this.selectedFighterId)
+    ) {
+      this.selectedFighterId = null;
+      this.clearSelectionGraphics();
+    }
   }
 
   private createFighterSprite(unit: UnitView): PIXI.Sprite {
     const tex = this.fighterTexture ?? PIXI.Texture.EMPTY;
     const sprite = new PIXI.Sprite(tex);
     sprite.anchor.set(0.5);
-    sprite.zIndex = 5;
+    sprite.zIndex = 10;
     sprite.alpha = 1;
     (sprite as any)._unitId = unit.id();
     if (this.fighterTexture) {
@@ -198,13 +264,13 @@ export class FighterPixiLayer implements Layer {
   }
 
   private updateFighterSprite(unit: UnitView, sprite: PIXI.Sprite): void {
-    // Glide linearly between lastTile and current tile based on tick alpha
+    // If we have a flight state, use it; else fall back to simple interpolation.
     const state = this.flight.get(unit.id());
     let worldX: number;
     let worldY: number;
     let heading: number | null = null;
+
     if (state) {
-      // Use flight model position and heading
       worldX = state.x;
       worldY = state.y;
       heading = state.heading;
@@ -223,16 +289,19 @@ export class FighterPixiLayer implements Layer {
       const dy = endY - startY;
       if (Math.abs(dx) + Math.abs(dy) > 0.0001) heading = Math.atan2(dy, dx);
     }
+
     const screen = this.transformHandler.worldToScreenCoordinates(
       new Cell(worldX, worldY),
     );
     sprite.x = screen.x;
     sprite.y = screen.y;
+
     const basePx = 15;
     const scale = Math.max(0.25, this.transformHandler.scale);
     const size = basePx * scale;
     sprite.width = size;
     sprite.height = size;
+
     // Apply rotation from heading if available; sprite up axis is +PI/2 offset
     if (heading !== null) {
       const desired = heading + Math.PI / 2;
@@ -242,6 +311,89 @@ export class FighterPixiLayer implements Layer {
       sprite.rotation = next;
       this.lastRotation.set(id, next);
     }
+  }
+
+  private updateSelectionOutline(unit: UnitView, sprite: PIXI.Sprite): void {
+    const ownerId = unit.owner().id();
+    const colorHex = this.theme
+      .territoryColor(this.game.player(ownerId))
+      .lighten(0.2)
+      .toHex();
+    const color = parseInt(colorHex.replace(/^#/, ""), 16);
+
+    const x = Math.round(sprite.x);
+    const y = Math.round(sprite.y);
+    const w = Math.max(8, Math.round(sprite.width + 8));
+    const h = Math.max(8, Math.round(sprite.height + 8));
+
+    // Avoid redrawing if bounds unchanged
+    if (
+      this.selectionLastBounds &&
+      this.selectionLastBounds.x === x &&
+      this.selectionLastBounds.y === y &&
+      this.selectionLastBounds.w === w &&
+      this.selectionLastBounds.h === h
+    ) {
+      return;
+    }
+
+    if (!this.selectionGraphics) {
+      this.selectionGraphics = new PIXI.Graphics();
+      this.selectionGraphics.zIndex = 1000;
+      this.stage.addChild(this.selectionGraphics);
+    }
+    const g = this.selectionGraphics;
+    g.clear();
+    g.position.set(x, y);
+    g.alpha = 0.95;
+
+    // Draw a solid outline for visibility
+    const halfW = Math.floor(w / 2);
+    const halfH = Math.floor(h / 2);
+    const lineWidth = 2;
+    (g as any).lineStyle?.({
+      width: lineWidth,
+      color,
+      alpha: 1,
+      alignment: 0.5,
+    });
+    g.drawRect(-halfW, -halfH, w, h);
+    (g as any).lineStyle?.(0);
+
+    // Overlay a dotted accent
+    const dot = 2; // 2px dot
+    const step = 4; // spacing for dotted effect
+
+    // Top and bottom edges
+    for (let dx = -halfW; dx <= halfW; dx += step) {
+      g.beginFill(color, 1);
+      g.drawRect(dx, -halfH, dot, dot);
+      g.endFill();
+      g.beginFill(color, 1);
+      g.drawRect(dx, halfH - dot, dot, dot);
+      g.endFill();
+    }
+    // Left and right edges
+    for (let dy = -halfH; dy <= halfH; dy += step) {
+      g.beginFill(color, 1);
+      g.drawRect(-halfW, dy, dot, dot);
+      g.endFill();
+      g.beginFill(color, 1);
+      g.drawRect(halfW - dot, dy, dot, dot);
+      g.endFill();
+    }
+
+    this.selectionLastBounds = { x, y, w, h };
+  }
+
+  private clearSelectionGraphics(): void {
+    if (this.selectionGraphics) {
+      this.selectionGraphics.clear();
+      this.stage.removeChild(this.selectionGraphics);
+      this.selectionGraphics.destroy();
+      this.selectionGraphics = null;
+    }
+    this.selectionLastBounds = null;
   }
 
   private angleLerp(a: number, b: number, t: number): number {
@@ -258,86 +410,205 @@ export class FighterPixiLayer implements Layer {
 
   private updateFighterState(unit: UnitView): void {
     const id = unit.id();
-    const tgtTile = unit.targetTile?.call(unit) as any;
-    if (tgtTile) {
-      const targetX = this.game.x(tgtTile);
-      const targetY = this.game.y(tgtTile);
-      let s = this.flight.get(id);
+    let s = this.flight.get(id);
+
+    // If game is paused, snapshot current position into a flight state and freeze
+    if (this.paused) {
       if (!s) {
-        const startX = this.game.x(unit.tile());
-        const startY = this.game.y(unit.tile());
-        // Initial heading from recent motion if available
-        const lx = this.game.x(unit.lastTile());
-        const ly = this.game.y(unit.lastTile());
-        const dx = startX - lx;
-        const dy = startY - ly;
-        const initialHeading =
-          Math.abs(dx) + Math.abs(dy) > 0.0001
-            ? Math.atan2(dy, dx)
-            : Math.atan2(targetY - startY, targetX - startX);
-        // Estimate speed from last tile step per tick
-        const stepDist = Math.hypot(dx, dy) || 1;
-        const v =
-          this.tickIntervalMs > 0 ? stepDist / this.tickIntervalMs : 0.01;
-        s = {
-          x: startX,
-          y: startY,
-          heading: initialHeading,
-          speed: v,
-          targetX,
-          targetY,
-          lastTime: this.now(),
-        };
-        this.flight.set(id, s);
-      } else {
-        // Update target and gently update speed based on recent server step
-        s.targetX = targetX;
-        s.targetY = targetY;
+        const now = this.now();
         const cx = this.game.x(unit.tile());
         const cy = this.game.y(unit.tile());
         const lx = this.game.x(unit.lastTile());
         const ly = this.game.y(unit.lastTile());
-        const dist = Math.hypot(cx - lx, cy - ly);
-        const measured =
-          this.tickIntervalMs > 0 ? dist / this.tickIntervalMs : s.speed;
-        s.speed = s.speed * 0.8 + measured * 0.2;
+        const dx = cx - lx;
+        const dy = cy - ly;
+        const initialHeading =
+          Math.abs(dx) + Math.abs(dy) > 0.0001 ? Math.atan2(dy, dx) : 0;
+        s = {
+          x: cx,
+          y: cy,
+          heading: initialHeading,
+          speed: 0,
+          targetX: cx,
+          targetY: cy,
+          lastTime: now,
+        };
+        this.flight.set(id, s);
       }
-      // Advance the state using turn-radius limited heading
+      return;
+    }
+
+    // Fastest mode (replaySpeedMultiplier === 0) means no interpolation between ticks.
+    // Snap to authoritative position instantly and keep heading in sync.
+    if (this.replaySpeedMultiplier === 0) {
       const now = this.now();
-      const dt = Math.max(0, now - s.lastTime);
-      s.lastTime = now;
-      // Desired heading toward target
-      const desired = Math.atan2(s.targetY - s.y, s.targetX - s.x);
-      // Limit turn rate using pixel radius: convert speed (tiles/ms) to px/ms
-      const speedPx = s.speed * this.transformHandler.scale;
-      const maxOmega = speedPx > 0 ? speedPx / this.turnRadiusPx : 0; // rad/ms
-      const diff = this.normalizeAngle(desired - s.heading);
-      const step = Math.sign(diff) * Math.min(Math.abs(diff), maxOmega * dt);
-      s.heading = this.normalizeAngle(s.heading + step);
-      // Integrate forward motion
-      const distStep = s.speed * dt;
-      s.x += Math.cos(s.heading) * distStep;
-      s.y += Math.sin(s.heading) * distStep;
-      // Arrive snapping
-      const rem = Math.hypot(s.targetX - s.x, s.targetY - s.y);
-      if (
-        rem < Math.max(0.1, distStep * 1.1) ||
-        unit.reachedTarget?.call(unit)
-      ) {
-        // Snap to current server tile and clear flight plan
-        s.x = this.game.x(unit.tile());
-        s.y = this.game.y(unit.tile());
-        this.flight.delete(id);
+      const cx = this.game.x(unit.tile());
+      const cy = this.game.y(unit.tile());
+      const lx = this.game.x(unit.lastTile());
+      const ly = this.game.y(unit.lastTile());
+      const dx = cx - lx;
+      const dy = cy - ly;
+      const heading =
+        Math.abs(dx) + Math.abs(dy) > 0.0001
+          ? Math.atan2(dy, dx)
+          : (s?.heading ?? 0);
+      if (!s) {
+        s = {
+          x: cx,
+          y: cy,
+          heading,
+          speed: 0,
+          targetX: cx,
+          targetY: cy,
+          lastTime: now,
+        };
+        this.flight.set(id, s);
+      } else {
+        s.x = cx;
+        s.y = cy;
+        s.heading = heading;
+        s.targetX = cx;
+        s.targetY = cy;
+        s.lastTime = now;
       }
+      return;
+    }
+
+    // Determine an effective target to keep smooth turning even without targetTile
+    let effectiveTarget: { x: number; y: number } | null = null;
+    const tgtTile = unit.targetTile?.call(unit) as any;
+    if (tgtTile) {
+      effectiveTarget = { x: this.game.x(tgtTile), y: this.game.y(tgtTile) };
+    } else if (typeof unit.targetUnitId === "function") {
+      const tid = unit.targetUnitId();
+      if (tid !== undefined) {
+        const tu = this.game.unit(tid);
+        if (tu && tu.isActive()) {
+          effectiveTarget = {
+            x: this.game.x(tu.tile()),
+            y: this.game.y(tu.tile()),
+          };
+        }
+      }
+    }
+
+    // Fallback: guide toward the server's current tile,
+    // but project slightly forward to avoid oscillation.
+    if (!effectiveTarget) {
+      const cx = this.game.x(unit.tile());
+      const cy = this.game.y(unit.tile());
+      const lx = this.game.x(unit.lastTile());
+      const ly = this.game.y(unit.lastTile());
+
+      // direction of travel from lastTile -> tile
+      const dx0 = cx - lx;
+      const dy0 = cy - ly;
+      const len = Math.hypot(dx0, dy0) || 1;
+
+      // project target slightly forward along the current travel direction
+      const px = cx + (dx0 / len) * 0.6;
+      const py = cy + (dy0 / len) * 0.6;
+
+      effectiveTarget = { x: px, y: py };
+    }
+
+    // resume/normal speed: continue updating state
+    const now = this.now();
+
+    if (!s) {
+      const startX = this.game.x(unit.tile());
+      const startY = this.game.y(unit.tile());
+      const lx = this.game.x(unit.lastTile());
+      const ly = this.game.y(unit.lastTile());
+      const dx = startX - lx;
+      const dy = startY - ly;
+      const initialHeading =
+        Math.abs(dx) + Math.abs(dy) > 0.0001
+          ? Math.atan2(dy, dx)
+          : Math.atan2(effectiveTarget.y - startY, effectiveTarget.x - startX);
+      const stepDist = Math.hypot(dx, dy) || 1;
+      const baseV =
+        this.tickIntervalMs > 0 ? stepDist / this.tickIntervalMs : 0.01;
+
+      s = {
+        x: startX,
+        y: startY,
+        heading: initialHeading,
+        speed: baseV,
+        targetX: effectiveTarget.x,
+        targetY: effectiveTarget.y,
+        lastTime: now,
+      };
+      this.flight.set(id, s);
     } else {
-      // No target; clear any flight plan
+      // Update target and gently adapt speed based on recent server step
+      s.targetX = effectiveTarget.x;
+      s.targetY = effectiveTarget.y;
+
+      const cx = this.game.x(unit.tile());
+      const cy = this.game.y(unit.tile());
+      const lx = this.game.x(unit.lastTile());
+      const ly = this.game.y(unit.lastTile());
+      const dist = Math.hypot(cx - lx, cy - ly);
+      const measured =
+        this.tickIntervalMs > 0 ? dist / this.tickIntervalMs : s.speed;
+      s.speed = s.speed * 0.8 + measured * 0.2;
+    }
+
+    // Time step for this frame (per-fighter, frame delta).
+    // ReplaySpeedMultiplier enum uses larger numbers for slower playback
+    // (e.g., 2 = slow, 1 = normal, 0.5 = fast, 0 = pause).
+    // Convert to an effective speed scale where larger means faster.
+    const dtMs = now - s.lastTime;
+    const speedScale = this.paused
+      ? 0
+      : this.replaySpeedMultiplier === 0
+        ? 1
+        : 1 / this.replaySpeedMultiplier;
+    const dt = dtMs * speedScale;
+    s.lastTime = now;
+
+    if (dt <= 0) {
+      return;
+    }
+
+    // Advance the state using turn-radius limited heading
+    const desired = Math.atan2(s.targetY - s.y, s.targetX - s.x);
+    const speedPx = s.speed * this.transformHandler.scale;
+    const maxOmega = speedPx > 0 ? speedPx / this.turnRadiusPx : 0; // rad/ms
+    const diff = this.normalizeAngle(desired - s.heading);
+    const step = Math.sign(diff) * Math.min(Math.abs(diff), maxOmega * dt);
+    s.heading = this.normalizeAngle(s.heading + step);
+    const distStep = s.speed * dt;
+    s.x += Math.cos(s.heading) * distStep;
+    s.y += Math.sin(s.heading) * distStep;
+
+    // Snap gently toward the authoritative tile when very close to avoid long-term drift
+    const srvX = this.game.x(unit.tile());
+    const srvY = this.game.y(unit.tile());
+    const err = Math.hypot(srvX - s.x, srvY - s.y);
+    if (err < 0.1) {
+      s.x = srvX;
+      s.y = srvY;
+    }
+
+    // Only clear flight when we had an explicit target tile and we reached it
+    const hadExplicitTarget = Boolean(tgtTile);
+    const rem = Math.hypot(s.targetX - s.x, s.targetY - s.y);
+    if (
+      hadExplicitTarget &&
+      (rem < Math.max(0.1, distStep * 1.1) || unit.reachedTarget?.call(unit))
+    ) {
+      s.x = srvX;
+      s.y = srvY;
       this.flight.delete(id);
     }
   }
 
   private computeTickAlpha(): number {
+    // Used only for fallback interpolation when no flight state exists
     const elapsed = Math.min(
-      this.now() - this.lastTickTimestamp,
+      this.now() - this.baseTickStartTime,
       this.tickIntervalMs,
     );
     if (this.tickIntervalMs === 0) return 1;
@@ -349,5 +620,109 @@ export class FighterPixiLayer implements Layer {
       return performance.now();
     }
     return Date.now();
+  }
+
+  private onMouseUp(e: MouseUpEvent): void {
+    // Update sprites to latest positions for accurate hit testing
+    this.syncAllFighters();
+
+    const clickX = e.x;
+    const clickY = e.y;
+    if (FighterPixiLayer.DEBUG_HITTEST) {
+      // Log click location
+      console.debug("[FighterHitTest] click", { clickX, clickY });
+    }
+
+    let best: { unit: UnitView; sprite: PIXI.Sprite; dist: number } | null =
+      null;
+    const pt = new PIXI.Point(clickX, clickY);
+
+    for (const [id, sprite] of this.fighters) {
+      const unit = this.game.unit(id);
+      if (!unit || !unit.isActive()) continue;
+      const my = this.game.myPlayer();
+      const owned = unit.owner() === my;
+      if (!owned) {
+        if (FighterPixiLayer.DEBUG_HITTEST) {
+          console.debug("[FighterHitTest] skip (not owned)", {
+            id,
+            owner: unit.owner()?.id?.(),
+            me: my?.id?.(),
+          });
+        }
+        continue; // only select own fighters
+      }
+
+      // Prefer precise bounds hit-test in screen space
+      let hit = false;
+      try {
+        const b: any = sprite.getBounds(false) as any;
+        if (b && typeof b.x === "number") {
+          const within =
+            pt.x >= b.x &&
+            pt.x <= b.x + (b.width ?? 0) &&
+            pt.y >= b.y &&
+            pt.y <= b.y + (b.height ?? 0);
+          if (FighterPixiLayer.DEBUG_HITTEST) {
+            console.debug("[FighterHitTest] bounds", {
+              id,
+              b,
+              within,
+              spriteXY: { x: sprite.x, y: sprite.y },
+              wh: { w: sprite.width, h: sprite.height },
+            });
+          }
+          if (within) hit = true;
+        }
+      } catch (_) {
+        // ignore and fallback to radius test
+      }
+
+      // Fallback: generous radius check around sprite center
+      if (!hit) {
+        const dx = clickX - sprite.x;
+        const dy = clickY - sprite.y;
+        const dist = Math.hypot(dx, dy);
+        const sizeRadius = Math.max(sprite.width, sprite.height) * 0.75;
+        const radius = Math.max(24, sizeRadius + 8);
+        hit = dist <= radius;
+        if (FighterPixiLayer.DEBUG_HITTEST) {
+          console.debug("[FighterHitTest] radius", {
+            id,
+            dx,
+            dy,
+            dist,
+            radius,
+            center: { x: sprite.x, y: sprite.y },
+          });
+        }
+        if (hit) {
+          if (!best || dist < best.dist) {
+            best = { unit, sprite, dist };
+          }
+        }
+      } else {
+        // If bounds hit, compute distance for best-pick purposes
+        const dx = clickX - sprite.x;
+        const dy = clickY - sprite.y;
+        const dist = Math.hypot(dx, dy);
+        if (!best || dist < best.dist) {
+          best = { unit, sprite, dist };
+        }
+      }
+    }
+
+    if (best) {
+      if (FighterPixiLayer.DEBUG_HITTEST) {
+        console.debug("[FighterHitTest] select", {
+          id: best.unit.id(),
+          pos: { x: best.sprite.x, y: best.sprite.y },
+          dist: best.dist,
+        });
+      }
+      this.eventBus.emit(new UnitSelectionEvent(best.unit, true));
+    } else if (FighterPixiLayer.DEBUG_HITTEST) {
+      console.debug("[FighterHitTest] no hit");
+    }
   }
 }

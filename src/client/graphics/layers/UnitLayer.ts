@@ -12,7 +12,6 @@ import {
   UnitSelectionEvent,
 } from "../../InputHandler";
 import {
-  MoveFighterJetIntentEvent,
   MoveSubmarineIntentEvent,
   MoveWarshipIntentEvent,
 } from "../../Transport";
@@ -66,7 +65,7 @@ export class UnitLayer implements Layer {
   // Configuration for unit selection
   private readonly WARSHIP_SELECTION_RADIUS = 10; // Radius in game cells for warship selection hit zone
   private readonly SUBMARINE_SELECTION_RADIUS = 10;
-  private readonly FIGHTER_JET_SELECTION_RADIUS = 10;
+  // Fighter selection handled by FighterPixiLayer
 
   // Unit types that should be interpolated between ticks
   private readonly interpolatedUnitTypes: UnitType[] = [
@@ -81,7 +80,6 @@ export class UnitLayer implements Layer {
     UnitType.TradeShip,
     UnitType.Submarine,
     UnitType.Bomber,
-    UnitType.FighterJet,
     UnitType.CargoPlane,
   ];
 
@@ -195,27 +193,7 @@ export class UnitLayer implements Layer {
       });
   }
 
-  private findFighterJetsNearCell(cell: { x: number; y: number }): UnitView[] {
-    if (!this.game.isValidCoord(cell.x, cell.y)) {
-      return [];
-    }
-    const clickRef = this.game.ref(cell.x, cell.y);
-
-    return this.game
-      .units(UnitType.FighterJet)
-      .filter(
-        (unit) =>
-          unit.isActive() &&
-          unit.owner() === this.game.myPlayer() &&
-          this.game.manhattanDist(unit.tile(), clickRef) <=
-            this.FIGHTER_JET_SELECTION_RADIUS,
-      )
-      .sort((a, b) => {
-        const distA = this.game.manhattanDist(a.tile(), clickRef);
-        const distB = this.game.manhattanDist(b.tile(), clickRef);
-        return distA - distB;
-      });
-  }
+  // Fighter selection/movement is implemented in FighterPixiLayer
 
   private onMouseUp(event: MouseUpEvent) {
     // Convert screen coordinates to world coordinates
@@ -224,20 +202,15 @@ export class UnitLayer implements Layer {
       event.y,
     );
 
-    // Find warships near this cell, sorted by distance
+    // Find warships/submarines near this cell, sorted by distance
     const nearbyWarships = this.findWarshipsNearCell(cell);
     const nearbySubmarines = this.findSubmarinesNearCell(cell);
-    const nearbyFighterJets = this.findFighterJetsNearCell(cell);
 
     // unit upgrade mode removed: proceed with selection/move logic only
 
     if (this.selectedUnit) {
       const clickRef = this.game.ref(cell.x, cell.y);
-      if (this.selectedUnit.type() === UnitType.FighterJet) {
-        this.eventBus.emit(
-          new MoveFighterJetIntentEvent(this.selectedUnit.id(), clickRef),
-        );
-      } else if (
+      if (
         this.selectedUnit.type() === UnitType.Warship &&
         this.game.isOcean(clickRef)
       ) {
@@ -262,9 +235,6 @@ export class UnitLayer implements Layer {
     } else if (nearbySubmarines.length > 0) {
       // Toggle selection of the closest submarine
       const clickedUnit = nearbySubmarines[0];
-      this.eventBus.emit(new UnitSelectionEvent(clickedUnit, true));
-    } else if (nearbyFighterJets.length > 0) {
-      const clickedUnit = nearbyFighterJets[0];
       this.eventBus.emit(new UnitSelectionEvent(clickedUnit, true));
     }
   }
@@ -495,10 +465,6 @@ export class UnitLayer implements Layer {
     const units = this.game.units(...this.interpolatedUnitTypes);
 
     for (const unit of units) {
-      // Skip fighter jets in canvas interpolation; PIXI layer handles them
-      if (unit.type() === UnitType.FighterJet) {
-        continue;
-      }
       if (!unit.isActive()) {
         continue;
       }
@@ -527,7 +493,6 @@ export class UnitLayer implements Layer {
       let angleOverride: number | null = null;
       if (
         unit.type() === UnitType.Bomber ||
-        unit.type() === UnitType.FighterJet ||
         unit.type() === UnitType.CargoPlane
       ) {
         const lastPos = this.unitToLastRenderPos.get(unit);
@@ -535,10 +500,7 @@ export class UnitLayer implements Layer {
           const dx = position.x - lastPos.x;
           const dy = position.y - lastPos.y;
           if (dx !== 0 || dy !== 0) {
-            let angle = Math.atan2(dy, dx);
-            if (unit.type() === UnitType.FighterJet) {
-              angle += Math.PI / 2;
-            }
+            const angle = Math.atan2(dy, dx);
             angleOverride = angle;
           }
         }
@@ -558,10 +520,7 @@ export class UnitLayer implements Layer {
 
   private getInterpolatedSpriteColor(unit: UnitView): Colord | undefined {
     if (unit.targetUnitId()) {
-      if (
-        unit.type() === UnitType.Warship ||
-        unit.type() === UnitType.FighterJet
-      ) {
+      if (unit.type() === UnitType.Warship) {
         return colord("rgb(200,0,0)");
       }
     }
@@ -643,10 +602,6 @@ export class UnitLayer implements Layer {
         break;
       case UnitType.Bomber:
         this.handleBomberEvent(unit, angleByUnit);
-        break;
-      case UnitType.FighterJet:
-        // Do not draw fighter jets in canvas; rendered by FighterPixiLayer
-        break;
         break;
       case UnitType.AtomBomb:
       case UnitType.HydrogenBomb:
@@ -832,16 +787,7 @@ export class UnitLayer implements Layer {
     this.drawSprite(unit, undefined, angleByUnit);
   }
 
-  private handleFighterJetEvent(
-    unit: UnitView,
-    angleByUnit?: Map<UnitView, number | null>,
-  ) {
-    if (unit.targetUnitId()) {
-      this.drawSprite(unit, colord({ r: 200, b: 0, g: 0 }), angleByUnit);
-    } else {
-      this.drawSprite(unit, undefined, angleByUnit);
-    }
-  }
+  // Fighter rendering is handled by FighterPixiLayer
 
   private handleBoatEvent(unit: UnitView) {
     const rel = this.relationship(unit);
@@ -980,9 +926,7 @@ export class UnitLayer implements Layer {
 
       // Allow aircraft to glide using sub-pixel positions; snap others to pixels
       const isAircraft =
-        unit.type() === UnitType.Bomber ||
-        unit.type() === UnitType.FighterJet ||
-        unit.type() === UnitType.CargoPlane;
+        unit.type() === UnitType.Bomber || unit.type() === UnitType.CargoPlane;
       const cx = isAircraft ? x : Math.round(x);
       const cy = isAircraft ? y : Math.round(y);
       const newWidth = sprite.width * sizeMult;
@@ -1126,9 +1070,7 @@ export class UnitLayer implements Layer {
     if (
       lastTile &&
       currentTile &&
-      (unit.type() === UnitType.Bomber ||
-        unit.type() === UnitType.FighterJet ||
-        unit.type() === UnitType.CargoPlane)
+      (unit.type() === UnitType.Bomber || unit.type() === UnitType.CargoPlane)
     ) {
       const lastPos = { x: this.game.x(lastTile), y: this.game.y(lastTile) };
       const currentPos = {
@@ -1145,28 +1087,7 @@ export class UnitLayer implements Layer {
 
       let angle = Math.atan2(dy, dx);
 
-      if (unit.type() === UnitType.FighterJet) {
-        angle += Math.PI / 2;
-
-        // Reduce jitter: ignore very small movements and tiny heading changes
-        const distSq = dx * dx + dy * dy;
-        const minDistSq = 0.25; // 0.5px movement threshold
-        if (lastAngle !== undefined) {
-          if (distSq < minDistSq) {
-            return lastAngle;
-          }
-          let angleDiff = angle - lastAngle;
-          while (angleDiff > Math.PI) angleDiff -= 2 * Math.PI;
-          while (angleDiff < -Math.PI) angleDiff += 2 * Math.PI;
-          const minAngleChange = (5 * Math.PI) / 180; // 5 degrees
-          if (Math.abs(angleDiff) < minAngleChange) {
-            return lastAngle;
-          }
-        }
-
-        this.unitToLastAngle.set(unit, angle);
-        return angle;
-      }
+      // Fighter-specific angle smoothing removed; handled in FighterPixiLayer
 
       if (lastAngle !== undefined) {
         // Determines how quickly the unit realigns its orientation.
@@ -1212,7 +1133,9 @@ export class UnitLayer implements Layer {
       const isAttacking = (unit as any).isAttacking?.() ?? false;
       const isDetected = (unit as any).isDetectedByNavalUnit?.() ?? false;
       const isOnCooldown = (unit as any).isCooldown?.() ?? false;
-      const isVisibleToEnemies = isAttacking || isDetected || isOnCooldown;
+      const isVisibleToEnemies = [isAttacking, isDetected, isOnCooldown].some(
+        Boolean,
+      );
       if (!isVisibleToEnemies) {
         return 0.75;
       }
