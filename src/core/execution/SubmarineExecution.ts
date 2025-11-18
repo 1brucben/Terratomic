@@ -50,6 +50,13 @@ export class SubmarineExecution implements Execution {
       const lvl = Math.max(1, this.desiredLevel | 0);
       if (lvl > 1) {
         (this.submarine as any)._level = lvl;
+        // Apply per-level max health boost
+        const base =
+          this.mg.config().unitInfo(UnitType.Submarine).maxHealth ?? 1000;
+        const desired = this.mg.config().submarineLevelMaxHealth(lvl);
+        const bonus = Math.max(0, desired - base);
+        (this.submarine as any)._bonusMaxHealth = bonus;
+        (this.submarine as any)._health = BigInt(desired);
         this.mg.addUpdate(this.submarine.toUpdate());
       }
     }

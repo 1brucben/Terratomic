@@ -515,6 +515,46 @@ export class DefaultConfig implements Config {
     }
   }
 
+  // Warship per-level stats
+  warshipLevelMaxHealth(level: number): number {
+    const lvl = Math.max(1, Math.min(3, Math.floor(level)));
+    switch (lvl) {
+      case 1:
+        return 1000;
+      case 2:
+        return 1250;
+      case 3:
+        return 1500;
+      default:
+        return 1000;
+    }
+  }
+  warshipDamageRange(level: number): { min: number; max: number } {
+    const lvl = Math.max(1, Math.min(3, Math.floor(level)));
+    const bonus = 70 * (lvl - 1);
+    return { min: 200 + bonus, max: 325 + bonus };
+  }
+
+  // Submarine per-level stats
+  submarineLevelMaxHealth(level: number): number {
+    const lvl = Math.max(1, Math.min(3, Math.floor(level)));
+    switch (lvl) {
+      case 1:
+        return 1000;
+      case 2:
+        return 1250;
+      case 3:
+        return 1500;
+      default:
+        return 1000;
+    }
+  }
+  submarineDamageRange(level: number): { min: number; max: number } {
+    const lvl = Math.max(1, Math.min(3, Math.floor(level)));
+    const bonus = 70 * (lvl - 1);
+    return { min: 200 + bonus, max: 325 + bonus };
+  }
+
   // Paratroopers/Air attack
   paratrooperMaxNumber(): number {
     return 3;

@@ -229,6 +229,14 @@ export interface Config {
   fighterJetLevelMaxHealth(level: number): number;
   // Fighter Jet: per-level damage range (inclusive)
   fighterJetDamageRange(level: number): { min: number; max: number };
+  // Warship: per-level max health
+  warshipLevelMaxHealth(level: number): number;
+  // Warship: per-level damage range
+  warshipDamageRange(level: number): { min: number; max: number };
+  // Submarine: per-level max health
+  submarineLevelMaxHealth(level: number): number;
+  // Submarine: per-level damage range
+  submarineDamageRange(level: number): { min: number; max: number };
   warshipAARange(): number;
   warshipAACooldown(): number;
   warshipAAScanInterval(): number;

@@ -56,6 +56,13 @@ export class WarshipExecution implements Execution {
       const lvl = Math.max(1, this.desiredLevel | 0);
       if (lvl > 1) {
         (this.warship as any)._level = lvl;
+        // Apply per-level max health boost
+        const base =
+          this.mg.config().unitInfo(UnitType.Warship).maxHealth ?? 1000;
+        const desired = this.mg.config().warshipLevelMaxHealth(lvl);
+        const bonus = Math.max(0, desired - base);
+        (this.warship as any)._bonusMaxHealth = bonus;
+        (this.warship as any)._health = BigInt(desired);
         this.mg.addUpdate(this.warship.toUpdate());
       }
     }
