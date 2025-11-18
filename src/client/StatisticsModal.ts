@@ -1,9 +1,10 @@
-import { LitElement, html } from "lit";
+import { LitElement, html, svg } from "lit";
 import { customElement, property, query, state } from "lit/decorators.js";
 import { PlayerType, UnitType } from "../core/game/Game";
 import { GameView, PlayerView } from "../core/game/GameView";
 import { getTechNodes, type Category } from "../core/tech/ResearchTree";
 import "./components/baseComponents/Modal";
+import statsStore from "./stats/StatsStore";
 
 @customElement("statistics-modal")
 export class StatisticsModal extends LitElement {
@@ -31,6 +32,8 @@ export class StatisticsModal extends LitElement {
         return;
       }
       this._tick++;
+      if (this.activeTab === "Graph" && !this._graphPaused)
+        this._ensureGraphSampling();
     }, 1000);
   }
 
@@ -39,6 +42,11 @@ export class StatisticsModal extends LitElement {
       clearInterval(this._intervalId);
       this._intervalId = null;
     }
+    if (this._graphActiveMetric) {
+      statsStore.stop(this._graphActiveMetric);
+      this._graphActiveMetric = null;
+    }
+    this._stopGraphRenderLoop();
   }
 
   @state() private activeTab: "Overview" | "List" | "Graph" = "Overview";
@@ -61,6 +69,13 @@ export class StatisticsModal extends LitElement {
   ];
   @state() private _listSortIndex: number | null = null; // 0..3
   @state() private _listSortDir: "asc" | "desc" = "desc";
+  // Graph tab state
+  @state() private _graphMetric: string | null = null;
+  @state() private _graphSelected: Set<string> = new Set();
+  private _graphActiveMetric: string | null = null;
+  @state() private _graphPaused: boolean = false;
+  @state() private _graphRenderTick: number = 0;
+  private _graphRenderIntervalId: any = null;
 
   private _playersForDropdown(): PlayerView[] {
     if (!this.game) return [];
@@ -464,21 +479,335 @@ export class StatisticsModal extends LitElement {
         </div>`;
       }
       case "Graph":
-        return html`<div class="stats-section">
-          <h3 class="stats-heading">Graph</h3>
-          <p class="stats-text">
-            Time-series / trend visualization placeholder.
-          </p>
-          <div class="stats-graph-placeholder" aria-label="Graph placeholder">
+        return html`${this._renderGraphTab()}`;
+    }
+  }
+
+  private _playersAll(): PlayerView[] {
+    if (!this.game) return [];
+    return this.game
+      .players()
+      .filter((p) =>
+        [PlayerType.Human, PlayerType.FakeHuman].includes(
+          p.type() as PlayerType,
+        ),
+      )
+      .slice()
+      .sort((a, b) => a.displayName().localeCompare(b.displayName()));
+  }
+
+  private _ensureGraphDefaults() {
+    if (!this._graphMetric) this._graphMetric = this._availableListStats()[0];
+    if (this._graphSelected.size === 0) {
+      const me = this.game?.myPlayer();
+      if (me) this._graphSelected.add(me.id());
+    }
+  }
+
+  private _ensureGraphSampling() {
+    this._ensureGraphDefaults();
+    const metric = this._graphMetric!;
+    if (this._graphActiveMetric && this._graphActiveMetric !== metric) {
+      statsStore.stop(this._graphActiveMetric);
+      this._graphActiveMetric = null;
+    }
+    // Sample all players so we have data even if selection changes
+    statsStore.start(
+      metric,
+      () => this._playersAll(),
+      (m, p) => this._computeStatValue(m, p).sortValue,
+      (p) => p.isAlive(),
+      () => this.game?.ticks() ?? 0,
+    );
+    this._graphActiveMetric = metric;
+  }
+
+  private _startGraphRenderLoop() {
+    if (this._graphRenderIntervalId) return;
+    const tick = () => {
+      if (this._graphPaused) return;
+      this._ensureGraphSampling();
+      this._graphRenderTick++;
+    };
+    this._graphRenderIntervalId = setInterval(tick, 1000);
+    tick();
+  }
+
+  private _stopGraphRenderLoop() {
+    if (this._graphRenderIntervalId) {
+      clearInterval(this._graphRenderIntervalId);
+      this._graphRenderIntervalId = null;
+    }
+  }
+
+  private _toggleGraphPause() {
+    this._graphPaused = !this._graphPaused;
+    if (this._graphPaused) {
+      // Do NOT stop sampling (statsStore.stop) so data collects in background
+      this._stopGraphRenderLoop();
+    } else {
+      this._ensureGraphSampling();
+      this._startGraphRenderLoop();
+    }
+  }
+
+  private _toggleGraphPlayer(pid: string) {
+    const next = new Set(this._graphSelected);
+    if (next.has(pid)) next.delete(pid);
+    else next.add(pid);
+    this._graphSelected = next;
+    if (this.activeTab === "Graph") this._ensureGraphSampling();
+  }
+
+  private _renderGraphTab() {
+    this._ensureGraphDefaults();
+    const opts = this._availableListStats();
+    const metric = this._graphMetric!;
+    const players = this._playersAll();
+    const selectedIds = this._graphSelected;
+    const series = statsStore
+      .getSeries(metric)
+      .filter((s) => selectedIds.has(s.playerId));
+
+    const width = 760;
+    const height = 300;
+    const padding = { l: 40, r: 10, t: 10, b: 28 }; // extra bottom for x labels
+    const clipped = series.map((s) => ({
+      name: s.name,
+      aliveUntil: s.aliveUntil,
+      pts: s.samples.filter((pt) =>
+        s.aliveUntil ? pt.t <= s.aliveUntil : true,
+      ),
+    }));
+    const allPts = clipped.flatMap((s) => s.pts);
+    const times = allPts.map((d) => d.t);
+    const values = allPts.map((d) => d.v);
+    const currentTick = this.game?.ticks() ?? 0;
+    const minT = times.length
+      ? Math.min(...times)
+      : Math.max(0, currentTick - 600); // default 60s window (600 ticks)
+    const maxT = times.length ? Math.max(...times) : currentTick;
+    const minV = values.length ? Math.min(...values) : 0;
+    const maxV = values.length ? Math.max(...values) : 1;
+    const spanT = Math.max(1, maxT - minT);
+    const spanV = Math.max(1e-9, maxV - minV);
+    const xScale = (t: number) =>
+      padding.l + ((t - minT) / spanT) * (width - padding.l - padding.r);
+    const yScale = (v: number) =>
+      height -
+      padding.b -
+      ((v - minV) / spanV) * (height - padding.t - padding.b);
+    const palette = [
+      "#60a5fa",
+      "#34d399",
+      "#f472b6",
+      "#f59e0b",
+      "#a78bfa",
+      "#f87171",
+      "#22d3ee",
+      "#84cc16",
+    ];
+    const pathFor = (pts: { t: number; v: number }[]) =>
+      pts.length === 0
+        ? ""
+        : pts
+            .map((p, i) => `${i ? "L" : "M"}${xScale(p.t)},${yScale(p.v)}`)
+            .join(" ");
+    const anySeries = clipped.some((s) => s.pts.length > 0);
+    // axis ticks
+    const yTicks = 5;
+    const yTickVals: number[] = Array.from(
+      { length: yTicks + 1 },
+      (_, i) => minV + (spanV * i) / yTicks,
+    );
+    // choose up to 6 time ticks (including endpoints)
+    const xTicksTarget = 5;
+    const xTickVals: number[] = Array.from(
+      { length: xTicksTarget + 1 },
+      (_, i) => minT + (spanT * i) / xTicksTarget,
+    );
+    const formatValue = (v: number) => {
+      if (Math.abs(v) >= 1000000) return (v / 1000000).toFixed(1) + "M";
+      if (Math.abs(v) >= 1000) return (v / 1000).toFixed(1) + "K";
+      if (spanV < 2) return v.toFixed(2);
+      return Math.round(v).toString();
+    };
+    const formatTime = (t: number) => {
+      // t is in ticks. 10 ticks = 1 second.
+      const seconds = Math.floor(t / 10);
+      const m = Math.floor(seconds / 60);
+      const s = seconds % 60;
+      return `${m}:${String(s).padStart(2, "0")}`;
+    };
+    if (!this._graphPaused) this._startGraphRenderLoop();
+    return html`<div class="stats-section">
+      <div class="player-select-row">
+        <label class="player-select-label">Metric:</label>
+        <select
+          class="player-select"
+          @change=${(e: Event) => {
+            this._graphMetric = (e.target as HTMLSelectElement).value;
+            if (!this._graphPaused) this._ensureGraphSampling();
+          }}
+        >
+          ${opts.map(
+            (o) =>
+              html`<option value=${o} ?selected=${o === metric}>${o}</option>`,
+          )}
+        </select>
+        <button
+          class="btn"
+          style="margin-left:auto"
+          @click=${() => this._toggleGraphPause()}
+        >
+          ${this._graphPaused ? "Play" : "Pause"}
+        </button>
+      </div>
+      <div class="graph-area">
+        <div class="graph-left">
+          <div class="stats-graph-placeholder" aria-label="Graph">
             <div class="grid-lines">
               ${Array.from({ length: 6 }).map(
                 () => html`<div class="h-line"></div>`,
               )}
             </div>
-            <div class="graph-filler">(Graph Area)</div>
+            ${selectedIds.size === 0
+              ? html`<div class="graph-empty-overlay">
+                  Select players on right
+                </div>`
+              : html``}
+            <svg width=${width} height=${height} style="display:block;">
+              <!-- axes -->
+              <g class="axis y-axis">
+                <line
+                  x1=${padding.l}
+                  y1=${padding.t}
+                  x2=${padding.l}
+                  y2=${height - padding.b}
+                  stroke="rgba(255,255,255,0.25)"
+                  stroke-width="1"
+                />
+                ${yTickVals.map(
+                  (v) =>
+                    svg`<g>
+                      <line
+                        x1=${padding.l - 4}
+                        y1=${yScale(v)}
+                        x2=${padding.l}
+                        y2=${yScale(v)}
+                        stroke="rgba(255,255,255,0.4)"
+                        stroke-width="1"
+                      />
+                      <text
+                        x=${padding.l - 6}
+                        y=${yScale(v) + 3}
+                        text-anchor="end"
+                        class="axis-label"
+                        >${formatValue(v)}</text
+                      >
+                    </g>`,
+                )}
+              </g>
+              <g class="axis x-axis">
+                <line
+                  x1=${padding.l}
+                  y1=${height - padding.b}
+                  x2=${width - padding.r}
+                  y2=${height - padding.b}
+                  stroke="rgba(255,255,255,0.25)"
+                  stroke-width="1"
+                />
+                ${xTickVals.map(
+                  (t) =>
+                    svg`<g>
+                      <line
+                        x1=${xScale(t)}
+                        y1=${height - padding.b}
+                        x2=${xScale(t)}
+                        y2=${height - padding.b + 4}
+                        stroke="rgba(255,255,255,0.4)"
+                        stroke-width="1"
+                      />
+                      <text
+                        x=${xScale(t)}
+                        y=${height - padding.b + 16}
+                        text-anchor="middle"
+                        class="axis-label"
+                        >${formatTime(t)}</text
+                      >
+                    </g>`,
+                )}
+              </g>
+              <!-- data series -->
+              ${clipped.map((s, i) => {
+                const d = pathFor(s.pts);
+                const color = palette[i % palette.length];
+                return svg`<g>
+                  <path
+                    d=${d}
+                    fill="none"
+                    stroke=${color}
+                    stroke-width="2"
+                    stroke-linejoin="round"
+                    stroke-linecap="round"
+                  />
+                  ${s.pts.map(
+                    (pt) =>
+                      svg`<circle
+                        cx=${xScale(pt.t)}
+                        cy=${yScale(pt.v)}
+                        r="3"
+                        fill=${color}
+                        stroke="rgba(0,0,0,0.4)"
+                        stroke-width="1"
+                      />`,
+                  )}
+                </g>`;
+              })}
+              ${!anySeries && selectedIds.size > 0
+                ? svg`<text
+                    x=${width / 2}
+                    y=${height / 2 - 10}
+                    text-anchor="middle"
+                    fill="var(--ui-text-muted)"
+                    font-size="14"
+                    >No data yet (wait for next 10s sample)</text
+                  >`
+                : html``}
+            </svg>
           </div>
-        </div>`;
-    }
+        </div>
+        <div class="graph-right">
+          <div class="graph-right-title">Players</div>
+          <div class="graph-right-list">
+            ${players.map(
+              (p) =>
+                html`<label class="graph-player">
+                  <input
+                    type="checkbox"
+                    .checked=${selectedIds.has(p.id())}
+                    @change=${() => this._toggleGraphPlayer(p.id())}
+                  />
+                  <span>${p.displayName()}</span>
+                </label>`,
+            )}
+          </div>
+        </div>
+      </div>
+      <div class="player-select-row" style="gap: 12px; flex-wrap: wrap;">
+        ${clipped.map((s, i) => {
+          const color = palette[i % palette.length];
+          return html`<span
+            style="display:inline-flex;align-items:center;gap:6px;font-size:12px;"
+          >
+            <span
+              style="width:10px;height:10px;border-radius:9999px;background:${color};display:inline-block;"
+            ></span>
+            <span>${s.name}${s.aliveUntil ? " (dead)" : ""}</span>
+          </span>`;
+        })}
+      </div>
+    </div>`;
   }
 
   render() {
@@ -522,7 +851,7 @@ export class StatisticsModal extends LitElement {
             font-size: 13px;
             color: var(--ui-text-default);
             /* Fix modal content height so tab switches don't resize the modal */
-            height: 520px;
+            height: 430px;
             /* Fix exact width to keep wrapper constant; account for modal max-width separately */
             width: 1024px;
             box-sizing: border-box;
@@ -544,12 +873,39 @@ export class StatisticsModal extends LitElement {
             color: var(--ui-text-muted);
           }
           statistics-modal .player-select {
-            background: var(--ui-primary);
+            background: var(--ui-primary, #1a1a1a);
             border: 1px solid var(--ui-panel-border);
-            color: var(--ui-text-accent);
+            color: var(--ui-text-accent, #eee);
             padding: 4px 8px;
             font-size: 12px;
             border-radius: 4px;
+          }
+          statistics-modal select.player-select option {
+            background: var(--ui-primary, #1a1a1a);
+            color: var(--ui-text-accent, #eee);
+          }
+          statistics-modal .stats-graph-placeholder svg {
+            position: relative;
+            z-index: 2;
+            font-family: inherit;
+          }
+          statistics-modal .axis-label {
+            fill: var(--ui-text-muted);
+            font-size: 10px;
+            pointer-events: none;
+            user-select: none;
+          }
+          statistics-modal .graph-empty-overlay {
+            position: absolute;
+            inset: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 14px;
+            color: var(--ui-text-muted);
+            z-index: 3;
+            background: rgba(0, 0, 0, 0.05);
+            backdrop-filter: blur(1px);
           }
           statistics-modal .stats-grid {
             display: grid;
@@ -655,6 +1011,15 @@ export class StatisticsModal extends LitElement {
             border-radius: 6px;
             cursor: pointer;
           }
+          statistics-modal .btn {
+            background: var(--ui-secondary);
+            border: 1px solid var(--ui-panel-border);
+            color: var(--ui-text-accent);
+            padding: 6px 12px;
+            font-size: 12px;
+            border-radius: 6px;
+            cursor: pointer;
+          }
           statistics-modal .list-table {
             margin-top: 8px;
             border: 1px solid var(--ui-panel-border);
@@ -698,7 +1063,7 @@ export class StatisticsModal extends LitElement {
             opacity: 1;
           }
           statistics-modal .list-body {
-            max-height: 360px;
+            max-height: 300px; /* reduced from 360px per request */
             overflow: auto;
           }
           statistics-modal .list-row {
@@ -733,7 +1098,7 @@ export class StatisticsModal extends LitElement {
           }
           statistics-modal .stats-graph-placeholder {
             position: relative;
-            height: 240px;
+            height: 300px; /* increased from 240px */
             border: 1px solid var(--ui-panel-border);
             border-radius: 8px;
             background: linear-gradient(
@@ -747,6 +1112,29 @@ export class StatisticsModal extends LitElement {
             justify-content: center;
             color: var(--ui-text-muted);
             font-size: 14px;
+          }
+          statistics-modal .stats-graph-placeholder svg {
+            position: relative;
+            z-index: 2;
+            font-family: inherit;
+          }
+          statistics-modal .axis-label {
+            fill: var(--ui-text-muted, #aaa);
+            font-size: 10px;
+            pointer-events: none;
+            user-select: none;
+          }
+          statistics-modal .graph-empty-overlay {
+            position: absolute;
+            inset: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 14px;
+            color: var(--ui-text-muted);
+            z-index: 3;
+            background: rgba(0, 0, 0, 0.05);
+            backdrop-filter: blur(1px);
           }
           statistics-modal .stats-graph-placeholder .grid-lines {
             position: absolute;
@@ -765,11 +1153,56 @@ export class StatisticsModal extends LitElement {
             position: relative;
             z-index: 2;
           }
+          statistics-modal .graph-area {
+            display: flex;
+            gap: 12px;
+            align-items: stretch;
+          }
+          statistics-modal .graph-left {
+            flex: 1 1 auto;
+            min-width: 0;
+          }
+          statistics-modal .graph-right {
+            width: 240px;
+            border: 1px solid var(--ui-panel-border);
+            border-radius: 8px;
+            background: var(--ui-primary);
+            display: flex;
+            flex-direction: column;
+            max-height: 300px; /* match graph height */
+            overflow: hidden;
+          }
+          statistics-modal .graph-right-title {
+            font-weight: 600;
+            padding: 6px 8px;
+            border-bottom: 1px solid var(--ui-panel-border);
+            color: var(--ui-text-accent);
+          }
+          statistics-modal .graph-right-list {
+            overflow: auto;
+            padding: 6px 8px;
+            display: grid;
+            grid-auto-rows: minmax(20px, auto);
+            row-gap: 6px;
+          }
+          statistics-modal .graph-player {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 12px;
+            color: var(--ui-text-default);
+          }
+          statistics-modal select.player-select option {
+            background: var(--ui-primary);
+            color: var(--ui-text-accent);
+          }
         </style>
         ${this._renderTabs()}
         ${this._renderContent()}${this.activeTab === "List"
           ? html`<span style="display:none">${this._listRefreshTick}</span>`
-          : html`<span style="display:none">${this._tick}</span>`}
+          : this.activeTab === "Graph"
+            ? html`<span style="display:none">${this._graphRenderTick}</span>`
+            : html`<span style="display:none">${this._tick}</span>`}
       </o-modal>
     `;
   }

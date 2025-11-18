@@ -43,6 +43,7 @@ import {
 } from "./Transport";
 import { createCanvas } from "./Utils";
 import { createRenderer, GameRenderer } from "./graphics/GameRenderer";
+import statsStore from "./stats/StatsStore";
 
 export interface LobbyConfig {
   serverConfig: ServerConfig;
@@ -289,6 +290,7 @@ export class ClientGameRunner {
       });
       this.gameView.update(gu);
       this.renderer.tick();
+      statsStore.onTick(gu.tick);
 
       if (gu.updates[GameUpdateType.Win].length > 0) {
         this.saveGame(gu.updates[GameUpdateType.Win][0]);
