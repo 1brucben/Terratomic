@@ -238,8 +238,9 @@ export class GameRunner {
     if (this.game.config().gameConfig().researchAllTechs) {
       const nodes = getTechNodes();
       const techIds = nodes.map((n) => n.id);
+      // Use allPlayers() so we include unspawned players at game start
       this.game
-        .players()
+        .allPlayers()
         .forEach((p) =>
           techIds.forEach((id) => (p as any).addResearchedTech?.(id)),
         );
