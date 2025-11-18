@@ -533,17 +533,25 @@ export class UnitLayer implements Layer {
 
       const position = this.interpolatePosition(unit, alpha);
 
-      if (!isSpriteReady(unit.type())) {
-        continue;
+      switch (unit.type()) {
+        case UnitType.Shell:
+          this.renderShell(unit, position);
+          continue;
+        case UnitType.MIRVWarhead:
+          this.renderWarhead(unit, position);
+          continue;
+        default:
+          if (!isSpriteReady(unit.type())) {
+            continue;
+          }
+          this.drawSpriteAtPosition(
+            unit,
+            position,
+            this.getInterpolatedSpriteColor(unit),
+            this.interpolationContext,
+            false,
+          );
       }
-
-      this.drawSpriteAtPosition(
-        unit,
-        position,
-        this.getInterpolatedSpriteColor(unit),
-        this.interpolationContext,
-        false,
-      );
     }
   }
 
@@ -557,6 +565,95 @@ export class UnitLayer implements Layer {
       }
     }
     return undefined;
+  }
+
+  private renderShell(unit: UnitView, position: { x: number; y: number }) {
+    const rel = this.relationship(unit);
+    const color = this.theme.borderColor(unit.owner());
+    this.drawInterpolatedSquare(position, rel, color, 1, 1);
+    this.drawInterpolatedSquare(position, rel, color, 2, 0.4);
+
+    const last = {
+      x: this.game.x(unit.lastTile()),
+      y: this.game.y(unit.lastTile()),
+    };
+    if (last.x !== position.x || last.y !== position.y) {
+      this.drawInterpolatedSegment(last, position, rel, color, 0.7);
+    }
+  }
+
+  private renderWarhead(unit: UnitView, position: { x: number; y: number }) {
+    const rel = this.relationship(unit);
+    const color = this.theme.borderColor(unit.owner());
+    this.drawInterpolatedSquare(position, rel, color, 1, 1);
+    this.drawInterpolatedSquare(position, rel, color, 2, 0.35);
+
+    const last = {
+      x: this.game.x(unit.lastTile()),
+      y: this.game.y(unit.lastTile()),
+    };
+    if (last.x !== position.x || last.y !== position.y) {
+      this.drawInterpolatedSegment(last, position, rel, color, 0.5);
+    }
+  }
+
+  private drawInterpolatedSquare(
+    position: { x: number; y: number },
+    relationship: Relationship,
+    color: Colord,
+    size: number,
+    alpha: number,
+  ) {
+    if (!this.interpolationContext) {
+      return;
+    }
+    const ctx = this.interpolationContext;
+    ctx.fillStyle = this.resolveInterpolatedColor(relationship, color, alpha);
+    ctx.fillRect(position.x - size / 2, position.y - size / 2, size, size);
+  }
+
+  private drawInterpolatedSegment(
+    start: { x: number; y: number },
+    end: { x: number; y: number },
+    relationship: Relationship,
+    color: Colord,
+    alpha: number,
+  ) {
+    if (!this.interpolationContext) {
+      return;
+    }
+    const ctx = this.interpolationContext;
+    ctx.strokeStyle = this.resolveInterpolatedColor(relationship, color, alpha);
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(start.x, start.y);
+    ctx.lineTo(end.x, end.y);
+    ctx.stroke();
+  }
+
+  private resolveInterpolatedColor(
+    relationship: Relationship,
+    color: Colord,
+    alpha: number,
+  ): string {
+    if (this.alternateView) {
+      return this.getAlternateViewColor(relationship)
+        .alpha(alpha)
+        .toRgbString();
+    }
+    return color.alpha(alpha).toRgbString();
+  }
+
+  private getAlternateViewColor(relationship: Relationship): Colord {
+    switch (relationship) {
+      case Relationship.Self:
+        return this.theme.selfColor();
+      case Relationship.Ally:
+        return this.theme.allyColor();
+      case Relationship.Enemy:
+      default:
+        return this.theme.enemyColor();
+    }
   }
 
   private relationship(unit: UnitView): Relationship {
