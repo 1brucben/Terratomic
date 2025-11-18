@@ -12,6 +12,7 @@ import { ControlPanel } from "./layers/ControlPanel";
 import { ControlPanel2 } from "./layers/ControlPanel2";
 import { EmojiTable } from "./layers/EmojiTable";
 import { EventsDisplay } from "./layers/EventsDisplay";
+import { FighterPixiLayer } from "./layers/FighterPixiLayer";
 import { FxLayer } from "./layers/FxLayer";
 import { GameLeftSidebar } from "./layers/GameLeftSidebar";
 import { HeadsUpMessage } from "./layers/HeadsUpMessage";
@@ -235,6 +236,8 @@ export function createRenderer(
   };
 
   const structureLayer = new StructureLayer(game, eventBus, transformHandler);
+  // Independent PIXI-based fighter layer; uses TransformHandler for screen coords
+  const fighterLayer = new FighterPixiLayer(game, eventBus, transformHandler);
 
   const layers: Layer[] = [
     new TerrainLayer(game, transformHandler),
@@ -244,6 +247,8 @@ export function createRenderer(
     // World-space ring overlay for Defense Posts/SAMs
     new RangeOverlayLayer(game, eventBus, transformHandler, uiState),
     structureLayer,
+    // Render fighter sprites overlay (independent PIXI)
+    fighterLayer,
     new UnitLayer(game, eventBus, transformHandler, uiState),
     new FxLayer(game),
     // Draw name labels in world space along with other transformed layers

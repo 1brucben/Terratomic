@@ -49,6 +49,9 @@ export class UnitLayer implements Layer {
 
   private unitToLastAngle = new Map<UnitView, number>();
 
+  // Last interpolated render position per unit (for smooth angle between tiles)
+  private unitToLastRenderPos = new Map<UnitView, { x: number; y: number }>();
+
   private theme: Theme;
 
   private alternateView = false;
@@ -492,6 +495,10 @@ export class UnitLayer implements Layer {
     const units = this.game.units(...this.interpolatedUnitTypes);
 
     for (const unit of units) {
+      // Skip fighter jets in canvas interpolation; PIXI layer handles them
+      if (unit.type() === UnitType.FighterJet) {
+        continue;
+      }
       if (!unit.isActive()) {
         continue;
       }
@@ -516,12 +523,35 @@ export class UnitLayer implements Layer {
         continue;
       }
 
+      // Compute a smooth angle based on interpolated render positions for aircraft
+      let angleOverride: number | null = null;
+      if (
+        unit.type() === UnitType.Bomber ||
+        unit.type() === UnitType.FighterJet ||
+        unit.type() === UnitType.CargoPlane
+      ) {
+        const lastPos = this.unitToLastRenderPos.get(unit);
+        if (lastPos !== undefined) {
+          const dx = position.x - lastPos.x;
+          const dy = position.y - lastPos.y;
+          if (dx !== 0 || dy !== 0) {
+            let angle = Math.atan2(dy, dx);
+            if (unit.type() === UnitType.FighterJet) {
+              angle += Math.PI / 2;
+            }
+            angleOverride = angle;
+          }
+        }
+        this.unitToLastRenderPos.set(unit, { x: position.x, y: position.y });
+      }
+
       this.drawSpriteAtPosition(
         unit,
         position,
         this.getInterpolatedSpriteColor(unit),
         this.interpolationContext,
         false,
+        angleOverride,
       );
     }
   }
@@ -615,7 +645,8 @@ export class UnitLayer implements Layer {
         this.handleBomberEvent(unit, angleByUnit);
         break;
       case UnitType.FighterJet:
-        this.handleFighterJetEvent(unit, angleByUnit);
+        // Do not draw fighter jets in canvas; rendered by FighterPixiLayer
+        break;
         break;
       case UnitType.AtomBomb:
       case UnitType.HydrogenBomb:
@@ -946,8 +977,14 @@ export class UnitLayer implements Layer {
       }
 
       const angle = angleByUnit?.get(unit) ?? this.getUnitAngle(unit);
-      const cx = Math.round(x);
-      const cy = Math.round(y);
+
+      // Allow aircraft to glide using sub-pixel positions; snap others to pixels
+      const isAircraft =
+        unit.type() === UnitType.Bomber ||
+        unit.type() === UnitType.FighterJet ||
+        unit.type() === UnitType.CargoPlane;
+      const cx = isAircraft ? x : Math.round(x);
+      const cy = isAircraft ? y : Math.round(y);
       const newWidth = sprite.width * sizeMult;
       const newHeight = sprite.width * sizeMult; // Keep aspect ratio square
 
@@ -1002,6 +1039,7 @@ export class UnitLayer implements Layer {
     customTerritoryColor?: Colord,
     context: CanvasRenderingContext2D = this.context,
     snapToPixel = true,
+    angleOverride: number | null = null,
   ) {
     let alternateViewColor: Colord | null = null;
 
@@ -1050,14 +1088,30 @@ export class UnitLayer implements Layer {
         context.globalAlpha = 0.5;
       }
 
-      const offsetX = snapToPixel
-        ? Math.round(position.x - sprite.width / 2)
-        : position.x - sprite.width / 2;
-      const offsetY = snapToPixel
-        ? Math.round(position.y - sprite.width / 2)
-        : position.y - sprite.width / 2;
+      const cx = position.x;
+      const cy = position.y;
+      const newWidth = sprite.width;
+      const newHeight = sprite.width;
 
-      context.drawImage(sprite, offsetX, offsetY, sprite.width, sprite.width);
+      if (angleOverride !== null) {
+        context.save();
+        context.translate(cx, cy);
+        context.rotate(angleOverride);
+        context.translate(-cx, -cy);
+      }
+
+      const offsetX = snapToPixel
+        ? Math.round(cx - newWidth / 2)
+        : cx - newWidth / 2;
+      const offsetY = snapToPixel
+        ? Math.round(cy - newHeight / 2)
+        : cy - newHeight / 2;
+
+      context.drawImage(sprite, offsetX, offsetY, newWidth, newHeight);
+
+      if (angleOverride !== null) {
+        context.restore();
+      }
 
       if (!targetable) {
         context.restore();
@@ -1083,7 +1137,6 @@ export class UnitLayer implements Layer {
       };
       const dx = currentPos.x - lastPos.x;
       const dy = currentPos.y - lastPos.y;
-
       const lastAngle = this.unitToLastAngle.get(unit);
 
       if (dx === 0 && dy === 0) {
@@ -1094,6 +1147,25 @@ export class UnitLayer implements Layer {
 
       if (unit.type() === UnitType.FighterJet) {
         angle += Math.PI / 2;
+
+        // Reduce jitter: ignore very small movements and tiny heading changes
+        const distSq = dx * dx + dy * dy;
+        const minDistSq = 0.25; // 0.5px movement threshold
+        if (lastAngle !== undefined) {
+          if (distSq < minDistSq) {
+            return lastAngle;
+          }
+          let angleDiff = angle - lastAngle;
+          while (angleDiff > Math.PI) angleDiff -= 2 * Math.PI;
+          while (angleDiff < -Math.PI) angleDiff += 2 * Math.PI;
+          const minAngleChange = (5 * Math.PI) / 180; // 5 degrees
+          if (Math.abs(angleDiff) < minAngleChange) {
+            return lastAngle;
+          }
+        }
+
+        this.unitToLastAngle.set(unit, angle);
+        return angle;
       }
 
       if (lastAngle !== undefined) {
