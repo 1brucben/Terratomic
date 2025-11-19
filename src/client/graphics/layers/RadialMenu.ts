@@ -231,31 +231,31 @@ export class RadialMenu implements Layer {
       .append("image")
       .attr("xlink:href", (d) => d.data.icon)
       .attr("width", (d) =>
-        d.data.name === "peace"
+        d.data.name === "peace" && !d.data.disabled
           ? this.iconSize * this.peaceIconScale
           : this.iconSize,
       )
       .attr("height", (d) =>
-        d.data.name === "peace"
+        d.data.name === "peace" && !d.data.disabled
           ? this.iconSize * this.peaceIconScale
           : this.iconSize,
       )
       .attr("x", (d) => {
         const w =
-          d.data.name === "peace"
+          d.data.name === "peace" && !d.data.disabled
             ? this.iconSize * this.peaceIconScale
             : this.iconSize;
-        // Offset both peace and war icons
-        const offset = d.data.name === "peace" ? 2 : 0;
+        // Offset both peace and war icons when enabled
+        const offset = d.data.name === "peace" && !d.data.disabled ? 2 : 0;
         return arc.centroid(d)[0] - w / 2 + offset;
       })
       .attr("y", (d) => {
         const h =
-          d.data.name === "peace"
+          d.data.name === "peace" && !d.data.disabled
             ? this.iconSize * this.peaceIconScale
             : this.iconSize;
-        // Offset both peace and war icons
-        const offset = d.data.name === "peace" ? 2 : 0;
+        // Offset both peace and war icons when enabled
+        const offset = d.data.name === "peace" && !d.data.disabled ? 2 : 0;
         return arc.centroid(d)[1] - h / 2 + offset;
       })
       .style("pointer-events", "none")
