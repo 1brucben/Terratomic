@@ -163,6 +163,7 @@ export class UnitImpl implements Unit {
       targetable: this._targetable,
       lastPos: this._lastTile,
       health: this.hasHealth() ? Number(this._health) : undefined,
+      maxHealth: this.hasHealth() ? this.effectiveMaxHealth() : undefined,
       level: this._level > 1 ? this._level : undefined,
       constructionType: this._constructionType,
       targetUnitId: this._targetUnit?.id() ?? undefined,
@@ -250,7 +251,7 @@ export class UnitImpl implements Unit {
     return this.mg.unitInfo(this._type).maxHealth ?? 1;
   }
 
-  private effectiveMaxHealth(): number {
+  effectiveMaxHealth(): number {
     return this.baseMaxHealth() + this._bonusMaxHealth;
   }
 

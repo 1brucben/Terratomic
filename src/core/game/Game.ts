@@ -550,6 +550,7 @@ export interface Unit {
   // Upgrades
   level(): number; // Current upgrade level (>=1)
   upgradeStructure(): void; // Applies structure-specific upgrade effects (currently City only)
+  effectiveMaxHealth(): number; // Base max health + bonuses from upgrades
 }
 
 export interface TerraNullius {

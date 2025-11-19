@@ -1254,27 +1254,9 @@ export class StructureLayer implements Layer {
   private updateHealthBar(render: StructureRenderInfo) {
     const unit = render.unit;
 
-    // Calculate max health based on unit type and level
-    let maxHealth = this.game.unitInfo(unit.type()).maxHealth;
+    // Get max health from centralized calculation
+    const maxHealth = unit.effectiveMaxHealth();
     if (!maxHealth) return; // No health for this unit type
-
-    if (
-      unit.type() === UnitType.City ||
-      unit.type() === UnitType.Port ||
-      unit.type() === UnitType.Hospital ||
-      unit.type() === UnitType.Academy ||
-      unit.type() === UnitType.ResearchLab ||
-      unit.type() === UnitType.Factory
-    ) {
-      const lvl = unit.level();
-      maxHealth = maxHealth + (lvl - 1) * 1000;
-    } else if (
-      unit.type() === UnitType.MissileSilo ||
-      unit.type() === UnitType.SAMLauncher
-    ) {
-      const lvl = unit.level();
-      maxHealth = maxHealth + (lvl - 1) * 250;
-    }
 
     // Only show health bar if damaged and active
     if (!unit.isActive() || unit.health() >= maxHealth || unit.health() <= 0) {
@@ -1395,15 +1377,18 @@ export class StructureLayer implements Layer {
     graphics.x = render.pixiSprite.x;
     graphics.y = render.pixiSprite.y + yOffset;
 
-    // Calculate progress
+    // Calculate progress using cooldownEndsAt (authoritative field)
     const totalCooldown =
       unit.type() === UnitType.MissileSilo
         ? (unit.cooldownDuration() ?? this.game.config().SiloCooldown())
         : (unit.cooldownDuration() ?? this.game.config().SAMNukeCooldown());
-    const ticksLeft = unit.ticksLeftInCooldown() ?? 0;
+    const endsAt = unit.cooldownEndsAt();
     const currentTick = this.game.ticks();
-    const actualStartTick = currentTick - (totalCooldown - ticksLeft);
-    const progress = (currentTick - actualStartTick) / totalCooldown;
+
+    // Progress from 0 (just started) to 1 (ready)
+    const startTick = endsAt ? endsAt - totalCooldown : currentTick;
+    const elapsed = currentTick - startTick;
+    const progress = Math.min(1, Math.max(0, elapsed / totalCooldown));
 
     // Background (black border)
     graphics.beginFill(0x000000, 1);

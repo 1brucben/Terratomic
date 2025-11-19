@@ -202,6 +202,11 @@ export class UnitView {
       | undefined;
     return Array.isArray(arr) ? [...arr] : [];
   }
+
+  // Get effective max health from server
+  effectiveMaxHealth(): number {
+    return this.data.maxHealth ?? 0;
+  }
 }
 
 export class PlayerView {

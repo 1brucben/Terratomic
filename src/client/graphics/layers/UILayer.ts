@@ -278,42 +278,9 @@ export class UILayer implements Layer {
    * Draw health bar for a unit
    */
   public drawHealthBar(unit: UnitView) {
-    // Use effective max health for upgradeable structures, otherwise static info
-    let maxHealth = this.game.unitInfo(unit.type()).maxHealth;
-    if (
-      unit.type() === UnitType.City ||
-      unit.type() === UnitType.Port ||
-      unit.type() === UnitType.Hospital ||
-      unit.type() === UnitType.Academy ||
-      unit.type() === UnitType.ResearchLab ||
-      unit.type() === UnitType.Factory
-    ) {
-      // These structures can be upgraded: +1000 max HP per level
-      const lvl = unit.level();
-      if (typeof maxHealth === "number") {
-        maxHealth = maxHealth + (lvl - 1) * 1000;
-      }
-    } else if (
-      unit.type() === UnitType.MissileSilo ||
-      unit.type() === UnitType.SAMLauncher
-    ) {
-      // Silo and SAM: +250 max HP per level (capped at level 3)
-      const lvl = unit.level();
-      if (typeof maxHealth === "number") {
-        maxHealth = maxHealth + (lvl - 1) * 250;
-      }
-    } else if (unit.type() === UnitType.FighterJet) {
-      // Fighter Jet: per-level max health from config
-      const lvl = unit.level ? unit.level() : 1;
-      maxHealth = this.game.config().fighterJetLevelMaxHealth(lvl);
-    } else if (unit.type() === UnitType.Warship) {
-      const lvl = unit.level ? unit.level() : 1;
-      maxHealth = this.game.config().warshipLevelMaxHealth(lvl);
-    } else if (unit.type() === UnitType.Submarine) {
-      const lvl = unit.level ? unit.level() : 1;
-      maxHealth = this.game.config().submarineLevelMaxHealth(lvl);
-    }
-    if (maxHealth === undefined || this.context === null) {
+    // Use centralized effective max health calculation
+    const maxHealth = unit.effectiveMaxHealth();
+    if (maxHealth === 0 || this.context === null) {
       return;
     }
     if (

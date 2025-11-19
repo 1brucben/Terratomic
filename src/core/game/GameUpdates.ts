@@ -134,6 +134,7 @@ export interface UnitUpdate {
   targetUnitId?: number; // Only for trade ships
   targetTile?: TileRef; // Only for nukes
   health?: number;
+  maxHealth?: number; // Effective max health (base + bonuses)
   constructionType?: UnitType;
   // Deprecated: ticksLeftInCooldown is replaced by cooldownEndsAt
   ticksLeftInCooldown?: Tick;

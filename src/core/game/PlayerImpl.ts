@@ -462,20 +462,11 @@ export class PlayerImpl implements Player {
       .filter((u) => u.type() === type && u.isActive())
       .reduce((sum, u) => {
         // Use effective max for health ratio so city upgrades don't inflate ratios.
-        const baseMax = u.info().maxHealth ?? 1;
-        const level = (u as any).level?.() ?? 1;
-        const effectiveMax =
-          u.type() === UnitType.City ||
-          u.type() === UnitType.Port ||
-          u.type() === UnitType.Hospital ||
-          u.type() === UnitType.Academy ||
-          u.type() === UnitType.ResearchLab ||
-          u.type() === UnitType.Factory
-            ? baseMax + 1000 * Math.max(0, level - 1)
-            : baseMax;
+        const effectiveMax = u.effectiveMaxHealth();
         const healthRatio = u.hasHealth()
           ? Math.min(1, Number(u.health()) / Math.max(1, effectiveMax))
           : 1;
+        const level = (u as any).level?.() ?? 1;
         return sum + healthRatio * level;
       }, 0);
     this._effectiveUnitsCache.set(type, calculatedValue);
