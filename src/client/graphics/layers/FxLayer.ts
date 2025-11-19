@@ -51,8 +51,6 @@ export class FxLayer implements Layer {
     this.pixicanvas.width = window.innerWidth;
     this.pixicanvas.height = window.innerHeight;
     this.stage = new PIXI.Container();
-    // Set pivot to origin so scaling happens around (0,0)
-    this.stage.pivot.set(0, 0);
 
     await this.renderer.init({
       canvas: this.pixicanvas,
