@@ -232,14 +232,13 @@ export class NameLayer implements Layer {
       flagImg.style.aspectRatio = "3/4";
       nameDiv.appendChild(flagImg);
     }
-    nameDiv.classList.add("player-name");
+    nameDiv.classList.add("map-player-name");
     nameDiv.style.color = this.theme.textColor(player);
     nameDiv.style.fontFamily = this.theme.font();
     nameDiv.style.whiteSpace = "nowrap";
-    nameDiv.style.textOverflow = "ellipsis";
     nameDiv.style.zIndex = "3";
     nameDiv.style.display = "flex";
-    nameDiv.style.justifyContent = "flex-end";
+    nameDiv.style.justifyContent = "center";
     nameDiv.style.alignItems = "center";
 
     const nameSpan = document.createElement("span");
@@ -324,7 +323,7 @@ export class NameLayer implements Layer {
 
     // Update text sizes
     const nameDiv = render.element.querySelector(
-      ".player-name",
+      ".map-player-name",
     ) as HTMLDivElement;
     const flagDiv = render.element.querySelector(
       ".player-flag",
