@@ -92,8 +92,13 @@ export class ControlPanel2 extends LitElement implements Layer {
   private init_: boolean = false;
 
   @state()
-  private activeTab: "Build" | "Attack" | "Economy" | "Bombers" | "Trade" =
-    "Build";
+  private activeTab:
+    | "Build"
+    | "Attack"
+    | "Economy"
+    | "Bombers"
+    | "Trade"
+    | "Diplomacy" = "Build";
 
   @state()
   private _lastAirfieldCount: number = 0;
@@ -984,7 +989,7 @@ export class ControlPanel2 extends LitElement implements Layer {
   }
 
   private _changeTab(
-    tab: "Build" | "Attack" | "Economy" | "Bombers" | "Trade",
+    tab: "Build" | "Attack" | "Economy" | "Bombers" | "Trade" | "Diplomacy",
   ) {
     this.activeTab = tab;
     if (this.uiState.pendingBuildUnitType) {
@@ -1244,6 +1249,15 @@ export class ControlPanel2 extends LitElement implements Layer {
             @click=${() => this._changeTab("Trade")}
           >
             Trade
+          </button>
+          <button
+            class="py-2 px-4 text-center font-ocr uppercase cp2-tab ${this
+              .activeTab === "Diplomacy"
+              ? "active"
+              : ""}"
+            @click=${() => this._changeTab("Diplomacy")}
+          >
+            Diplomacy
           </button>
           ${this._hasAirfields
             ? html`
@@ -1924,6 +1938,7 @@ export class ControlPanel2 extends LitElement implements Layer {
               `
             : ""}
           ${this.activeTab === "Trade" ? this._renderTradeTab() : ""}
+          ${this.activeTab === "Diplomacy" ? this.renderDiplomacyTab() : ""}
         </div>
       </div>
     `;
@@ -2076,6 +2091,57 @@ export class ControlPanel2 extends LitElement implements Layer {
           : ships.length === 0 && pendingRows.length === 0
             ? html`<div class="text-gray-400">No active trade ships.</div>`
             : ""}
+      </div>
+    `;
+  }
+
+  private renderDiplomacyTab() {
+    const me = this.game.myPlayer();
+    if (!me) return html``;
+
+    const players = this.game
+      .players()
+      .filter(
+        (p) =>
+          p.isAlive() &&
+          p.id() !== me.id() &&
+          (p.type() === PlayerType.Human || p.type() === PlayerType.FakeHuman),
+      );
+
+    const atWar = players.filter((p) => me.isAtWarWith(p));
+    const allied = players.filter((p) => me.isAlliedWith(p));
+    const neutral = players.filter(
+      (p) => !me.isAtWarWith(p) && !me.isAlliedWith(p),
+    );
+
+    const renderPlayerList = (list: PlayerView[], title: string) => html`
+      <div class="flex flex-col w-1/3 px-1">
+        <h3 class="text-center font-bold mb-2 text-gray-300">${title}</h3>
+        <div class="flex flex-col">
+          ${list.map(
+            (p) => html`
+              <div
+                class="py-1 text-sm text-gray-300 truncate"
+                title="${p.name()}"
+              >
+                ${p.name()}
+              </div>
+            `,
+          )}
+          ${list.length === 0
+            ? html`<div class="text-center text-gray-500 italic text-xs">
+                None
+              </div>`
+            : ""}
+        </div>
+      </div>
+    `;
+
+    return html`
+      <div class="flex w-full h-full">
+        ${renderPlayerList(atWar, "At War")}
+        ${renderPlayerList(allied, "Allied")}
+        ${renderPlayerList(neutral, "Neutral")}
       </div>
     `;
   }
