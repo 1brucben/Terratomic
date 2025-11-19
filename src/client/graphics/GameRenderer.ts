@@ -362,23 +362,26 @@ export class GameRenderer {
       .toHex();
     this.context.fillRect(0, 0, this.canvas.width, this.canvas.height);
 
-    // Minimize save/restore by rendering world-space (transformed) layers in one block,
-    // then UI/screen-space layers without a transform.
-    // First pass: world-space layers
-    this.context.save();
-    this.transformHandler.handleTransform(this.context);
-    for (const layer of this.layers) {
-      if (layer.shouldTransform?.() ?? false) {
-        layer.renderLayer?.(this.context);
-      }
-    }
-    this.context.restore();
+    // Render layers in order, switching transform state as needed
+    let isTransformed = false;
 
-    // Second pass: UI layers (no transform)
     for (const layer of this.layers) {
-      if (!(layer.shouldTransform?.() ?? false)) {
-        layer.renderLayer?.(this.context);
+      const layerNeedsTransform = layer.shouldTransform?.() ?? false;
+
+      if (layerNeedsTransform && !isTransformed) {
+        this.context.save();
+        this.transformHandler.handleTransform(this.context);
+        isTransformed = true;
+      } else if (!layerNeedsTransform && isTransformed) {
+        this.context.restore();
+        isTransformed = false;
       }
+
+      layer.renderLayer?.(this.context);
+    }
+
+    if (isTransformed) {
+      this.context.restore();
     }
     this.transformHandler.resetChanged();
 
