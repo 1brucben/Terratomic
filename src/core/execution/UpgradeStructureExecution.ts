@@ -10,7 +10,6 @@ import { NoOpExecution } from "./NoOpExecution";
 
 /**
  * Generic structure upgrade execution.
- * Supports City, Port, Hospital, and Academy upgrades.
  */
 export class UpgradeStructureExecution implements Execution {
   private mg!: GameImpl;

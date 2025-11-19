@@ -150,6 +150,9 @@ export class AirfieldExecution implements Execution {
         UnitType.City,
         UnitType.Academy,
         UnitType.Hospital,
+        UnitType.DoomsdayDevice,
+        UnitType.Factory,
+        UnitType.ResearchLab,
       ])
       .filter(({ unit }) => {
         const o = mg.owner(unit.tile());
@@ -174,6 +177,9 @@ export class AirfieldExecution implements Execution {
       UnitType.City,
       UnitType.Academy,
       UnitType.Hospital,
+      UnitType.DoomsdayDevice,
+      UnitType.Factory,
+      UnitType.ResearchLab,
     ];
 
     const sortedEnemies = enemies.sort((a, b) => {

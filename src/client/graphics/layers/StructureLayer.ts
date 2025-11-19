@@ -1,6 +1,7 @@
 import { colord } from "colord";
 import * as PIXI from "pixi.js";
 import airfieldIcon from "../../../../proprietary/images/airfieldicon2.png";
+import doomsdayDeviceIcon from "../../../../proprietary/images/doomsdayicon.png";
 import researchLabIcon from "../../../../proprietary/images/researchlab.png";
 import anchorIcon from "../../../../resources/images/AnchorIcon.png";
 import academyIcon from "../../../../resources/images/buildings/academy_icon.png";
@@ -65,6 +66,7 @@ const STRUCTURE_BG_SHAPES: Partial<Record<UnitType, BgShape>> = {
   [UnitType.ResearchLab]: "square",
   [UnitType.Academy]: "square",
   [UnitType.Factory]: "circle",
+  [UnitType.DoomsdayDevice]: "square",
 };
 
 export class StructureLayer implements Layer {
@@ -114,6 +116,7 @@ export class StructureLayer implements Layer {
     [UnitType.Port, { iconPath: anchorIcon, image: null }],
     [UnitType.MissileSilo, { iconPath: missileSiloIcon, image: null }],
     [UnitType.SAMLauncher, { iconPath: SAMMissileIcon, image: null }],
+    [UnitType.DoomsdayDevice, { iconPath: doomsdayDeviceIcon, image: null }],
   ]);
 
   // Per-structure icon scale factor (1 = default size)
@@ -128,6 +131,7 @@ export class StructureLayer implements Layer {
     [UnitType.Port]: 1,
     [UnitType.MissileSilo]: 1,
     [UnitType.SAMLauncher]: 1,
+    [UnitType.DoomsdayDevice]: 1.4,
   };
 
   constructor(
@@ -727,6 +731,7 @@ export class StructureLayer implements Layer {
       UnitType.Academy,
       UnitType.ResearchLab,
       UnitType.Factory,
+      UnitType.DoomsdayDevice,
     ]);
     if (centerScaledTypes.has(structureType as UnitType)) {
       const padded = 4;

@@ -818,7 +818,7 @@ export class DefaultConfig implements Config {
                   ),
                 ),
           territoryBound: true,
-          constructionDuration: this.instantBuild() ? 0 : 2 * 20,
+          constructionDuration: this.instantBuild() ? 0 : 10 * 10,
           maxHealth: 1000,
         };
       case UnitType.CargoPlane:
@@ -850,6 +850,16 @@ export class DefaultConfig implements Config {
         return {
           cost: () => 0n,
           territoryBound: false,
+        };
+      case UnitType.DoomsdayDevice:
+        return {
+          cost: (p: Player) =>
+            p.type() === PlayerType.Human && this.infiniteGold()
+              ? 0n
+              : 50_000_000n,
+          territoryBound: true,
+          constructionDuration: this.instantBuild() ? 0 : 10 * 10,
+          maxHealth: 3000,
         };
       default:
         assertNever(type);

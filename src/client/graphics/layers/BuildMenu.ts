@@ -1,5 +1,6 @@
 import { LitElement, css, html } from "lit";
 import { customElement, property, state } from "lit/decorators.js";
+import doomsdayDeviceIcon from "../../../../proprietary/images/doomsdayicon.png";
 import researchLabIcon from "../../../../proprietary/images/researchlab.png";
 import airfieldIcon from "../../../../resources/images/AirfieldIcon.svg";
 import warshipIcon from "../../../../resources/images/BattleshipIconWhite.svg";
@@ -152,6 +153,13 @@ const buildTable: BuildItemDisplay[][] = [
       icon: shieldIcon,
       description: "build_menu.desc.defense_post",
       key: "unit_type.defense_post",
+      countable: true,
+    },
+    {
+      unitType: UnitType.DoomsdayDevice,
+      icon: doomsdayDeviceIcon,
+      description: "build_menu.desc.doomsday_device",
+      key: "unit_type.doomsday_device",
       countable: true,
     },
   ],

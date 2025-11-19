@@ -270,7 +270,8 @@
     "factory": "Factory",
     "airfield": "Airfield",
     "air_field": "Airfield",
-    "fighter_jet": "Fighter Jet"
+    "fighter_jet": "Fighter Jet",
+    "doomsday_device": "Doomsday Device"
   },
   "user_setting": {
     "title": "User Settings",
@@ -487,7 +488,8 @@
       "hospital": "Lowers troop casualties from combat",
       "academy": "Increases troop speed and enemy losses in combat",
       "airfield": "Send bombers, fighterjets and paratroopers",
-      "fighter_jet": "Destroys bombers and fighters jets"
+      "fighter_jet": "Destroys bombers and fighters jets",
+      "doomsday_device": "A mysterious device with unknown effects"
     },
     "not_enough_money": "Not enough money"
   },

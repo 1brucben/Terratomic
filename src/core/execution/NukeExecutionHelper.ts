@@ -48,6 +48,9 @@ export class NukeExecutionHelper {
       UnitType.Airfield,
       UnitType.Hospital,
       UnitType.Academy,
+      UnitType.Factory,
+      UnitType.ResearchLab,
+      UnitType.DoomsdayDevice,
     );
     const structureTiles = structures.map((u) => u.tile());
     const randomTiles: (TileRef | null)[] = new Array(10);
@@ -118,6 +121,10 @@ export class NukeExecutionHelper {
           case UnitType.Hospital:
             return 30_000;
           case UnitType.Academy:
+            return 30_000;
+          case UnitType.Factory:
+            return 25_000;
+          case UnitType.ResearchLab:
             return 30_000;
           default:
             return 0;

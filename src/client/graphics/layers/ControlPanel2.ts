@@ -145,6 +145,7 @@ export class ControlPanel2 extends LitElement implements Layer {
     "SAM Launcher": "/images/SamLauncherIconWhite.svg",
     "Air Field": "/images/AirfieldIcon.svg",
     "Defense Post": "/images/ShieldIconWhite.svg",
+    "Doomsday Device": "/images/Doomsdayicon.png",
   };
 
   // Per-unit icon scale used for small inline icons in this panel
@@ -159,6 +160,7 @@ export class ControlPanel2 extends LitElement implements Layer {
     [UnitType.SAMLauncher]: 1,
     [UnitType.Airfield]: 1,
     [UnitType.DefensePost]: 1,
+    [UnitType.DoomsdayDevice]: 1,
   };
 
   private iconPixelSize(t: UnitType | null, base = 16): number {
@@ -198,6 +200,7 @@ export class ControlPanel2 extends LitElement implements Layer {
     UnitType.Academy,
     UnitType.Factory,
     UnitType.City,
+    UnitType.DoomsdayDevice,
   ];
 
   private readonly investmentRequestHandler = (event: Event) => {
@@ -1364,6 +1367,7 @@ export class ControlPanel2 extends LitElement implements Layer {
                                 UnitType.Academy,
                                 UnitType.ResearchLab,
                                 UnitType.Factory,
+                                UnitType.DoomsdayDevice,
                               ].map((s) => {
                                 return html`
                                   <label

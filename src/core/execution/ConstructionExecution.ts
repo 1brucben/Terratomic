@@ -18,6 +18,7 @@ import {
 } from "../game/Upgradeables";
 import { AirfieldExecution } from "./AirfieldExecution";
 import { DefensePostExecution } from "./DefensePostExecution";
+import { DoomsdayDeviceExecution } from "./DoomsdayDeviceExecution";
 import { FighterJetExecution } from "./FighterJetExecution";
 import { MirvExecution } from "./MIRVExecution";
 import { MissileSiloExecution } from "./MissileSiloExecution";
@@ -262,6 +263,9 @@ export class ConstructionExecution implements Execution {
           );
           this.applyUpgradesIfNeeded(built, this.desiredLevel);
         }
+        break;
+      case UnitType.DoomsdayDevice:
+        this.mg.addExecution(new DoomsdayDeviceExecution(player, this.tile));
         break;
       case UnitType.Airfield:
         this.mg.addExecution(new AirfieldExecution(player, this.tile));
