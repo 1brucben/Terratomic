@@ -153,6 +153,9 @@ export class UILayer implements Layer {
         break;
       }
       case UnitType.MissileSilo:
+        // Show health bar if damaged
+        this.drawHealthBar(unit);
+        // Also show loading bar when on cooldown
         if (
           unit.isActive() &&
           unit.isCooldown() &&
@@ -164,6 +167,9 @@ export class UILayer implements Layer {
         }
         break;
       case UnitType.SAMLauncher:
+        // Show health bar if damaged
+        this.drawHealthBar(unit);
+        // Also show loading bar when on cooldown
         if (
           unit.isActive() &&
           unit.isCooldown() &&
@@ -173,6 +179,18 @@ export class UILayer implements Layer {
             unit.cooldownDuration() ?? this.game.config().SAMNukeCooldown();
           this.drawLoadingBar(unit, totalCooldown);
         }
+        break;
+      // Other structures with health bars only
+      case UnitType.City:
+      case UnitType.Port:
+      case UnitType.Hospital:
+      case UnitType.Academy:
+      case UnitType.ResearchLab:
+      case UnitType.Factory:
+      case UnitType.Airfield:
+      case UnitType.DefensePost:
+      case UnitType.DoomsdayDevice:
+        this.drawHealthBar(unit);
         break;
       default:
         return;
@@ -298,13 +316,29 @@ export class UILayer implements Layer {
    * Draw health bar for a unit
    */
   public drawHealthBar(unit: UnitView) {
-    // Use effective max health for cities (may be upgraded) otherwise static info
+    // Use effective max health for upgradeable structures, otherwise static info
     let maxHealth = this.game.unitInfo(unit.type()).maxHealth;
-    if (unit.type() === UnitType.City) {
+    if (
+      unit.type() === UnitType.City ||
+      unit.type() === UnitType.Port ||
+      unit.type() === UnitType.Hospital ||
+      unit.type() === UnitType.Academy ||
+      unit.type() === UnitType.ResearchLab ||
+      unit.type() === UnitType.Factory
+    ) {
+      // These structures can be upgraded: +1000 max HP per level
       const lvl = unit.level();
-      // Base maxHealth from unitInfo applies to level 1; each upgrade adds +1000
       if (typeof maxHealth === "number") {
         maxHealth = maxHealth + (lvl - 1) * 1000;
+      }
+    } else if (
+      unit.type() === UnitType.MissileSilo ||
+      unit.type() === UnitType.SAMLauncher
+    ) {
+      // Silo and SAM: +250 max HP per level (capped at level 3)
+      const lvl = unit.level();
+      if (typeof maxHealth === "number") {
+        maxHealth = maxHealth + (lvl - 1) * 250;
       }
     } else if (unit.type() === UnitType.FighterJet) {
       // Fighter Jet: per-level max health from config
