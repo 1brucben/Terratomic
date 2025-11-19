@@ -4,7 +4,7 @@ import { GameUpdateType } from "../../../core/game/GameUpdates";
 import { GameView, UnitView } from "../../../core/game/GameView";
 import { AnimatedSpriteLoader } from "../AnimatedSpriteLoader";
 import { Fx, FxType } from "../fx/Fx";
-import { nukeFxFactory, ShockwaveFx } from "../fx/NukeFx";
+import { doomsdayFxFactory, nukeFxFactory, ShockwaveFx } from "../fx/NukeFx";
 import { SpriteFx } from "../fx/SpriteFx";
 import { UnitExplosionFx } from "../fx/UnitExplosionFx";
 import { Layer } from "./Layer";
@@ -54,6 +54,22 @@ export class FxLayer implements Layer {
           0.2,
         );
         for (const fx of bomberFx) {
+          this.allFx.push(fx);
+        }
+      });
+
+    this.game
+      .updatesSinceLastTick()
+      ?.[GameUpdateType.DoomsdayExplosion]?.forEach((update) => {
+        const { x, y, radius } = update;
+        const doomFx = doomsdayFxFactory(
+          this.animatedSpriteLoader,
+          x,
+          y,
+          radius,
+          this.game,
+        );
+        for (const fx of doomFx) {
           this.allFx.push(fx);
         }
       });

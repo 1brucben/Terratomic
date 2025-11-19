@@ -7,15 +7,16 @@ export class DoomsdayActivationExecution implements Execution {
   private mg: Game;
   private device: Unit;
   private spreadTiles: Set<TileRef> = new Set();
-  // Legacy wavefront fields retained for now (unused after radial refactor)
-  private currentWavefront: Set<TileRef> = new Set();
-  private processedTiles: Set<TileRef> = new Set();
-  private spreadSpeed = 500; // tiles per tick (radial expansion)
+  // Radial speed in squared-distance units per tick; controls how fast the
+  // wavefront moves outward from the device. Tuned so that visually it
+  // feels like a steady expanding circle, independent of tile density.
+  private radialSpeed = 1_000; // squared-distance units per tick
   private random: PseudoRandom;
-  private damageApplied = false;
   // Radial expansion data
   private sortedLandTiles: TileRef[] = [];
+  private landDistances: Uint32Array = new Uint32Array(0); // squared distances parallel to sortedLandTiles
   private expansionIndex = 0;
+  private currentRadiusSq = 0;
 
   constructor(
     private player: Player,
@@ -29,19 +30,23 @@ export class DoomsdayActivationExecution implements Execution {
     this.mg = mg;
     this.random = new PseudoRandom(ticks);
 
-    // Build sorted land tile list (ascending Euclidean distance from device)
-    const landTiles: TileRef[] = [];
+    // Build land tile list & precompute squared distances once
+    const landTilesTemp: TileRef[] = [];
+    const distTemp: number[] = [];
     this.mg.forEachTile((t) => {
-      if (this.mg.isLand(t)) landTiles.push(t);
+      if (this.mg.isLand(t)) {
+        landTilesTemp.push(t);
+        distTemp.push(this.mg.euclideanDistSquared(this.deviceTile, t));
+      }
     });
-    landTiles.sort(
-      (a, b) =>
-        this.mg.euclideanDistSquared(this.deviceTile, a) -
-        this.mg.euclideanDistSquared(this.deviceTile, b),
-    );
-    this.sortedLandTiles = landTiles;
+    // Create index array and sort by precomputed distance (avoids recomputing in comparator)
+    const idx = distTemp.map((_, i) => i);
+    idx.sort((a, b) => distTemp[a] - distTemp[b]);
+    // Materialize sorted arrays
+    this.sortedLandTiles = idx.map((i) => landTilesTemp[i]);
+    this.landDistances = new Uint32Array(idx.map((i) => distTemp[i]));
     console.log(
-      `[Doomsday] Initialized. Total land tiles: ${this.sortedLandTiles.length}. Using 50% probabilistic fallout per tile encountered.`,
+      `[Doomsday] Initialized. Total land tiles: ${this.sortedLandTiles.length}. Using radial speed ${this.radialSpeed} (squared distance / tick) with 50% probabilistic fallout per tile encountered.`,
     );
 
     // Mark device tile processed immediately if land & first element
@@ -72,8 +77,8 @@ export class DoomsdayActivationExecution implements Execution {
       this.expansionIndex = 1; // start expanding from next tile in sorted list
     }
 
-    // Apply hydrogen bomb FX at device location
-    this.mg.bomberExplosion(this.deviceTile, 160, this.player);
+    // Apply custom slow doomsday FX at device location (visual-only)
+    this.mg.doomsdayExplosion(this.deviceTile, 200, this.player);
 
     // Send message to all players
     for (const player of this.mg.players()) {
@@ -93,12 +98,6 @@ export class DoomsdayActivationExecution implements Execution {
   tick(ticks: number): void {
     if (!this.active) return;
 
-    // Apply 80% health damage to all units once at the start
-    if (!this.damageApplied) {
-      this.applyGlobalDamage();
-      this.damageApplied = true;
-    }
-
     // Spread fallout until we've processed all land tiles
     if (this.expansionIndex < this.sortedLandTiles.length) {
       this.spreadFallout();
@@ -110,61 +109,71 @@ export class DoomsdayActivationExecution implements Execution {
     }
   }
 
-  private applyGlobalDamage(): void {
-    console.log(`[Doomsday] Applying global damage.`);
-    const allUnits = this.mg.units();
-    let unitsDamaged = 0;
-
-    for (const unit of allUnits) {
-      if (unit.hasHealth()) {
-        const currentHealth = Number(unit.health());
-        const damage = Math.floor(currentHealth * 0.8);
-        unit.modifyHealth(-damage);
-        unitsDamaged++;
-      }
-    }
-    console.log(`[Doomsday] Damaged ${unitsDamaged} units.`);
-  }
-
   // Radial (Euclidean) expansion with per-tile 50% probability for fallout
   private spreadFallout(): void {
-    let processed = 0;
+    const startRadiusSq = this.currentRadiusSq;
+    const maxRadiusSq = startRadiusSq + this.radialSpeed;
     let newFallout = 0;
     const startIndex = this.expansionIndex;
-    while (
-      processed < this.spreadSpeed &&
-      this.expansionIndex < this.sortedLandTiles.length
-    ) {
+    while (this.expansionIndex < this.sortedLandTiles.length) {
       const tile = this.sortedLandTiles[this.expansionIndex];
+      const distSq = this.landDistances[this.expansionIndex];
+      // Stop for this tick once we've reached tiles beyond the current
+      // radial band; they'll be processed in future ticks as the radius
+      // continues to grow.
+      if (distSq > maxRadiusSq) {
+        break;
+      }
       this.expansionIndex++;
-      processed++;
-      if (!this.mg.isLand(tile)) continue;
-      // Relinquish if owned
+      // If there are units/structures here, apply the 80% health reduction
+      // to them when the wave reaches this tile, but do NOT apply fallout
+      // on this tile itself.
+      const unitsHere = this.mg.unitsAt(tile);
+      if (unitsHere.length > 0) {
+        for (const unit of unitsHere) {
+          if (!unit.hasHealth()) continue;
+          const currentHealth = Number(unit.health());
+          if (currentHealth <= 0) continue;
+          const damage = Math.floor(currentHealth * 0.8);
+          if (damage <= 0) continue;
+          unit.modifyHealth(-damage);
+        }
+        // Skip fallout on this tile entirely to avoid double punishment.
+        continue;
+      }
+      // 50% chance for fallout first – only pay ownership costs if applying
+      if (this.random.next() >= 0.5) continue;
       if (this.mg.hasOwner(tile)) {
         const owner = this.mg.owner(tile);
         if (owner.isPlayer()) {
           try {
             owner.relinquish(tile);
           } catch (e) {
-            console.error(`[Doomsday] Failed to relinquish tile ${tile}:`, e);
-            continue; // skip setting fallout if relinquish failed
+            // If relinquish fails, skip fallout to avoid exception spam
+            continue;
           }
         }
       }
-      // 50% chance for fallout
-      if (this.random.next() < 0.5) {
-        try {
-          this.mg.setFallout(tile, true);
-          this.spreadTiles.add(tile);
-          newFallout++;
-        } catch (e) {
-          console.error(`[Doomsday] Failed to set fallout on tile ${tile}:`, e);
-        }
+      try {
+        this.mg.setFallout(tile, true);
+        this.spreadTiles.add(tile);
+        newFallout++;
+      } catch (e) {
+        console.error(`[Doomsday] Failed to set fallout on tile ${tile}:`, e);
       }
     }
-    console.log(
-      `[Doomsday] Tick radial processing: tiles ${startIndex}->${this.expansionIndex} (processed ${processed}), new fallout ${newFallout}, total fallout ${this.spreadTiles.size}.`,
-    );
+    // Advance the wavefront radius for the next tick
+    this.currentRadiusSq = maxRadiusSq;
+    // Throttle logging (every ~10 ticks or when finished)
+    if (
+      startIndex === 0 ||
+      this.expansionIndex >= this.sortedLandTiles.length ||
+      this.currentRadiusSq % (this.radialSpeed * 10) < this.radialSpeed
+    ) {
+      console.log(
+        `[Doomsday] Tick radial: radiusSq ${startRadiusSq}->${this.currentRadiusSq}, tiles ${startIndex}->${this.expansionIndex}, new fallout ${newFallout}, total fallout ${this.spreadTiles.size}.`,
+      );
+    }
     if (this.expansionIndex >= this.sortedLandTiles.length) {
       console.log(`[Doomsday] All land tiles processed.`);
     }

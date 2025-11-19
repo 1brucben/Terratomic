@@ -135,6 +135,14 @@ export class PlayerExecution implements Execution {
       if (u.hasHealth() && u.health() < (u.info().maxHealth ?? 0)) {
         u.modifyHealth(0.5);
       }
+      // Debug: log unit health every tick
+      if (u.hasHealth()) {
+        console.log(
+          `[UnitHealth] tick=${this.mg.ticks()} player=${this.player.displayName()} unit=${u.type()} id=${u.id?.()} health=${String(
+            u.health(),
+          )}/${u.info().maxHealth ?? "?"}`,
+        );
+      }
     });
     // --- Research system per-tick processing ---
     this.tickResearch();

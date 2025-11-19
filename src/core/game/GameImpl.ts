@@ -818,6 +818,16 @@ export class GameImpl implements Game {
     });
   }
 
+  public doomsdayExplosion(tile: TileRef, radius: number, owner: Player): void {
+    // Visual-only slow FX; no localized damage (global damage already applied in execution)
+    this.addUpdate({
+      type: GameUpdateType.DoomsdayExplosion,
+      x: this.x(tile),
+      y: this.y(tile),
+      radius: radius,
+    });
+  }
+
   sendEmojiUpdate(msg: EmojiMessage): void {
     this.addUpdate({
       type: GameUpdateType.Emoji,

@@ -47,6 +47,7 @@ export enum GameUpdateType {
   AllianceExtensionPrompt,
   AllianceExtensionAccepted,
   BomberExplosion,
+  DoomsdayExplosion,
   Roads,
   CargoTrucks,
   TileOwnerChanged,
@@ -92,6 +93,7 @@ export type GameUpdate =
   | HashUpdate
   | UnitIncomingUpdate
   | BomberExplosionUpdate
+  | DoomsdayExplosionUpdate
   | RoadsUpdate
   | CargoTrucksUpdate
   | TileOwnerChangedUpdate;
@@ -101,6 +103,13 @@ export interface BomberExplosionUpdate {
   x: number;
   y: number;
   radius: number;
+}
+
+export interface DoomsdayExplosionUpdate {
+  type: GameUpdateType.DoomsdayExplosion;
+  x: number;
+  y: number;
+  radius: number; // base radius for FX; client animates slowly
 }
 
 export interface TileUpdateWrapper {

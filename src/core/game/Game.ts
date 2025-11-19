@@ -852,6 +852,7 @@ export interface Game extends GameMap {
   // Optional as it's not initialized before the end of spawn phase
   stats(): Stats;
   bomberExplosion(tile: TileRef, radius: number, owner: Player): void;
+  doomsdayExplosion(tile: TileRef, radius: number, owner: Player): void;
   conquer(newOwner: Player, tile: TileRef): void;
 }
 

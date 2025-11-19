@@ -131,3 +131,90 @@ export function nukeFxFactory(
   }
   return nukeFx;
 }
+
+/**
+ * Slower, larger, more lingering FX for Doomsday device trigger.
+ * - Larger shockwave (longer duration)
+ * - Higher density lingering smoke/fire with longer fade
+ */
+export function doomsdayFxFactory(
+  animatedSpriteLoader: AnimatedSpriteLoader,
+  x: number,
+  y: number,
+  radius: number,
+  game: GameView,
+  scale: number = 1.2,
+): Fx[] {
+  const fx: Fx[] = [];
+  // Central sustained explosion sprite (scaled up)
+  fx.push(
+    new SpriteFx(
+      animatedSpriteLoader,
+      x,
+      y,
+      FxType.Nuke,
+      undefined,
+      undefined,
+      undefined,
+      scale,
+    ),
+  );
+  // Slower shockwave (duration 6000ms, larger reach)
+  fx.push(new ShockwaveFx(x, y, 6000, radius * 2));
+  // Lingering debris plan (higher density, longer fade via FadeFx wrapper)
+  const debrisPlan: Array<{
+    type: FxType;
+    radiusFactor: number;
+    density: number;
+    fadeIn: number;
+    fadeOut: number;
+  }> = [
+    {
+      type: FxType.MiniFire,
+      radiusFactor: 1.3,
+      density: 1 / 18,
+      fadeIn: 0.2,
+      fadeOut: 1.5,
+    },
+    {
+      type: FxType.MiniSmoke,
+      radiusFactor: 1.4,
+      density: 1 / 20,
+      fadeIn: 0.2,
+      fadeOut: 1.8,
+    },
+    {
+      type: FxType.MiniBigSmoke,
+      radiusFactor: 1.2,
+      density: 1 / 50,
+      fadeIn: 0.2,
+      fadeOut: 2.0,
+    },
+    {
+      type: FxType.MiniSmokeAndFire,
+      radiusFactor: 1.1,
+      density: 1 / 55,
+      fadeIn: 0.2,
+      fadeOut: 2.2,
+    },
+  ];
+  for (const { type, radiusFactor, density, fadeIn, fadeOut } of debrisPlan) {
+    const count = Math.max(0, Math.floor(radius * density));
+    for (let i = 0; i < count; i++) {
+      const angle = Math.random() * 2 * Math.PI;
+      const distance = Math.random() * (radius * radiusFactor);
+      const sx = Math.floor(x + Math.cos(angle) * distance * 0.5);
+      const sy = Math.floor(y + Math.sin(angle) * distance * 0.5);
+      if (game.isValidCoord(sx, sy) && game.isLand(game.ref(sx, sy))) {
+        fx.push(
+          new FadeFx(
+            new SpriteFx(animatedSpriteLoader, sx, sy, type),
+            fadeIn,
+            fadeOut,
+          ) as Fx,
+        );
+      }
+    }
+  }
+  return fx;
+}
