@@ -135,14 +135,6 @@ export class PlayerExecution implements Execution {
       if (u.hasHealth() && u.health() < (u.info().maxHealth ?? 0)) {
         u.modifyHealth(0.5);
       }
-      // Debug: log unit health every tick
-      if (u.hasHealth()) {
-        console.log(
-          `[UnitHealth] tick=${this.mg.ticks()} player=${this.player.displayName()} unit=${u.type()} id=${u.id?.()} health=${String(
-            u.health(),
-          )}/${u.info().maxHealth ?? "?"}`,
-        );
-      }
     });
     // --- Research system per-tick processing ---
     this.tickResearch();
@@ -285,11 +277,9 @@ export class PlayerExecution implements Execution {
     const interval = this.config.researchIntervalTicks();
     if (interval > 0 && this.mg.ticks() % interval === 0) {
       const isHuman = this.player.type() === PlayerType.Human;
-      const logEntries: Array<{ techId: string; X: number; p: number }> = [];
       for (const [techId, X] of this._researchAccum.entries()) {
         if (!Number.isFinite(X) || X <= 0) continue;
         const p = 1 - Math.exp(-k * X);
-        if (isHuman) logEntries.push({ techId, X, p });
         const roll = this.random.next();
         if (roll < p) {
           // Success: award uniform beakers between [bMin, bMax] inclusive
@@ -303,20 +293,6 @@ export class PlayerExecution implements Execution {
           if (result?.completed) {
             // completed via addResearchBeakers -> addResearchedTech side-effects
           }
-        }
-      }
-      if (isHuman && logEntries.length > 0) {
-        // Compact, readable logging for human player's innovation probabilities
-        try {
-          const tick = this.mg.ticks();
-          const summary = logEntries
-            .map((e) => `${e.techId}: p=${e.p.toFixed(4)} X=${Math.round(e.X)}`)
-            .join(", ");
-          console.log(
-            `[Research] tick=${tick} player=${this.player.displayName()} probs -> ${summary}`,
-          );
-        } catch {
-          // best-effort logging only
         }
       }
       // Reset accumulators after processing the cadence boundary

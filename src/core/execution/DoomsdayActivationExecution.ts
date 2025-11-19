@@ -45,9 +45,6 @@ export class DoomsdayActivationExecution implements Execution {
     // Materialize sorted arrays
     this.sortedLandTiles = idx.map((i) => landTilesTemp[i]);
     this.landDistances = new Uint32Array(idx.map((i) => distTemp[i]));
-    console.log(
-      `[Doomsday] Initialized. Total land tiles: ${this.sortedLandTiles.length}. Using radial speed ${this.radialSpeed} (squared distance / tick) with 50% probabilistic fallout per tile encountered.`,
-    );
 
     // Mark device tile processed immediately if land & first element
     if (this.mg.isLand(this.deviceTile)) {
@@ -59,20 +56,14 @@ export class DoomsdayActivationExecution implements Execution {
           try {
             owner.relinquish(this.deviceTile);
           } catch (e) {
-            console.error(
-              `[Doomsday] Failed to relinquish device tile ${this.deviceTile}:`,
-              e,
-            );
+            // Swallow relinquish errors; they are non-fatal for gameplay.
           }
         }
       }
       try {
         this.mg.setFallout(this.deviceTile, true);
       } catch (e) {
-        console.error(
-          `[Doomsday] Failed to set fallout on device tile ${this.deviceTile}:`,
-          e,
-        );
+        // Swallow fallout set errors on the device tile; non-fatal.
       }
       this.expansionIndex = 1; // start expanding from next tile in sorted list
     }
@@ -102,9 +93,6 @@ export class DoomsdayActivationExecution implements Execution {
     if (this.expansionIndex < this.sortedLandTiles.length) {
       this.spreadFallout();
     } else {
-      console.log(
-        `[Doomsday] Finished processing all land tiles. Fallout tiles: ${this.spreadTiles.size}. Deactivating.`,
-      );
       this.active = false;
     }
   }
@@ -114,7 +102,6 @@ export class DoomsdayActivationExecution implements Execution {
     const startRadiusSq = this.currentRadiusSq;
     const maxRadiusSq = startRadiusSq + this.radialSpeed;
     let newFallout = 0;
-    const startIndex = this.expansionIndex;
     while (this.expansionIndex < this.sortedLandTiles.length) {
       const tile = this.sortedLandTiles[this.expansionIndex];
       const distSq = this.landDistances[this.expansionIndex];
@@ -158,25 +145,12 @@ export class DoomsdayActivationExecution implements Execution {
         this.mg.setFallout(tile, true);
         this.spreadTiles.add(tile);
         newFallout++;
-      } catch (e) {
-        console.error(`[Doomsday] Failed to set fallout on tile ${tile}:`, e);
+      } catch {
+        // Swallow fallout set errors on individual tiles; non-fatal.
       }
     }
     // Advance the wavefront radius for the next tick
     this.currentRadiusSq = maxRadiusSq;
-    // Throttle logging (every ~10 ticks or when finished)
-    if (
-      startIndex === 0 ||
-      this.expansionIndex >= this.sortedLandTiles.length ||
-      this.currentRadiusSq % (this.radialSpeed * 10) < this.radialSpeed
-    ) {
-      console.log(
-        `[Doomsday] Tick radial: radiusSq ${startRadiusSq}->${this.currentRadiusSq}, tiles ${startIndex}->${this.expansionIndex}, new fallout ${newFallout}, total fallout ${this.spreadTiles.size}.`,
-      );
-    }
-    if (this.expansionIndex >= this.sortedLandTiles.length) {
-      console.log(`[Doomsday] All land tiles processed.`);
-    }
   }
 
   isActive(): boolean {
