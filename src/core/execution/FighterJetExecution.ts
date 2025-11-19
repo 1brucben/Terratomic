@@ -152,6 +152,11 @@ export class FighterJetExecution implements Execution {
         continue;
       }
 
+      // Only target units from players we are at war with
+      if (unit.owner().isPlayer() && !owner.isAtWarWith(unit.owner())) {
+        continue;
+      }
+
       if (unit.type() === UnitType.CargoPlane) {
         if (owner.units(UnitType.Airfield).length === 0) {
           continue;
