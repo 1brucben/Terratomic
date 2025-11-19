@@ -27,6 +27,8 @@ import { Layer } from "./Layer";
 class StructureRenderInfo {
   public isOnScreen: boolean = false;
   public isOnCooldown: boolean = false;
+  public healthBarGraphics: PIXI.Graphics | null = null;
+  public loadingBarGraphics: PIXI.Graphics | null = null;
   constructor(
     public unit: UnitView,
     public owner: PlayerID,
@@ -253,6 +255,9 @@ export class StructureLayer implements Layer {
           );
           if (render) {
             this.updateRenderState(render, unitView);
+            // Update health and loading bars
+            this.updateHealthBar(render);
+            this.updateLoadingBar(render);
           }
         } else if (
           this.structures.has(unitView.type()) ||
@@ -267,6 +272,9 @@ export class StructureLayer implements Layer {
           );
           this.renders.push(render);
           this.computeNewLocation(render);
+          // Initialize bars
+          this.updateHealthBar(render);
+          this.updateLoadingBar(render);
           this.shouldRedraw = true;
         }
       }
@@ -277,6 +285,13 @@ export class StructureLayer implements Layer {
           this.deleteStructure(render);
         }
         this.shouldRedraw = true;
+      }
+    }
+
+    // Update all bars every tick (for smooth loading bar progress)
+    for (const render of this.renders) {
+      if (render.loadingBarGraphics) {
+        this.updateLoadingBar(render);
       }
     }
   }
@@ -876,10 +891,22 @@ export class StructureLayer implements Layer {
       render.pixiSprite.x = screenPos.x;
       render.pixiSprite.y = screenPos.y;
       render.pixiSprite.scale.set(this.iconScreenScale());
+      // Update bars when position/scale changes
+      this.updateHealthBar(render);
+      this.updateLoadingBar(render);
     }
     if (render.isOnScreen !== onScreen) {
       render.isOnScreen = onScreen;
       render.pixiSprite.visible = onScreen;
+      // Hide bars when off screen
+      if (!onScreen) {
+        if (render.healthBarGraphics) {
+          render.healthBarGraphics.visible = false;
+        }
+        if (render.loadingBarGraphics) {
+          render.loadingBarGraphics.visible = false;
+        }
+      }
     }
   }
 
@@ -1211,7 +1238,196 @@ export class StructureLayer implements Layer {
 
   private deleteStructure(render: StructureRenderInfo) {
     render.pixiSprite?.destroy();
+    // Clean up health and loading bars
+    if (render.healthBarGraphics) {
+      render.healthBarGraphics.destroy();
+      render.healthBarGraphics = null;
+    }
+    if (render.loadingBarGraphics) {
+      render.loadingBarGraphics.destroy();
+      render.loadingBarGraphics = null;
+    }
     this.renders = this.renders.filter((r) => r.unit !== render.unit);
     this.seenUnits.delete(render.unit);
+  }
+
+  private updateHealthBar(render: StructureRenderInfo) {
+    const unit = render.unit;
+
+    // Calculate max health based on unit type and level
+    let maxHealth = this.game.unitInfo(unit.type()).maxHealth;
+    if (!maxHealth) return; // No health for this unit type
+
+    if (
+      unit.type() === UnitType.City ||
+      unit.type() === UnitType.Port ||
+      unit.type() === UnitType.Hospital ||
+      unit.type() === UnitType.Academy ||
+      unit.type() === UnitType.ResearchLab ||
+      unit.type() === UnitType.Factory
+    ) {
+      const lvl = unit.level();
+      maxHealth = maxHealth + (lvl - 1) * 1000;
+    } else if (
+      unit.type() === UnitType.MissileSilo ||
+      unit.type() === UnitType.SAMLauncher
+    ) {
+      const lvl = unit.level();
+      maxHealth = maxHealth + (lvl - 1) * 250;
+    }
+
+    // Only show health bar if damaged and active
+    if (!unit.isActive() || unit.health() >= maxHealth || unit.health() <= 0) {
+      if (render.healthBarGraphics) {
+        render.healthBarGraphics.destroy();
+        render.healthBarGraphics = null;
+        this.shouldRedraw = true;
+      }
+      return;
+    }
+
+    // Create or update health bar
+    if (!render.healthBarGraphics) {
+      render.healthBarGraphics = new PIXI.Graphics();
+      this.stage.addChild(render.healthBarGraphics);
+    }
+
+    const graphics = render.healthBarGraphics;
+    graphics.clear();
+
+    // Get the structure's icon size and scale
+    const unitType =
+      unit.type() === UnitType.Construction
+        ? unit.constructionType()
+        : unit.type();
+    const shape: BgShape =
+      unitType !== undefined
+        ? (STRUCTURE_BG_SHAPES[unitType as UnitType] ?? "circle")
+        : "circle";
+    const iconDim = ICON_SIZES[shape] ?? ICON_SIZE;
+    const spriteScale = render.pixiSprite.scale.x; // Assumes uniform scaling
+    const scaledIconSize = iconDim * spriteScale;
+
+    // Bar dimensions scale with the icon (doubled size)
+    const barWidth = scaledIconSize * 3; // 160% of icon width (doubled from 80%)
+    const barHeight = scaledIconSize * 0.3; // ~16% of icon height (doubled from 8%), min 4px
+    const gap = scaledIconSize * 1.8; // Gap scales with icon size (50% of icon size)
+    const yOffset = -(scaledIconSize / 2 + barHeight + gap);
+
+    // Position relative to sprite center
+    graphics.x = render.pixiSprite.x;
+    graphics.y = render.pixiSprite.y + yOffset;
+
+    // Background (black border)
+    graphics.beginFill(0x000000, 1);
+    graphics.drawRect(-barWidth / 2 - 1, -1, barWidth + 2, barHeight + 2);
+    graphics.endFill();
+
+    // Health fill (color based on health percentage)
+    const healthPercent = unit.health() / maxHealth;
+    const colors = [0xe81919, 0xf07a19, 0xcae70f, 0x2cef12]; // red, orange, yellow, green
+    const colorIndex = Math.min(
+      colors.length - 1,
+      Math.floor(healthPercent * colors.length),
+    );
+    const fillColor = colors[colorIndex];
+
+    graphics.beginFill(fillColor, 1);
+    graphics.drawRect(
+      -barWidth / 2,
+      0,
+      Math.max(1, healthPercent * barWidth),
+      barHeight,
+    );
+    graphics.endFill();
+
+    graphics.visible = render.isOnScreen;
+    this.shouldRedraw = true;
+  }
+
+  private updateLoadingBar(render: StructureRenderInfo) {
+    const unit = render.unit;
+
+    // Only show loading bar for structures on cooldown
+    if (
+      !unit.isActive() ||
+      !unit.isCooldown() ||
+      (unit.type() !== UnitType.MissileSilo &&
+        unit.type() !== UnitType.SAMLauncher)
+    ) {
+      if (render.loadingBarGraphics) {
+        render.loadingBarGraphics.destroy();
+        render.loadingBarGraphics = null;
+        this.shouldRedraw = true;
+      }
+      return;
+    }
+
+    // Create or update loading bar
+    if (!render.loadingBarGraphics) {
+      render.loadingBarGraphics = new PIXI.Graphics();
+      this.stage.addChild(render.loadingBarGraphics);
+    }
+
+    const graphics = render.loadingBarGraphics;
+    graphics.clear();
+
+    // Get the structure's icon size and scale
+    const unitType =
+      unit.type() === UnitType.Construction
+        ? unit.constructionType()
+        : unit.type();
+    const shape: BgShape =
+      unitType !== undefined
+        ? (STRUCTURE_BG_SHAPES[unitType as UnitType] ?? "circle")
+        : "circle";
+    const iconDim = ICON_SIZES[shape] ?? ICON_SIZE;
+    const spriteScale = render.pixiSprite.scale.x; // Assumes uniform scaling
+    const scaledIconSize = iconDim * spriteScale;
+
+    // Bar dimensions scale with the icon (same as health bar)
+    const barWidth = scaledIconSize * 3; // 300% of icon width
+    const barHeight = scaledIconSize * 0.3; // 30% of icon height, min 4px
+    const gap = scaledIconSize * 1.8;
+    const yOffset = scaledIconSize / 2 + barHeight + gap; // Below the icon with scaled gap
+
+    // Position relative to sprite center
+    graphics.x = render.pixiSprite.x;
+    graphics.y = render.pixiSprite.y + yOffset;
+
+    // Calculate progress
+    const totalCooldown =
+      unit.type() === UnitType.MissileSilo
+        ? (unit.cooldownDuration() ?? this.game.config().SiloCooldown())
+        : (unit.cooldownDuration() ?? this.game.config().SAMNukeCooldown());
+    const ticksLeft = unit.ticksLeftInCooldown() ?? 0;
+    const currentTick = this.game.ticks();
+    const actualStartTick = currentTick - (totalCooldown - ticksLeft);
+    const progress = (currentTick - actualStartTick) / totalCooldown;
+
+    // Background (black border)
+    graphics.beginFill(0x000000, 1);
+    graphics.drawRect(-barWidth / 2 - 1, -1, barWidth + 2, barHeight + 2);
+    graphics.endFill();
+
+    // Progress fill (color based on progress)
+    const colors = [0xe81919, 0xf07a19, 0xcae70f, 0x2cef12]; // red, orange, yellow, green
+    const colorIndex = Math.min(
+      colors.length - 1,
+      Math.floor(progress * colors.length),
+    );
+    const fillColor = colors[colorIndex];
+
+    graphics.beginFill(fillColor, 1);
+    graphics.drawRect(
+      -barWidth / 2,
+      0,
+      Math.max(1, progress * barWidth),
+      barHeight,
+    );
+    graphics.endFill();
+
+    graphics.visible = render.isOnScreen;
+    this.shouldRedraw = true;
   }
 }

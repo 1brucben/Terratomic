@@ -152,46 +152,8 @@ export class UILayer implements Layer {
         this.drawHealthBar(unit);
         break;
       }
-      case UnitType.MissileSilo:
-        // Show health bar if damaged
-        this.drawHealthBar(unit);
-        // Also show loading bar when on cooldown
-        if (
-          unit.isActive() &&
-          unit.isCooldown() &&
-          !this.allProgressBars.has(unit.id())
-        ) {
-          const totalCooldown =
-            unit.cooldownDuration() ?? this.game.config().SiloCooldown();
-          this.drawLoadingBar(unit, totalCooldown);
-        }
-        break;
-      case UnitType.SAMLauncher:
-        // Show health bar if damaged
-        this.drawHealthBar(unit);
-        // Also show loading bar when on cooldown
-        if (
-          unit.isActive() &&
-          unit.isCooldown() &&
-          !this.allProgressBars.has(unit.id())
-        ) {
-          const totalCooldown =
-            unit.cooldownDuration() ?? this.game.config().SAMNukeCooldown();
-          this.drawLoadingBar(unit, totalCooldown);
-        }
-        break;
-      // Other structures with health bars only
-      case UnitType.City:
-      case UnitType.Port:
-      case UnitType.Hospital:
-      case UnitType.Academy:
-      case UnitType.ResearchLab:
-      case UnitType.Factory:
-      case UnitType.Airfield:
-      case UnitType.DefensePost:
-      case UnitType.DoomsdayDevice:
-        this.drawHealthBar(unit);
-        break;
+      // Note: Structure health bars and loading bars (MissileSilo, SAMLauncher, etc.)
+      // are now handled in StructureLayer for proper zoom/pan alignment
       default:
         return;
     }
