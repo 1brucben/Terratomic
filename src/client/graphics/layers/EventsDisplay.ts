@@ -729,19 +729,7 @@ export class EventsDisplay extends LitElement implements Layer {
 
     const unitView = this.game.unit(event.unitID);
 
-    let translatedDescription = event.message;
-
-    if (event.messageType === MessageType.PARATROOPER_INBOUND) {
-      const match = event.message.match(/from (.*)/);
-      const attackerName = match ? match[1] : "Unknown Attacker";
-
-      translatedDescription = translateText(
-        "game_messages.incoming_paratrooper_attack",
-        {
-          attackerName: attackerName,
-        },
-      );
-    }
+    const translatedDescription = event.message;
 
     this.addEvent({
       description: translatedDescription,

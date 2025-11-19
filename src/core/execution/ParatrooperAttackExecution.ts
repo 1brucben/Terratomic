@@ -130,7 +130,7 @@ export class ParatrooperAttackExecution implements Execution {
       game.config().paratrooperMaxNumber()
     ) {
       game.displayMessage(
-        "Maximum number of active paratrooper units reached.",
+        "events_display.max_paratrooper_units_reached",
         MessageType.WARN,
         this.attacker.id(),
       );
@@ -150,9 +150,11 @@ export class ParatrooperAttackExecution implements Execution {
     this.pathFinder = new StraightPathFinder(this.mg.map());
 
     game.displayMessage(
-      `Incoming Paratrooper Attack from ${this.attacker.displayName()}`,
+      "events_display.incoming_paratrooper_attack",
       MessageType.PARATROOPER_INBOUND,
       this.targetPlayerID,
+      undefined,
+      { attackerName: this.attacker.displayName() },
     );
 
     game.stats().paratrooperAttack(this.attacker, this.troops);

@@ -554,9 +554,7 @@
     "reject_alliance": "Reddet",
     "alliance_renewed": "{name} ile ittifakınız yenilendi",
     "ignore": "Yoksay",
-    "paratrooper_sent": "Paraşütçü"
-  },
-  "game_messages": {
+    "paratrooper_sent": "Paraşütçü",
     "max_paratrooper_units_reached": "Maksimum paraşütçü uçağı sayısına ulaşıldı.",
     "incoming_paratrooper_attack": "{attackerName} tarafından Gelen Paraşütçü Saldırısı"
   },
