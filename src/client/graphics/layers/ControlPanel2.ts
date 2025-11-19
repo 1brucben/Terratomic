@@ -27,6 +27,7 @@ import { AttackRatioEvent } from "../../InputHandler";
 import "../../StatisticsModal"; // ensure statistics modal is registered
 import {
   SendBomberIntentEvent,
+  SendEmbargoIntentEvent,
   SendSetAutoBombingEvent,
   SendSetInvestmentRateEvent,
   SendSetResearchInvestmentEvent,
@@ -2091,6 +2092,40 @@ export class ControlPanel2 extends LitElement implements Layer {
           : ships.length === 0 && pendingRows.length === 0
             ? html`<div class="text-gray-400">No active trade ships.</div>`
             : ""}
+
+        <!-- Embargo Management Buttons -->
+        <div
+          class="mt-4 pt-3 border-t"
+          style="border-color: var(--ui-panel-border)"
+        >
+          <h4 class="text-gray-200 text-sm mb-2">Embargo Management</h4>
+          <div class="flex gap-2">
+            <button
+              class="embargo-btn flex-1 px-3 py-2 text-sm font-semibold rounded border-2 transition-all"
+              style="
+                border-color: var(--ui-panel-border);
+                background: var(--ui-primary);
+                color: var(--ui-text-accent);
+                box-shadow: inset 0 0 10px rgba(0, 0, 0, 0.5), 0 2px 6px rgba(0, 0, 0, 0.4);
+              "
+              @click=${this._handleEmbargoAll}
+            >
+              Embargo All
+            </button>
+            <button
+              class="embargo-btn flex-1 px-3 py-2 text-sm font-semibold rounded border-2 transition-all"
+              style="
+                border-color: var(--ui-panel-border);
+                background: var(--ui-primary);
+                color: var(--ui-text-accent);
+                box-shadow: inset 0 0 10px rgba(0, 0, 0, 0.5), 0 2px 6px rgba(0, 0, 0, 0.4);
+              "
+              @click=${this._handleRemoveAllEmbargos}
+            >
+              Remove All Embargos
+            </button>
+          </div>
+        </div>
       </div>
     `;
   }
@@ -2144,6 +2179,46 @@ export class ControlPanel2 extends LitElement implements Layer {
         ${renderPlayerList(neutral, "Neutral")}
       </div>
     `;
+  }
+
+  private _handleEmbargoAll() {
+    const me = this.game.myPlayer();
+    if (!me) return;
+
+    const players = this.game
+      .players()
+      .filter(
+        (p) =>
+          p.isAlive() &&
+          p.id() !== me.id() &&
+          (p.type() === PlayerType.Human || p.type() === PlayerType.FakeHuman),
+      );
+
+    for (const player of players) {
+      if (!me.hasEmbargoAgainst(player)) {
+        this.eventBus.emit(new SendEmbargoIntentEvent(player, "start"));
+      }
+    }
+  }
+
+  private _handleRemoveAllEmbargos() {
+    const me = this.game.myPlayer();
+    if (!me) return;
+
+    const players = this.game
+      .players()
+      .filter(
+        (p) =>
+          p.isAlive() &&
+          p.id() !== me.id() &&
+          (p.type() === PlayerType.Human || p.type() === PlayerType.FakeHuman),
+      );
+
+    for (const player of players) {
+      if (me.hasEmbargoAgainst(player)) {
+        this.eventBus.emit(new SendEmbargoIntentEvent(player, "stop"));
+      }
+    }
   }
 
   private _computeTradeShipStatus(ship: UnitView): string {
@@ -2279,6 +2354,19 @@ style.textContent = `
     object-fit: contain;
     pointer-events: none;
     display: block;
+  }
+  .embargo-btn:hover {
+    background-color: var(--ui-secondary) !important;
+    border-color: var(--ui-secondary) !important;
+    transform: scale(1.05);
+  }
+  .embargo-btn:active {
+    background: linear-gradient(
+      to bottom,
+      var(--ui-secondary-hover),
+      var(--ui-secondary)
+    ) !important;
+    transform: scale(0.95);
   }
 `;
 if (!document.head.querySelector("style[data-upgrade-button]")) {
