@@ -13,6 +13,7 @@ import { TileRef } from "../game/GameMap";
 import { ParabolaPathFinder } from "../pathfinding/PathFinding";
 import { PseudoRandom } from "../PseudoRandom";
 import { NukeType } from "../StatsSchemas";
+import { DoomsdayActivationExecution } from "./DoomsdayActivationExecution";
 import {
   attemptInterception,
   findEligibleCitiesForNuke,
@@ -263,6 +264,25 @@ export class NukeExecution implements Execution {
     );
   }
 
+  private maybeActivateDoomsdayDevice(player: Player): void {
+    // Find all doomsday devices owned by this player
+    const doomsdayDevices = player.units(UnitType.DoomsdayDevice);
+
+    if (doomsdayDevices.length > 0) {
+      // Activate the first doomsday device
+      const device = doomsdayDevices[0];
+      const deviceTile = device.tile();
+
+      // Create activation execution
+      const activation = new DoomsdayActivationExecution(
+        player,
+        device,
+        deviceTile,
+      );
+      this.mg.addExecution(activation);
+    }
+  }
+
   private detonate() {
     if (this.nuke === null) {
       throw new Error("Not initialized");
@@ -271,6 +291,20 @@ export class NukeExecution implements Execution {
     const magnitude = this.mg.config().nukeMagnitudes(this.nuke.type());
     const toDestroy = this.tilesToDestroy();
     this.maybeBreakAlliances(toDestroy);
+
+    // Check for doomsday device activation
+    const playersHit = new Set<Player>();
+    for (const tile of toDestroy) {
+      const owner = this.mg.owner(tile);
+      if (owner.isPlayer()) {
+        playersHit.add(owner);
+      }
+    }
+
+    // Activate doomsday devices for players whose territory was hit
+    for (const player of playersHit) {
+      this.maybeActivateDoomsdayDevice(player);
+    }
 
     for (const tile of toDestroy) {
       const owner = this.mg.owner(tile);

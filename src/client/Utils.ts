@@ -196,6 +196,7 @@ export function getMessageTypeClasses(type: MessageType): string {
     case MessageType.WARN:
     case MessageType.PEACE_TIMER_BLOCKED:
     case MessageType.TRADE_SHIP_TURNED_AROUND:
+    case MessageType.DOOMSDAY_DEVICE_ACTIVATED:
       return severityColors["warn"];
     case MessageType.WAR_DECLARED:
       return severityColors["warn"]; // war start: highlight prominently

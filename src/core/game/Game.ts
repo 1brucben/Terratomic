@@ -935,6 +935,7 @@ export enum MessageType {
   INSURANCE_REFUND,
   WARN,
   PEACE_TIMER_BLOCKED,
+  DOOMSDAY_DEVICE_ACTIVATED,
 }
 
 // Message categories used for filtering events in the EventsDisplay
@@ -982,6 +983,7 @@ export const MESSAGE_TYPE_CATEGORIES: Record<MessageType, MessageCategory> = {
   [MessageType.RECEIVED_TROOPS_FROM_PLAYER]: MessageCategory.TRADE,
   [MessageType.CHAT]: MessageCategory.CHAT,
   [MessageType.INSURANCE_REFUND]: MessageCategory.FINANCIAL,
+  [MessageType.DOOMSDAY_DEVICE_ACTIVATED]: MessageCategory.ATTACK,
 } as const;
 
 /**

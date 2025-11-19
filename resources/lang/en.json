@@ -556,7 +556,8 @@
     "reject_alliance": "Reject",
     "alliance_renewed": "Your alliance with {name} has been renewed",
     "ignore": "Ignore",
-    "paratrooper_sent": "Paratrooper"
+    "paratrooper_sent": "Paratrooper",
+    "doomsday_triggered": "{player}'s Doomsday Device has been Triggered!"
   },
   "game_messages": {
     "max_paratrooper_units_reached": "Maximum number of paratrooper planes reached.",
