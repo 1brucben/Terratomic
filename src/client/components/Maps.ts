@@ -43,7 +43,7 @@ export class MapDisplay extends LitElement {
     .option-card {
       width: 100%;
       min-width: 100px;
-      max-width: 120px;
+      max-width: 78px;
       padding: 4px 4px 0 4px;
       display: flex;
       flex-direction: column;

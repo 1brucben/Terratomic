@@ -61,12 +61,13 @@ export class HostLobbyModal extends LitElement {
   @state() private useRandomMap: boolean = false;
   @state() private disabledUnits: UnitType[] = [];
   @state() private lobbyCreatorClientID: string = "";
-  @state() private lobbyIdVisible: boolean = true;
+  @state() private lobbyIdVisible: boolean = false; // Default to hidden/censored
   @state() private selectedPeaceTimerDuration: PeaceTimerDuration =
     PeaceTimerDuration.None;
   @state() private startingGold: StartingGoldOption = StartingGoldValues[0];
   @state() private playerTeamAssignments: Record<string, number | null> = {};
   @state() private updatingTeamForClients: Set<string> = new Set();
+  @state() private showUnitSettings = false; // Closed by default for Host
 
   private playersInterval: NodeJS.Timeout | null = null;
   private botsUpdateTimer: number | null = null;
@@ -74,75 +75,524 @@ export class HostLobbyModal extends LitElement {
   private theme = new PastelTheme();
 
   render() {
+    // Calculate percentage for the CSS variable
+    const sliderPercent = (this.bots / 400) * 100;
+
     return html`
-      <o-modal title=${translateText("host_modal.title")}>
-        <div class="lobby-id-box">
-          <button class="lobby-id-button">
-            <!-- Visibility toggle icon on the left -->
-            ${
-              this.lobbyIdVisible
-                ? html`<svg
-                    class="visibility-icon"
-                    @click=${() => {
-                      this.lobbyIdVisible = !this.lobbyIdVisible;
-                      this.requestUpdate();
-                    }}
-                    style="margin-right: 8px; cursor: pointer;"
-                    stroke="currentColor"
-                    fill="currentColor"
-                    stroke-width="0"
-                    viewBox="0 0 512 512"
-                    height="18px"
-                    width="18px"
-                    xmlns="http://www.w3.org/2000/svg"
-                  >
-                    <path
-                      d="M256 105c-101.8 0-188.4 62.7-224 151 35.6 88.3 122.2 151 224 151s188.4-62.7 224-151c-35.6-88.3-122.2-151-224-151zm0 251.7c-56 0-101.7-45.7-101.7-101.7S200 153.3 256 153.3 357.7 199 357.7 255 312 356.7 256 356.7zm0-161.1c-33 0-59.4 26.4-59.4 59.4s26.4 59.4 59.4 59.4 59.4-26.4 59.4-59.4-26.4-59.4-59.4-59.4z"
-                    ></path>
-                  </svg>`
-                : html`<svg
-                    class="visibility-icon"
-                    @click=${() => {
-                      this.lobbyIdVisible = !this.lobbyIdVisible;
-                      this.requestUpdate();
-                    }}
-                    style="margin-right: 8px; cursor: pointer;"
-                    stroke="currentColor"
-                    fill="currentColor"
-                    stroke-width="0"
-                    viewBox="0 0 512 512"
-                    height="18px"
-                    width="18px"
-                    xmlns="http://www.w3.org/2000/svg"
-                  >
-                    <path
-                      d="M448 256s-64-128-192-128S64 256 64 256c32 64 96 128 192 128s160-64 192-128z"
-                      fill="none"
-                      stroke="currentColor"
-                      stroke-width="32"
-                    ></path>
-                    <path
-                      d="M144 256l224 0"
-                      fill="none"
-                      stroke="currentColor"
-                      stroke-width="32"
-                      stroke-linecap="round"
-                    ></path>
-                  </svg>`
-            }
-            <!-- Lobby ID (conditionally shown) -->
-            <span class="lobby-id" @click=${this.copyToClipboard} style="cursor: pointer;">
-              ${this.lobbyIdVisible ? this.lobbyId : "••••••••"}
-            </span>
-            
-            <!-- Copy icon/success indicator -->
-            <div @click=${this.copyToClipboard} style="margin-left: 8px; cursor: pointer;">
-              ${
-                this.copySuccess
-                  ? html`<span class="copy-success-icon">✓</span>`
-                  : html`
-                      <svg
-                        class="clipboard-icon"
+      <style>
+        /* Modal Internal Layout */
+        .sp-layout {
+          display: grid;
+          grid-template-columns: 1fr 1fr; /* 50/50 Split */
+          gap: 16px;
+          height: 75vh;
+          overflow: hidden;
+        }
+
+        @media (max-width: 1024px) {
+          .sp-layout {
+            grid-template-columns: 1fr;
+            height: auto;
+            max-height: 85vh;
+            overflow-y: auto;
+          }
+          .sp-map-col {
+            height: 40vh;
+          }
+        }
+
+        /* Map Column (Left) */
+        .sp-map-col {
+          background: rgba(0, 0, 0, 0.2);
+          border-radius: 12px;
+          padding: 16px 4px 16px 16px;
+          display: flex;
+          flex-direction: column;
+          height: 100%;
+          overflow: hidden;
+        }
+
+        /* Lobby ID Header Styles */
+        .lobby-header {
+          display: flex;
+          justify-content: center;
+          margin-bottom: 12px;
+          padding-right: 12px;
+        }
+        .lobby-id-pill {
+          background: var(--ui-panel-shell-top);
+          border: 1px solid var(--ui-panel-border);
+          border-radius: 20px;
+          padding: 6px 16px;
+          display: flex;
+          align-items: center;
+          gap: 10px;
+          font-size: 14px;
+          color: var(--ui-text-light);
+          transition: all 0.2s ease;
+          box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+        }
+        .lobby-id-pill:hover {
+          border-color: var(--ui-secondary);
+          background: var(--ui-panel-shell-bottom);
+        }
+        .lobby-icon-btn {
+          cursor: pointer;
+          display: flex;
+          align-items: center;
+          color: var(--ui-text-muted);
+          transition: color 0.2s;
+        }
+        .lobby-icon-btn:hover {
+          color: var(--ui-text-light);
+        }
+        .lobby-text {
+          font-family: monospace;
+          font-weight: bold;
+          letter-spacing: 1px;
+          cursor: pointer;
+          min-width: 90px;
+          text-align: center;
+          user-select: all;
+        }
+
+        .sp-scroll-area {
+          flex: 1;
+          overflow-y: scroll;
+          padding-right: 12px;
+          padding-bottom: 12px;
+          scrollbar-width: thin;
+          scrollbar-color: rgba(255, 255, 255, 0.2) rgba(0, 0, 0, 0.1);
+        }
+        .sp-scroll-area::-webkit-scrollbar {
+          width: 8px;
+        }
+        .sp-scroll-area::-webkit-scrollbar-track {
+          background: rgba(0, 0, 0, 0.1);
+          border-radius: 4px;
+        }
+        .sp-scroll-area::-webkit-scrollbar-thumb {
+          background: rgba(255, 255, 255, 0.2);
+          border-radius: 4px;
+        }
+
+        /* Settings Column (Right) - Flex Column */
+        .sp-settings-col {
+          display: flex;
+          flex-direction: column;
+          height: 100%;
+          overflow: hidden;
+          padding-bottom: 0;
+        }
+
+        .sp-settings-scroll {
+          flex: 1;
+          overflow-y: scroll;
+          padding-right: 8px;
+          display: flex;
+          flex-direction: column;
+          gap: 12px;
+          scrollbar-width: thin;
+          scrollbar-color: rgba(255, 255, 255, 0.2) rgba(0, 0, 0, 0.1);
+        }
+        .sp-settings-scroll::-webkit-scrollbar {
+          width: 8px;
+        }
+        .sp-settings-scroll::-webkit-scrollbar-track {
+          background: rgba(0, 0, 0, 0.1);
+          border-radius: 4px;
+        }
+        .sp-settings-scroll::-webkit-scrollbar-thumb {
+          background: rgba(255, 255, 255, 0.2);
+          border-radius: 4px;
+        }
+
+        /* Player Area - Fixed Bottom */
+        .sp-player-area {
+          flex-shrink: 0;
+          border-top: 1px solid rgba(255, 255, 255, 0.1);
+          margin-top: 8px;
+          padding-top: 12px;
+          padding-right: 4px;
+          display: flex;
+          flex-direction: column;
+          max-height: 45%;
+          min-height: 200px;
+        }
+
+        .team-scroll-wrapper {
+          flex: 1;
+          overflow-y: auto;
+          overflow-x: hidden; /* Prevent horizontal scroll */
+          margin-bottom: 12px;
+          padding-right: 4px;
+          scrollbar-width: thin;
+          scrollbar-color: rgba(255, 255, 255, 0.2) rgba(0, 0, 0, 0.1);
+        }
+        .team-scroll-wrapper::-webkit-scrollbar {
+          width: 8px;
+        }
+        .team-scroll-wrapper::-webkit-scrollbar-track {
+          background: rgba(0, 0, 0, 0.1);
+          border-radius: 4px;
+        }
+        .team-scroll-wrapper::-webkit-scrollbar-thumb {
+          background: rgba(255, 255, 255, 0.2);
+          border-radius: 4px;
+        }
+
+        /* Compact Section Container */
+        .sp-section {
+          background: rgba(0, 0, 0, 0.2);
+          border-radius: 12px;
+          padding: 12px;
+        }
+
+        .sp-title {
+          font-size: 14px;
+          color: var(--ui-text-light);
+          margin-bottom: 6px;
+          text-align: left;
+          font-weight: 700;
+          text-transform: uppercase;
+          letter-spacing: 0.5px;
+        }
+
+        /* Compact Button Grid */
+        .sp-btn-grid {
+          display: grid;
+          grid-template-columns: repeat(auto-fit, minmax(80px, 1fr));
+          gap: 8px;
+        }
+
+        .sp-btn-grid-small {
+          display: grid;
+          grid-template-columns: repeat(auto-fit, minmax(55px, 1fr));
+          gap: 6px;
+        }
+
+        /* Standard Settings Toggle Button */
+        .sp-btn {
+          background: var(--ui-panel-shell-top);
+          border: 1px solid var(--ui-panel-border);
+          border-radius: 6px;
+          padding: 6px 8px;
+          cursor: pointer;
+          display: flex;
+          flex-direction: row;
+          align-items: center;
+          justify-content: flex-start;
+          transition: all 0.15s ease;
+          min-height: 36px;
+          position: relative;
+        }
+        .sp-btn:hover {
+          background: var(--ui-panel-shell-bottom);
+          border-color: rgba(255, 255, 255, 0.3);
+          transform: translateY(-1px);
+        }
+        .sp-btn.selected {
+          background: rgba(39, 71, 110, 0.35);
+          border-color: var(--ui-secondary);
+          box-shadow: inset 0 0 0 1px var(--ui-secondary-hover);
+        }
+        .sp-btn-label {
+          font-size: 13px;
+          color: var(--ui-text-muted);
+          text-align: left;
+          line-height: 1.1;
+        }
+        .sp-btn.selected .sp-btn-label {
+          color: var(--ui-text-accent);
+        }
+
+        /* Cycler Button */
+        .sp-cycler-btn {
+          width: 100%;
+          background: var(--ui-panel-shell-top);
+          border: 1px solid var(--ui-panel-border);
+          border-radius: 8px;
+          padding: 0 16px;
+          height: 48px;
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          cursor: pointer;
+          transition: all 0.2s ease;
+          user-select: none;
+        }
+        .sp-cycler-btn:hover {
+          background: var(--ui-panel-shell-bottom);
+          border-color: rgba(255, 255, 255, 0.3);
+          transform: translateY(-1px);
+        }
+        .sp-cycler-content {
+          display: flex;
+          align-items: center;
+          gap: 12px;
+          font-size: 16px;
+          font-weight: bold;
+          color: var(--ui-text-default);
+        }
+        .sp-cycler-icon {
+          color: var(--ui-secondary);
+          font-size: 12px;
+          font-weight: bold;
+        }
+        .sp-refresh-icon {
+          color: var(--ui-text-muted);
+          font-size: 18px;
+        }
+
+        /* Checkbox visual */
+        .sp-check {
+          width: 14px;
+          height: 14px;
+          border: 1px solid var(--ui-text-muted);
+          border-radius: 3px;
+          margin-right: 8px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+        }
+        .sp-btn.selected .sp-check {
+          background: var(--ui-secondary);
+          border-color: var(--ui-secondary);
+        }
+        .sp-btn.selected .sp-check::after {
+          content: "✓";
+          font-size: 12px;
+          color: black;
+          font-weight: bold;
+        }
+
+        /* Maps Grid */
+        .map-grid {
+          display: flex;
+          flex-wrap: wrap;
+          gap: 8px;
+          justify-content: center;
+          padding: 4px;
+        }
+        .map-item-wrapper {
+          transform: scale(1);
+          transform-origin: center top;
+          margin-bottom: -10px;
+        }
+
+        /* Slider Styling */
+        input[type="range"] {
+          -webkit-appearance: none;
+          width: 100%;
+          height: 20px;
+          background: transparent;
+          margin: 0;
+          cursor: pointer;
+        }
+        input[type="range"]:focus {
+          outline: none;
+        }
+
+        input[type="range"]::-webkit-slider-runnable-track {
+          width: 100%;
+          height: 4px;
+          cursor: pointer;
+          border-radius: 2px;
+          background: linear-gradient(
+            to right,
+            var(--ui-secondary) 0%,
+            var(--ui-secondary) var(--slider-progress),
+            var(--ui-border-muted) var(--slider-progress),
+            var(--ui-border-muted) 100%
+          );
+        }
+
+        input[type="range"]::-webkit-slider-thumb {
+          -webkit-appearance: none;
+          height: 16px;
+          width: 16px;
+          border-radius: 50%;
+          background: #ffffff;
+          cursor: pointer;
+          margin-top: -6px;
+          box-shadow: 0 1px 4px rgba(0, 0, 0, 0.5);
+          border: 2px solid var(--ui-secondary);
+          transition: transform 0.1s ease;
+        }
+
+        input[type="range"]:hover::-webkit-slider-thumb {
+          transform: scale(1.1);
+        }
+
+        .sp-select {
+          width: 100%;
+          background: var(--ui-panel-shell-top);
+          color: var(--ui-text-default);
+          border: 1px solid var(--ui-panel-border);
+          border-radius: 6px;
+          padding: 8px;
+          font-size: 14px;
+          outline: none;
+        }
+
+        /* Collapse Header */
+        .sp-collapse-header {
+          cursor: pointer;
+          background: rgba(0, 0, 0, 0.2);
+          padding: 10px;
+          border-radius: 6px;
+          font-size: 15px;
+          font-weight: bold;
+          color: var(--ui-text-light);
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          user-select: none;
+        }
+        .sp-collapse-header:hover {
+          background: rgba(0, 0, 0, 0.3);
+        }
+
+        /* Smooth Transition */
+        .sp-collapse-grid {
+          display: grid;
+          grid-template-rows: 0fr;
+          transition:
+            grid-template-rows 0.3s ease-out,
+            opacity 0.3s ease-out;
+          opacity: 0;
+        }
+        .sp-collapse-grid.open {
+          grid-template-rows: 1fr;
+          opacity: 1;
+        }
+        .sp-collapse-inner {
+          overflow: hidden;
+        }
+
+        /* --- PLAYER LIST STYLES --- */
+        .players-list {
+          display: flex;
+          flex-wrap: wrap;
+          gap: 8px;
+        }
+        .player-tag {
+          background: var(--ui-panel-shell-top);
+          border: 1px solid var(--ui-panel-border);
+          padding: 6px 8px;
+          border-radius: 6px;
+          display: flex;
+          align-items: center;
+          gap: 6px;
+          font-size: 12px;
+          justify-content: space-between;
+          min-width: 0; /* Allows shrinkage */
+        }
+        .player-name {
+          color: var(--ui-text-light);
+          font-weight: bold;
+          white-space: nowrap;
+          overflow: hidden;
+          text-overflow: ellipsis;
+          max-width: 80px; /* Limit name width to prevent explosion */
+        }
+        .remove-player-btn {
+          background: none;
+          border: none;
+          color: var(--ui-text-muted);
+          cursor: pointer;
+          font-size: 16px;
+          line-height: 1;
+          padding: 0;
+          margin-left: 4px;
+        }
+        .remove-player-btn:hover {
+          color: var(--ui-alert);
+        }
+        .host-badge {
+          font-size: 9px;
+          color: var(--ui-secondary);
+          text-transform: uppercase;
+          font-weight: bold;
+          flex-shrink: 0;
+        }
+        .player-team-select {
+          background: rgba(0, 0, 0, 0.3);
+          border: 1px solid var(--ui-border-muted);
+          color: var(--ui-text-default);
+          border-radius: 4px;
+          padding: 2px 4px;
+          font-size: 11px;
+          outline: none;
+          max-width: 65px;
+          flex-shrink: 0;
+        }
+
+        /* Teams Grid Layout - Fix for scaling */
+        .teams-layout-container {
+          display: flex;
+          flex-direction: column;
+          gap: 12px;
+          width: 100%;
+        }
+        .team-columns {
+          display: grid;
+          /* Min 150px per column ensures name+dropdown fit nicely, wraps if needed */
+          grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+          gap: 8px;
+          align-items: start;
+        }
+        .team-column,
+        .unassigned-column,
+        .spectator-column {
+          background: rgba(0, 0, 0, 0.2);
+          border: 1px solid var(--ui-border-muted);
+          border-radius: 8px;
+          padding: 8px;
+          display: flex;
+          flex-direction: column;
+          min-height: 60px;
+        }
+        .team-column-header {
+          font-size: 11px;
+          font-weight: bold;
+          color: var(--ui-text-muted);
+          margin-bottom: 8px;
+          text-transform: uppercase;
+          text-align: center;
+          border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+          padding-bottom: 4px;
+        }
+
+        /* Updated to allow wrapping players inside container */
+        .unassigned-body,
+        .team-column-body {
+          display: flex;
+          flex-direction: row; /* Row layout */
+          flex-wrap: wrap; /* Wrap if needed */
+          gap: 6px; /* Spacing between players */
+          align-items: center;
+        }
+      </style>
+
+      <o-modal
+        title=${translateText("host_modal.title")}
+        max-width="1600px"
+        max-height="85vh"
+        content-overflow="hidden"
+      >
+        <div class="sp-layout">
+          <!-- LEFT COLUMN: Maps -->
+          <div class="sp-map-col">
+            <!-- Lobby ID Header -->
+            <div class="lobby-header">
+              <div class="lobby-id-pill">
+                <div
+                  class="lobby-icon-btn"
+                  @click=${() => (this.lobbyIdVisible = !this.lobbyIdVisible)}
+                >
+                  ${this.lobbyIdVisible
+                    ? html`<svg
                         stroke="currentColor"
                         fill="currentColor"
                         stroke-width="0"
@@ -152,29 +602,66 @@ export class HostLobbyModal extends LitElement {
                         xmlns="http://www.w3.org/2000/svg"
                       >
                         <path
+                          d="M256 105c-101.8 0-188.4 62.7-224 151 35.6 88.3 122.2 151 224 151s188.4-62.7 224-151c-35.6-88.3-122.2-151-224-151zm0 251.7c-56 0-101.7-45.7-101.7-101.7S200 153.3 256 153.3 357.7 199 357.7 255 312 356.7 256 356.7zm0-161.1c-33 0-59.4 26.4-59.4 59.4s26.4 59.4 59.4 59.4 59.4-26.4 59.4-59.4-26.4-59.4-59.4-59.4z"
+                        ></path>
+                      </svg>`
+                    : html`<svg
+                        stroke="currentColor"
+                        fill="currentColor"
+                        stroke-width="0"
+                        viewBox="0 0 512 512"
+                        height="18px"
+                        width="18px"
+                        xmlns="http://www.w3.org/2000/svg"
+                      >
+                        <path
+                          d="M448 256s-64-128-192-128S64 256 64 256c32 64 96 128 192 128s160-64 192-128z"
+                          fill="none"
+                          stroke="currentColor"
+                          stroke-width="32"
+                        ></path>
+                        <path
+                          d="M144 256l224 0"
+                          fill="none"
+                          stroke="currentColor"
+                          stroke-width="32"
+                          stroke-linecap="round"
+                        ></path>
+                      </svg>`}
+                </div>
+                <div class="lobby-text" @click=${this.copyToClipboard}>
+                  ${this.lobbyIdVisible ? this.lobbyId : "••••••••"}
+                </div>
+                <div class="lobby-icon-btn" @click=${this.copyToClipboard}>
+                  ${this.copySuccess
+                    ? "✓"
+                    : html`<svg
+                        stroke="currentColor"
+                        fill="currentColor"
+                        stroke-width="0"
+                        viewBox="0 0 512 512"
+                        height="16px"
+                        width="16px"
+                        xmlns="http://www.w3.org/2000/svg"
+                      >
+                        <path
                           d="M296 48H176.5C154.4 48 136 65.4 136 87.5V96h-7.5C106.4 96 88 113.4 88 135.5v288c0 22.1 18.4 40.5 40.5 40.5h208c22.1 0 39.5-18.4 39.5-40.5V416h8.5c22.1 0 39.5-18.4 39.5-40.5V176L296 48zm0 44.6l83.4 83.4H296V92.6zm48 330.9c0 4.7-3.4 8.5-7.5 8.5h-208c-4.4 0-8.5-4.1-8.5-8.5v-288c0-4.1 3.8-7.5 8.5-7.5h7.5v255.5c0 22.1 10.4 32.5 32.5 32.5H344v7.5zm48-48c0 4.7-3.4 8.5-7.5 8.5h-208c-4.4 0-8.5-4.1-8.5-8.5v-288c0-4.1 3.8-7.5 8.5-7.5H264v128h128v167.5z"
                         ></path>
-                      </svg>
-                    `
-              }
+                      </svg>`}
+                </div>
+              </div>
             </div>
-          </button>
-        </div>
-        <div class="options-layout">
-          <!-- Map Selection -->
-          <div class="options-section">
-            <div class="option-title">${translateText("map.map")}</div>
-            <div class="option-cards flex-col">
-              <!-- Use the imported mapCategories -->
+
+            <div class="sp-scroll-area">
               ${Object.entries(mapCategories).map(
                 ([categoryKey, maps]) => html`
                   <div class="w-full mb-4">
                     <h3
-                      class="text-lg font-semibold mb-2 text-center text-gray-300"
+                      class="text-xs font-bold uppercase tracking-wider mb-2 text-center text-gray-400 border-b border-gray-700 pb-1 mx-10"
                     >
                       ${translateText(`map_categories.${categoryKey}`)}
                     </h3>
-                    <div class="flex flex-row flex-wrap justify-center gap-4">
+                    <div class="map-grid">
                       ${maps.map((mapValue) => {
                         const mapKey = Object.keys(GameMapType).find(
                           (key) =>
@@ -183,6 +670,7 @@ export class HostLobbyModal extends LitElement {
                         );
                         return html`
                           <div
+                            class="map-item-wrapper"
                             @click=${() => this.handleMapSelection(mapValue)}
                           >
                             <map-display
@@ -200,338 +688,333 @@ export class HostLobbyModal extends LitElement {
                   </div>
                 `,
               )}
-              <div
-                class="option-card random-map ${
-                  this.useRandomMap ? "selected" : ""
-                }"
-                @click=${this.handleRandomMapToggle}
-              >
-                <div class="option-image">
-                  <img
-                    src=${randomMap}
-                    alt="Random Map"
-                    style="width:100%; aspect-ratio: 4/2; object-fit:cover; border-radius:8px;"
-                  />
-                </div>
-                <div class="option-card-title">
-                  ${translateText("map.random")}
+
+              <!-- Random Map -->
+              <div class="w-full flex justify-center mb-4 pt-2">
+                <div
+                  class="option-card random-map ${this.useRandomMap
+                    ? "selected"
+                    : ""} map-item-wrapper"
+                  @click=${this.handleRandomMapToggle}
+                  style="width: 100px;"
+                >
+                  <div class="option-image">
+                    <img
+                      src=${randomMap}
+                      style="width:100%; aspect-ratio:4/2; object-fit:cover; border-radius:8px;"
+                    />
+                  </div>
+                  <div class="option-card-title">
+                    ${translateText("map.random")}
+                  </div>
                 </div>
               </div>
             </div>
           </div>
 
-          <!-- Difficulty Selection -->
-          <div class="options-section">
-            <div class="option-title">${translateText("difficulty.difficulty")}</div>
-            <div class="option-cards">
-              ${Object.entries(Difficulty)
-                .filter(([key]) => isNaN(Number(key)))
-                .map(
-                  ([key, value]) => html`
-                    <div
-                      class="option-card ${this.selectedDifficulty === value
-                        ? "selected"
-                        : ""}"
-                      @click=${() => this.handleDifficultySelection(value)}
-                    >
+          <!-- RIGHT COLUMN: Settings + Player List -->
+          <div class="sp-settings-col">
+            <!-- Settings Scroll Area (Top) -->
+            <div class="sp-settings-scroll">
+              <!-- Difficulty & Mode Cyclers -->
+              <div
+                class="sp-section"
+                style="display:grid; grid-template-columns: 1fr 1fr; gap: 12px;"
+              >
+                <!-- Difficulty -->
+                <div class="flex flex-col gap-1">
+                  <div class="sp-title">
+                    ${translateText("difficulty.difficulty")}
+                  </div>
+                  <div class="sp-cycler-btn" @click=${this.cycleDifficulty}>
+                    <div class="sp-cycler-content">
                       <difficulty-display
-                        .difficultyKey=${key}
+                        .difficultyKey=${Difficulty[this.selectedDifficulty]}
                       ></difficulty-display>
-                      <p class="option-card-title">
-                        ${translateText(
-                          `difficulty.${DifficultyDescription[key as keyof typeof DifficultyDescription]}`,
-                        )}
-                      </p>
+                      <span
+                        >${translateText(
+                          `difficulty.${DifficultyDescription[this.selectedDifficulty]}`,
+                        )}</span
+                      >
                     </div>
-                  `,
-                )}
-            </div>
-          </div>
-
-          <!-- Game Mode Selection -->
-          <div class="options-section">
-            <div class="option-title">${translateText("host_modal.mode")}</div>
-            <div class="option-cards">
-              <div
-                class="option-card ${this.gameMode === GameMode.FFA ? "selected" : ""}"
-                @click=${() => this.handleGameModeSelection(GameMode.FFA)}
-              >
-                <div class="option-card-title">
-                  ${translateText("game_mode.ffa")}
+                    <div class="sp-refresh-icon">↻</div>
+                  </div>
+                </div>
+                <!-- Mode -->
+                <div class="flex flex-col gap-1">
+                  <div class="sp-title">
+                    ${translateText("host_modal.mode")}
+                  </div>
+                  <div class="sp-cycler-btn" @click=${this.cycleGameMode}>
+                    <div class="sp-cycler-content">
+                      <span
+                        >${this.gameMode === GameMode.FFA
+                          ? translateText("game_mode.ffa")
+                          : translateText("game_mode.teams")}</span
+                      >
+                    </div>
+                    <div class="sp-cycler-icon">▼</div>
+                  </div>
                 </div>
               </div>
-              <div
-                class="option-card ${this.gameMode === GameMode.Team ? "selected" : ""}"
-                @click=${() => this.handleGameModeSelection(GameMode.Team)}
-              >
-                <div class="option-card-title">
-                  ${translateText("game_mode.teams")}
-                </div>
-              </div>
-            </div>
-          </div>
 
-          ${
-            this.gameMode === GameMode.FFA
-              ? ""
-              : html`
-                  <!-- Team Count Selection -->
-                  <div class="options-section">
-                    <div class="option-title">
+              <!-- Team Count (Collapsible) -->
+              <div
+                class="sp-collapse-grid ${this.gameMode === GameMode.Team
+                  ? "open"
+                  : ""}"
+              >
+                <div class="sp-collapse-inner">
+                  <div class="sp-section">
+                    <div class="sp-title">
                       ${translateText("host_modal.team_count")}
                     </div>
-                    <div class="option-cards">
+                    <div class="sp-btn-grid-small">
                       ${[2, 3, 4, 5, 6, 7, Quads, Trios, Duos].map(
                         (o) => html`
                           <div
-                            class="option-card ${this.teamCount === o
+                            class="sp-btn ${this.teamCount === o
                               ? "selected"
                               : ""}"
                             @click=${() => this.handleTeamCountSelection(o)}
+                            style="justify-content:center; min-height: 30px; padding: 4px;"
                           >
-                            <div class="option-card-title">
-                              ${typeof o === "string"
+                            <span class="sp-btn-label" style="font-size: 12px;"
+                              >${typeof o === "string"
                                 ? translateText(`public_lobby.teams_${o}`)
-                                : translateText("public_lobby.teams", {
-                                    num: o,
-                                  })}
-                            </div>
+                                : o}</span
+                            >
                           </div>
                         `,
                       )}
                     </div>
                   </div>
-                `
-          }
-
-          <!-- Game Options -->
-          <div class="options-section">
-            <div class="option-title">
-              ${translateText("host_modal.options_title")}
-            </div>
-            <div class="option-cards">
-              <label for="bots-count" class="option-card">
-                <input
-                  type="range"
-                  id="bots-count"
-                  min="0"
-                  max="400"
-                  step="1"
-                  @input=${this.handleBotsChange}
-                  @change=${this.handleBotsChange}
-                  .value="${String(this.bots)}"
-                />
-                <div class="option-card-title">
-                  <span>${translateText("host_modal.bots")}</span>${
-                    this.bots === 0
-                      ? translateText("host_modal.bots_disabled")
-                      : this.bots
-                  }
                 </div>
-              </label>
+              </div>
 
-                <label
-                  for="disable-npcs"
-                  class="option-card ${this.disableNPCs ? "selected" : ""}"
-                >
-                  <div class="checkbox-icon"></div>
+              <!-- Main Options -->
+              <div class="sp-section">
+                <div class="sp-title">
+                  ${translateText("host_modal.options_title")}
+                </div>
+
+                <!-- Bot Slider -->
+                <div class="mb-4 px-2">
+                  <div class="flex justify-between text-sm text-gray-300 mb-1">
+                    <span>${translateText("host_modal.bots")}</span>
+                    <span class="font-bold">${this.bots}</span>
+                  </div>
                   <input
-                    type="checkbox"
-                    id="disable-npcs"
-                    @change=${this.handleDisableNPCsChange}
-                    .checked=${this.disableNPCs}
+                    type="range"
+                    min="0"
+                    max="400"
+                    step="1"
+                    .value=${String(this.bots)}
+                    @input=${this.handleBotsChange}
+                    style="--slider-progress: ${sliderPercent}%"
                   />
-                  <div class="option-card-title">
-                    ${translateText("host_modal.disable_nations")}
-                  </div>
-                </label>
+                </div>
 
-                <label
-                  for="instant-build"
-                  class="option-card ${this.instantBuild ? "selected" : ""}"
-                >
-                  <div class="checkbox-icon"></div>
-                  <input
-                    type="checkbox"
-                    id="instant-build"
-                    @change=${this.handleInstantBuildChange}
-                    .checked=${this.instantBuild}
-                  />
-                  <div class="option-card-title">
-                    ${translateText("host_modal.instant_build")}
-                  </div>
-                </label>
-
-                <label
-                  for="instant-research-human"
-                  class="option-card ${this.instantResearchHumanOnly ? "selected" : ""}"
-                >
-                  <div class="checkbox-icon"></div>
-                  <input
-                    type="checkbox"
-                    id="instant-research-human"
-                    @change=${this.handleInstantResearchHumanOnlyChange}
-                    .checked=${this.instantResearchHumanOnly}
-                  />
-                  <div class="option-card-title">
-                    ${translateText("host_modal.instant_research")}
-                  </div>
-                </label>
-
-                <label
-                  for="research-all-techs"
-                  class="option-card ${this.researchAllTechs ? "selected" : ""}"
-                >
-                  <div class="checkbox-icon"></div>
-                  <input
-                    type="checkbox"
-                    id="research-all-techs"
-                    @change=${(e: Event) => {
-                      this.researchAllTechs = Boolean(
-                        (e.target as HTMLInputElement).checked,
-                      );
-                      this.putGameConfig();
-                    }}
-                    .checked=${this.researchAllTechs}
-                  />
-                  <div class="option-card-title">
-                    ${translateText("host_modal.research_all_techs")}
-                  </div>
-                </label>
-
-                <label
-                  for="infinite-gold"
-                  class="option-card ${this.infiniteGold ? "selected" : ""}"
-                >
-                  <div class="checkbox-icon"></div>
-                  <input
-                    type="checkbox"
-                    id="infinite-gold"
-                    @change=${this.handleInfiniteGoldChange}
-                    .checked=${this.infiniteGold}
-                  />
-                  <div class="option-card-title">
-                    ${translateText("host_modal.infinite_gold")}
-                  </div>
-                </label>
-
-                <label
-                  for="infinite-troops"
-                  class="option-card ${this.infiniteTroops ? "selected" : ""}"
-                >
-                  <div class="checkbox-icon"></div>
-                  <input
-                    type="checkbox"
-                    id="infinite-troops"
-                    @change=${this.handleInfiniteTroopsChange}
-                    .checked=${this.infiniteTroops}
-                  />
-                  <div class="option-card-title">
-                    ${translateText("host_modal.infinite_troops")}
-                  </div>
-                </label>
-
-                <label for="starting-gold" class="option-card">
-                  <div class="option-card-title">
-                    ${translateText("starting_gold.label")}
-                  </div>
-                  <select
-                    id="starting-gold"
-                    class="peace-timer-select"
-                    @change=${this.handleStartingGoldChange}
-                    .value="${String(this.startingGold)}"
-                  >
-                    ${StartingGoldValues.map(
-                      (value) => html`
-                        <option value="${value}">
-                          ${formatStartingGold(value)}
-                        </option>
-                      `,
-                    )}
-                </select>
-                </label>
-
-                <label for="peace-timer" class="option-card">
-                  <div class="option-card-title">
-                    ${translateText("host_modal.peace_timer")}
-                  </div>
-                  <select
-                    id="peace-timer"
-                    class="peace-timer-select"
-                    @change=${this.handlePeaceTimerChange}
-                    .value="${String(this.selectedPeaceTimerDuration)}"
-                  >
-                    ${Object.values(PeaceTimerDuration)
-                      .filter((value) => typeof value === "number")
-                      .map(
-                        (value) => html`
-                          <option value="${value}">
-                            ${value === PeaceTimerDuration.None
-                              ? translateText("host_modal.peace_timer_none")
-                              : translateText(
-                                  "host_modal.peace_timer_minutes",
-                                  { minutes: String(value) },
-                                )}
-                          </option>
-                        `,
+                <!-- Dropdowns -->
+                <div class="grid grid-cols-2 gap-4 mb-3">
+                  <div class="flex flex-col">
+                    <div class="text-sm text-gray-300 mb-1 font-bold">
+                      ${translateText("starting_gold.label")}
+                    </div>
+                    <select
+                      class="sp-select"
+                      @change=${this.handleStartingGoldChange}
+                      .value=${String(this.startingGold)}
+                    >
+                      ${StartingGoldValues.map(
+                        (v) =>
+                          html`<option value=${v}>
+                            ${formatStartingGold(v)}
+                          </option>`,
                       )}
-                  </select>
-                </label>
-
-                <hr style="width: 100%; border-top: 1px solid var(--ui-border-muted); margin: 16px 0;" />
-
-                <!-- Individual disables for structures/weapons -->
-                <div
-                  style="margin: 8px 0 12px 0; font-weight: bold; color: var(--ui-text-muted); text-align: center;"
-                >
-                  ${translateText("host_modal.enables_title")}
+                    </select>
+                  </div>
+                  <div class="flex flex-col">
+                    <div class="text-sm text-gray-300 mb-1 font-bold">
+                      ${translateText("host_modal.peace_timer")}
+                    </div>
+                    <select
+                      class="sp-select"
+                      @change=${this.handlePeaceTimerChange}
+                      .value=${String(this.selectedPeaceTimerDuration)}
+                    >
+                      ${Object.values(PeaceTimerDuration)
+                        .filter((v) => typeof v === "number")
+                        .map(
+                          (v) => html`
+                            <option value=${v}>
+                              ${v === 0
+                                ? translateText("host_modal.peace_timer_none")
+                                : translateText(
+                                    "host_modal.peace_timer_minutes",
+                                    { minutes: String(v) },
+                                  )}
+                            </option>
+                          `,
+                        )}
+                    </select>
+                  </div>
                 </div>
+
+                <!-- Toggle Grid (3 Columns) -->
                 <div
-                  style="display: flex; flex-wrap: wrap; justify-content: center; gap: 12px;"
+                  class="sp-btn-grid"
+                  style="grid-template-columns: repeat(3, 1fr);"
                 >
-                   ${renderUnitTypeOptions({
-                     disabledUnits: this.disabledUnits,
-                     toggleUnit: this.toggleUnit.bind(this),
-                   })}
+                  ${this.renderToggle(
+                    this.disableNPCs,
+                    "host_modal.disable_nations",
+                    this.handleDisableNPCsChange,
+                  )}
+                  ${this.renderToggle(
+                    this.instantBuild,
+                    "host_modal.instant_build",
+                    this.handleInstantBuildChange,
+                  )}
+                  ${this.renderToggle(
+                    this.instantResearchHumanOnly,
+                    "host_modal.instant_research",
+                    this.handleInstantResearchHumanOnlyChange,
+                  )}
+                  ${this.renderToggle(
+                    this.researchAllTechs,
+                    "host_modal.research_all_techs",
+                    (e: any) => {
+                      this.researchAllTechs = e.target.checked;
+                      this.putGameConfig();
+                    },
+                  )}
+                  ${this.renderToggle(
+                    this.infiniteGold,
+                    "host_modal.infinite_gold",
+                    this.handleInfiniteGoldChange,
+                  )}
+                  ${this.renderToggle(
+                    this.infiniteTroops,
+                    "host_modal.infinite_troops",
+                    this.handleInfiniteTroopsChange,
+                  )}
+                </div>
+              </div>
+
+              <!-- Extra Settings (Collapsed by default) -->
+              <div class="sp-section">
+                <div
+                  @click=${() =>
+                    (this.showUnitSettings = !this.showUnitSettings)}
+                  class="sp-collapse-header"
+                >
+                  <span>Extra Settings</span>
+                  <span style="color:var(--ui-secondary); font-size:12px;"
+                    >${this.showUnitSettings ? "▼" : "▶"}</span
+                  >
+                </div>
+
+                <div
+                  class="sp-collapse-grid ${this.showUnitSettings
+                    ? "open"
+                    : ""}"
+                >
+                  <div class="sp-collapse-inner">
+                    <div class="flex flex-wrap gap-2 justify-center mt-3">
+                      ${renderUnitTypeOptions({
+                        disabledUnits: this.disabledUnits,
+                        toggleUnit: this.toggleUnit.bind(this),
+                      }).map(
+                        (template) =>
+                          html`<div
+                            style="transform: scale(0.85); margin: -2px;"
+                          >
+                            ${template}
+                          </div>`,
+                      )}
+                    </div>
                   </div>
                 </div>
               </div>
             </div>
-          </div>
+            <!-- End Settings Scroll -->
 
-        <!-- Lobby Selection -->
-        <div class="options-section">
-          <div class="option-title">
-            ${this.clients.length}
-            ${
-              this.clients.length === 1
-                ? translateText("host_modal.player")
-                : translateText("host_modal.players")
-            }
-          </div>
+            <!-- FIXED Player List & Start Button (Bottom) -->
+            <div class="sp-player-area">
+              <div
+                class="sp-title"
+                style="margin-bottom: 8px; padding-left: 8px;"
+              >
+                ${this.clients.length}
+                ${this.clients.length === 1
+                  ? translateText("host_modal.player")
+                  : translateText("host_modal.players")}
+              </div>
 
-          <div class="team-columns-container">
-            ${this.renderTeamColumns()}
-          </div>
+              <!-- Scrollable Team/Player List -->
+              <div class="team-scroll-wrapper custom-scroll">
+                ${this.renderTeamColumns()}
+              </div>
 
-        <div class="start-game-button-container">
-          <button
-            @click=${this.startGame}
-            ?disabled=${this.clients.length < 2}
-            class="start-game-button"
-          >
-            ${
-              this.clients.length === 1
-                ? translateText("host_modal.waiting")
-                : translateText("host_modal.start")
-            }
-          </button>
+              <!-- Start Button -->
+              <o-button
+                title=${this.clients.length === 1
+                  ? translateText("host_modal.waiting")
+                  : translateText("host_modal.start")}
+                @click=${this.startGame}
+                ?disabled=${this.clients.length < 2}
+                block
+              ></o-button>
+            </div>
+          </div>
+          <!-- End Right Col -->
         </div>
-
-      </div>
-    </o-modal>
+      </o-modal>
     `;
   }
+
+  private cycleDifficulty() {
+    const modes = [
+      Difficulty.Easy,
+      Difficulty.Medium,
+      Difficulty.Hard,
+      Difficulty.Impossible,
+    ];
+    const idx = modes.indexOf(this.selectedDifficulty);
+    this.selectedDifficulty = modes[(idx + 1) % modes.length];
+    this.putGameConfig();
+  }
+
+  private cycleGameMode() {
+    this.gameMode =
+      this.gameMode === GameMode.FFA ? GameMode.Team : GameMode.FFA;
+    if (this.gameMode !== GameMode.Team) {
+      this.playerTeamAssignments = {};
+    }
+    this.putGameConfig();
+  }
+
+  private renderToggle(
+    checked: boolean,
+    labelKey: string,
+    onChange: (e: any) => void,
+  ) {
+    return html`
+      <label class="sp-btn ${checked ? "selected" : ""}">
+        <div class="sp-check"></div>
+        <input
+          type="checkbox"
+          class="hidden"
+          .checked=${checked}
+          @change=${onChange}
+        />
+        <span class="sp-btn-label">${translateText(labelKey)}</span>
+      </label>
+    `;
+  }
+
+  /* --- LOGIC METHODS --- */
 
   createRenderRoot() {
     return this;
@@ -540,10 +1023,8 @@ export class HostLobbyModal extends LitElement {
   public open() {
     this.lobbyCreatorClientID = generateID();
     this.playerTeamAssignments = {};
-    this.lobbyIdVisible = this.userSettings.get(
-      "settings.lobbyIdVisibility",
-      true,
-    );
+    this.lobbyIdVisible = false; // Censored by default
+    this.showUnitSettings = false; // Closed by default
 
     createLobby(this.lobbyCreatorClientID)
       .then((lobby) => {
@@ -553,7 +1034,6 @@ export class HostLobbyModal extends LitElement {
         } else {
           this.startingGold = 0;
         }
-        // join lobby
       })
       .then(() => {
         this.dispatchEvent(
@@ -579,7 +1059,6 @@ export class HostLobbyModal extends LitElement {
       clearInterval(this.playersInterval);
       this.playersInterval = null;
     }
-    // Clear any pending bot updates
     if (this.botsUpdateTimer !== null) {
       clearTimeout(this.botsUpdateTimer);
       this.botsUpdateTimer = null;
@@ -597,27 +1076,16 @@ export class HostLobbyModal extends LitElement {
     this.putGameConfig();
   }
 
-  private async handleDifficultySelection(value: Difficulty) {
-    this.selectedDifficulty = value;
-    this.putGameConfig();
-  }
-
-  // Modified to include debouncing
   private handleBotsChange(e: Event) {
     const value = parseInt((e.target as HTMLInputElement).value);
     if (isNaN(value) || value < 0 || value > 400) {
       return;
     }
-
-    // Update the display value immediately
     this.bots = value;
 
-    // Clear any existing timer
     if (this.botsUpdateTimer !== null) {
       clearTimeout(this.botsUpdateTimer);
     }
-
-    // Set a new timer to call putGameConfig after 300ms of inactivity
     this.botsUpdateTimer = window.setTimeout(() => {
       this.putGameConfig();
       this.botsUpdateTimer = null;
@@ -664,7 +1132,6 @@ export class HostLobbyModal extends LitElement {
 
   private async handleDisableNPCsChange(e: Event) {
     this.disableNPCs = Boolean((e.target as HTMLInputElement).checked);
-    console.log(`updating disable npcs to ${this.disableNPCs}`);
     this.putGameConfig();
   }
 
@@ -772,7 +1239,6 @@ export class HostLobbyModal extends LitElement {
     if (this.gameMode !== GameMode.Team) {
       return null;
     }
-    // Allow host to have a team selection dropdown
     const teamCount = this.computeTeamCount();
     const labels = this.getTeamLabels(teamCount);
     const assignment = this.playerTeamAssignments[client.clientID] ?? null;
@@ -781,7 +1247,6 @@ export class HostLobbyModal extends LitElement {
       noTeamTranslation === "host_modal.no_team"
         ? "No Team"
         : noTeamTranslation;
-
     const assignmentValue =
       assignment === null || assignment === undefined ? "" : String(assignment);
 
@@ -821,22 +1286,20 @@ export class HostLobbyModal extends LitElement {
             (client) => client.clientID,
             (client) => html`
               <span class="player-tag">
-                <span class="player-name">
-                  ${client.username}
-                  ${client.clientID === this.lobbyCreatorClientID
-                    ? html`<span class="host-badge"
-                        >(${translateText("host_modal.host_badge")})</span
-                      >`
-                    : html`
-                        <button
-                          class="remove-player-btn"
-                          @click=${() => this.kickPlayer(client.clientID)}
-                          title="Remove ${client.username}"
-                        >
-                          ×
-                        </button>
-                      `}
-                </span>
+                <span class="player-name"> ${client.username} </span>
+                ${client.clientID === this.lobbyCreatorClientID
+                  ? html`<span class="host-badge"
+                      >(${translateText("host_modal.host_badge")})</span
+                    >`
+                  : html`
+                      <button
+                        class="remove-player-btn"
+                        @click=${() => this.kickPlayer(client.clientID)}
+                        title="Remove ${client.username}"
+                      >
+                        ×
+                      </button>
+                    `}
               </span>
             `,
           )}
@@ -847,14 +1310,12 @@ export class HostLobbyModal extends LitElement {
     const teams = new Map<number | null, ClientInfo[]>();
     const teamLabels = this.getTeamLabels(this.computeTeamCount());
 
-    // Initialize teams map
     for (let i = 0; i < teamLabels.length; i++) {
       teams.set(i, []);
     }
-    teams.set(null, []); // For unassigned players
-    teams.set(-1, []); // For spectators
+    teams.set(null, []);
+    teams.set(-1, []);
 
-    // Group clients by team
     for (const client of this.clients) {
       const teamIndex = this.playerTeamAssignments[client.clientID] ?? null;
       if (teams.has(teamIndex)) {
@@ -878,17 +1339,21 @@ export class HostLobbyModal extends LitElement {
 
     return html`
       <div class="teams-layout-container">
-        <!-- Unassigned Players Section -->
-        <div class="unassigned-column">
-          <div class="team-column-header">
-            ${translateText("host_modal.unassigned_players")}
-          </div>
-          <div class="unassigned-body">
-            ${renderPlayerList(unassignedPlayers)}
-          </div>
-        </div>
+        <!-- Unassigned Players -->
+        ${unassignedPlayers.length > 0
+          ? html`
+              <div class="unassigned-column">
+                <div class="team-column-header">
+                  ${translateText("host_modal.unassigned_players")}
+                </div>
+                <div class="unassigned-body">
+                  ${renderPlayerList(unassignedPlayers)}
+                </div>
+              </div>
+            `
+          : ""}
 
-        <!-- Assigned Teams Section -->
+        <!-- Assigned Teams -->
         <div class="team-columns">
           ${Array.from(teams.entries()).map(([teamIndex, players]) => {
             const teamLabel =
@@ -906,13 +1371,19 @@ export class HostLobbyModal extends LitElement {
           })}
         </div>
 
-        <!-- Spectators Section -->
-        <div class="spectator-column">
-          <div class="team-column-header">
-            ${translateText("host_modal.spectator")}
-          </div>
-          <div class="unassigned-body">${renderPlayerList(spectators)}</div>
-        </div>
+        <!-- Spectators -->
+        ${spectators.length > 0
+          ? html`
+              <div class="spectator-column">
+                <div class="team-column-header">
+                  ${translateText("host_modal.spectator")}
+                </div>
+                <div class="team-column-body">
+                  ${renderPlayerList(spectators)}
+                </div>
+              </div>
+            `
+          : ""}
       </div>
     `;
   }
@@ -952,9 +1423,7 @@ export class HostLobbyModal extends LitElement {
       `${window.location.origin}/${config.workerPath(this.lobbyId)}/api/game/${this.lobbyId}`,
       {
         method: "PUT",
-        headers: {
-          "Content-Type": "application/json",
-        },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           gameMap: this.selectedMap,
           difficulty: this.selectedDifficulty,
@@ -978,7 +1447,6 @@ export class HostLobbyModal extends LitElement {
   }
 
   private toggleUnit(unit: UnitType, checked: boolean): void {
-    console.log(`Toggling unit type: ${unit} to ${checked}`);
     this.disabledUnits = checked
       ? [...this.disabledUnits, unit]
       : this.disabledUnits.filter((u) => u !== unit);
@@ -998,18 +1466,13 @@ export class HostLobbyModal extends LitElement {
     }
 
     await this.putGameConfig();
-    console.log(
-      `Starting private game with map: ${GameMapType[this.selectedMap as keyof typeof GameMapType]} ${this.useRandomMap ? " (Randomly selected)" : ""}`,
-    );
     this.close();
     const config = await getServerConfigFromClient();
     const response = await fetch(
       `${window.location.origin}/${config.workerPath(this.lobbyId)}/api/start_game/${this.lobbyId}`,
       {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
+        headers: { "Content-Type": "application/json" },
       },
     );
     return response;
@@ -1017,7 +1480,6 @@ export class HostLobbyModal extends LitElement {
 
   private async copyToClipboard() {
     try {
-      //TODO: Convert id to url and copy
       await navigator.clipboard.writeText(
         `${location.origin}/#join=${this.lobbyId}`,
       );
@@ -1034,9 +1496,7 @@ export class HostLobbyModal extends LitElement {
     const config = await getServerConfigFromClient();
     fetch(`/${config.workerPath(this.lobbyId)}/api/game/${this.lobbyId}`, {
       method: "GET",
-      headers: {
-        "Content-Type": "application/json",
-      },
+      headers: { "Content-Type": "application/json" },
     })
       .then((response) => response.json())
       .then((data: GameInfo) => {
@@ -1046,32 +1506,23 @@ export class HostLobbyModal extends LitElement {
         if (data.gameConfig?.gameMode !== GameMode.Team) {
           this.playerTeamAssignments = {};
         } else {
-          // Check for server confirmation for any clients that are being updated.
           if (this.updatingTeamForClients.size > 0) {
             for (const lockedClientID of [...this.updatingTeamForClients]) {
               const localValue = this.playerTeamAssignments[lockedClientID];
               const serverValue = serverAssignments[lockedClientID];
-
               if (localValue === serverValue) {
-                // Server has confirmed the change, we can remove the lock.
                 this.updatingTeamForClients.delete(lockedClientID);
               }
             }
           }
-
-          // Rebuild the assignments map.
           const mergedAssignments: Record<string, number | null> = {};
           for (const client of clients) {
             const clientID = client.clientID;
-
-            // If this client is currently locked, trust the local (optimistic) state.
             if (this.updatingTeamForClients.has(clientID)) {
               mergedAssignments[clientID] =
                 this.playerTeamAssignments[clientID];
               continue;
             }
-
-            // Otherwise, use the server's state or other fallbacks.
             const hasServerValue = Object.prototype.hasOwnProperty.call(
               serverAssignments,
               clientID,
@@ -1104,7 +1555,6 @@ export class HostLobbyModal extends LitElement {
   }
 
   private kickPlayer(clientID: string) {
-    // Dispatch event to be handled by WebSocket instead of HTTP
     this.dispatchEvent(
       new CustomEvent("kick-player", {
         detail: { target: clientID },
@@ -1123,23 +1573,13 @@ async function createLobby(creatorClientID: string): Promise<GameInfo> {
       `/${config.workerPath(id)}/api/create_game/${id}?creatorClientID=${encodeURIComponent(creatorClientID)}`,
       {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        // body: JSON.stringify(data), // Include this if you need to send data
+        headers: { "Content-Type": "application/json" },
       },
     );
-
     if (!response.ok) {
-      const errorText = await response.text();
-      console.error("Server error response:", errorText);
       throw new Error(`HTTP error! status: ${response.status}`);
     }
-
-    const data = await response.json();
-    console.log("Success:", data);
-
-    return data as GameInfo;
+    return (await response.json()) as GameInfo;
   } catch (error) {
     console.error("Error creating lobby:", error);
     throw error;

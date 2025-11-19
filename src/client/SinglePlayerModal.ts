@@ -57,25 +57,348 @@ export class SinglePlayerModal extends LitElement {
   @state() private startingGold: StartingGoldOption = StartingGoldValues[0];
 
   @state() private disabledUnits: UnitType[] = [];
+  @state() private showUnitSettings = true; // Open by default
 
   render() {
+    // Calculate percentage for the CSS variable
+    const sliderPercent = (this.bots / 400) * 100;
+
     return html`
-      <o-modal title=${translateText("single_modal.title")}>
-        <div class="options-layout">
-          <!-- Map Selection -->
-          <div class="options-section">
-            <div class="option-title">${translateText("map.map")}</div>
-            <div class="option-cards flex-col">
-              <!-- Use the imported mapCategories -->
+      <style>
+        /* Modal Internal Layout */
+        .sp-layout {
+          display: grid;
+          grid-template-columns: 1fr 1fr; /* 50/50 Split */
+          gap: 16px;
+          /* Fixed height to prevent layout jumping when settings expand */
+          height: 70vh;
+          overflow: hidden;
+        }
+
+        @media (max-width: 1024px) {
+          .sp-layout {
+            grid-template-columns: 1fr;
+            height: auto;
+            max-height: 80vh;
+            overflow-y: auto;
+          }
+          .sp-map-col {
+            height: 40vh; /* Fixed height for maps on mobile */
+          }
+        }
+
+        /* Map Column (Left) */
+        .sp-map-col {
+          background: rgba(0, 0, 0, 0.2);
+          border-radius: 12px;
+          padding: 16px 4px 16px 16px;
+          display: flex;
+          flex-direction: column;
+          height: 100%;
+          overflow: hidden;
+        }
+
+        .sp-scroll-area {
+          flex: 1;
+          overflow-y: scroll; /* Force scrollbar to prevent layout shift */
+          padding-right: 12px;
+          padding-bottom: 12px;
+          scrollbar-width: thin;
+          scrollbar-color: rgba(255, 255, 255, 0.2) rgba(0, 0, 0, 0.1);
+        }
+        .sp-scroll-area::-webkit-scrollbar {
+          width: 8px;
+        }
+        .sp-scroll-area::-webkit-scrollbar-track {
+          background: rgba(0, 0, 0, 0.1);
+          border-radius: 4px;
+        }
+        .sp-scroll-area::-webkit-scrollbar-thumb {
+          background: rgba(255, 255, 255, 0.2);
+          border-radius: 4px;
+        }
+
+        /* Settings Column (Right) */
+        .sp-settings-col {
+          display: flex;
+          flex-direction: column;
+          height: 100%;
+          overflow: hidden;
+          padding-bottom: 4px;
+        }
+
+        .sp-settings-scroll {
+          flex: 1;
+          overflow-y: scroll; /* Force scrollbar to prevent layout shift */
+          padding-right: 8px;
+          display: flex;
+          flex-direction: column;
+          gap: 12px;
+          scrollbar-width: thin;
+          scrollbar-color: rgba(255, 255, 255, 0.2) rgba(0, 0, 0, 0.1);
+        }
+        .sp-settings-scroll::-webkit-scrollbar {
+          width: 8px;
+        }
+        .sp-settings-scroll::-webkit-scrollbar-track {
+          background: rgba(0, 0, 0, 0.1);
+          border-radius: 4px;
+        }
+        .sp-settings-scroll::-webkit-scrollbar-thumb {
+          background: rgba(255, 255, 255, 0.2);
+          border-radius: 4px;
+        }
+
+        /* Compact Section Container */
+        .sp-section {
+          background: rgba(0, 0, 0, 0.2);
+          border-radius: 12px;
+          padding: 12px;
+        }
+
+        .sp-title {
+          font-size: 14px;
+          color: var(--ui-text-light);
+          margin-bottom: 6px;
+          text-align: left;
+          font-weight: 700;
+          text-transform: uppercase;
+          letter-spacing: 0.5px;
+        }
+
+        /* Compact Button Grid */
+        .sp-btn-grid {
+          display: grid;
+          grid-template-columns: repeat(auto-fit, minmax(80px, 1fr));
+          gap: 8px;
+        }
+
+        /* Smaller grid for team counts */
+        .sp-btn-grid-small {
+          display: grid;
+          grid-template-columns: repeat(auto-fit, minmax(55px, 1fr));
+          gap: 6px;
+        }
+
+        /* Standard Settings Toggle Button */
+        .sp-btn {
+          background: var(--ui-panel-shell-top);
+          border: 1px solid var(--ui-panel-border);
+          border-radius: 6px;
+          padding: 6px 8px;
+          cursor: pointer;
+          display: flex;
+          flex-direction: row;
+          align-items: center;
+          justify-content: flex-start;
+          transition: all 0.15s ease;
+          min-height: 36px;
+          position: relative;
+        }
+        .sp-btn:hover {
+          background: var(--ui-panel-shell-bottom);
+          border-color: rgba(255, 255, 255, 0.3);
+          transform: translateY(-1px);
+        }
+        .sp-btn.selected {
+          background: rgba(39, 71, 110, 0.35);
+          border-color: var(--ui-secondary);
+          box-shadow: inset 0 0 0 1px var(--ui-secondary-hover);
+        }
+        .sp-btn-label {
+          font-size: 13px;
+          color: var(--ui-text-muted);
+          text-align: left;
+          line-height: 1.1;
+        }
+        .sp-btn.selected .sp-btn-label {
+          color: var(--ui-text-accent);
+        }
+
+        /* Cycler Button (Difficulty/Mode) */
+        .sp-cycler-btn {
+          width: 100%;
+          background: var(--ui-panel-shell-top);
+          border: 1px solid var(--ui-panel-border);
+          border-radius: 8px;
+          padding: 0 16px;
+          height: 48px;
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          cursor: pointer;
+          transition: all 0.2s ease;
+          user-select: none;
+        }
+        .sp-cycler-btn:hover {
+          background: var(--ui-panel-shell-bottom);
+          border-color: rgba(255, 255, 255, 0.3);
+          transform: translateY(-1px);
+        }
+        .sp-cycler-content {
+          display: flex;
+          align-items: center;
+          gap: 12px;
+          font-size: 16px;
+          font-weight: bold;
+          color: var(--ui-text-default);
+        }
+        .sp-cycler-icon {
+          color: var(--ui-secondary);
+          font-size: 12px;
+          font-weight: bold;
+        }
+        .sp-refresh-icon {
+          color: var(--ui-text-muted);
+          font-size: 18px;
+        }
+
+        /* Checkbox visual for toggle buttons */
+        .sp-check {
+          width: 14px;
+          height: 14px;
+          border: 1px solid var(--ui-text-muted);
+          border-radius: 3px;
+          margin-right: 8px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+        }
+        .sp-btn.selected .sp-check {
+          background: var(--ui-secondary);
+          border-color: var(--ui-secondary);
+        }
+        .sp-btn.selected .sp-check::after {
+          content: "✓";
+          font-size: 12px;
+          color: black;
+          font-weight: bold;
+        }
+
+        /* Maps Grid */
+        .map-grid {
+          display: flex;
+          flex-wrap: wrap;
+          gap: 8px;
+          justify-content: center;
+          padding: 4px;
+        }
+        .map-item-wrapper {
+          transform: scale(1);
+          transform-origin: center top;
+          margin-bottom: -10px;
+        }
+
+        /* Slider Styling - THIN & NICE */
+        input[type="range"] {
+          -webkit-appearance: none;
+          width: 100%;
+          height: 20px;
+          background: transparent;
+          margin: 0;
+          cursor: pointer;
+        }
+        input[type="range"]:focus {
+          outline: none;
+        }
+
+        input[type="range"]::-webkit-slider-runnable-track {
+          width: 100%;
+          height: 4px;
+          cursor: pointer;
+          border-radius: 2px;
+          background: linear-gradient(
+            to right,
+            var(--ui-secondary) 0%,
+            var(--ui-secondary) var(--slider-progress),
+            var(--ui-border-muted) var(--slider-progress),
+            var(--ui-border-muted) 100%
+          );
+        }
+
+        input[type="range"]::-webkit-slider-thumb {
+          -webkit-appearance: none;
+          height: 16px;
+          width: 16px;
+          border-radius: 50%;
+          background: #ffffff;
+          cursor: pointer;
+          margin-top: -6px;
+          box-shadow: 0 1px 4px rgba(0, 0, 0, 0.5);
+          border: 2px solid var(--ui-secondary);
+          transition: transform 0.1s ease;
+        }
+
+        input[type="range"]:hover::-webkit-slider-thumb {
+          transform: scale(1.1);
+        }
+
+        .sp-select {
+          width: 100%;
+          background: var(--ui-panel-shell-top);
+          color: var(--ui-text-default);
+          border: 1px solid var(--ui-panel-border);
+          border-radius: 6px;
+          padding: 8px;
+          font-size: 14px;
+          outline: none;
+        }
+
+        /* Collapse Header */
+        .sp-collapse-header {
+          cursor: pointer;
+          background: rgba(0, 0, 0, 0.2);
+          padding: 10px;
+          border-radius: 6px;
+          font-size: 15px;
+          font-weight: bold;
+          color: var(--ui-text-light);
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          user-select: none;
+        }
+        .sp-collapse-header:hover {
+          background: rgba(0, 0, 0, 0.3);
+        }
+
+        /* Smooth Transition using Grid */
+        .sp-collapse-grid {
+          display: grid;
+          grid-template-rows: 0fr;
+          transition:
+            grid-template-rows 0.3s ease-out,
+            opacity 0.3s ease-out;
+          opacity: 0;
+        }
+        .sp-collapse-grid.open {
+          grid-template-rows: 1fr;
+          opacity: 1;
+        }
+        .sp-collapse-inner {
+          overflow: hidden;
+        }
+      </style>
+
+      <o-modal
+        title=${translateText("single_modal.title")}
+        max-width="1600px"
+        max-height="85vh"
+        content-overflow="hidden"
+      >
+        <div class="sp-layout">
+          <!-- LEFT COLUMN: Maps -->
+          <div class="sp-map-col">
+            <div class="sp-scroll-area">
               ${Object.entries(mapCategories).map(
                 ([categoryKey, maps]) => html`
                   <div class="w-full mb-4">
                     <h3
-                      class="text-lg font-semibold mb-2 text-center text-gray-300"
+                      class="text-xs font-bold uppercase tracking-wider mb-2 text-center text-gray-400 border-b border-gray-700 pb-1 mx-10"
                     >
                       ${translateText(`map_categories.${categoryKey}`)}
                     </h3>
-                    <div class="flex flex-row flex-wrap justify-center gap-4">
+                    <div class="map-grid">
                       ${maps.map((mapValue) => {
                         const mapKey = Object.keys(GameMapType).find(
                           (key) =>
@@ -84,6 +407,7 @@ export class SinglePlayerModal extends LitElement {
                         );
                         return html`
                           <div
+                            class="map-item-wrapper"
                             @click=${() => this.handleMapSelection(mapValue)}
                           >
                             <map-display
@@ -101,309 +425,301 @@ export class SinglePlayerModal extends LitElement {
                   </div>
                 `,
               )}
+
+              <!-- Random Map -->
+              <div class="w-full flex justify-center mb-4 pt-2">
+                <div
+                  class="option-card random-map ${this.useRandomMap
+                    ? "selected"
+                    : ""} map-item-wrapper"
+                  @click=${this.handleRandomMapToggle}
+                  style="width: 100px;"
+                >
+                  <div class="option-image">
+                    <img
+                      src=${randomMap}
+                      style="width:100%; aspect-ratio:4/2; object-fit:cover; border-radius:8px;"
+                    />
+                  </div>
+                  <div class="option-card-title">
+                    ${translateText("map.random")}
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- RIGHT COLUMN: Settings -->
+          <div class="sp-settings-col">
+            <div class="sp-settings-scroll">
+              <!-- Top Row: Difficulty & Mode Cyclers -->
               <div
-                class="option-card random-map ${this.useRandomMap
-                  ? "selected"
-                  : ""}"
-                @click=${this.handleRandomMapToggle}
+                class="sp-section"
+                style="display:grid; grid-template-columns: 1fr 1fr; gap: 12px;"
               >
-                <div class="option-image">
-                  <img
-                    src=${randomMap}
-                    alt="Random Map"
-                    style="width:100%; aspect-ratio: 4/2; object-fit:cover; border-radius:8px;"
+                <!-- Difficulty -->
+                <div class="flex flex-col gap-1">
+                  <div class="sp-title">
+                    ${translateText("difficulty.difficulty")}
+                  </div>
+                  <div class="sp-cycler-btn" @click=${this.cycleDifficulty}>
+                    <div class="sp-cycler-content">
+                      <difficulty-display
+                        .difficultyKey=${Difficulty[this.selectedDifficulty]}
+                      ></difficulty-display>
+                      <span
+                        >${translateText(
+                          `difficulty.${DifficultyDescription[this.selectedDifficulty]}`,
+                        )}</span
+                      >
+                    </div>
+                    <div class="sp-refresh-icon">↻</div>
+                  </div>
+                </div>
+                <!-- Mode (Arrow Icon) -->
+                <div class="flex flex-col gap-1">
+                  <div class="sp-title">
+                    ${translateText("host_modal.mode")}
+                  </div>
+                  <div class="sp-cycler-btn" @click=${this.cycleGameMode}>
+                    <div class="sp-cycler-content">
+                      <span
+                        >${this.gameMode === GameMode.FFA
+                          ? translateText("game_mode.ffa")
+                          : translateText("game_mode.teams")}</span
+                      >
+                    </div>
+                    <div class="sp-cycler-icon">▼</div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Team Count (Animated Smooth Open/Close) -->
+              <div
+                class="sp-collapse-grid ${this.gameMode === GameMode.Team
+                  ? "open"
+                  : ""}"
+              >
+                <div class="sp-collapse-inner">
+                  <div class="sp-section">
+                    <div class="sp-title">
+                      ${translateText("host_modal.team_count")}
+                    </div>
+                    <div class="sp-btn-grid-small">
+                      ${[2, 3, 4, 5, 6, 7, Quads, Trios, Duos].map(
+                        (o) => html`
+                          <div
+                            class="sp-btn ${this.teamCount === o
+                              ? "selected"
+                              : ""}"
+                            @click=${() => this.handleTeamCountSelection(o)}
+                            style="justify-content:center; min-height: 30px; padding: 4px;"
+                          >
+                            <span class="sp-btn-label" style="font-size: 12px;"
+                              >${typeof o === "string"
+                                ? translateText(`public_lobby.teams_${o}`)
+                                : o}</span
+                            >
+                          </div>
+                        `,
+                      )}
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Main Options - 3 Column Grid -->
+              <div class="sp-section">
+                <div class="sp-title">
+                  ${translateText("single_modal.options_title")}
+                </div>
+
+                <!-- Bot Slider -->
+                <div class="mb-4 px-2">
+                  <div class="flex justify-between text-sm text-gray-300 mb-1">
+                    <span>${translateText("single_modal.bots")}</span>
+                    <span class="font-bold">${this.bots}</span>
+                  </div>
+                  <input
+                    type="range"
+                    min="0"
+                    max="400"
+                    step="1"
+                    .value=${String(this.bots)}
+                    @input=${this.handleBotsChange}
+                    style="--slider-progress: ${sliderPercent}%"
                   />
                 </div>
-                <div class="option-card-title">
-                  ${translateText("map.random")}
-                </div>
-              </div>
-            </div>
-          </div>
 
-          <!-- Difficulty Selection -->
-          <div class="options-section">
-            <div class="option-title">
-              ${translateText("difficulty.difficulty")}
-            </div>
-            <div class="option-cards">
-              ${Object.entries(Difficulty)
-                .filter(([key]) => isNaN(Number(key)))
-                .map(
-                  ([key, value]) => html`
-                    <div
-                      class="option-card ${this.selectedDifficulty === value
-                        ? "selected"
-                        : ""}"
-                      @click=${() => this.handleDifficultySelection(value)}
-                    >
-                      <difficulty-display
-                        .difficultyKey=${key}
-                      ></difficulty-display>
-                      <p class="option-card-title">
-                        ${translateText(
-                          `difficulty.${DifficultyDescription[key as keyof typeof DifficultyDescription]}`,
-                        )}
-                      </p>
+                <!-- Dropdowns with Labels -->
+                <div class="grid grid-cols-2 gap-4 mb-3">
+                  <div class="flex flex-col">
+                    <div class="text-sm text-gray-300 mb-1 font-bold">
+                      ${translateText("starting_gold.label")}
                     </div>
-                  `,
-                )}
-            </div>
-          </div>
-
-          <!-- Game Mode Selection -->
-          <div class="options-section">
-            <div class="option-title">${translateText("host_modal.mode")}</div>
-            <div class="option-cards">
-              <div
-                class="option-card ${this.gameMode === GameMode.FFA
-                  ? "selected"
-                  : ""}"
-                @click=${() => this.handleGameModeSelection(GameMode.FFA)}
-              >
-                <div class="option-card-title">
-                  ${translateText("game_mode.ffa")}
-                </div>
-              </div>
-              <div
-                class="option-card ${this.gameMode === GameMode.Team
-                  ? "selected"
-                  : ""}"
-                @click=${() => this.handleGameModeSelection(GameMode.Team)}
-              >
-                <div class="option-card-title">
-                  ${translateText("game_mode.teams")}
-                </div>
-              </div>
-            </div>
-          </div>
-
-          ${this.gameMode === GameMode.FFA
-            ? ""
-            : html`
-                <!-- Team Count Selection -->
-                <div class="options-section">
-                  <div class="option-title">
-                    ${translateText("host_modal.team_count")}
+                    <select
+                      class="sp-select"
+                      @change=${this.handleStartingGoldChange}
+                      .value=${String(this.startingGold)}
+                    >
+                      ${StartingGoldValues.map(
+                        (v) =>
+                          html`<option value=${v}>
+                            ${formatStartingGold(v)}
+                          </option>`,
+                      )}
+                    </select>
                   </div>
-                  <div class="option-cards">
-                    ${[2, 3, 4, 5, 6, 7, Quads, Trios, Duos].map(
-                      (o) => html`
-                        <div
-                          class="option-card ${this.teamCount === o
-                            ? "selected"
-                            : ""}"
-                          @click=${() => this.handleTeamCountSelection(o)}
-                        >
-                          <div class="option-card-title">
-                            ${typeof o === "string"
-                              ? translateText(`public_lobby.teams_${o}`)
-                              : translateText(`public_lobby.teams`, { num: o })}
-                          </div>
-                        </div>
-                      `,
-                    )}
+                  <div class="flex flex-col">
+                    <div class="text-sm text-gray-300 mb-1 font-bold">
+                      ${translateText("host_modal.peace_timer")}
+                    </div>
+                    <select
+                      class="sp-select"
+                      @change=${this.handlePeaceTimerChange}
+                      .value=${String(this.selectedPeaceTimerDuration)}
+                    >
+                      ${Object.values(PeaceTimerDuration)
+                        .filter((v) => typeof v === "number")
+                        .map(
+                          (v) => html`
+                            <option value=${v}>
+                              ${v === 0
+                                ? translateText("host_modal.peace_timer_none")
+                                : translateText(
+                                    "host_modal.peace_timer_minutes",
+                                    { minutes: String(v) },
+                                  )}
+                            </option>
+                          `,
+                        )}
+                    </select>
                   </div>
                 </div>
-              `}
 
-          <!-- Game Options -->
-          <div class="options-section">
-            <div class="option-title">
-              ${translateText("single_modal.options_title")}
-            </div>
-            <div class="option-cards">
-              <label for="bots-count" class="option-card">
-                <input
-                  type="range"
-                  id="bots-count"
-                  min="0"
-                  max="400"
-                  step="1"
-                  @input=${this.handleBotsChange}
-                  @change=${this.handleBotsChange}
-                  .value="${String(this.bots)}"
-                />
-                <div class="option-card-title">
-                  <span>${translateText("single_modal.bots")}</span>${this
-                    .bots === 0
-                    ? translateText("single_modal.bots_disabled")
-                    : this.bots}
-                </div>
-              </label>
-
-              <label
-                for="singleplayer-modal-disable-npcs"
-                class="option-card ${this.disableNPCs ? "selected" : ""}"
-              >
-                <div class="checkbox-icon"></div>
-                <input
-                  type="checkbox"
-                  id="singleplayer-modal-disable-npcs"
-                  @change=${this.handleDisableNPCsChange}
-                  .checked=${this.disableNPCs}
-                />
-                <div class="option-card-title">
-                  ${translateText("single_modal.disable_nations")}
-                </div>
-              </label>
-              <label
-                for="singleplayer-modal-instant-build"
-                class="option-card ${this.instantBuild ? "selected" : ""}"
-              >
-                <div class="checkbox-icon"></div>
-                <input
-                  type="checkbox"
-                  id="singleplayer-modal-instant-build"
-                  @change=${this.handleInstantBuildChange}
-                  .checked=${this.instantBuild}
-                />
-                <div class="option-card-title">
-                  ${translateText("single_modal.instant_build")}
-                </div>
-              </label>
-
-              <label
-                for="singleplayer-modal-instant-research-human"
-                class="option-card ${this.instantResearchHumanOnly
-                  ? "selected"
-                  : ""}"
-              >
-                <div class="checkbox-icon"></div>
-                <input
-                  type="checkbox"
-                  id="singleplayer-modal-instant-research-human"
-                  @change=${this.handleInstantResearchHumanOnlyChange}
-                  .checked=${this.instantResearchHumanOnly}
-                />
-                <div class="option-card-title">
-                  ${translateText("single_modal.instant_research")}
-                </div>
-              </label>
-
-              <label
-                for="singleplayer-modal-research-all-techs"
-                class="option-card ${this.researchAllTechs ? "selected" : ""}"
-              >
-                <div class="checkbox-icon"></div>
-                <input
-                  type="checkbox"
-                  id="singleplayer-modal-research-all-techs"
-                  @change=${(e: Event) =>
-                    (this.researchAllTechs = Boolean(
-                      (e.target as HTMLInputElement).checked,
-                    ))}
-                  .checked=${this.researchAllTechs}
-                />
-                <div class="option-card-title">
-                  ${translateText("single_modal.research_all_techs")}
-                </div>
-              </label>
-
-              <label
-                for="singleplayer-modal-infinite-gold"
-                class="option-card ${this.infiniteGold ? "selected" : ""}"
-              >
-                <div class="checkbox-icon"></div>
-                <input
-                  type="checkbox"
-                  id="singleplayer-modal-infinite-gold"
-                  @change=${this.handleInfiniteGoldChange}
-                  .checked=${this.infiniteGold}
-                />
-                <div class="option-card-title">
-                  ${translateText("single_modal.infinite_gold")}
-                </div>
-              </label>
-
-              <label
-                for="singleplayer-modal-infinite-troops"
-                class="option-card ${this.infiniteTroops ? "selected" : ""}"
-              >
-                <div class="checkbox-icon"></div>
-                <input
-                  type="checkbox"
-                  id="singleplayer-modal-infinite-troops"
-                  @change=${this.handleInfiniteTroopsChange}
-                  .checked=${this.infiniteTroops}
-                />
-                <div class="option-card-title">
-                  ${translateText("single_modal.infinite_troops")}
-                </div>
-              </label>
-
-              <label for="starting-gold" class="option-card">
-                <div class="option-card-title">
-                  ${translateText("starting_gold.label")}
-                </div>
-                <select
-                  id="starting-gold"
-                  class="peace-timer-select"
-                  @change=${this.handleStartingGoldChange}
-                  .value="${String(this.startingGold)}"
+                <!-- Toggle Grid: 3 Columns -->
+                <div
+                  class="sp-btn-grid"
+                  style="grid-template-columns: repeat(3, 1fr);"
                 >
-                  ${StartingGoldValues.map(
-                    (value) => html`
-                      <option value="${value}">
-                        ${formatStartingGold(value)}
-                      </option>
-                    `,
+                  ${this.renderToggle(
+                    this.disableNPCs,
+                    "single_modal.disable_nations",
+                    this.handleDisableNPCsChange,
                   )}
-                </select>
-              </label>
-
-              <label for="peace-timer" class="option-card">
-                <div class="option-card-title">
-                  ${translateText("host_modal.peace_timer")}
+                  ${this.renderToggle(
+                    this.instantBuild,
+                    "single_modal.instant_build",
+                    this.handleInstantBuildChange,
+                  )}
+                  ${this.renderToggle(
+                    this.instantResearchHumanOnly,
+                    "single_modal.instant_research",
+                    this.handleInstantResearchHumanOnlyChange,
+                  )}
+                  ${this.renderToggle(
+                    this.researchAllTechs,
+                    "single_modal.research_all_techs",
+                    (e: any) => (this.researchAllTechs = e.target.checked),
+                  )}
+                  ${this.renderToggle(
+                    this.infiniteGold,
+                    "single_modal.infinite_gold",
+                    this.handleInfiniteGoldChange,
+                  )}
+                  ${this.renderToggle(
+                    this.infiniteTroops,
+                    "single_modal.infinite_troops",
+                    this.handleInfiniteTroopsChange,
+                  )}
                 </div>
-                <select
-                  id="peace-timer"
-                  class="peace-timer-select"
-                  @change=${this.handlePeaceTimerChange}
-                  .value="${String(this.selectedPeaceTimerDuration)}"
+              </div>
+
+              <!-- Extra Settings (Animated Smooth Open/Close) -->
+              <div class="sp-section">
+                <div
+                  @click=${() =>
+                    (this.showUnitSettings = !this.showUnitSettings)}
+                  class="sp-collapse-header"
                 >
-                  ${Object.values(PeaceTimerDuration)
-                    .filter((value) => typeof value === "number")
-                    .map(
-                      (value) => html`
-                        <option value="${value}">
-                          ${value === PeaceTimerDuration.None
-                            ? translateText("host_modal.peace_timer_none")
-                            : translateText("host_modal.peace_timer_minutes", {
-                                minutes: value,
-                              })}
-                        </option>
-                      `,
-                    )}
-                </select>
-              </label>
-            </div>
+                  <span>Extra Settings</span>
+                  <span style="color:var(--ui-secondary); font-size:12px;"
+                    >${this.showUnitSettings ? "▼" : "▶"}</span
+                  >
+                </div>
 
-            <hr
-              style="width: 100%; border-top: 1px solid var(--ui-border-muted); margin: 16px 0;"
-            />
-            <div
-              style="margin: 8px 0 12px 0; font-weight: bold; color: var(--ui-text-muted); text-align: center;"
-            >
-              ${translateText("single_modal.enables_title")}
+                <div
+                  class="sp-collapse-grid ${this.showUnitSettings
+                    ? "open"
+                    : ""}"
+                >
+                  <div class="sp-collapse-inner">
+                    <div class="flex flex-wrap gap-2 justify-center mt-3">
+                      ${renderUnitTypeOptions({
+                        disabledUnits: this.disabledUnits,
+                        toggleUnit: this.toggleUnit.bind(this),
+                      }).map(
+                        (template) =>
+                          html`<div
+                            style="transform: scale(0.85); margin: -2px;"
+                          >
+                            ${template}
+                          </div>`,
+                      )}
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- START BUTTON -->
+              <div style="margin-top: 4px; padding-bottom: 8px;">
+                <o-button
+                  title=${translateText("single_modal.start")}
+                  @click=${this.startGame}
+                  block
+                ></o-button>
+              </div>
             </div>
-            <div
-              style="display: flex; flex-wrap: wrap; justify-content: center; gap: 12px;"
-            >
-              ${renderUnitTypeOptions({
-                disabledUnits: this.disabledUnits,
-                toggleUnit: this.toggleUnit.bind(this),
-              })}
-            </div>
+            <!-- End Scroll Area -->
           </div>
+          <!-- End Right Col -->
         </div>
-
-        <o-button
-          title=${translateText("single_modal.start")}
-          @click=${this.startGame}
-          blockDesktop
-        ></o-button>
       </o-modal>
+    `;
+  }
+
+  private cycleDifficulty() {
+    const modes = [
+      Difficulty.Easy,
+      Difficulty.Medium,
+      Difficulty.Hard,
+      Difficulty.Impossible,
+    ];
+    const idx = modes.indexOf(this.selectedDifficulty);
+    this.selectedDifficulty = modes[(idx + 1) % modes.length];
+  }
+
+  private cycleGameMode() {
+    this.gameMode =
+      this.gameMode === GameMode.FFA ? GameMode.Team : GameMode.FFA;
+  }
+
+  private renderToggle(
+    checked: boolean,
+    labelKey: string,
+    onChange: (e: any) => void,
+  ) {
+    return html`
+      <label class="sp-btn ${checked ? "selected" : ""}">
+        <div class="sp-check"></div>
+        <input
+          type="checkbox"
+          class="hidden"
+          .checked=${checked}
+          @change=${onChange}
+        />
+        <span class="sp-btn-label">${translateText(labelKey)}</span>
+      </label>
     `;
   }
 
@@ -415,6 +731,7 @@ export class SinglePlayerModal extends LitElement {
     this.modalEl?.open();
     this.useRandomMap = false;
     this.startingGold = 0;
+    this.showUnitSettings = true;
   }
 
   public close() {

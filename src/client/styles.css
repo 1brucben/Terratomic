@@ -1,6 +1,7 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
 /* Local Overpass font faces */
 @font-face {
   font-family: "Overpass";
@@ -9,6 +10,7 @@
   font-style: normal;
   font-display: swap;
 }
+
 @font-face {
   font-family: "Overpass";
   src: url("/resources/fonts/overpass-bold.woff") format("woff");
@@ -16,6 +18,7 @@
   font-style: normal;
   font-display: swap;
 }
+
 /* Local Oswald font faces (woff2) */
 @font-face {
   font-family: "Oswald";
@@ -24,6 +27,7 @@
   font-style: normal;
   font-display: swap;
 }
+
 @font-face {
   font-family: "Oswald";
   src: url("/resources/fonts/oswald-v57-latin-500.woff2") format("woff2");
@@ -31,6 +35,7 @@
   font-style: normal;
   font-display: swap;
 }
+
 @font-face {
   font-family: "Oswald";
   src: url("/resources/fonts/oswald-v57-latin-600.woff2") format("woff2");
@@ -38,6 +43,7 @@
   font-style: normal;
   font-display: swap;
 }
+
 @font-face {
   font-family: "Oswald";
   src: url("/resources/fonts/oswald-v57-latin-700.woff2") format("woff2");
@@ -45,6 +51,7 @@
   font-style: normal;
   font-display: swap;
 }
+
 @import url("./styles/core/variables.css");
 @import url("./styles/core/typography.css");
 @import url("./styles/layout/header.css");
@@ -57,6 +64,7 @@
 @import url("./styles/components/setting.css");
 @import url("./styles/components/controls.css");
 @import url("./styles/core/cursors.css");
+
 :root {
   --ui-scale: 1;
 }
@@ -67,6 +75,7 @@
   transform-origin: var(--ui-scale-origin);
   transform: scale(calc(var(--ui-scale) * var(--ui-scale-base)));
 }
+
 * {
   -webkit-box-sizing: border-box;
   -moz-box-sizing: border-box;
@@ -121,6 +130,30 @@
   cursor: not-allowed;
 }
 
+/* Two-column modal layout */
+.modal-two-column-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+  margin: 16px 0;
+}
+
+.modal-left-column {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.modal-right-column {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.modal-full-width {
+  grid-column: 1 / -1;
+}
+
 .options-layout {
   display: grid;
   grid-template-columns: 1fr;
@@ -173,10 +206,12 @@
 
 .option-card.selected {
   border-color: var(--ui-primary);
-  background: rgba(14, 26, 51, 0.35); /* deeper translucent navy */
+  background: rgba(14, 26, 51, 0.35);
+  /* deeper translucent navy */
   box-shadow:
     0 0 0 2px rgba(39, 71, 110, 0.5),
-    0 0 12px rgba(39, 71, 110, 0.35); /* subtle blue halo */
+    0 0 12px rgba(39, 71, 110, 0.35);
+  /* subtle blue halo */
 }
 
 .option-card-title {
@@ -246,7 +281,8 @@ label.option-card:hover {
 
 .copy-success {
   position: relative;
-  color: var(--ui-text-accent); /* blue-300 */
+  color: var(--ui-text-accent);
+  /* blue-300 */
   font-size: 14px;
   margin-top: 5px;
 }
@@ -254,7 +290,8 @@ label.option-card:hover {
 .copy-success-icon {
   width: 18px;
   height: 18px;
-  color: var(--ui-text-accent); /* blue-300 */
+  color: var(--ui-text-accent);
+  /* blue-300 */
 }
 
 .lobby-id-box {
@@ -315,6 +352,7 @@ label.option-card:hover {
   border-radius: 16px;
   font-size: 14px;
 }
+
 #bots-count,
 #private-lobby-bots-count {
   width: 80%;
@@ -322,7 +360,8 @@ label.option-card:hover {
   -webkit-appearance: none;
   -moz-appearance: none;
   appearance: none;
-  background: transparent; /* ensure no white base behind custom track */
+  background: transparent;
+  /* ensure no white base behind custom track */
   border: none;
 }
 
@@ -330,13 +369,15 @@ label.option-card:hover {
 #bots-count::-moz-range-track,
 #private-lobby-bots-count::-moz-range-track {
   height: 8px;
-  background: var(--ui-panel-border); /* deep navy remainder track */
+  background: var(--ui-panel-border);
+  /* deep navy remainder track */
 }
 
 #bots-count::-moz-range-progress,
 #private-lobby-bots-count::-moz-range-progress {
   height: 8px;
-  background-color: var(--ui-primary); /* filled track */
+  background-color: var(--ui-primary);
+  /* filled track */
 }
 
 #bots-count::-moz-range-thumb,
@@ -528,6 +569,7 @@ label.option-card:hover {
     max-width: 100vw;
     width: 100%;
   }
+
   #error-modal {
     max-width: 575px;
   }
@@ -699,6 +741,7 @@ label.option-card:hover {
 .leaderboard-row:hover {
   background-color: var(--ui-table-row-hover);
 }
+
 .peace-timer-select {
   background-color: var(--ui-panel-shell-bottom);
   color: var(--ui-text-light);
