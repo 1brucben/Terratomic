@@ -7,12 +7,15 @@ export class DoomsdayActivationExecution implements Execution {
   private mg: Game;
   private device: Unit;
   private spreadTiles: Set<TileRef> = new Set();
+  // Legacy wavefront fields retained for now (unused after radial refactor)
   private currentWavefront: Set<TileRef> = new Set();
   private processedTiles: Set<TileRef> = new Set();
-  private spreadSpeed = 2; // tiles per tick
-  private totalTilesToSpread: number;
+  private spreadSpeed = 500; // tiles per tick (radial expansion)
   private random: PseudoRandom;
   private damageApplied = false;
+  // Radial expansion data
+  private sortedLandTiles: TileRef[] = [];
+  private expansionIndex = 0;
 
   constructor(
     private player: Player,
@@ -26,12 +29,48 @@ export class DoomsdayActivationExecution implements Execution {
     this.mg = mg;
     this.random = new PseudoRandom(ticks);
 
-    // Calculate 50% of all land tiles
-    this.totalTilesToSpread = Math.floor(this.mg.numLandTiles() * 0.5);
+    // Build sorted land tile list (ascending Euclidean distance from device)
+    const landTiles: TileRef[] = [];
+    this.mg.forEachTile((t) => {
+      if (this.mg.isLand(t)) landTiles.push(t);
+    });
+    landTiles.sort(
+      (a, b) =>
+        this.mg.euclideanDistSquared(this.deviceTile, a) -
+        this.mg.euclideanDistSquared(this.deviceTile, b),
+    );
+    this.sortedLandTiles = landTiles;
+    console.log(
+      `[Doomsday] Initialized. Total land tiles: ${this.sortedLandTiles.length}. Using 50% probabilistic fallout per tile encountered.`,
+    );
 
-    // Initialize wavefront at device location
-    this.currentWavefront.add(this.deviceTile);
-    this.processedTiles.add(this.deviceTile);
+    // Mark device tile processed immediately if land & first element
+    if (this.mg.isLand(this.deviceTile)) {
+      this.spreadTiles.add(this.deviceTile);
+      // Ensure fallout on starting tile if unowned
+      if (this.mg.hasOwner(this.deviceTile)) {
+        const owner = this.mg.owner(this.deviceTile);
+        if (owner.isPlayer()) {
+          try {
+            owner.relinquish(this.deviceTile);
+          } catch (e) {
+            console.error(
+              `[Doomsday] Failed to relinquish device tile ${this.deviceTile}:`,
+              e,
+            );
+          }
+        }
+      }
+      try {
+        this.mg.setFallout(this.deviceTile, true);
+      } catch (e) {
+        console.error(
+          `[Doomsday] Failed to set fallout on device tile ${this.deviceTile}:`,
+          e,
+        );
+      }
+      this.expansionIndex = 1; // start expanding from next tile in sorted list
+    }
 
     // Apply hydrogen bomb FX at device location
     this.mg.bomberExplosion(this.deviceTile, 160, this.player);
@@ -60,66 +99,74 @@ export class DoomsdayActivationExecution implements Execution {
       this.damageApplied = true;
     }
 
-    // Spread fallout gradually
-    if (this.spreadTiles.size < this.totalTilesToSpread) {
+    // Spread fallout until we've processed all land tiles
+    if (this.expansionIndex < this.sortedLandTiles.length) {
       this.spreadFallout();
     } else {
-      // Finished spreading
+      console.log(
+        `[Doomsday] Finished processing all land tiles. Fallout tiles: ${this.spreadTiles.size}. Deactivating.`,
+      );
       this.active = false;
     }
   }
 
   private applyGlobalDamage(): void {
+    console.log(`[Doomsday] Applying global damage.`);
     const allUnits = this.mg.units();
+    let unitsDamaged = 0;
 
     for (const unit of allUnits) {
       if (unit.hasHealth()) {
         const currentHealth = Number(unit.health());
         const damage = Math.floor(currentHealth * 0.8);
         unit.modifyHealth(-damage);
+        unitsDamaged++;
       }
     }
+    console.log(`[Doomsday] Damaged ${unitsDamaged} units.`);
   }
 
+  // Radial (Euclidean) expansion with per-tile 50% probability for fallout
   private spreadFallout(): void {
-    const nextWavefront: Set<TileRef> = new Set();
-    let tilesAddedThisTick = 0;
-
-    // Expand from current wavefront
-    for (const tile of this.currentWavefront) {
-      if (tilesAddedThisTick >= this.spreadSpeed) break;
-
-      // Get neighbors
-      const neighbors = this.mg.neighbors(tile);
-
-      for (const neighbor of neighbors) {
-        if (this.processedTiles.has(neighbor)) continue;
-        if (this.spreadTiles.size >= this.totalTilesToSpread) break;
-
-        this.processedTiles.add(neighbor);
-
-        // Only spread to land tiles
-        if (this.mg.isLand(neighbor)) {
-          // 50% of tiles get fallout (but we're already limiting total count)
-          // Since we want exactly 50% of all land tiles, we can be more selective
-          if (this.spreadTiles.size < this.totalTilesToSpread) {
-            this.spreadTiles.add(neighbor);
-            this.mg.setFallout(neighbor, true);
-            tilesAddedThisTick++;
+    let processed = 0;
+    let newFallout = 0;
+    const startIndex = this.expansionIndex;
+    while (
+      processed < this.spreadSpeed &&
+      this.expansionIndex < this.sortedLandTiles.length
+    ) {
+      const tile = this.sortedLandTiles[this.expansionIndex];
+      this.expansionIndex++;
+      processed++;
+      if (!this.mg.isLand(tile)) continue;
+      // Relinquish if owned
+      if (this.mg.hasOwner(tile)) {
+        const owner = this.mg.owner(tile);
+        if (owner.isPlayer()) {
+          try {
+            owner.relinquish(tile);
+          } catch (e) {
+            console.error(`[Doomsday] Failed to relinquish tile ${tile}:`, e);
+            continue; // skip setting fallout if relinquish failed
           }
         }
-
-        // Add to next wavefront for continued spreading
-        nextWavefront.add(neighbor);
+      }
+      // 50% chance for fallout
+      if (this.random.next() < 0.5) {
+        try {
+          this.mg.setFallout(tile, true);
+          this.spreadTiles.add(tile);
+          newFallout++;
+        } catch (e) {
+          console.error(`[Doomsday] Failed to set fallout on tile ${tile}:`, e);
+        }
       }
     }
-
-    // Update wavefront for next tick
-    this.currentWavefront = nextWavefront;
-
-    // If no more tiles to expand to, we're done
-    if (this.currentWavefront.size === 0) {
-      this.active = false;
+    console.log(
+      `[Doomsday] Tick radial processing: tiles ${startIndex}->${this.expansionIndex} (processed ${processed}), new fallout ${newFallout}, total fallout ${this.spreadTiles.size}.`,
+    );
+    if (this.expansionIndex >= this.sortedLandTiles.length) {
+      console.log(`[Doomsday] All land tiles processed.`);
     }
   }
 
