@@ -54,6 +54,12 @@ export class MirvExecution implements Execution {
     // Record stats
     this.mg.stats().bombLaunch(this.player, this.targetPlayer, UnitType.MIRV);
 
+    // War declaration and aggression tracking for MIRV launch
+    this.player.setWarWith(this.targetPlayer);
+    this.targetPlayer.setWarWith(this.player);
+    this.player.recordAggression(this.targetPlayer);
+    this.targetPlayer.recordAggression(this.player);
+
     // Betrayal on launch
     if (this.targetPlayer.isPlayer()) {
       const alliance = this.player.allianceWith(this.targetPlayer);
