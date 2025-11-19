@@ -1,3 +1,4 @@
+import * as PIXI from "pixi.js";
 import miniBigSmoke from "../../../resources/sprites/bigsmoke.png";
 import miniExplosion from "../../../resources/sprites/miniExplosion.png";
 import miniFire from "../../../resources/sprites/minifire.png";
@@ -227,5 +228,40 @@ export class AnimatedSpriteLoader {
       );
     }
     return this.createRegularAnimatedSprite(fxType, scale);
+  }
+
+  public getPixiTextures(
+    fxType: FxType,
+    owner?: PlayerView,
+    theme?: Theme,
+  ): PIXI.Texture[] | null {
+    const config = ANIMATED_SPRITE_CONFIG[fxType];
+    if (!config) return null;
+
+    let image: CanvasImageSource | null = null;
+    if (owner && theme) {
+      image = this.getColoredAnimatedSprite(owner, fxType, theme);
+    } else {
+      image = this.animatedSpriteImageMap.get(fxType) || null;
+    }
+
+    if (!image) return null;
+
+    const base = PIXI.Texture.from(image as any);
+    const textures: PIXI.Texture[] = [];
+    for (let i = 0; i < config.frameCount; i++) {
+      const rect = new PIXI.Rectangle(
+        i * config.frameWidth,
+        0,
+        config.frameWidth,
+        (image as any).height,
+      );
+      textures.push(new PIXI.Texture({ source: base.source, frame: rect }));
+    }
+    return textures;
+  }
+
+  public getConfig(fxType: FxType) {
+    return ANIMATED_SPRITE_CONFIG[fxType];
   }
 }

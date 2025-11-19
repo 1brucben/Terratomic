@@ -1,3 +1,4 @@
+import * as PIXI from "pixi.js";
 import { GameView } from "../../../core/game/GameView";
 import { AnimatedSpriteLoader } from "../AnimatedSpriteLoader";
 import { Fx, FxType } from "./Fx";
@@ -8,26 +9,38 @@ import { FadeFx, SpriteFx } from "./SpriteFx";
  */
 export class ShockwaveFx implements Fx {
   private lifeTime: number = 0;
+  private graphics: PIXI.Graphics;
+  private container: PIXI.Container;
+
   constructor(
     private x: number,
     private y: number,
     private duration: number,
     private maxRadius: number,
-  ) {}
+  ) {
+    this.container = new PIXI.Container();
+    this.container.position.set(x, y);
+    this.graphics = new PIXI.Graphics();
+    this.container.addChild(this.graphics);
+  }
 
-  renderTick(frameTime: number, ctx: CanvasRenderingContext2D): boolean {
-    this.lifeTime += frameTime;
+  update(delta: number): boolean {
+    this.lifeTime += delta;
     if (this.lifeTime >= this.duration) {
       return false;
     }
     const t = this.lifeTime / this.duration;
     const radius = t * this.maxRadius;
-    ctx.beginPath();
-    ctx.arc(this.x, this.y, radius, 0, Math.PI * 2);
-    ctx.strokeStyle = "rgba(255, 255, 255, " + (1 - t) + ")";
-    ctx.lineWidth = 0.5;
-    ctx.stroke();
+
+    this.graphics.clear();
+    this.graphics.circle(0, 0, radius);
+    this.graphics.stroke({ width: 0.5, color: 0xffffff, alpha: 1 - t });
+
     return true;
+  }
+
+  getDisplayObject(): PIXI.Container {
+    return this.container;
   }
 }
 

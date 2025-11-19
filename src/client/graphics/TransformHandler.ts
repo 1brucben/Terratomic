@@ -293,4 +293,12 @@ export class TransformHandler {
 
     this.override(oHor, oVer, tScale);
   }
+
+  getTransform() {
+    return {
+      scale: this.scale,
+      translateX: this.game.width() / 2 - this.offsetX * this.scale,
+      translateY: this.game.height() / 2 - this.offsetY * this.scale,
+    };
+  }
 }

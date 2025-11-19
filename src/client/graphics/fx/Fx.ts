@@ -1,5 +1,8 @@
+import * as PIXI from "pixi.js";
+
 export interface Fx {
-  renderTick(duration: number, ctx: CanvasRenderingContext2D): boolean;
+  update(delta: number): boolean;
+  getDisplayObject(): PIXI.Container;
 }
 
 export enum FxType {

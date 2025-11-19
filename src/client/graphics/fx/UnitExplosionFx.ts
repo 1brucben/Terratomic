@@ -1,3 +1,4 @@
+import * as PIXI from "pixi.js";
 import { GameView } from "../../../core/game/GameView";
 import { AnimatedSpriteLoader } from "../AnimatedSpriteLoader";
 import { Fx, FxType } from "./Fx";
@@ -10,6 +11,7 @@ import { Timeline } from "./Timeline";
 export class UnitExplosionFx implements Fx {
   private timeline = new Timeline();
   private explosions: Fx[] = [];
+  private container: PIXI.Container;
 
   constructor(
     animatedSpriteLoader: AnimatedSpriteLoader,
@@ -17,6 +19,7 @@ export class UnitExplosionFx implements Fx {
     private y: number,
     game: GameView,
   ) {
+    this.container = new PIXI.Container();
     const config = [
       { dx: 0, dy: 0, delay: 0, type: FxType.UnitExplosion },
       { dx: 4, dy: -6, delay: 80, type: FxType.UnitExplosion },
@@ -25,23 +28,32 @@ export class UnitExplosionFx implements Fx {
     for (const { dx, dy, delay, type } of config) {
       this.timeline.add(delay, () => {
         if (game.isValidCoord(x + dx, y + dy)) {
-          this.explosions.push(
-            new SpriteFx(animatedSpriteLoader, x + dx, y + dy, type),
-          );
+          const fx = new SpriteFx(animatedSpriteLoader, x + dx, y + dy, type);
+          this.explosions.push(fx);
+          this.container.addChild(fx.getDisplayObject());
         }
       });
     }
   }
 
-  renderTick(frameTime: number, ctx: CanvasRenderingContext2D): boolean {
-    this.timeline.update(frameTime);
+  update(delta: number): boolean {
+    this.timeline.update(delta);
     let allDone = true;
-    for (const fx of this.explosions) {
-      if (fx.renderTick(frameTime, ctx)) {
+
+    for (let i = this.explosions.length - 1; i >= 0; i--) {
+      const fx = this.explosions[i];
+      if (!fx.update(delta)) {
+        this.container.removeChild(fx.getDisplayObject());
+        this.explosions.splice(i, 1);
+      } else {
         allDone = false;
       }
     }
 
     return !allDone || !this.timeline.isComplete();
+  }
+
+  getDisplayObject(): PIXI.Container {
+    return this.container;
   }
 }

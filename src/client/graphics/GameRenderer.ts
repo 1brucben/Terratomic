@@ -252,7 +252,7 @@ export function createRenderer(
     new RangeOverlayLayer(game, eventBus, transformHandler, uiState),
     structureLayer,
     new UnitLayer(game, eventBus, transformHandler, uiState),
-    new FxLayer(game),
+    new FxLayer(game, transformHandler),
     // Draw name labels in world space along with other transformed layers
     new NameLayer(game, transformHandler, eventBus),
     // UI layer comes after world-space drawing to minimize save/restore

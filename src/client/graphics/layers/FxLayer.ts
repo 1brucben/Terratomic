@@ -1,5 +1,6 @@
+import * as PIXI from "pixi.js";
 import { Theme } from "../../../core/configuration/Config";
-import { UnitType } from "../../../core/game/Game";
+import { Cell, UnitType } from "../../../core/game/Game";
 import { GameUpdateType } from "../../../core/game/GameUpdates";
 import { GameView, UnitView } from "../../../core/game/GameView";
 import { AnimatedSpriteLoader } from "../AnimatedSpriteLoader";
@@ -7,11 +8,20 @@ import { Fx, FxType } from "../fx/Fx";
 import { doomsdayFxFactory, nukeFxFactory, ShockwaveFx } from "../fx/NukeFx";
 import { SpriteFx } from "../fx/SpriteFx";
 import { UnitExplosionFx } from "../fx/UnitExplosionFx";
+import { TransformHandler } from "../TransformHandler";
 import { Layer } from "./Layer";
 
+// Store FX with world coordinates for repositioning on camera changes
+interface FxInfo {
+  fx: Fx;
+  worldX: number;
+  worldY: number;
+}
+
 export class FxLayer implements Layer {
-  private canvas: HTMLCanvasElement;
-  private context: CanvasRenderingContext2D;
+  private renderer: PIXI.Renderer;
+  private stage: PIXI.Container;
+  private pixicanvas: HTMLCanvasElement;
 
   private lastRefresh: number = 0;
   // Target ~60 FPS for FX layer to reduce CPU (was 10ms ~= 100 FPS)
@@ -22,14 +32,52 @@ export class FxLayer implements Layer {
   private animatedSpriteLoader: AnimatedSpriteLoader =
     new AnimatedSpriteLoader();
 
-  private allFx: Fx[] = [];
+  private allFx: FxInfo[] = [];
 
-  constructor(private game: GameView) {
+  constructor(
+    private game: GameView,
+    private transformHandler: TransformHandler,
+  ) {
     this.theme = this.game.config().theme();
   }
 
   shouldTransform(): boolean {
-    return true;
+    return false;
+  }
+
+  async init() {
+    this.renderer = new PIXI.WebGLRenderer();
+    this.pixicanvas = document.createElement("canvas");
+    this.pixicanvas.width = window.innerWidth;
+    this.pixicanvas.height = window.innerHeight;
+    this.stage = new PIXI.Container();
+    // Set pivot to origin so scaling happens around (0,0)
+    this.stage.pivot.set(0, 0);
+
+    await this.renderer.init({
+      canvas: this.pixicanvas,
+      width: this.pixicanvas.width,
+      height: this.pixicanvas.height,
+      backgroundAlpha: 0,
+      clearBeforeRender: true,
+    });
+
+    window.addEventListener("resize", () => this.resizeCanvas());
+
+    try {
+      await this.animatedSpriteLoader.loadAllAnimatedSpriteImages();
+      console.log("FX sprites loaded successfully");
+    } catch (err) {
+      console.error("Failed to load FX sprites:", err);
+    }
+  }
+
+  resizeCanvas() {
+    if (this.renderer) {
+      this.pixicanvas.width = window.innerWidth;
+      this.pixicanvas.height = window.innerHeight;
+      this.renderer.resize(window.innerWidth, window.innerHeight);
+    }
   }
 
   tick() {
@@ -44,35 +92,40 @@ export class FxLayer implements Layer {
     this.game
       .updatesSinceLastTick()
       ?.[GameUpdateType.BomberExplosion]?.forEach((update) => {
-        const { x, y, radius } = update;
         const bomberFx = nukeFxFactory(
           this.animatedSpriteLoader,
-          x,
-          y,
-          radius,
+          0,
+          0,
+          update.radius,
           this.game,
           0.2,
         );
-        for (const fx of bomberFx) {
-          this.allFx.push(fx);
-        }
+        this.addFx(bomberFx, update.x, update.y);
       });
 
     this.game
       .updatesSinceLastTick()
       ?.[GameUpdateType.DoomsdayExplosion]?.forEach((update) => {
-        const { x, y, radius } = update;
         const doomFx = doomsdayFxFactory(
           this.animatedSpriteLoader,
-          x,
-          y,
-          radius,
+          0,
+          0,
+          update.radius,
           this.game,
         );
-        for (const fx of doomFx) {
-          this.allFx.push(fx);
-        }
+        this.addFx(doomFx, update.x, update.y);
       });
+  }
+
+  private addFx(fx: Fx | Fx[], worldX: number, worldY: number) {
+    const list = Array.isArray(fx) ? fx : [fx];
+    for (const f of list) {
+      const info: FxInfo = { fx: f, worldX, worldY };
+      this.allFx.push(info);
+      this.stage.addChild(f.getDisplayObject());
+      // Set initial screen position
+      this.updateFxPosition(info);
+    }
   }
 
   onUnitEvent(unit: UnitView) {
@@ -96,40 +149,40 @@ export class FxLayer implements Layer {
   onShellEvent(unit: UnitView) {
     if (!unit.isActive()) {
       if (unit.reachedTarget()) {
-        const x = this.game.x(unit.lastTile());
-        const y = this.game.y(unit.lastTile());
+        const worldX = this.game.x(unit.lastTile());
+        const worldY = this.game.y(unit.lastTile());
         const shipExplosion = new SpriteFx(
           this.animatedSpriteLoader,
-          x,
-          y,
+          0,
+          0,
           FxType.MiniExplosion,
         );
-        this.allFx.push(shipExplosion);
+        this.addFx(shipExplosion, worldX, worldY);
       }
     }
   }
 
   onWarshipEvent(unit: UnitView) {
     if (!unit.isActive()) {
-      const x = this.game.x(unit.lastTile());
-      const y = this.game.y(unit.lastTile());
+      const worldX = this.game.x(unit.lastTile());
+      const worldY = this.game.y(unit.lastTile());
       const shipExplosion = new UnitExplosionFx(
         this.animatedSpriteLoader,
-        x,
-        y,
+        0,
+        0,
         this.game,
       );
-      this.allFx.push(shipExplosion);
+      this.addFx(shipExplosion, worldX, worldY);
       const sinkingShip = new SpriteFx(
         this.animatedSpriteLoader,
-        x,
-        y,
+        0,
+        0,
         FxType.SinkingShip,
         undefined,
         unit.owner(),
         this.theme,
       );
-      this.allFx.push(sinkingShip);
+      this.addFx(sinkingShip, worldX, worldY);
     }
   }
 
@@ -145,108 +198,88 @@ export class FxLayer implements Layer {
   }
 
   handleNukeExplosion(unit: UnitView, radius: number) {
-    const x = this.game.x(unit.lastTile());
-    const y = this.game.y(unit.lastTile());
+    const worldX = this.game.x(unit.lastTile());
+    const worldY = this.game.y(unit.lastTile());
     const nukeFx = nukeFxFactory(
       this.animatedSpriteLoader,
-      x,
-      y,
+      0,
+      0,
       radius,
       this.game,
     );
-    for (const fx of nukeFx) {
-      this.allFx.push(fx);
-    }
+    this.addFx(nukeFx, worldX, worldY);
   }
 
   handleSAMInterception(unit: UnitView) {
-    const x = this.game.x(unit.lastTile());
-    const y = this.game.y(unit.lastTile());
+    const worldX = this.game.x(unit.lastTile());
+    const worldY = this.game.y(unit.lastTile());
     const explosion = new SpriteFx(
       this.animatedSpriteLoader,
-      x,
-      y,
+      0,
+      0,
       FxType.SAMExplosion,
     );
-    this.allFx.push(explosion);
-    const shockwave = new ShockwaveFx(x, y, 800, 40);
-    this.allFx.push(shockwave);
-  }
-
-  async init() {
-    this.redraw();
-    try {
-      this.animatedSpriteLoader.loadAllAnimatedSpriteImages();
-      console.log("FX sprites loaded successfully");
-    } catch (err) {
-      console.error("Failed to load FX sprites:", err);
-    }
+    this.addFx(explosion, worldX, worldY);
+    const shockwave = new ShockwaveFx(0, 0, 800, 40);
+    this.addFx(shockwave, worldX, worldY);
   }
 
   redraw(): void {
-    this.canvas = document.createElement("canvas");
-    const context = this.canvas.getContext("2d");
-    if (context === null) throw new Error("2d context not supported");
-    this.context = context;
-    this.context.imageSmoothingEnabled = false;
-    this.canvas.width = this.game.width();
-    this.canvas.height = this.game.height();
+    // No-op
+  }
+
+  private updateFxPosition(fxInfo: FxInfo) {
+    const screenPos = this.transformHandler.worldToScreenCoordinates(
+      new Cell(fxInfo.worldX, fxInfo.worldY),
+    );
+    const displayObject = fxInfo.fx.getDisplayObject();
+    displayObject.x = screenPos.x;
+    displayObject.y = screenPos.y;
+    // Scale FX based on zoom level
+    const scale = this.transformHandler.scale;
+    displayObject.scale.set(scale);
   }
 
   renderLayer(context: CanvasRenderingContext2D) {
+    if (!this.renderer) return;
+
     const now = Date.now();
     if (this.game.config().userSettings()?.fxLayer()) {
       if (now > this.lastRefresh + this.refreshRate) {
         const delta = now - this.lastRefresh;
-        this.renderAllFx(context, delta);
+        this.updateFx(delta);
         this.lastRefresh = now;
       }
-      // If the offscreen canvas size matches the game size, use 3-arg drawImage (no scaling) for minor perf gain.
-      // Otherwise, fall back to 5-arg drawImage to scale correctly.
-      if (
-        this.canvas.width === this.game.width() &&
-        this.canvas.height === this.game.height()
-      ) {
-        context.drawImage(
-          this.canvas,
-          -this.game.width() / 2,
-          -this.game.height() / 2,
-        );
-      } else {
-        context.drawImage(
-          this.canvas,
-          -this.game.width() / 2,
-          -this.game.height() / 2,
-          this.game.width(),
-          this.game.height(),
-        );
+
+      // Update FX positions when camera changes (like StructureLayer)
+      if (this.transformHandler.hasChanged()) {
+        for (const fxInfo of this.allFx) {
+          this.updateFxPosition(fxInfo);
+        }
       }
+
+      this.renderer.render(this.stage);
+
+      context.drawImage(this.pixicanvas, 0, 0);
     }
   }
 
-  renderAllFx(context: CanvasRenderingContext2D, delta: number) {
+  updateFx(delta: number) {
     if (this.allFx.length > 0) {
       const t0 = performance.now();
-      this.context.clearRect(0, 0, this.canvas.width, this.canvas.height);
-      this.renderContextFx(delta);
+
+      for (let i = this.allFx.length - 1; i >= 0; i--) {
+        const fxInfo = this.allFx[i];
+        if (!fxInfo.fx.update(delta)) {
+          this.stage.removeChild(fxInfo.fx.getDisplayObject());
+          this.allFx.splice(i, 1);
+        }
+      }
+
       if (this.adaptiveRefresh) {
         const elapsed = performance.now() - t0;
-        // If FX rendering takes longer than ~12ms, drop FX FPS a bit
         this.refreshRate =
           elapsed > 12 ? Math.min(33, Math.ceil(elapsed * 2)) : 16;
-      }
-    }
-  }
-
-  renderContextFx(duration: number) {
-    for (let i = 0; i < this.allFx.length; ) {
-      const fx = this.allFx[i];
-      if (!fx.renderTick(duration, this.context)) {
-        const last = this.allFx.length - 1;
-        if (i !== last) this.allFx[i] = this.allFx[last];
-        this.allFx.pop();
-      } else {
-        i++;
       }
     }
   }
