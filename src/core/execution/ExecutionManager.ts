@@ -11,6 +11,7 @@ import { BoatRetreatExecution } from "./BoatRetreatExecution";
 import { BomberTargetExecution } from "./BomberTargetExecution";
 import { BotSpawner } from "./BotSpawner";
 import { ConstructionExecution } from "./ConstructionExecution";
+import { DeclareWarExecution } from "./DeclareWarExecution";
 import { DonateGoldExecution } from "./DonateGoldExecution";
 import { DonateTroopsExecution } from "./DonateTroopExecution";
 import { EmbargoExecution } from "./EmbargoExecution";
@@ -121,6 +122,8 @@ export class Executor {
         return new BreakAllianceExecution(player, intent.recipient);
       case "peaceRequest":
         return new PeaceRequestExecution(player, intent.recipient);
+      case "declareWar":
+        return new DeclareWarExecution(player, intent.recipient);
       case "targetPlayer":
         return new TargetPlayerExecution(player, intent.target);
       case "emoji":

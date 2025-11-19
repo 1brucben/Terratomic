@@ -880,6 +880,8 @@ export interface PlayerInteraction {
   canBreakAlliance: boolean;
   // New diplomacy: allow requesting peace only when currently at war with the tile owner
   canRequestPeace?: boolean;
+  // Allow declaring war when not currently at war and not allied
+  canDeclareWar?: boolean;
   canTarget: boolean;
   canDonate: boolean;
   canEmbargo: boolean;
