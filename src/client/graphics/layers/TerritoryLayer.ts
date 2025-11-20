@@ -1,5 +1,6 @@
 import { PriorityQueue } from "@datastructures-js/priority-queue";
 import { Colord } from "colord";
+import * as PIXI from "pixi.js";
 import { Theme } from "../../../core/configuration/Config";
 import { EventBus } from "../../../core/EventBus";
 import { Cell, PlayerType, UnitType } from "../../../core/game/Game";
@@ -16,10 +17,21 @@ import { TransformHandler } from "../TransformHandler";
 import { Layer } from "./Layer";
 
 export class TerritoryLayer implements Layer {
-  private canvas: HTMLCanvasElement;
+  // Underlying pixel buffers (still CPU composed for per-tile updates)
+  private canvas: HTMLCanvasElement; // territory base
   private context: CanvasRenderingContext2D;
   private imageData: ImageData;
   private alternativeImageData: ImageData;
+
+  // Highlight overlay (spawn phase, hover highlights)
+  private highlightCanvas: HTMLCanvasElement;
+  private highlightContext: CanvasRenderingContext2D;
+
+  // PIXI objects
+  private renderer: PIXI.Renderer; // dedicated per-layer renderer similar to StructureLayer
+  private stage: PIXI.Container; // root container
+  private territorySprite: PIXI.Sprite; // sprite showing territory texture
+  private highlightSprite: PIXI.Sprite; // sprite showing highlight texture
 
   private tileToRenderQueue: PriorityQueue<{
     tile: TileRef;
@@ -29,10 +41,6 @@ export class TerritoryLayer implements Layer {
   });
   private random = new PseudoRandom(123);
   private theme: Theme;
-
-  // Used for spawn highlighting
-  private highlightCanvas: HTMLCanvasElement;
-  private highlightContext: CanvasRenderingContext2D;
 
   private highlightedTerritory: PlayerView | null = null;
 
@@ -47,6 +55,8 @@ export class TerritoryLayer implements Layer {
   private lastFocusedPlayer: PlayerView | null = null;
   // Track my active wars to redraw only affected territories on change
   private lastMyWars: Set<string> | null = null;
+  // Track spawn phase transitions to manage highlight overlay lifecycle
+  private wasInSpawnPhase: boolean = false;
 
   constructor(
     private game: GameView,
@@ -68,6 +78,41 @@ export class TerritoryLayer implements Layer {
   }
 
   tick() {
+    // Handle spawn-phase enter/exit to keep highlight overlay correct
+    const inSpawn = this.game.inSpawnPhase();
+    if (inSpawn !== this.wasInSpawnPhase) {
+      if (!inSpawn) {
+        // Exiting spawn phase: clear overlay and hide sprite
+        if (this.highlightContext && this.highlightCanvas) {
+          this.highlightContext.clearRect(
+            0,
+            0,
+            this.game.width(),
+            this.game.height(),
+          );
+        }
+        if (this.highlightSprite) {
+          this.highlightSprite.visible = false;
+          this.highlightSprite.texture?.baseTexture.update();
+        }
+      } else {
+        // Entering spawn phase: ensure overlay starts clean and is visible
+        if (this.highlightContext && this.highlightCanvas) {
+          this.highlightContext.clearRect(
+            0,
+            0,
+            this.game.width(),
+            this.game.height(),
+          );
+        }
+        if (this.highlightSprite) {
+          this.highlightSprite.visible = true;
+          this.highlightSprite.texture?.baseTexture.update();
+        }
+      }
+      this.wasInSpawnPhase = inSpawn;
+    }
+
     this.game.recentlyUpdatedTiles().forEach((t) => this.enqueueTile(t));
     const updates = this.game.updatesSinceLastTick();
     const unitUpdates = updates !== null ? updates[GameUpdateType.Unit] : [];
@@ -229,7 +274,10 @@ export class TerritoryLayer implements Layer {
       // TODO: consider re-enabling this on mobile or low end devices for smoother dragging.
       // this.lastDragTime = Date.now();
     });
-    this.redraw();
+    // Initialize spawn-phase state
+    this.wasInSpawnPhase = this.game.inSpawnPhase();
+    // Defer redraw until PIXI renderer is initialized
+    void this.setupRenderer().then(() => this.redraw());
   }
 
   onMouseOver(event: MouseOverEvent) {
@@ -289,7 +337,7 @@ export class TerritoryLayer implements Layer {
   }
 
   redraw() {
-    console.log("redrew territory layer");
+    // Reinitialize CPU canvases & image data buffers
     this.canvas = document.createElement("canvas");
     const context = this.canvas.getContext("2d");
     if (context === null) throw new Error("2d context not supported");
@@ -297,22 +345,18 @@ export class TerritoryLayer implements Layer {
     this.canvas.width = this.game.width();
     this.canvas.height = this.game.height();
 
-    // Allocate blank ImageData buffers rather than reading back from the canvas.
-    // This avoids expensive GPU->CPU readbacks and the Chrome warning about getImageData.
     this.imageData = new ImageData(this.canvas.width, this.canvas.height);
     this.alternativeImageData = new ImageData(
       this.canvas.width,
       this.canvas.height,
     );
     this.initImageData();
-
     this.context.putImageData(
       this.alternativeView ? this.alternativeImageData : this.imageData,
       0,
       0,
     );
 
-    // Add a second canvas for highlights
     this.highlightCanvas = document.createElement("canvas");
     const highlightContext = this.highlightCanvas.getContext("2d", {
       alpha: true,
@@ -322,9 +366,37 @@ export class TerritoryLayer implements Layer {
     this.highlightCanvas.width = this.game.width();
     this.highlightCanvas.height = this.game.height();
 
+    // (Re)build PIXI sprites backed by these canvases
+    const territoryTexture = PIXI.Texture.from(this.canvas);
+    if (this.territorySprite) {
+      this.territorySprite.texture = territoryTexture;
+    } else {
+      this.territorySprite = new PIXI.Sprite(territoryTexture);
+      // Keep sprite at (0,0); transform is applied when compositing into main context
+      this.territorySprite.x = 0;
+      this.territorySprite.y = 0;
+      this.stage.addChild(this.territorySprite);
+    }
+    const highlightTexture = PIXI.Texture.from(this.highlightCanvas);
+    if (this.highlightSprite) {
+      this.highlightSprite.texture = highlightTexture;
+    } else {
+      this.highlightSprite = new PIXI.Sprite(highlightTexture);
+      // Keep sprite at (0,0); transform is applied when compositing
+      this.highlightSprite.x = 0;
+      this.highlightSprite.y = 0;
+      this.stage.addChild(this.highlightSprite);
+    }
+    // Only show highlight overlay during spawn phase
+    if (this.highlightSprite) {
+      this.highlightSprite.visible = this.game.inSpawnPhase();
+    }
+
+    // Draw initial territory tiles
     this.game.forEachTile((t) => {
       this.paintTerritory(t);
     });
+    this.renderer.render(this.stage);
   }
 
   redrawTerritory(territory: PlayerView | PlayerView[]) {
@@ -350,6 +422,10 @@ export class TerritoryLayer implements Layer {
   }
 
   renderLayer(context: CanvasRenderingContext2D) {
+    // If PIXI renderer not ready yet (init still pending), skip this frame.
+    if (!this.renderer || !this.stage || !this.territorySprite) {
+      return;
+    }
     const now = Date.now();
     if (
       now > this.lastDragTime + this.nodrawDragDuration &&
@@ -377,25 +453,30 @@ export class TerritoryLayer implements Layer {
           w,
           h,
         );
+        // Ensure PIXI sees canvas changes
+        this.territorySprite.texture.baseTexture.update();
       }
     }
-
+    // Update highlight overlay canvas if in spawn phase
+    if (this.game.inSpawnPhase() && this.highlightSprite) {
+      this.highlightSprite.texture.baseTexture.update();
+    }
+    // Render combined stage to internal pixi canvas and composite into main context
+    this.renderer.render(this.stage);
+    // Match other transformed layers: draw with world-origin offset
+    if (this.transformHandler.scale < 1) {
+      context.imageSmoothingEnabled = true;
+      context.imageSmoothingQuality = "low";
+    } else {
+      context.imageSmoothingEnabled = false;
+    }
     context.drawImage(
-      this.canvas,
+      this.renderer.canvas,
       -this.game.width() / 2,
       -this.game.height() / 2,
       this.game.width(),
       this.game.height(),
     );
-    if (this.game.inSpawnPhase()) {
-      context.drawImage(
-        this.highlightCanvas,
-        -this.game.width() / 2,
-        -this.game.height() / 2,
-        this.game.width(),
-        this.game.height(),
-      );
-    }
   }
 
   renderTerritory() {
@@ -560,5 +641,19 @@ export class TerritoryLayer implements Layer {
     const x = this.game.x(tile);
     const y = this.game.y(tile);
     this.highlightContext.clearRect(x, y, 1, 1);
+  }
+
+  private async setupRenderer() {
+    this.renderer = new PIXI.WebGLRenderer();
+    this.stage = new PIXI.Container();
+    await this.renderer.init({
+      // Offscreen canvas; final composite happens in renderLayer
+      canvas: document.createElement("canvas"),
+      width: this.game.width(),
+      height: this.game.height(),
+      resolution: 1,
+      backgroundAlpha: 0,
+      clearBeforeRender: true,
+    });
   }
 }
