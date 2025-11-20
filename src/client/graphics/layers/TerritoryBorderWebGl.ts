@@ -287,13 +287,6 @@ export class TerritoryBorderWebGL {
           color = relationColor(v_relation);
           color.a = 1.0;
         } else {
-          // Relationship-based tinting (embargo -> red, friendly -> green)
-          if (hasEmbargo) {
-            color.rgb = mix(color.rgb, vec3(1.0, 0.0, 0.0), 0.35);
-          } else if (hasFriendly) {
-            color.rgb = mix(color.rgb, vec3(0.0, 1.0, 0.0), 0.35);
-          }
-
           // Defended checkerboard pattern using light/dark variants
           if (isDefended) {
             vec3 lightColor = darken(color.rgb, 0.2);
