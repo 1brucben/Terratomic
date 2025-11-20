@@ -51,6 +51,13 @@ export class TerritoryLayer implements Layer {
   private lastMyWars: Set<string> | null = null;
   // Track spawn phase transitions to manage highlight overlay lifecycle
   private wasInSpawnPhase: boolean = false;
+  // Dirty rectangle tracking for territory updates
+  private dirtyMinX: number = Infinity;
+  private dirtyMinY: number = Infinity;
+  private dirtyMaxX: number = -Infinity;
+  private dirtyMaxY: number = -Infinity;
+  private territoryDirty: boolean = false;
+  private altViewDirty: boolean = false;
 
   constructor(
     private game: GameView,
@@ -261,6 +268,7 @@ export class TerritoryLayer implements Layer {
     this.eventBus.on(MouseOverEvent, (e) => this.onMouseOver(e));
     this.eventBus.on(AlternateViewEvent, (e) => {
       this.alternativeView = e.alternateView;
+      this.altViewDirty = true; // force viewport redraw on toggle
     });
     // Drag throttling removed; canvas updates are refresh-rate gated.
     // Initialize spawn-phase state
@@ -409,24 +417,29 @@ export class TerritoryLayer implements Layer {
   }
 
   renderLayer(context: CanvasRenderingContext2D) {
-    // If PIXI renderer not ready yet (init still pending), skip this frame.
-    if (!this.renderer || !this.stage || !this.territorySprite) {
-      return;
-    }
+    if (!this.renderer || !this.stage || !this.territorySprite) return;
+
     const now = Date.now();
     if (now > this.lastRefresh + this.refreshRate) {
       this.lastRefresh = now;
       this.renderTerritory();
+    }
 
+    let didUpdateTerritory = false;
+    if (this.territoryDirty || this.altViewDirty) {
       const [topLeft, bottomRight] = this.transformHandler.screenBoundingRect();
-      const vx0 = Math.max(0, topLeft.x);
-      const vy0 = Math.max(0, topLeft.y);
-      const vx1 = Math.min(this.game.width() - 1, bottomRight.x);
-      const vy1 = Math.min(this.game.height() - 1, bottomRight.y);
-
+      let vx0 = Math.max(0, topLeft.x);
+      let vy0 = Math.max(0, topLeft.y);
+      let vx1 = Math.min(this.game.width() - 1, bottomRight.x);
+      let vy1 = Math.min(this.game.height() - 1, bottomRight.y);
+      if (!this.altViewDirty) {
+        vx0 = Math.max(vx0, this.dirtyMinX);
+        vy0 = Math.max(vy0, this.dirtyMinY);
+        vx1 = Math.min(vx1, this.dirtyMaxX);
+        vy1 = Math.min(vy1, this.dirtyMaxY);
+      }
       const w = vx1 - vx0 + 1;
       const h = vy1 - vy0 + 1;
-
       if (w > 0 && h > 0) {
         this.context.putImageData(
           this.alternativeView ? this.alternativeImageData : this.imageData,
@@ -437,23 +450,31 @@ export class TerritoryLayer implements Layer {
           w,
           h,
         );
-        // Ensure PIXI sees canvas changes
         this.territorySprite.texture.baseTexture.update();
+        didUpdateTerritory = true;
       }
+      this.dirtyMinX = Infinity;
+      this.dirtyMinY = Infinity;
+      this.dirtyMaxX = -Infinity;
+      this.dirtyMaxY = -Infinity;
+      this.territoryDirty = false;
+      this.altViewDirty = false;
     }
-    // Update highlight overlay canvas if in spawn phase
+
     if (this.game.inSpawnPhase() && this.highlightSprite) {
       this.highlightSprite.texture.baseTexture.update();
     }
-    // Render combined stage to internal pixi canvas and composite into main context
+
     this.renderer.render(this.stage);
-    // Match other transformed layers: draw with world-origin offset
+
     if (this.transformHandler.scale < 1) {
       context.imageSmoothingEnabled = true;
       context.imageSmoothingQuality = "low";
     } else {
       context.imageSmoothingEnabled = false;
     }
+
+    // Always composite after stage render to avoid flicker from skipped frames.
     context.drawImage(
       this.renderer.canvas,
       -this.game.width() / 2,
@@ -583,6 +604,14 @@ export class TerritoryLayer implements Layer {
         150,
       );
     }
+    // Mark dirty bounds for minimal putImageData later
+    const dx = this.game.x(tile);
+    const dy = this.game.y(tile);
+    if (dx < this.dirtyMinX) this.dirtyMinX = dx;
+    if (dy < this.dirtyMinY) this.dirtyMinY = dy;
+    if (dx > this.dirtyMaxX) this.dirtyMaxX = dx;
+    if (dy > this.dirtyMaxY) this.dirtyMaxY = dy;
+    this.territoryDirty = true;
   }
 
   paintTile(imageData: ImageData, tile: TileRef, color: Colord, alpha: number) {
