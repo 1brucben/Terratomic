@@ -362,10 +362,7 @@ export class ControlPanel extends LitElement implements Layer {
                             ? "var(--ui-slider-troop)"
                             : "var(--ui-alert)"}"
                         >
-                          (+${renderTroops(this.popRate)}${this
-                            ._hospitalReturns > 0
-                            ? `/ +${renderTroops(this._hospitalReturns)}`
-                            : ""})
+                          (+${renderTroops(this.popRate)})
                         </span>
                       </span>
                     </div>
