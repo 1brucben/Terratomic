@@ -429,8 +429,6 @@ export class TerritoryLayer implements Layer {
 
   renderLayer(context: CanvasRenderingContext2D) {
     const now = Date.now();
-    const skipTerritoryCanvas =
-      this.alternativeView && this.borderRenderer.drawsOwnBorders();
 
     if (
       now > this.lastDragTime + this.nodrawDragDuration &&
@@ -448,13 +446,7 @@ export class TerritoryLayer implements Layer {
       const w = vx1 - vx0 + 1;
       const h = vy1 - vy0 + 1;
 
-      // When WebGL borders are active and we're in alternative view, the 2D
-      // territory buffer (alternativeImageData) is effectively transparent and
-      // all visible work is done by the WebGL layer. Skip putImageData in that
-      // case to avoid unnecessary CPU work each frame.
-      const shouldBlitTerritories = !skipTerritoryCanvas;
-
-      if (w > 0 && h > 0 && shouldBlitTerritories) {
+      if (w > 0 && h > 0) {
         this.context.putImageData(
           this.alternativeView ? this.alternativeImageData : this.imageData,
           0,
@@ -467,15 +459,13 @@ export class TerritoryLayer implements Layer {
       }
     }
 
-    if (!skipTerritoryCanvas) {
-      context.drawImage(
-        this.canvas,
-        -this.game.width() / 2,
-        -this.game.height() / 2,
-        this.game.width(),
-        this.game.height(),
-      );
-    }
+    context.drawImage(
+      this.canvas,
+      -this.game.width() / 2,
+      -this.game.height() / 2,
+      this.game.width(),
+      this.game.height(),
+    );
 
     this.borderRenderer.render(context);
     if (this.game.inSpawnPhase()) {
@@ -549,6 +539,15 @@ export class TerritoryLayer implements Layer {
             this.theme.territoryColor(owner),
             150,
           );
+          if (myPlayer) {
+            const alternativeColor = this.alternateViewColor(owner);
+            this.paintTile(
+              this.alternativeImageData,
+              tile,
+              alternativeColor,
+              255,
+            );
+          }
         } else {
           if (myPlayer) {
             const alternativeColor = this.alternateViewColor(owner);
@@ -567,17 +566,21 @@ export class TerritoryLayer implements Layer {
           );
         }
       } else {
-        if (!rendererHandlesBorders) {
-          // Alternative view only shows borders.
-          this.clearAlternativeTile(tile);
-        }
-
         this.paintTile(
           this.imageData,
           tile,
           this.theme.territoryColor(owner),
           150,
         );
+        if (myPlayer) {
+          const alternativeColor = this.alternateViewColor(owner);
+          this.paintTile(
+            this.alternativeImageData,
+            tile,
+            alternativeColor,
+            255,
+          );
+        }
       }
     }
 
