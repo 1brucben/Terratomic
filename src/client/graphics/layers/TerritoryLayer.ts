@@ -3,16 +3,12 @@ import { Colord } from "colord";
 import * as PIXI from "pixi.js";
 import { Theme } from "../../../core/configuration/Config";
 import { EventBus } from "../../../core/EventBus";
-import { Cell, PlayerType, UnitType } from "../../../core/game/Game";
+import { PlayerType, UnitType } from "../../../core/game/Game";
 import { euclDistFN, TileRef } from "../../../core/game/GameMap";
 import { GameUpdateType } from "../../../core/game/GameUpdates";
 import { GameView, PlayerView } from "../../../core/game/GameView";
 import { PseudoRandom } from "../../../core/PseudoRandom";
-import {
-  AlternateViewEvent,
-  DragEvent,
-  MouseOverEvent,
-} from "../../InputHandler";
+import { AlternateViewEvent, MouseOverEvent } from "../../InputHandler";
 import { TransformHandler } from "../TransformHandler";
 import { Layer } from "./Layer";
 
@@ -45,8 +41,6 @@ export class TerritoryLayer implements Layer {
   private highlightedTerritory: PlayerView | null = null;
 
   private alternativeView = false;
-  private lastDragTime = 0;
-  private nodrawDragDuration = 200;
   private lastMousePosition: { x: number; y: number } | null = null;
 
   private refreshRate = 15; //refresh every 15ms
@@ -138,8 +132,6 @@ export class TerritoryLayer implements Layer {
     if (myPlayer) {
       updates?.[GameUpdateType.BrokeAlliance]?.forEach((update) => {
         const territory = this.game.playerBySmallID(update.betrayedID);
-        console.log("betrayedID", update.betrayedID);
-        console.log("territory", territory);
         if (territory && territory instanceof PlayerView) {
           this.redrawTerritory(territory);
         }
@@ -270,10 +262,7 @@ export class TerritoryLayer implements Layer {
     this.eventBus.on(AlternateViewEvent, (e) => {
       this.alternativeView = e.alternateView;
     });
-    this.eventBus.on(DragEvent, (e) => {
-      // TODO: consider re-enabling this on mobile or low end devices for smoother dragging.
-      // this.lastDragTime = Date.now();
-    });
+    // Drag throttling removed; canvas updates are refresh-rate gated.
     // Initialize spawn-phase state
     this.wasInSpawnPhase = this.game.inSpawnPhase();
     // Defer redraw until PIXI renderer is initialized
@@ -413,9 +402,7 @@ export class TerritoryLayer implements Layer {
 
   initImageData() {
     this.game.forEachTile((tile) => {
-      const cell = new Cell(this.game.x(tile), this.game.y(tile));
-      const index = cell.y * this.game.width() + cell.x;
-      const offset = index * 4;
+      const offset = tile * 4;
       this.imageData.data[offset + 3] = 0;
       this.alternativeImageData.data[offset + 3] = 0;
     });
@@ -427,10 +414,7 @@ export class TerritoryLayer implements Layer {
       return;
     }
     const now = Date.now();
-    if (
-      now > this.lastDragTime + this.nodrawDragDuration &&
-      now > this.lastRefresh + this.refreshRate
-    ) {
+    if (now > this.lastRefresh + this.refreshRate) {
       this.lastRefresh = now;
       this.renderTerritory();
 
@@ -622,25 +606,11 @@ export class TerritoryLayer implements Layer {
     });
   }
 
-  async enqueuePlayerBorder(player: PlayerView) {
-    const playerBorderTiles = await player.borderTiles();
-    playerBorderTiles.borderTiles.forEach((tile: TileRef) => {
-      this.enqueueTile(tile);
-    });
-  }
-
   paintHighlightTile(tile: TileRef, color: Colord, alpha: number) {
-    this.clearTile(tile);
     const x = this.game.x(tile);
     const y = this.game.y(tile);
     this.highlightContext.fillStyle = color.alpha(alpha / 255).toRgbString();
     this.highlightContext.fillRect(x, y, 1, 1);
-  }
-
-  clearHighlightTile(tile: TileRef) {
-    const x = this.game.x(tile);
-    const y = this.game.y(tile);
-    this.highlightContext.clearRect(x, y, 1, 1);
   }
 
   private async setupRenderer() {
