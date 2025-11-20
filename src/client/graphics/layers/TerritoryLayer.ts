@@ -2,7 +2,13 @@ import { PriorityQueue } from "@datastructures-js/priority-queue";
 import { Colord } from "colord";
 import { Theme } from "../../../core/configuration/Config";
 import { EventBus } from "../../../core/EventBus";
-import { Cell, PlayerType, UnitType } from "../../../core/game/Game";
+import {
+  Cell,
+  ColoredTeams,
+  PlayerType,
+  Team,
+  UnitType,
+} from "../../../core/game/Game";
 import { euclDistFN, TileRef } from "../../../core/game/GameMap";
 import { GameUpdateType } from "../../../core/game/GameUpdates";
 import { GameView, PlayerView } from "../../../core/game/GameView";
@@ -13,13 +19,16 @@ import {
   MouseOverEvent,
 } from "../../InputHandler";
 import { TransformHandler } from "../TransformHandler";
+import { BorderRenderer, NullBorderRenderer } from "./BorderRenderer";
 import { Layer } from "./Layer";
+import { WebGLBorderRenderer } from "./WebGLBorderRenderer";
 
 export class TerritoryLayer implements Layer {
   private canvas: HTMLCanvasElement;
   private context: CanvasRenderingContext2D;
   private imageData: ImageData;
   private alternativeImageData: ImageData;
+  private borderAnimTime = 0;
 
   private tileToRenderQueue: PriorityQueue<{
     tile: TileRef;
@@ -35,6 +44,7 @@ export class TerritoryLayer implements Layer {
   private highlightContext: CanvasRenderingContext2D;
 
   private highlightedTerritory: PlayerView | null = null;
+  private borderRenderer: BorderRenderer = new NullBorderRenderer();
 
   private alternativeView = false;
   private lastDragTime = 0;
@@ -45,8 +55,8 @@ export class TerritoryLayer implements Layer {
   private lastRefresh = 0;
 
   private lastFocusedPlayer: PlayerView | null = null;
-  // Track my active wars to redraw only affected territories on change
-  private lastMyWars: Set<string> | null = null;
+  private lastMyPlayerSmallId: number | null = null;
+  private webglSupported = true;
 
   constructor(
     private game: GameView,
@@ -54,6 +64,7 @@ export class TerritoryLayer implements Layer {
     private transformHandler: TransformHandler,
   ) {
     this.theme = game.config().theme();
+    this.lastMyPlayerSmallId = game.myPlayer()?.smallID() ?? null;
   }
 
   shouldTransform(): boolean {
@@ -68,6 +79,10 @@ export class TerritoryLayer implements Layer {
   }
 
   tick() {
+    if (this.game.inSpawnPhase()) {
+      this.spawnHighlight();
+    }
+
     this.game.recentlyUpdatedTiles().forEach((t) => this.enqueueTile(t));
     const updates = this.game.updatesSinceLastTick();
     const unitUpdates = updates !== null ? updates[GameUpdateType.Unit] : [];
@@ -93,10 +108,8 @@ export class TerritoryLayer implements Layer {
     if (myPlayer) {
       updates?.[GameUpdateType.BrokeAlliance]?.forEach((update) => {
         const territory = this.game.playerBySmallID(update.betrayedID);
-        console.log("betrayedID", update.betrayedID);
-        console.log("territory", territory);
         if (territory && territory instanceof PlayerView) {
-          this.redrawTerritory(territory);
+          this.redrawBorder(territory);
         }
       });
 
@@ -112,71 +125,32 @@ export class TerritoryLayer implements Layer {
               : update.request.requestorID;
           const territory = this.game.playerBySmallID(territoryId);
           if (territory && territory instanceof PlayerView) {
-            this.redrawTerritory(territory);
+            this.redrawBorder(territory);
           }
         }
-      });
-
-      // Diff my war set on Player updates to selectively redraw changed territories
-      updates?.[GameUpdateType.Player]?.forEach((pu) => {
-        if (pu.smallID !== myPlayer.smallID()) return;
-        // Map wars (smallIDs) to PlayerIDs for comparison against PlayerView.id()
-        const ids = new Set<string>();
-        for (const small of pu.wars ?? []) {
-          try {
-            const p = this.game.playerBySmallID(small) as PlayerView;
-            ids.add(p.id());
-          } catch {
-            // ignore if player not found yet
-          }
-        }
-        const current = ids;
-        if (this.lastMyWars === null) {
-          this.lastMyWars = current;
-          return;
-        }
-        const changed: string[] = [];
-        // Added wars
-        current.forEach((id) => {
-          if (!this.lastMyWars!.has(id)) changed.push(id);
-        });
-        // Removed wars (peace)
-        this.lastMyWars.forEach((id) => {
-          if (!current.has(id)) changed.push(id);
-        });
-        if (changed.length > 0) {
-          const changedPlayers: PlayerView[] = [];
-          const allPlayers = this.game.playerViews();
-          for (const pid of changed) {
-            const p = allPlayers.find((pv) => pv.id() === pid);
-            if (p) changedPlayers.push(p);
-          }
-          if (changedPlayers.length > 0) this.redrawTerritory(changedPlayers);
-        }
-        this.lastMyWars = current;
       });
     }
 
-    const tileOwnerChangedUpdates =
-      updates !== null ? updates[GameUpdateType.TileOwnerChanged] : [];
-    tileOwnerChangedUpdates.forEach((update) => {
-      this.enqueueTile(update.tile);
-    });
-
     const focusedPlayer = this.game.focusedPlayer();
     if (focusedPlayer !== this.lastFocusedPlayer) {
-      if (this.lastFocusedPlayer) {
-        this.paintPlayerBorder(this.lastFocusedPlayer);
-      }
-      if (focusedPlayer) {
-        this.paintPlayerBorder(focusedPlayer);
+      if (!this.borderRenderer.drawsOwnBorders()) {
+        if (this.lastFocusedPlayer) {
+          this.paintPlayerBorder(this.lastFocusedPlayer);
+        }
+        if (focusedPlayer) {
+          this.paintPlayerBorder(focusedPlayer);
+        }
       }
       this.lastFocusedPlayer = focusedPlayer;
     }
 
-    if (!this.game.inSpawnPhase()) {
-      return;
+    const currentMyPlayer = this.game.myPlayer()?.smallID() ?? null;
+    if (currentMyPlayer !== this.lastMyPlayerSmallId) {
+      this.redraw();
     }
+  }
+
+  private spawnHighlight() {
     if (this.game.ticks() % 5 === 0) {
       return;
     }
@@ -187,11 +161,19 @@ export class TerritoryLayer implements Layer {
       this.game.width(),
       this.game.height(),
     );
+
+    this.drawFocusedPlayerHighlight();
+
     const humans = this.game
       .playerViews()
       .filter((p) => p.type() === PlayerType.Human);
 
+    const focusedPlayer = this.game.focusedPlayer();
+    const teamColors = Object.values(ColoredTeams);
     for (const human of humans) {
+      if (human === focusedPlayer) {
+        continue;
+      }
       const center = human.nameLocation();
       if (!center) {
         continue;
@@ -202,13 +184,24 @@ export class TerritoryLayer implements Layer {
       }
       let color = this.theme.spawnHighlightColor();
       const myPlayer = this.game.myPlayer();
-      if (
-        myPlayer !== null &&
-        myPlayer !== human &&
-        myPlayer.isFriendly(human)
-      ) {
-        color = this.theme.selfColor();
+      if (myPlayer !== null && myPlayer !== human && myPlayer.team() === null) {
+        // In FFA games (when team === null), use default yellow spawn highlight color
+        color = this.theme.spawnHighlightColor();
+      } else if (myPlayer !== null && myPlayer !== human) {
+        // In Team games, the spawn highlight color becomes that player's team color
+        // Optionally, this could be broken down to teammate or enemy and simplified to green and red, respectively
+        const team = human.team();
+        if (team !== null && teamColors.includes(team)) {
+          color = this.theme.teamColor(team);
+        } else {
+          if (myPlayer.isFriendly(human)) {
+            color = this.theme.allyColor();
+          } else {
+            color = this.theme.spawnHighlightColor();
+          }
+        }
       }
+
       for (const tile of this.game.bfs(
         centerTile,
         euclDistFN(centerTile, 9, true),
@@ -220,10 +213,48 @@ export class TerritoryLayer implements Layer {
     }
   }
 
+  private drawFocusedPlayerHighlight() {
+    const focusedPlayer = this.game.focusedPlayer();
+
+    if (!focusedPlayer) {
+      return;
+    }
+    const center = focusedPlayer.nameLocation();
+    if (!center) {
+      return;
+    }
+    // Breathing border animation
+    this.borderAnimTime += 0.5;
+    const minRad = 8;
+    const maxRad = 24;
+    // Range: [minPadding..maxPadding]
+    const radius =
+      minRad + (maxRad - minRad) * (0.5 + 0.5 * Math.sin(this.borderAnimTime));
+
+    const baseColor = this.theme.spawnHighlightColor();
+    let teamColor: Colord = baseColor;
+
+    const team: Team | null = focusedPlayer.team();
+    if (team !== null && Object.values(ColoredTeams).includes(team)) {
+      teamColor = this.theme.teamColor(team).alpha(0.5);
+    }
+
+    this.drawBreathingRing(
+      center.x,
+      center.y,
+      minRad,
+      maxRad,
+      radius,
+      baseColor, // Always draw white static semi-transparent ring
+      teamColor, // Pass the breathing ring color. White for FFA, Duos, Trios, Quads. Transparent team color for TEAM games.
+    );
+  }
+
   init() {
     this.eventBus.on(MouseOverEvent, (e) => this.onMouseOver(e));
     this.eventBus.on(AlternateViewEvent, (e) => {
       this.alternativeView = e.alternateView;
+      this.borderRenderer.setAlternativeView(this.alternativeView);
     });
     this.eventBus.on(DragEvent, (e) => {
       // TODO: consider re-enabling this on mobile or low end devices for smoother dragging.
@@ -238,7 +269,9 @@ export class TerritoryLayer implements Layer {
   }
 
   private updateHighlightedTerritory() {
-    if (!this.alternativeView) {
+    const supportsHover =
+      this.alternativeView || this.borderRenderer.drawsOwnBorders();
+    if (!supportsHover) {
       return;
     }
 
@@ -255,7 +288,11 @@ export class TerritoryLayer implements Layer {
     }
 
     const previousTerritory = this.highlightedTerritory;
-    const territory = this.getTerritoryAtCell(cell);
+    const tileRef = this.game.ref(cell.x, cell.y);
+    const territory =
+      tileRef && this.game.hasOwner(tileRef)
+        ? (this.game.owner(tileRef) as PlayerView)
+        : null;
 
     if (territory) {
       this.highlightedTerritory = territory;
@@ -264,32 +301,26 @@ export class TerritoryLayer implements Layer {
     }
 
     if (previousTerritory?.id() !== this.highlightedTerritory?.id()) {
-      const territories: PlayerView[] = [];
-      if (previousTerritory) {
-        territories.push(previousTerritory);
+      if (this.borderRenderer.drawsOwnBorders()) {
+        this.borderRenderer.setHoveredPlayerId(
+          this.highlightedTerritory?.smallID() ?? null,
+        );
+      } else {
+        const territories: PlayerView[] = [];
+        if (previousTerritory) {
+          territories.push(previousTerritory);
+        }
+        if (this.highlightedTerritory) {
+          territories.push(this.highlightedTerritory);
+        }
+        this.redrawBorder(...territories);
       }
-      if (this.highlightedTerritory) {
-        territories.push(this.highlightedTerritory);
-      }
-      this.redrawTerritory(territories);
     }
-  }
-
-  private getTerritoryAtCell(cell: { x: number; y: number }) {
-    const tile = this.game.ref(cell.x, cell.y);
-    if (!tile) {
-      return null;
-    }
-    // If the tile has no owner, it is either a fallout tile or a terra nullius tile.
-    if (!this.game.hasOwner(tile)) {
-      return null;
-    }
-    const owner = this.game.owner(tile);
-    return owner instanceof PlayerView ? owner : null;
   }
 
   redraw() {
     console.log("redrew territory layer");
+    this.lastMyPlayerSmallId = this.game.myPlayer()?.smallID() ?? null;
     this.canvas = document.createElement("canvas");
     const context = this.canvas.getContext("2d");
     if (context === null) throw new Error("2d context not supported");
@@ -297,10 +328,15 @@ export class TerritoryLayer implements Layer {
     this.canvas.width = this.game.width();
     this.canvas.height = this.game.height();
 
-    // Allocate blank ImageData buffers rather than reading back from the canvas.
-    // This avoids expensive GPU->CPU readbacks and the Chrome warning about getImageData.
-    this.imageData = new ImageData(this.canvas.width, this.canvas.height);
-    this.alternativeImageData = new ImageData(
+    this.imageData = this.context.getImageData(
+      0,
+      0,
+      this.canvas.width,
+      this.canvas.height,
+    );
+    this.alternativeImageData = this.context.getImageData(
+      0,
+      0,
       this.canvas.width,
       this.canvas.height,
     );
@@ -311,6 +347,8 @@ export class TerritoryLayer implements Layer {
       0,
       0,
     );
+
+    this.configureBorderRenderer();
 
     // Add a second canvas for highlights
     this.highlightCanvas = document.createElement("canvas");
@@ -327,16 +365,56 @@ export class TerritoryLayer implements Layer {
     });
   }
 
-  redrawTerritory(territory: PlayerView | PlayerView[]) {
-    const territories = Array.isArray(territory) ? territory : [territory];
-    const territorySet = new Set(territories);
+  private configureBorderRenderer() {
+    const renderer = new WebGLBorderRenderer(this.game, this.theme);
+    this.webglSupported = renderer.isSupported();
+    if (renderer.isActive()) {
+      this.borderRenderer = renderer;
+      this.borderRenderer.setAlternativeView(this.alternativeView);
+      this.borderRenderer.setHoveredPlayerId(
+        this.highlightedTerritory?.smallID() ?? null,
+      );
+      renderer.setHoverHighlightOptions(this.hoverHighlightOptions());
+    } else {
+      this.borderRenderer = new NullBorderRenderer();
+    }
+  }
 
-    this.game.forEachTile((t) => {
-      const owner = this.game.owner(t) as PlayerView;
-      if (territorySet.has(owner)) {
-        this.paintTerritory(t);
-      }
-    });
+  /**
+   * Central configuration for WebGL border hover styling.
+   * Keeps main view and alternate view behavior explicit and tweakable.
+   */
+  private hoverHighlightOptions() {
+    const baseColor = this.theme.spawnHighlightColor();
+
+    if (this.alternativeView) {
+      // Alternate view: borders are the primary visual, so make hover stronger
+      return {
+        color: baseColor,
+        strength: 0.8,
+        pulseStrength: 0.45,
+        pulseSpeed: Math.PI * 2,
+      };
+    }
+
+    // Main view: keep highlight noticeable but a bit subtler
+    return {
+      color: baseColor,
+      strength: 0.6,
+      pulseStrength: 0.35,
+      pulseSpeed: Math.PI * 2,
+    };
+  }
+
+  redrawBorder(...players: PlayerView[]) {
+    return Promise.all(
+      players.map(async (player) => {
+        const tiles = await player.borderTiles();
+        tiles.borderTiles.forEach((tile: TileRef) => {
+          this.paintTerritory(tile, true);
+        });
+      }),
+    );
   }
 
   initImageData() {
@@ -351,6 +429,9 @@ export class TerritoryLayer implements Layer {
 
   renderLayer(context: CanvasRenderingContext2D) {
     const now = Date.now();
+    const skipTerritoryCanvas =
+      this.alternativeView && this.borderRenderer.drawsOwnBorders();
+
     if (
       now > this.lastDragTime + this.nodrawDragDuration &&
       now > this.lastRefresh + this.refreshRate
@@ -367,7 +448,13 @@ export class TerritoryLayer implements Layer {
       const w = vx1 - vx0 + 1;
       const h = vy1 - vy0 + 1;
 
-      if (w > 0 && h > 0) {
+      // When WebGL borders are active and we're in alternative view, the 2D
+      // territory buffer (alternativeImageData) is effectively transparent and
+      // all visible work is done by the WebGL layer. Skip putImageData in that
+      // case to avoid unnecessary CPU work each frame.
+      const shouldBlitTerritories = !skipTerritoryCanvas;
+
+      if (w > 0 && h > 0 && shouldBlitTerritories) {
         this.context.putImageData(
           this.alternativeView ? this.alternativeImageData : this.imageData,
           0,
@@ -380,13 +467,17 @@ export class TerritoryLayer implements Layer {
       }
     }
 
-    context.drawImage(
-      this.canvas,
-      -this.game.width() / 2,
-      -this.game.height() / 2,
-      this.game.width(),
-      this.game.height(),
-    );
+    if (!skipTerritoryCanvas) {
+      context.drawImage(
+        this.canvas,
+        -this.game.width() / 2,
+        -this.game.height() / 2,
+        this.game.width(),
+        this.game.height(),
+      );
+    }
+
+    this.borderRenderer.render(context);
     if (this.game.inSpawnPhase()) {
       context.drawImage(
         this.highlightCanvas,
@@ -399,7 +490,7 @@ export class TerritoryLayer implements Layer {
   }
 
   renderTerritory() {
-    let numToRender = Math.floor(this.tileToRenderQueue.size() / 10);
+    let numToRender = Math.floor(this.tileToRenderQueue.size());
     if (numToRender === 0 || this.game.inSpawnPhase()) {
       numToRender = this.tileToRenderQueue.size();
     }
@@ -415,18 +506,21 @@ export class TerritoryLayer implements Layer {
       const tile = entry.tile;
       this.paintTerritory(tile);
       for (const neighbor of this.game.neighbors(tile)) {
-        this.paintTerritory(neighbor, true);
+        this.paintTerritory(neighbor, true); //this is a misuse of the _Border parameter, making it a maybe stale border
       }
     }
   }
 
-  paintTerritory(tile: TileRef, isBorder: boolean = false) {
-    if (isBorder && !this.game.hasOwner(tile)) {
-      return;
-    }
+  paintTerritory(tile: TileRef, _maybeStaleBorder: boolean = false) {
+    const hasOwner = this.game.hasOwner(tile);
+    const owner = hasOwner ? (this.game.owner(tile) as PlayerView) : null;
+    const isBorderTile = this.game.isBorder(tile);
+    const hasFallout = this.game.hasFallout(tile);
+    let isDefended = false;
+    const rendererHandlesBorders = this.borderRenderer.drawsOwnBorders();
 
-    if (!this.game.hasOwner(tile)) {
-      if (this.game.hasFallout(tile)) {
+    if (!owner) {
+      if (hasFallout) {
         this.paintTile(this.imageData, tile, this.theme.falloutColor(), 150);
         this.paintTile(
           this.alternativeImageData,
@@ -434,90 +528,94 @@ export class TerritoryLayer implements Layer {
           this.theme.falloutColor(),
           150,
         );
-        return;
+      } else {
+        this.clearTile(tile);
       }
-      this.clearTile(tile);
-      return;
-    }
-    const owner = this.game.owner(tile) as PlayerView;
-    const isHighlighted =
-      this.highlightedTerritory &&
-      this.highlightedTerritory.id() === owner.id();
-    const myPlayer = this.game.myPlayer();
+    } else {
+      const myPlayer = this.game.myPlayer();
 
-    if (this.game.isBorder(tile)) {
-      const playerIsFocused = owner && this.game.focusedPlayer() === owner;
-      if (myPlayer) {
-        // Diplomacy alternate view colors:
-        // - Red (enemyColor) for bots and players at war
-        // - Green (selfColor) for self and allies
-        // - Yellow (allyColor) for neutral/peace
-        let alternativeColor = this.theme.allyColor(); // default: neutral/peace (yellow)
-        if (owner.type() === PlayerType.Bot) {
-          alternativeColor = this.theme.enemyColor(); // bots always red
-        } else if (
-          owner.smallID() === myPlayer.smallID() ||
-          owner.isFriendly(myPlayer)
-        ) {
-          alternativeColor = this.theme.selfColor(); // self and allies (green)
-        } else if (myPlayer.isAtWarWith(owner)) {
-          alternativeColor = this.theme.enemyColor(); // at war (red)
-        }
-        this.paintTile(this.alternativeImageData, tile, alternativeColor, 255);
-      }
-      if (
-        this.game.hasUnitNearby(
+      if (isBorderTile) {
+        isDefended = this.game.hasUnitNearby(
           tile,
           this.game.config().defensePostRange(),
           UnitType.DefensePost,
           owner.id(),
-        )
-      ) {
-        const borderColors = this.theme.defendedBorderColors(owner);
-        const x = this.game.x(tile);
-        const y = this.game.y(tile);
-        const lightTile =
-          (x % 2 === 0 && y % 2 === 0) || (y % 2 === 1 && x % 2 === 1);
-        const borderColor = lightTile ? borderColors.light : borderColors.dark;
-        this.paintTile(this.imageData, tile, borderColor, 255);
-      } else {
-        const useBorderColor = playerIsFocused
-          ? this.theme.focusedBorderColor()
-          : this.theme.borderColor(owner);
-        this.paintTile(this.imageData, tile, useBorderColor, 255);
-      }
-    } else {
-      if (myPlayer) {
-        // Diplomacy alternate view colors:
-        // - Red (enemyColor) for bots and players at war
-        // - Green (selfColor) for self and allies
-        // - Yellow (allyColor) for neutral/peace
-        let alternativeColor = this.theme.allyColor(); // default: neutral/peace (yellow)
-        if (owner.type() === PlayerType.Bot) {
-          alternativeColor = this.theme.enemyColor(); // bots always red
-        } else if (
-          owner.smallID() === myPlayer.smallID() ||
-          owner.isFriendly(myPlayer)
-        ) {
-          alternativeColor = this.theme.selfColor(); // self and allies (green)
-        } else if (myPlayer.isAtWarWith(owner)) {
-          alternativeColor = this.theme.enemyColor(); // at war (red)
+        );
+
+        if (rendererHandlesBorders) {
+          this.paintTile(
+            this.imageData,
+            tile,
+            this.theme.territoryColor(owner),
+            150,
+          );
+        } else {
+          if (myPlayer) {
+            const alternativeColor = this.alternateViewColor(owner);
+            this.paintTile(
+              this.alternativeImageData,
+              tile,
+              alternativeColor,
+              255,
+            );
+          }
+          this.paintTile(
+            this.imageData,
+            tile,
+            this.theme.borderColor(owner),
+            255,
+          );
         }
+      } else {
+        if (!rendererHandlesBorders) {
+          // Alternative view only shows borders.
+          this.clearAlternativeTile(tile);
+        }
+
         this.paintTile(
-          this.alternativeImageData,
+          this.imageData,
           tile,
-          alternativeColor,
-          isHighlighted ? 150 : 60,
+          this.theme.territoryColor(owner),
+          150,
         );
       }
-
-      this.paintTile(
-        this.imageData,
-        tile,
-        this.theme.territoryColor(owner),
-        150,
-      );
     }
+
+    if (rendererHandlesBorders) {
+      if (_maybeStaleBorder && !isBorderTile) {
+        this.borderRenderer.clearTile(tile);
+      } else {
+        this.borderRenderer.updateBorder(
+          tile,
+          owner,
+          isBorderTile,
+          isDefended,
+          hasFallout,
+        );
+      }
+    }
+  }
+
+  alternateViewColor(other: PlayerView): Colord {
+    const myPlayer = this.game.myPlayer();
+    if (!myPlayer) {
+      return this.theme.enemyColor();
+    }
+    if (other.smallID() === myPlayer.smallID()) {
+      return this.theme.selfColor();
+    }
+    if (other.isFriendly(myPlayer)) {
+      return this.theme.allyColor();
+    }
+    if (other.hasEmbargoAgainst(myPlayer)) {
+      return this.theme.enemyColor();
+    }
+    return this.theme.allyColor();
+  }
+
+  paintAlternateViewTile(tile: TileRef, other: PlayerView) {
+    const color = this.alternateViewColor(other);
+    this.paintTile(this.alternativeImageData, tile, color, 255);
   }
 
   paintTile(imageData: ImageData, tile: TileRef, color: Colord, alpha: number) {
@@ -529,8 +627,14 @@ export class TerritoryLayer implements Layer {
   }
 
   clearTile(tile: TileRef) {
+    this.borderRenderer.clearTile(tile);
     const offset = tile * 4;
     this.imageData.data[offset + 3] = 0; // Set alpha to 0 (fully transparent)
+    this.alternativeImageData.data[offset + 3] = 0; // Set alpha to 0 (fully transparent)
+  }
+
+  clearAlternativeTile(tile: TileRef) {
+    const offset = tile * 4;
     this.alternativeImageData.data[offset + 3] = 0; // Set alpha to 0 (fully transparent)
   }
 
@@ -560,5 +664,54 @@ export class TerritoryLayer implements Layer {
     const x = this.game.x(tile);
     const y = this.game.y(tile);
     this.highlightContext.clearRect(x, y, 1, 1);
+  }
+
+  private drawBreathingRing(
+    cx: number,
+    cy: number,
+    minRad: number,
+    maxRad: number,
+    radius: number,
+    transparentColor: Colord,
+    breathingColor: Colord,
+  ) {
+    const ctx = this.highlightContext;
+    if (!ctx) return;
+
+    // Draw a semi-transparent ring around the starting location
+    ctx.beginPath();
+    // Transparency matches the highlight color provided
+    const transparent = transparentColor.alpha(0);
+    const radGrad = ctx.createRadialGradient(cx, cy, minRad, cx, cy, maxRad);
+
+    // Pixels with radius < minRad are transparent
+    radGrad.addColorStop(0, transparent.toRgbString());
+    // The ring then starts with solid highlight color
+    radGrad.addColorStop(0.01, transparentColor.toRgbString());
+    radGrad.addColorStop(0.1, transparentColor.toRgbString());
+    // The outer edge of the ring is transparent
+    radGrad.addColorStop(1, transparent.toRgbString());
+
+    // Draw an arc at the max radius and fill with the created radial gradient
+    ctx.arc(cx, cy, maxRad, 0, Math.PI * 2);
+    ctx.fillStyle = radGrad;
+    ctx.closePath();
+    ctx.fill();
+
+    const breatheInner = breathingColor.alpha(0);
+    // Draw a solid ring around the starting location with outer radius = the breathing radius
+    ctx.beginPath();
+    const radGrad2 = ctx.createRadialGradient(cx, cy, minRad, cx, cy, radius);
+    // Pixels with radius < minRad are transparent
+    radGrad2.addColorStop(0, breatheInner.toRgbString());
+    // The ring then starts with solid highlight color
+    radGrad2.addColorStop(0.01, breathingColor.toRgbString());
+    // The ring is solid throughout
+    radGrad2.addColorStop(1, breathingColor.toRgbString());
+
+    // Draw an arc at the current breathing radius and fill with the created "gradient"
+    ctx.arc(cx, cy, radius, 0, Math.PI * 2);
+    ctx.fillStyle = radGrad2;
+    ctx.fill();
   }
 }
