@@ -71,6 +71,7 @@ describe("UILayer", () => {
       tile: () => ({}),
       owner: () => ({}),
       isActive: () => true,
+      effectiveMaxHealth: () => 10,
     };
 
     ui.drawHealthBar(unit);
@@ -101,6 +102,7 @@ describe("UILayer", () => {
       tile: () => ({}),
       owner: () => ({}),
       isActive: () => true,
+      effectiveMaxHealth: () => 10,
     };
 
     ui.drawHealthBar(unit);
@@ -190,6 +192,7 @@ describe("UILayer", () => {
       isAttacking: () => false,
       isDetectedByNavalUnit: () => false,
       isCooldown: () => false,
+      effectiveMaxHealth: () => 10,
     };
 
     // Routed through onUnitEvent to apply visibility rules
@@ -215,6 +218,7 @@ describe("UILayer", () => {
       isAttacking: () => false,
       isDetectedByNavalUnit: () => false,
       isCooldown: () => false,
+      effectiveMaxHealth: () => 10,
     };
 
     (ui as any).onUnitEvent(sub);
@@ -239,6 +243,7 @@ describe("UILayer", () => {
       isAttacking: () => false,
       isDetectedByNavalUnit: () => true,
       isCooldown: () => false,
+      effectiveMaxHealth: () => 10,
     };
 
     (ui as any).onUnitEvent(sub);
