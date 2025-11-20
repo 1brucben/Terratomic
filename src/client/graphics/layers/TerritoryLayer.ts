@@ -43,7 +43,7 @@ export class TerritoryLayer implements Layer {
   private alternativeView = false;
   private lastMousePosition: { x: number; y: number } | null = null;
 
-  private refreshRate = 15; //refresh every 15ms
+  private refreshRate = 50; //refresh every 15ms
   private lastRefresh = 0;
 
   private lastFocusedPlayer: PlayerView | null = null;
@@ -485,7 +485,7 @@ export class TerritoryLayer implements Layer {
   }
 
   renderTerritory() {
-    let numToRender = Math.floor(this.tileToRenderQueue.size() / 10);
+    let numToRender = Math.floor(this.tileToRenderQueue.size());
     if (numToRender === 0 || this.game.inSpawnPhase()) {
       numToRender = this.tileToRenderQueue.size();
     }
