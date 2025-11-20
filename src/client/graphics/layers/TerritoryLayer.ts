@@ -532,6 +532,16 @@ export class TerritoryLayer implements Layer {
           owner.id(),
         );
 
+        if (myPlayer) {
+          const alternativeColor = this.alternateViewColor(owner);
+          this.paintTile(
+            this.alternativeImageData,
+            tile,
+            alternativeColor,
+            255,
+          );
+        }
+
         if (rendererHandlesBorders) {
           this.paintTile(
             this.imageData,
@@ -539,33 +549,29 @@ export class TerritoryLayer implements Layer {
             this.theme.territoryColor(owner),
             150,
           );
-          if (myPlayer) {
-            const alternativeColor = this.alternateViewColor(owner);
-            this.paintTile(
-              this.alternativeImageData,
-              tile,
-              alternativeColor,
-              255,
-            );
-          }
         } else {
-          if (myPlayer) {
-            const alternativeColor = this.alternateViewColor(owner);
-            this.paintTile(
-              this.alternativeImageData,
-              tile,
-              alternativeColor,
-              255,
-            );
+          if (isDefended) {
+            const borderColors = this.theme.defendedBorderColors(owner);
+            const x = this.game.x(tile);
+            const y = this.game.y(tile);
+            const lightTile =
+              (x % 2 === 0 && y % 2 === 0) || (y % 2 === 1 && x % 2 === 1);
+            const borderColor = lightTile
+              ? borderColors.light
+              : borderColors.dark;
+            this.paintTile(this.imageData, tile, borderColor, 255);
+          } else {
+            const playerIsFocused = this.game.focusedPlayer() === owner;
+            const useBorderColor = playerIsFocused
+              ? this.theme.focusedBorderColor()
+              : this.theme.borderColor(owner);
+            this.paintTile(this.imageData, tile, useBorderColor, 255);
           }
-          this.paintTile(
-            this.imageData,
-            tile,
-            this.theme.borderColor(owner),
-            255,
-          );
         }
       } else {
+        const isHighlighted =
+          this.highlightedTerritory &&
+          this.highlightedTerritory.id() === owner.id();
         this.paintTile(
           this.imageData,
           tile,
@@ -578,7 +584,7 @@ export class TerritoryLayer implements Layer {
             this.alternativeImageData,
             tile,
             alternativeColor,
-            255,
+            isHighlighted ? 150 : 60,
           );
         }
       }
@@ -604,16 +610,22 @@ export class TerritoryLayer implements Layer {
     if (!myPlayer) {
       return this.theme.enemyColor();
     }
-    if (other.smallID() === myPlayer.smallID()) {
-      return this.theme.selfColor();
+    // Diplomacy alternate view colors:
+    // - Red (enemyColor) for bots and players at war
+    // - Green (selfColor) for self and allies
+    // - Yellow (allyColor) for neutral/peace
+    let alternativeColor = this.theme.allyColor(); // default: neutral/peace (yellow)
+    if (other.type() === PlayerType.Bot) {
+      alternativeColor = this.theme.enemyColor(); // bots always red
+    } else if (
+      other.smallID() === myPlayer.smallID() ||
+      other.isFriendly(myPlayer)
+    ) {
+      alternativeColor = this.theme.selfColor(); // self and allies (green)
+    } else if (myPlayer.isAtWarWith(other)) {
+      alternativeColor = this.theme.enemyColor(); // at war (red)
     }
-    if (other.isFriendly(myPlayer)) {
-      return this.theme.allyColor();
-    }
-    if (other.hasEmbargoAgainst(myPlayer)) {
-      return this.theme.enemyColor();
-    }
-    return this.theme.allyColor();
+    return alternativeColor;
   }
 
   paintAlternateViewTile(tile: TileRef, other: PlayerView) {

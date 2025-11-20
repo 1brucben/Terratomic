@@ -1,4 +1,5 @@
 import { Theme } from "../../../core/configuration/Config";
+import { PlayerType } from "../../../core/game/Game";
 import { TileRef } from "../../../core/game/GameMap";
 import { GameView, PlayerView } from "../../../core/game/GameView";
 import { BorderRenderer } from "./BorderRenderer";
@@ -203,10 +204,13 @@ export class WebGLBorderRenderer implements BorderRenderer {
     if (owner.smallID() === myPlayer.smallID()) {
       return TileRelation.Self;
     }
+    if (owner.type() === PlayerType.Bot) {
+      return TileRelation.Enemy;
+    }
     if (owner.isFriendly(myPlayer)) {
       return TileRelation.Friendly;
     }
-    if (owner.hasEmbargoAgainst(myPlayer)) {
+    if (myPlayer.isAtWarWith(owner)) {
       return TileRelation.Enemy;
     }
     return TileRelation.Neutral;

@@ -787,6 +787,7 @@ export class TerritoryBorderWebGL {
     };
     setColor(this.uniforms.themeSelf, this.theme.selfColor());
     setColor(this.uniforms.themeFriendly, this.theme.allyColor());
+    setColor(this.uniforms.themeNeutral, this.theme.allyColor());
     setColor(this.uniforms.themeEnemy, this.theme.enemyColor());
   }
 
