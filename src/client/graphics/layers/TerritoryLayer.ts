@@ -3,7 +3,7 @@ import * as PIXI from "pixi.js";
 import { Theme } from "../../../core/configuration/Config";
 import { EventBus } from "../../../core/EventBus";
 import { PlayerType, UnitType } from "../../../core/game/Game";
-import { euclDistFN, TileRef } from "../../../core/game/GameMap";
+import { TileRef } from "../../../core/game/GameMap";
 import { GameUpdateType } from "../../../core/game/GameUpdates";
 import { GameView, PlayerView } from "../../../core/game/GameView";
 import { PseudoRandom } from "../../../core/PseudoRandom";
@@ -52,6 +52,18 @@ export class TerritoryLayer implements Layer {
   private dirtyMaxY: number = -Infinity;
   private territoryDirty: boolean = false;
   private altViewDirty: boolean = false;
+
+  private defensePostOffsets: { x: number; y: number }[] | null = null;
+  private spawnHighlightOffsets: { x: number; y: number }[] | null = null;
+
+  // Caches to avoid heavy calculations per-pixel
+  // 0 = unknown, 1 = false, 2 = true
+  private borderCache: Uint8Array | null = null;
+  private defendedCache: Uint8Array | null = null;
+  private borderColorsCache = new Map<
+    string,
+    { light: Colord; dark: Colord }
+  >();
 
   constructor(
     private game: GameView,
@@ -114,17 +126,34 @@ export class TerritoryLayer implements Layer {
     unitUpdates.forEach((update) => {
       if (update.unitType === UnitType.DefensePost) {
         const tile = update.pos;
-        this.game
-          .bfs(tile, euclDistFN(tile, this.game.config().defensePostRange()))
-          .forEach((t) => {
-            if (
-              this.game.isBorder(t) &&
-              (this.game.ownerID(t) === update.ownerID ||
-                this.game.ownerID(t) === update.lastOwnerID)
-            ) {
-              this.enqueueTile(t);
-            }
-          });
+        if (!this.defensePostOffsets) {
+          this.defensePostOffsets = this.getOffsets(
+            this.game.config().defensePostRange(),
+            false,
+          );
+        }
+        const cx = this.game.x(tile);
+        const cy = this.game.y(tile);
+
+        for (const offset of this.defensePostOffsets) {
+          const nx = cx + offset.x;
+          const ny = cy + offset.y;
+          if (!this.game.isValidCoord(nx, ny)) continue;
+          const t = this.game.ref(nx, ny);
+
+          // Invalidate defended cache for affected tiles
+          if (this.defendedCache) {
+            this.defendedCache[t] = 0;
+          }
+
+          if (
+            (this.game.ownerID(t) === update.ownerID ||
+              this.game.ownerID(t) === update.lastOwnerID) &&
+            this.game.isBorder(t)
+          ) {
+            this.enqueueTile(t);
+          }
+        }
       }
     });
 
@@ -198,6 +227,16 @@ export class TerritoryLayer implements Layer {
     const tileOwnerChangedUpdates =
       updates !== null ? updates[GameUpdateType.TileOwnerChanged] : [];
     tileOwnerChangedUpdates.forEach((update) => {
+      // Invalidate caches
+      if (this.borderCache) {
+        this.borderCache[update.tile] = 0;
+        for (const n of this.game.neighbors(update.tile)) {
+          this.borderCache[n] = 0;
+        }
+      }
+      if (this.defendedCache) {
+        this.defendedCache[update.tile] = 0;
+      }
       this.enqueueTile(update.tile);
     });
 
@@ -247,10 +286,19 @@ export class TerritoryLayer implements Layer {
       ) {
         color = this.theme.selfColor();
       }
-      for (const tile of this.game.bfs(
-        centerTile,
-        euclDistFN(centerTile, 9, true),
-      )) {
+
+      if (!this.spawnHighlightOffsets) {
+        this.spawnHighlightOffsets = this.getOffsets(9, true);
+      }
+      const cx = this.game.x(centerTile);
+      const cy = this.game.y(centerTile);
+
+      for (const offset of this.spawnHighlightOffsets) {
+        const nx = cx + offset.x;
+        const ny = cy + offset.y;
+        if (!this.game.isValidCoord(nx, ny)) continue;
+        const tile = this.game.ref(nx, ny);
+
         if (!this.game.hasOwner(tile)) {
           this.paintHighlightTile(tile, color, 255);
         }
@@ -350,6 +398,12 @@ export class TerritoryLayer implements Layer {
     this.highlightContext = highlightContext;
     this.highlightCanvas.width = this.game.width();
     this.highlightCanvas.height = this.game.height();
+
+    // Initialize caches
+    const size = this.game.width() * this.game.height();
+    this.borderCache = new Uint8Array(size);
+    this.defendedCache = new Uint8Array(size);
+    this.borderColorsCache.clear();
 
     // (Re)build PIXI sprites backed by these buffers
     // Use ImageSource with buffer resource to avoid canvas overhead
@@ -524,7 +578,18 @@ export class TerritoryLayer implements Layer {
       this.highlightedTerritory.id() === owner.id();
     const myPlayer = this.game.myPlayer();
 
-    if (this.game.isBorder(tile)) {
+    // Check border cache
+    let isBorderTile = false;
+    if (this.borderCache) {
+      if (this.borderCache[tile] === 0) {
+        this.borderCache[tile] = this.game.isBorder(tile) ? 2 : 1;
+      }
+      isBorderTile = this.borderCache[tile] === 2;
+    } else {
+      isBorderTile = this.game.isBorder(tile);
+    }
+
+    if (isBorderTile) {
       const playerIsFocused = owner && this.game.focusedPlayer() === owner;
       if (myPlayer) {
         // Diplomacy alternate view colors:
@@ -544,15 +609,35 @@ export class TerritoryLayer implements Layer {
         }
         this.paintTile(this.alternativeImageData, tile, alternativeColor, 255);
       }
-      if (
-        this.game.hasUnitNearby(
+
+      // Check defended cache
+      let isDefended = false;
+      if (this.defendedCache) {
+        if (this.defendedCache[tile] === 0) {
+          const defended = this.game.hasUnitNearby(
+            tile,
+            this.game.config().defensePostRange(),
+            UnitType.DefensePost,
+            owner.id(),
+          );
+          this.defendedCache[tile] = defended ? 2 : 1;
+        }
+        isDefended = this.defendedCache[tile] === 2;
+      } else {
+        isDefended = this.game.hasUnitNearby(
           tile,
           this.game.config().defensePostRange(),
           UnitType.DefensePost,
           owner.id(),
-        )
-      ) {
-        const borderColors = this.theme.defendedBorderColors(owner);
+        );
+      }
+
+      if (isDefended) {
+        let borderColors = this.borderColorsCache.get(owner.id());
+        if (!borderColors) {
+          borderColors = this.theme.defendedBorderColors(owner);
+          this.borderColorsCache.set(owner.id(), borderColors);
+        }
         const x = this.game.x(tile);
         const y = this.game.y(tile);
         const lightTile =
@@ -644,5 +729,33 @@ export class TerritoryLayer implements Layer {
       backgroundAlpha: 0,
       clearBeforeRender: true,
     });
+  }
+
+  private getOffsets(
+    range: number,
+    center: boolean,
+  ): { x: number; y: number }[] {
+    const offsets: { x: number; y: number }[] = [];
+    const r2 = range * range;
+    const ceilRange = Math.ceil(range);
+
+    for (let dy = -ceilRange; dy <= ceilRange; dy++) {
+      for (let dx = -ceilRange; dx <= ceilRange; dx++) {
+        let dist2 = 0;
+        if (!center) {
+          dist2 = dx * dx + dy * dy;
+        } else {
+          // Matches euclDistFN with center=true: (delta + 0.5)^2
+          const ddx = dx + 0.5;
+          const ddy = dy + 0.5;
+          dist2 = ddx * ddx + ddy * ddy;
+        }
+
+        if (dist2 <= r2) {
+          offsets.push({ x: dx, y: dy });
+        }
+      }
+    }
+    return offsets;
   }
 }
