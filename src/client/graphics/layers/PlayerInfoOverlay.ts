@@ -244,8 +244,20 @@ export class PlayerInfoOverlay extends LitElement implements Layer {
       <div class="flex flex-col p-2 min-w-max">
         <!-- Box 0: Name, Relation, Type, Team -->
         <div
-          class="flex justify-center items-center gap-2 mb-2 w-full border border-gray-400 rounded p-1"
+          class="flex justify-center items-center gap-2 mb-2 w-full border border-gray-400 rounded py-1 px-12 relative"
         >
+          <div
+            class="absolute left-2 flex items-center gap-1 text-sm opacity-80"
+          >
+            <img
+              src="/images/flask.png"
+              class="w-5 h-5"
+              style="transform: translateY(-1px); filter: drop-shadow(0 0 1px rgba(255, 255, 255, 0.8));"
+              alt="Research"
+            />
+            ${Math.floor(player.researchTechLevel())}
+          </div>
+
           <div
             class="text-bold text-lg font-bold inline-flex items-center break-all ${isFriendly
               ? "text-green-500"
@@ -282,7 +294,7 @@ export class PlayerInfoOverlay extends LitElement implements Layer {
         <div class="flex flex-row gap-2 items-stretch">
           <!-- Left Column (Box 2 & 3 Merged) -->
           <div
-            class="flex flex-col justify-between p-1 border border-gray-400 rounded w-56"
+            class="flex flex-col justify-between p-1 border border-gray-400 rounded min-w-fit"
           >
             <!-- Box 2 Content -->
             <div class="flex items-center gap-2 text-sm opacity-80">
@@ -324,15 +336,6 @@ export class PlayerInfoOverlay extends LitElement implements Layer {
                   alt="Productivity"
                 />
                 ${Math.round(player.productivity() * 100)}%
-              </span>
-              <span translate="no">
-                <img
-                  src="/images/flask.png"
-                  class="inline-block w-4 h-4 mr-1"
-                  style="transform: translateY(-1px);"
-                  alt="Research"
-                />
-                ${player.researchTechLevel().toFixed(1)}
               </span>
             </div>
           </div>
