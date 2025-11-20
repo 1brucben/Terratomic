@@ -14,7 +14,9 @@ import { Layer } from "./Layer";
 export class TerritoryLayer implements Layer {
   // Underlying pixel buffers (still CPU composed for per-tile updates)
   private imageData: ImageData;
+  private imageData32: Uint32Array;
   private alternativeImageData: ImageData;
+  private alternativeImageData32: Uint32Array;
   private territoryTexture: PIXI.Texture;
   private altTerritoryTexture: PIXI.Texture;
 
@@ -29,6 +31,7 @@ export class TerritoryLayer implements Layer {
   private highlightSprite: PIXI.Sprite; // sprite showing highlight texture
 
   private tileToRenderQueue: Set<TileRef> = new Set();
+  private tilesToPaint: Set<TileRef> = new Set();
   private random = new PseudoRandom(123);
   private theme: Theme;
 
@@ -385,9 +388,13 @@ export class TerritoryLayer implements Layer {
 
     // Reinitialize CPU image data buffers
     this.imageData = new ImageData(this.game.width(), this.game.height());
+    this.imageData32 = new Uint32Array(this.imageData.data.buffer);
     this.alternativeImageData = new ImageData(
       this.game.width(),
       this.game.height(),
+    );
+    this.alternativeImageData32 = new Uint32Array(
+      this.alternativeImageData.data.buffer,
     );
 
     this.highlightCanvas = document.createElement("canvas");
@@ -539,16 +546,16 @@ export class TerritoryLayer implements Layer {
   renderTerritory() {
     if (this.tileToRenderQueue.size === 0) return;
 
-    const tilesToPaint = new Set<TileRef>();
+    this.tilesToPaint.clear();
     for (const tile of this.tileToRenderQueue) {
-      tilesToPaint.add(tile);
+      this.tilesToPaint.add(tile);
       for (const neighbor of this.game.neighbors(tile)) {
-        tilesToPaint.add(neighbor);
+        this.tilesToPaint.add(neighbor);
       }
     }
     this.tileToRenderQueue.clear();
 
-    for (const tile of tilesToPaint) {
+    for (const tile of this.tilesToPaint) {
       this.paintTerritory(tile);
     }
   }
@@ -560,9 +567,9 @@ export class TerritoryLayer implements Layer {
 
     if (!this.game.hasOwner(tile)) {
       if (this.game.hasFallout(tile)) {
-        this.paintTile(this.imageData, tile, this.theme.falloutColor(), 150);
+        this.paintTile(this.imageData32, tile, this.theme.falloutColor(), 150);
         this.paintTile(
-          this.alternativeImageData,
+          this.alternativeImageData32,
           tile,
           this.theme.falloutColor(),
           150,
@@ -607,7 +614,12 @@ export class TerritoryLayer implements Layer {
         } else if (myPlayer.isAtWarWith(owner)) {
           alternativeColor = this.theme.enemyColor(); // at war (red)
         }
-        this.paintTile(this.alternativeImageData, tile, alternativeColor, 255);
+        this.paintTile(
+          this.alternativeImageData32,
+          tile,
+          alternativeColor,
+          255,
+        );
       }
 
       // Check defended cache
@@ -643,12 +655,12 @@ export class TerritoryLayer implements Layer {
         const lightTile =
           (x % 2 === 0 && y % 2 === 0) || (y % 2 === 1 && x % 2 === 1);
         const borderColor = lightTile ? borderColors.light : borderColors.dark;
-        this.paintTile(this.imageData, tile, borderColor, 255);
+        this.paintTile(this.imageData32, tile, borderColor, 255);
       } else {
         const useBorderColor = playerIsFocused
           ? this.theme.focusedBorderColor()
           : this.theme.borderColor(owner);
-        this.paintTile(this.imageData, tile, useBorderColor, 255);
+        this.paintTile(this.imageData32, tile, useBorderColor, 255);
       }
     } else {
       if (myPlayer) {
@@ -668,7 +680,7 @@ export class TerritoryLayer implements Layer {
           alternativeColor = this.theme.enemyColor(); // at war (red)
         }
         this.paintTile(
-          this.alternativeImageData,
+          this.alternativeImageData32,
           tile,
           alternativeColor,
           isHighlighted ? 150 : 60,
@@ -676,7 +688,7 @@ export class TerritoryLayer implements Layer {
       }
 
       this.paintTile(
-        this.imageData,
+        this.imageData32,
         tile,
         this.theme.territoryColor(owner),
         150,
@@ -692,18 +704,20 @@ export class TerritoryLayer implements Layer {
     this.territoryDirty = true;
   }
 
-  paintTile(imageData: ImageData, tile: TileRef, color: Colord, alpha: number) {
-    const offset = tile * 4;
-    imageData.data[offset] = color.rgba.r;
-    imageData.data[offset + 1] = color.rgba.g;
-    imageData.data[offset + 2] = color.rgba.b;
-    imageData.data[offset + 3] = alpha;
+  paintTile(
+    imageData32: Uint32Array,
+    tile: TileRef,
+    color: Colord,
+    alpha: number,
+  ) {
+    // Little-endian: ABGR
+    imageData32[tile] =
+      (alpha << 24) | (color.rgba.b << 16) | (color.rgba.g << 8) | color.rgba.r;
   }
 
   clearTile(tile: TileRef) {
-    const offset = tile * 4;
-    this.imageData.data[offset + 3] = 0; // Set alpha to 0 (fully transparent)
-    this.alternativeImageData.data[offset + 3] = 0; // Set alpha to 0 (fully transparent)
+    this.imageData32[tile] = 0;
+    this.alternativeImageData32[tile] = 0;
   }
 
   enqueueTile(tile: TileRef) {
