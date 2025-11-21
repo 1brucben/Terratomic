@@ -32,6 +32,7 @@ export const MapDescription: Record<keyof typeof GameMapType, string> = {
   StraitOfGibraltar: "Strait of Gibraltar",
   Italia: "Italia",
   Nukewars1024: "Nukewars 1024",
+  NukeWars2: "NukeWars 2",
 };
 
 @customElement("map-display")

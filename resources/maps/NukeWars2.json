@@ -1,0 +1,31 @@
+{
+  "name": "NukeWars2",
+  "width": 1024,
+  "height": 1024,
+  "nations": [
+    {
+      "coordinates": [256, 256],
+      "name": "Top Left",
+      "strength": 2,
+      "flag": "un"
+    },
+    {
+      "coordinates": [768, 256],
+      "name": "Top Right",
+      "strength": 2,
+      "flag": "un"
+    },
+    {
+      "coordinates": [256, 768],
+      "name": "Bottom Left",
+      "strength": 2,
+      "flag": "un"
+    },
+    {
+      "coordinates": [768, 768],
+      "name": "Bottom Right",
+      "strength": 2,
+      "flag": "un"
+    }
+  ]
+}

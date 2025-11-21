@@ -30,6 +30,7 @@ const maps = [
   "Baikal",
   "Halkidiki",
   "Nukewars1024",
+  "NukeWars2",
 ];
 
 const removeSmall = true;

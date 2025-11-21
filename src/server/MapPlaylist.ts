@@ -47,6 +47,7 @@ const frequency: Partial<Record<GameMapName, number>> = {
   Baikal: 1,
   Halkidiki: 1,
   Nukewars1024: 1,
+  NukeWars2: 1,
 };
 
 interface MapWithMode {

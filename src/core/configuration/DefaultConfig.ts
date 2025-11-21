@@ -80,6 +80,7 @@ const numPlayersConfig = {
   [GameMapType.StraitOfGibraltar]: [50, 40, 30],
   [GameMapType.Italia]: [50, 40, 30],
   [GameMapType.Nukewars1024]: [50, 40, 30],
+  [GameMapType.NukeWars2]: [50, 40, 30],
 } as const satisfies Record<GameMapType, [number, number, number]>;
 
 const TERRAIN_EFFECTS = {

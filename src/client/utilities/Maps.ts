@@ -26,6 +26,7 @@ import worldmapgiant from "../../../resources/maps/WorldMapGiantThumb.webp";
 import world from "../../../resources/maps/WorldMapThumb.webp";
 
 import nukewars1024 from "../../../resources/maps/Nukewars1024Thumb.webp";
+import nukewars2 from "../../../resources/maps/NukeWars2Thumb.webp";
 
 import { GameMapType } from "../../core/game/Game";
 
@@ -85,6 +86,8 @@ export function getMapsImage(map: GameMapType): string {
       return italia;
     case GameMapType.Nukewars1024:
       return nukewars1024;
+    case GameMapType.NukeWars2:
+      return nukewars2;
     default:
       return "";
   }
