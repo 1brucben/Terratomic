@@ -25,6 +25,8 @@ import straitofgibraltar from "../../../resources/maps/StraitOfGibraltarThumb.we
 import worldmapgiant from "../../../resources/maps/WorldMapGiantThumb.webp";
 import world from "../../../resources/maps/WorldMapThumb.webp";
 
+import symmetricalMagic from "../../../resources/maps/SymmetricalMagicThumb.webp";
+
 import { GameMapType } from "../../core/game/Game";
 
 export function getMapsImage(map: GameMapType): string {
@@ -81,6 +83,8 @@ export function getMapsImage(map: GameMapType): string {
       return straitofgibraltar;
     case GameMapType.Italia:
       return italia;
+    case GameMapType.SymmetricalMagic:
+      return symmetricalMagic;
     default:
       return "";
   }

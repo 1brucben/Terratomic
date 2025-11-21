@@ -23,12 +23,13 @@ const maps = [
   "Iceland",
   "BetweenTwoSeas",
   "EastAsia",
-  "KnownWorld",
+  //"KnownWorld",
   "FaroeIslands",
   "DeglaciatedAntarctica",
   "FalklandIslands",
   "Baikal",
   "Halkidiki",
+  "SymmetricalMagic",
 ];
 
 const removeSmall = true;
