@@ -1,12 +1,5 @@
 import { Config } from "../configuration/Config";
-import {
-  Execution,
-  Game,
-  Player,
-  PlayerType,
-  UnitType,
-  UpgradeType,
-} from "../game/Game";
+import { Execution, Game, Player, UnitType, UpgradeType } from "../game/Game";
 import { PseudoRandom } from "../PseudoRandom";
 import { getTechNodes, isTechAvailable } from "../tech/ResearchTree";
 import { simpleHash } from "../Util";
@@ -141,7 +134,7 @@ export class PlayerExecution implements Execution {
   }
 
   private tickResearch() {
-    // Ensure RNG and config are ready
+    // Ensure execution is initialized
     if (!this.random) return;
 
     // Determine research investment (gold) this tick and transform via f(x) = A * investment^B
@@ -184,7 +177,6 @@ export class PlayerExecution implements Execution {
     const priorityInSet =
       priorityId !== null && available.some((n) => n.id === priorityId);
 
-    const k = this.config.researchK();
     const bMin = this.config.researchBeakerMin();
     const bMax = this.config.researchBeakerMax();
 
@@ -237,16 +229,16 @@ export class PlayerExecution implements Execution {
 
     const alloc: Record<string, number> = {};
     if (priorityId && !priorityInSet) {
-      // Priority target not available: allocate half to the frontier of its missing prereqs
+      // Priority target not available: allocate 50% to the frontier of its missing prereqs
       const pathSet = buildMissingPrereqPath(priorityId);
       const frontier = available.filter((n) => pathSet.has(n.id));
       if (frontier.length > 0) {
-        const half = 0.5 * xTotal;
-        const shareFrontier = half / frontier.length;
+        const priorityShare = 0.5 * xTotal;
+        const shareFrontier = priorityShare / frontier.length;
         for (const n of frontier)
           alloc[n.id] = (alloc[n.id] ?? 0) + shareFrontier;
         const others = available.filter((n) => !pathSet.has(n.id));
-        const remaining = xTotal - half;
+        const remaining = xTotal - priorityShare;
         const shareOthers = others.length > 0 ? remaining / others.length : 0;
         for (const n of others) alloc[n.id] = (alloc[n.id] ?? 0) + shareOthers;
       } else {
@@ -255,10 +247,11 @@ export class PlayerExecution implements Execution {
         for (const n of available) alloc[n.id] = share;
       }
     } else if (priorityInSet && available.length > 1) {
-      const half = 0.5 * xTotal;
-      alloc[priorityId!] = (alloc[priorityId!] ?? 0) + half;
+      const priorityShare = 0.5 * xTotal;
+      alloc[priorityId!] = (alloc[priorityId!] ?? 0) + priorityShare;
       const others = available.filter((n) => n.id !== priorityId);
-      const share = others.length > 0 ? half / others.length : 0;
+      const share =
+        others.length > 0 ? (xTotal - priorityShare) / others.length : 0;
       for (const n of others) alloc[n.id] = (alloc[n.id] ?? 0) + share;
     } else {
       const share = xTotal / available.length;
@@ -273,25 +266,36 @@ export class PlayerExecution implements Execution {
       this._researchAccum.set(n.id, prev + x);
     }
 
-    // Only calculate innovation probability on the configured cadence
+    // Award beakers deterministically based on accumulated intensity
     const interval = this.config.researchIntervalTicks();
     if (interval > 0 && this.mg.ticks() % interval === 0) {
-      const isHuman = this.player.type() === PlayerType.Human;
-      for (const [techId, X] of this._researchAccum.entries()) {
-        if (!Number.isFinite(X) || X <= 0) continue;
-        const p = 1 - Math.exp(-k * X);
-        const roll = this.random.next();
-        if (roll < p) {
-          // Success: award uniform beakers between [bMin, bMax] inclusive
-          const beakers = this.random.nextInt(bMin, bMax + 1);
-          const cost = byId.get(techId)?.cost ?? 0;
-          const result = (this.player as any).addResearchBeakers?.(
-            techId,
-            beakers,
-            cost,
-          );
-          if (result?.completed) {
-            // completed via addResearchBeakers -> addResearchedTech side-effects
+      // Calculate total accumulated intensity across all techs
+      let totalX = 0;
+      for (const [_, X] of this._researchAccum.entries()) {
+        if (Number.isFinite(X) && X > 0) totalX += X;
+      }
+
+      if (totalX > 0) {
+        // Distribute beakers proportionally to accumulated intensity
+        const totalBeakersToAward = bMin + (bMax - bMin) / 2; // Use average of min/max
+
+        for (const [techId, X] of this._researchAccum.entries()) {
+          if (!Number.isFinite(X) || X <= 0) continue;
+
+          // Award beakers proportional to this tech's share of total intensity
+          const share = X / totalX;
+          const beakers = Math.floor(share * totalBeakersToAward);
+
+          if (beakers > 0) {
+            const cost = byId.get(techId)?.cost ?? 0;
+            const result = (this.player as any).addResearchBeakers?.(
+              techId,
+              beakers,
+              cost,
+            );
+            if (result?.completed) {
+              // completed via addResearchBeakers -> addResearchedTech side-effects
+            }
           }
         }
       }
