@@ -84,7 +84,7 @@ export enum GameMapType {
   Halkidiki = "Halkidiki",
   StraitOfGibraltar = "Strait of Gibraltar",
   Italia = "Italia",
-  SymmetricalMagic = "Symmetrical Magic",
+  Nukewars1024 = "Nukewars 1024",
 }
 
 export type GameMapName = keyof typeof GameMapType;
@@ -119,7 +119,7 @@ export const mapCategories: Record<string, GameMapType[]> = {
     GameMapType.Pangaea,
     GameMapType.Mars,
     GameMapType.DeglaciatedAntarctica,
-    GameMapType.SymmetricalMagic,
+    GameMapType.Nukewars1024,
   ],
 };
 

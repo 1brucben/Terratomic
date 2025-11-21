@@ -1,0 +1,43 @@
+{
+  "name": "Nukewars1024",
+  "width": 1024,
+  "height": 1024,
+  "nations": [
+    {
+      "coordinates": [205, 512],
+      "name": "Left Capital",
+      "strength": 2,
+      "flag": "un"
+    },
+    {
+      "coordinates": [819, 512],
+      "name": "Right Capital",
+      "strength": 2,
+      "flag": "un"
+    },
+    {
+      "coordinates": [205, 256],
+      "name": "Left North",
+      "strength": 2,
+      "flag": "un"
+    },
+    {
+      "coordinates": [819, 256],
+      "name": "Right North",
+      "strength": 2,
+      "flag": "un"
+    },
+    {
+      "coordinates": [205, 768],
+      "name": "Left South",
+      "strength": 2,
+      "flag": "un"
+    },
+    {
+      "coordinates": [819, 768],
+      "name": "Right South",
+      "strength": 2,
+      "flag": "un"
+    }
+  ]
+}

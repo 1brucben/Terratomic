@@ -31,7 +31,7 @@ export const MapDescription: Record<keyof typeof GameMapType, string> = {
   Halkidiki: "Halkidiki",
   StraitOfGibraltar: "Strait of Gibraltar",
   Italia: "Italia",
-  SymmetricalMagic: "Symmetrical Magic",
+  Nukewars1024: "Nukewars 1024",
 };
 
 @customElement("map-display")

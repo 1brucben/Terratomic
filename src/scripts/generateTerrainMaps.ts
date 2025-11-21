@@ -29,7 +29,7 @@ const maps = [
   "FalklandIslands",
   "Baikal",
   "Halkidiki",
-  "SymmetricalMagic",
+  "Nukewars1024",
 ];
 
 const removeSmall = true;
