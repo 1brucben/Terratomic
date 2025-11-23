@@ -16,6 +16,8 @@ import { PseudoRandom } from "../PseudoRandom";
 import { FlatBinaryHeap } from "./utils/FlatBinaryHeap"; // adjust path if needed
 
 const malusForRetreat = 25;
+const SUBTICKS_PER_TICK = 6; // Attack executions are called 6 times per tick
+
 export class AttackExecution implements Execution {
   private breakAlliance = false;
   private wasAlliedAtInit = false; // Store alliance state at initialization
@@ -263,14 +265,17 @@ export class AttackExecution implements Execution {
     // Consolidated: retreats on alliance/peace are now handled centrally via
     // PlayerImpl.setNeutralWith, which orders retreats on hostile actions.
 
-    let numTilesPerTick = this.mg
-      .config()
-      .attackTilesPerTick(
-        troopCount,
-        this._owner,
-        this.target,
-        this.attack.borderSize() + this.random.nextInt(0, 5),
-      );
+    // Calculate tiles to process - divided by SUBTICKS_PER_TICK since this is called 6 times per game tick
+    let numTilesPerTick = Math.ceil(
+      this.mg
+        .config()
+        .attackTilesPerTick(
+          troopCount,
+          this._owner,
+          this.target,
+          this.attack.borderSize() + this.random.nextInt(0, 5),
+        ) / SUBTICKS_PER_TICK,
+    );
 
     while (numTilesPerTick > 0) {
       if (troopCount < 1) {
