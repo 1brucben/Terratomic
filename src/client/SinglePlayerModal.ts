@@ -14,6 +14,7 @@ import {
   mapCategories,
 } from "../core/game/Game";
 import {
+  GoldMultiplierValues,
   PeaceTimerDuration,
   StartingGoldValues,
   TeamCountConfig,
@@ -33,6 +34,11 @@ type StartingGoldOption = (typeof StartingGoldValues)[number];
 const startingGoldList = [...StartingGoldValues] as number[];
 const isStartingGoldOption = (value: number): value is StartingGoldOption =>
   startingGoldList.includes(value);
+
+type GoldMultiplierOption = (typeof GoldMultiplierValues)[number];
+const goldMultiplierList = [...GoldMultiplierValues] as number[];
+const isGoldMultiplierOption = (value: number): value is GoldMultiplierOption =>
+  goldMultiplierList.includes(value);
 
 @customElement("single-player-modal")
 export class SinglePlayerModal extends LitElement {
@@ -55,6 +61,7 @@ export class SinglePlayerModal extends LitElement {
   @state() private selectedPeaceTimerDuration: PeaceTimerDuration =
     PeaceTimerDuration.None;
   @state() private startingGold: StartingGoldOption = StartingGoldValues[0];
+  @state() private goldMultiplier: GoldMultiplierOption = 1;
 
   @state() private disabledUnits: UnitType[] = [];
   @state() private showUnitSettings = true; // Open by default
@@ -552,7 +559,24 @@ export class SinglePlayerModal extends LitElement {
                 </div>
 
                 <!-- Dropdowns with Labels -->
-                <div class="grid grid-cols-2 gap-4 mb-3">
+                <div class="grid grid-cols-3 gap-4 mb-3">
+                  <div class="flex flex-col">
+                    <div class="text-sm text-gray-300 mb-1 font-bold">
+                      ${translateText("gold_multiplier.label")}
+                    </div>
+                    <select
+                      class="sp-select"
+                      @change=${this.handleGoldMultiplierChange}
+                      .value=${String(this.goldMultiplier)}
+                    >
+                      ${GoldMultiplierValues.map(
+                        (v) =>
+                          html`<option value=${v}>
+                            ${v}x${v === 1 ? " (Default)" : ""}
+                          </option>`,
+                      )}
+                    </select>
+                  </div>
                   <div class="flex flex-col">
                     <div class="text-sm text-gray-300 mb-1 font-bold">
                       ${translateText("starting_gold.label")}
@@ -785,6 +809,14 @@ export class SinglePlayerModal extends LitElement {
     this.startingGold = value;
   }
 
+  private handleGoldMultiplierChange(e: Event) {
+    const value = parseFloat((e.target as HTMLSelectElement).value);
+    if (isNaN(value) || !isGoldMultiplierOption(value)) {
+      return;
+    }
+    this.goldMultiplier = value;
+  }
+
   private handlePeaceTimerChange(e: Event) {
     this.selectedPeaceTimerDuration = parseInt(
       (e.target as HTMLSelectElement).value,
@@ -874,6 +906,7 @@ export class SinglePlayerModal extends LitElement {
                 .filter((ut): ut is UnitType => ut !== undefined),
               peaceTimerDurationMinutes: this.selectedPeaceTimerDuration,
               startingGold: this.startingGold,
+              goldMultiplier: this.goldMultiplier,
             },
           },
         } satisfies JoinLobbyEvent,

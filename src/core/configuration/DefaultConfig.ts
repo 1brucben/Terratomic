@@ -1275,7 +1275,8 @@ export class DefaultConfig implements Config {
     const productivity = player.productivity();
     const k = player.effectiveUnits(UnitType.Factory);
     const factoryFactor = Math.pow(1 + k, 0.35);
-    const grossGold = base * productivity * factoryFactor;
+    const multiplier = this._gameConfig.goldMultiplier ?? 1;
+    const grossGold = base * productivity * factoryFactor * multiplier;
     return Number.isFinite(grossGold) && grossGold >= 0 ? grossGold : 0;
   }
 

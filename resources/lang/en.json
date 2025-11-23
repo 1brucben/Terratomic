@@ -176,6 +176,9 @@
     "default": "0 (default)",
     "millions": "{amount}M"
   },
+  "gold_multiplier": {
+    "label": "Gold Multiplier"
+  },
   "private_lobby": {
     "title": "Join Private Lobby",
     "enter_id": "Enter Lobby ID",

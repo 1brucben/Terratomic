@@ -21,6 +21,7 @@ import {
   ClientInfo,
   GameConfig,
   GameInfo,
+  GoldMultiplierValues,
   PeaceTimerDuration,
   StartingGoldValues,
   TeamCountConfig,
@@ -37,6 +38,11 @@ type StartingGoldOption = (typeof StartingGoldValues)[number];
 const startingGoldList = [...StartingGoldValues] as number[];
 const isStartingGoldOption = (value: number): value is StartingGoldOption =>
   startingGoldList.includes(value);
+
+type GoldMultiplierOption = (typeof GoldMultiplierValues)[number];
+const goldMultiplierList = [...GoldMultiplierValues] as number[];
+const isGoldMultiplierOption = (value: number): value is GoldMultiplierOption =>
+  goldMultiplierList.includes(value);
 
 @customElement("host-lobby-modal")
 export class HostLobbyModal extends LitElement {
@@ -65,6 +71,7 @@ export class HostLobbyModal extends LitElement {
   @state() private selectedPeaceTimerDuration: PeaceTimerDuration =
     PeaceTimerDuration.None;
   @state() private startingGold: StartingGoldOption = StartingGoldValues[0];
+  @state() private goldMultiplier: GoldMultiplierOption = 1;
   @state() private playerTeamAssignments: Record<string, number | null> = {};
   @state() private updatingTeamForClients: Set<string> = new Set();
   @state() private showUnitSettings = false; // Closed by default for Host
@@ -815,8 +822,25 @@ export class HostLobbyModal extends LitElement {
                   />
                 </div>
 
-                <!-- Dropdowns -->
-                <div class="grid grid-cols-2 gap-4 mb-3">
+                <!-- Dropdowns (3 columns) -->
+                <div class="grid grid-cols-3 gap-4 mb-3">
+                  <div class="flex flex-col">
+                    <div class="text-sm text-gray-300 mb-1 font-bold">
+                      ${translateText("gold_multiplier.label")}
+                    </div>
+                    <select
+                      class="sp-select"
+                      @change=${this.handleGoldMultiplierChange}
+                      .value=${String(this.goldMultiplier)}
+                    >
+                      ${GoldMultiplierValues.map(
+                        (v) =>
+                          html`<option value=${v}>
+                            ${v}x${v === 1 ? " (Default)" : ""}
+                          </option>`,
+                      )}
+                    </select>
+                  </div>
                   <div class="flex flex-col">
                     <div class="text-sm text-gray-300 mb-1 font-bold">
                       ${translateText("starting_gold.label")}
@@ -1034,6 +1058,9 @@ export class HostLobbyModal extends LitElement {
         } else {
           this.startingGold = 0;
         }
+        if (lobby.gameConfig?.goldMultiplier !== undefined) {
+          this.goldMultiplier = lobby.gameConfig.goldMultiplier;
+        }
       })
       .then(() => {
         this.dispatchEvent(
@@ -1120,6 +1147,15 @@ export class HostLobbyModal extends LitElement {
       return;
     }
     this.startingGold = value;
+    this.putGameConfig();
+  }
+
+  private handleGoldMultiplierChange(e: Event) {
+    const value = parseFloat((e.target as HTMLSelectElement).value);
+    if (isNaN(value) || !isGoldMultiplierOption(value)) {
+      return;
+    }
+    this.goldMultiplier = value;
     this.putGameConfig();
   }
 
@@ -1440,6 +1476,7 @@ export class HostLobbyModal extends LitElement {
           playerTeamAssignments: assignmentsPayload,
           peaceTimerDurationMinutes: this.selectedPeaceTimerDuration,
           startingGold: this.startingGold,
+          goldMultiplier: this.goldMultiplier,
         } satisfies Partial<GameConfig>),
       },
     );
@@ -1547,6 +1584,9 @@ export class HostLobbyModal extends LitElement {
         }
         if (data.gameConfig?.startingGold !== undefined) {
           this.startingGold = data.gameConfig.startingGold;
+        }
+        if (data.gameConfig?.goldMultiplier !== undefined) {
+          this.goldMultiplier = data.gameConfig.goldMultiplier;
         }
         if (data.gameConfig?.researchAllTechs !== undefined) {
           this.researchAllTechs = Boolean(data.gameConfig.researchAllTechs);

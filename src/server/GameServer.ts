@@ -129,6 +129,9 @@ export class GameServer {
     if (gameConfig.startingGold !== undefined) {
       this.gameConfig.startingGold = gameConfig.startingGold;
     }
+    if (gameConfig.goldMultiplier !== undefined) {
+      this.gameConfig.goldMultiplier = gameConfig.goldMultiplier;
+    }
   }
 
   public addClient(client: Client, lastTurn: number) {

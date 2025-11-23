@@ -25,6 +25,8 @@ export const StartingGoldValues = [
   15_000_000, 20_000_000, 25_000_000, 35_000_000, 50_000_000,
 ] as const;
 
+export const GoldMultiplierValues = [1, 1.5, 2, 3, 4, 5, 10, 25, 50] as const;
+
 export type Intent =
   | SpawnIntent
   | AttackIntent
@@ -236,6 +238,10 @@ export const GameConfigSchema = z.object({
   startingGold: z
     .union(StartingGoldValues.map((value) => z.literal(value)))
     .default(0),
+  goldMultiplier: z
+    .union(GoldMultiplierValues.map((value) => z.literal(value)))
+    .optional()
+    .default(1),
 });
 
 export const TeamSchema = z.string();
