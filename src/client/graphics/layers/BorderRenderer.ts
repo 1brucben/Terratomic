@@ -3,7 +3,6 @@ import { PlayerView } from "../../../core/game/GameView";
 
 export interface BorderRenderer {
   setAlternativeView(enabled: boolean): void;
-  setHoveredPlayerId(playerSmallId: number | null): void;
   drawsOwnBorders(): boolean;
 
   updateBorder(
@@ -25,8 +24,6 @@ export class NullBorderRenderer implements BorderRenderer {
   }
 
   setAlternativeView() {}
-
-  setHoveredPlayerId() {}
 
   updateBorder() {}
 

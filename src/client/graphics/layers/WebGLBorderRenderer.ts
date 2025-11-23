@@ -5,7 +5,6 @@ import { GameView, PlayerView } from "../../../core/game/GameView";
 import { BorderRenderer } from "./BorderRenderer";
 import {
   BorderEdge,
-  HoverHighlightOptions,
   TerritoryBorderWebGL,
   TileRelation,
 } from "./TerritoryBorderWebGl";
@@ -40,16 +39,8 @@ export class WebGLBorderRenderer implements BorderRenderer {
     this.renderer?.setAlternativeView(enabled);
   }
 
-  setHoveredPlayerId(playerSmallId: number | null): void {
-    this.renderer?.setHoveredPlayerId(playerSmallId);
-  }
-
   setDebugPulseEnabled(enabled: boolean): void {
     this.renderer?.setDebugPulseEnabled(enabled);
-  }
-
-  setHoverHighlightOptions(options: HoverHighlightOptions): void {
-    this.renderer?.setHoverHighlightOptions(options);
   }
 
   updateBorder(

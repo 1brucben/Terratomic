@@ -13,11 +13,7 @@ import { euclDistFN, TileRef } from "../../../core/game/GameMap";
 import { GameUpdateType } from "../../../core/game/GameUpdates";
 import { GameView, PlayerView } from "../../../core/game/GameView";
 import { PseudoRandom } from "../../../core/PseudoRandom";
-import {
-  AlternateViewEvent,
-  DragEvent,
-  MouseOverEvent,
-} from "../../InputHandler";
+import { AlternateViewEvent, DragEvent } from "../../InputHandler";
 import { TransformHandler } from "../TransformHandler";
 import { BorderRenderer, NullBorderRenderer } from "./BorderRenderer";
 import { Layer } from "./Layer";
@@ -43,13 +39,11 @@ export class TerritoryLayer implements Layer {
   private highlightCanvas: HTMLCanvasElement;
   private highlightContext: CanvasRenderingContext2D;
 
-  private highlightedTerritory: PlayerView | null = null;
   private borderRenderer: BorderRenderer = new NullBorderRenderer();
 
   private alternativeView = false;
   private lastDragTime = 0;
   private nodrawDragDuration = 200;
-  private lastMousePosition: { x: number; y: number } | null = null;
 
   private refreshRate = 15; //refresh every 15ms
   private lastRefresh = 0;
@@ -251,7 +245,6 @@ export class TerritoryLayer implements Layer {
   }
 
   init() {
-    this.eventBus.on(MouseOverEvent, (e) => this.onMouseOver(e));
     this.eventBus.on(AlternateViewEvent, (e) => {
       this.alternativeView = e.alternateView;
       this.borderRenderer.setAlternativeView(this.alternativeView);
@@ -261,61 +254,6 @@ export class TerritoryLayer implements Layer {
       // this.lastDragTime = Date.now();
     });
     this.redraw();
-  }
-
-  onMouseOver(event: MouseOverEvent) {
-    this.lastMousePosition = { x: event.x, y: event.y };
-    this.updateHighlightedTerritory();
-  }
-
-  private updateHighlightedTerritory() {
-    const supportsHover =
-      this.alternativeView || this.borderRenderer.drawsOwnBorders();
-    if (!supportsHover) {
-      return;
-    }
-
-    if (!this.lastMousePosition) {
-      return;
-    }
-
-    const cell = this.transformHandler.screenToWorldCoordinates(
-      this.lastMousePosition.x,
-      this.lastMousePosition.y,
-    );
-    if (!this.game.isValidCoord(cell.x, cell.y)) {
-      return;
-    }
-
-    const previousTerritory = this.highlightedTerritory;
-    const tileRef = this.game.ref(cell.x, cell.y);
-    const territory =
-      tileRef && this.game.hasOwner(tileRef)
-        ? (this.game.owner(tileRef) as PlayerView)
-        : null;
-
-    if (territory) {
-      this.highlightedTerritory = territory;
-    } else {
-      this.highlightedTerritory = null;
-    }
-
-    if (previousTerritory?.id() !== this.highlightedTerritory?.id()) {
-      if (this.borderRenderer.drawsOwnBorders()) {
-        this.borderRenderer.setHoveredPlayerId(
-          this.highlightedTerritory?.smallID() ?? null,
-        );
-      } else {
-        const territories: PlayerView[] = [];
-        if (previousTerritory) {
-          territories.push(previousTerritory);
-        }
-        if (this.highlightedTerritory) {
-          territories.push(this.highlightedTerritory);
-        }
-        this.redrawBorder(...territories);
-      }
-    }
   }
 
   redraw() {
@@ -371,39 +309,9 @@ export class TerritoryLayer implements Layer {
     if (renderer.isActive()) {
       this.borderRenderer = renderer;
       this.borderRenderer.setAlternativeView(this.alternativeView);
-      this.borderRenderer.setHoveredPlayerId(
-        this.highlightedTerritory?.smallID() ?? null,
-      );
-      renderer.setHoverHighlightOptions(this.hoverHighlightOptions());
     } else {
       this.borderRenderer = new NullBorderRenderer();
     }
-  }
-
-  /**
-   * Central configuration for WebGL border hover styling.
-   * Keeps main view and alternate view behavior explicit and tweakable.
-   */
-  private hoverHighlightOptions() {
-    const baseColor = this.theme.spawnHighlightColor();
-
-    if (this.alternativeView) {
-      // Alternate view: borders are the primary visual, so make hover stronger
-      return {
-        color: baseColor,
-        strength: 0.8,
-        pulseStrength: 0.45,
-        pulseSpeed: Math.PI * 2,
-      };
-    }
-
-    // Main view: keep highlight noticeable but a bit subtler
-    return {
-      color: baseColor,
-      strength: 0.6,
-      pulseStrength: 0.35,
-      pulseSpeed: Math.PI * 2,
-    };
   }
 
   redrawBorder(...players: PlayerView[]) {
@@ -569,9 +477,6 @@ export class TerritoryLayer implements Layer {
           }
         }
       } else {
-        const isHighlighted =
-          this.highlightedTerritory &&
-          this.highlightedTerritory.id() === owner.id();
         this.paintTile(
           this.imageData,
           tile,
@@ -580,12 +485,7 @@ export class TerritoryLayer implements Layer {
         );
         if (myPlayer) {
           const alternativeColor = this.alternateViewColor(owner);
-          this.paintTile(
-            this.alternativeImageData,
-            tile,
-            alternativeColor,
-            isHighlighted ? 150 : 60,
-          );
+          this.paintTile(this.alternativeImageData, tile, alternativeColor, 60);
         }
       }
     }
