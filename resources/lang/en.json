@@ -163,8 +163,8 @@
     "halkidiki": "Halkidiki",
     "straitofgibraltar": "Strait of Gibraltar",
     "italia": "Italia",
-    "nukewars1024": "NukeWars",
-    "nukewars2": "NukeWars 2"
+    "nukewars1024": "Nukewars",
+    "nukewars2": "Nukewars 2"
   },
   "map_categories": {
     "continental": "Continental",
@@ -300,7 +300,7 @@
     "special_effects_enabled": "Special effects enabled",
     "special_effects_disabled": "Special effects disabled",
     "anonymous_names_enabled": "Anonymous names enabled",
-    "lobby_id_visibility_label": "Hidden Lobby IDs",
+    "lobby_id_visibility_label": "Hidden Lobby Ids",
     "lobby_id_visibility_desc": "Hide Lobby ID in private lobby creation",
     "real_names_shown": "Real names shown",
     "left_click_desc": "When ON, left-click opens menu and sword button attacks. When OFF, left-click attacks directly.",
