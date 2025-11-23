@@ -83,8 +83,6 @@ export class ControlPanel extends LitElement implements Layer {
 
   private init_: boolean = false;
 
-  private _hoverTimeoutId: number | null = null; // New property
-
   private _ignoreNextClick = false;
 
   init() {
@@ -240,23 +238,6 @@ export class ControlPanel extends LitElement implements Layer {
     }
     this.isBuildPanelOpen = !this.isBuildPanelOpen;
     this.eventBus.emit(new ToggleBuildPanelEvent(this.isBuildPanelOpen));
-  }
-
-  handleMouseEnterBuildPanel() {
-    if (this._hoverTimeoutId) {
-      clearTimeout(this._hoverTimeoutId);
-    }
-    this._hoverTimeoutId = window.setTimeout(() => {
-      this.openBuildPanel();
-      this._hoverTimeoutId = null;
-    }, 300); // 500ms delay
-  }
-
-  handleMouseLeaveBuildPanel() {
-    if (this._hoverTimeoutId) {
-      clearTimeout(this._hoverTimeoutId);
-      this._hoverTimeoutId = null;
-    }
   }
 
   render() {
@@ -470,8 +451,6 @@ export class ControlPanel extends LitElement implements Layer {
               <div
                 class="absolute top-0 -right-8 w-8 h-full rounded-r-md flex items-center justify-center cursor-pointer border-2 border-l-0 transition-all duration-200 hover:brightness-125"
                 style="background-color: var(--ui-secondary); border-color: var(--ui-panel-border);"
-                @mouseenter=${this.handleMouseEnterBuildPanel}
-                @mouseleave=${this.handleMouseLeaveBuildPanel}
                 @click=${this.toggleBuildPanel}
               >
                 <div
