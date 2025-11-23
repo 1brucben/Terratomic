@@ -64,10 +64,11 @@ COPY --from=dependencies /etc/nginx/nginx.conf /etc/nginx/nginx.conf
 
 # Copy npm dependencies
 COPY --from=npm-dependencies /usr/src/app/node_modules node_modules
-COPY package.json .
+COPY package.json tsconfig.json ./
 
-# Copy the rest of the application code
-COPY . .
+# Copy application code (Selective copy to reduce size)
+COPY src src
+COPY resources resources
 
 # Copy frontend
 COPY --from=build /usr/src/app/static static
