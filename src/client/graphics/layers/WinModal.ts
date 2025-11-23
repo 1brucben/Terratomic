@@ -150,7 +150,6 @@ export class WinModal extends LitElement implements Layer {
     return html`
       <div class="win-modal ${this.isVisible ? "visible" : ""}">
         <h2>${this._title || ""}</h2>
-        ${this.innerHtml()}
         <div class="button-container">
           <button @click=${this._handleExit}>
             ${translateText("win_modal.exit")}
@@ -161,19 +160,6 @@ export class WinModal extends LitElement implements Layer {
         </div>
       </div>
     `;
-  }
-
-  innerHtml() {
-    return html`<p>
-      <a
-        href="https://store.steampowered.com/app/3560670"
-        target="_blank"
-        rel="noopener noreferrer"
-        class="win-modal__link"
-      >
-        ${translateText("win_modal.wishlist")}
-      </a>
-    </p>`;
   }
 
   show() {
