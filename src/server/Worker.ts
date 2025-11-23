@@ -1,11 +1,13 @@
-import express, { NextFunction, Request, Response } from "express";
+import express, { NextFunction, Request, Response } from "ultimate-express";
 import rateLimit from "express-rate-limit";
-import http from "http";
 import ipAnonymize from "ip-anonymize";
 import path from "path";
 import { fileURLToPath } from "url";
-import { WebSocket, WebSocketServer } from "ws";
+import UltimateWS from "ultimate-ws";
+import { WebSocket } from "ws";
 import { z } from "zod";
+
+const { WebSocketServer } = UltimateWS;
 import { GameEnv } from "../core/configuration/Config";
 import { getServerConfigFromServer } from "../core/configuration/ConfigLoader";
 import { GameType } from "../core/game/Game";
@@ -40,8 +42,7 @@ export function startWorker() {
   const app = express();
   app.set("trust proxy", true);
 
-  const server = http.createServer(app);
-  const wss = new WebSocketServer({ server });
+  const wss = new WebSocketServer({ server: app });
 
   const gm = new GameManager(config, log);
 
@@ -417,7 +418,7 @@ export function startWorker() {
 
   // The load balancer will handle routing to this server based on path
   const PORT = config.workerPortByIndex(workerId);
-  server.listen(PORT, () => {
+  app.listen(PORT, () => {
     log.info(`running on http://localhost:${PORT}`);
     log.info(`Handling requests with path prefix /w${workerId}/`);
     // Signal to the master process that this worker is ready
