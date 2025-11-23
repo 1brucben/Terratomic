@@ -53,7 +53,7 @@ const ICON_SIZES: Record<BgShape, number> = {
 const ICON_GROW_ZOOM_THRESHOLD = 2;
 const UNDER_CONSTRUCTION_FILL = "rgb(198, 198, 198)";
 const UNDER_CONSTRUCTION_BORDER = "rgb(128, 127, 127)";
-const reloadingColor = "red";
+const reloadingColor = "rgba(155, 16, 16, 1)";
 
 // Background shape per structure type
 type BgShape = "circle" | "square" | "triangle" | "pentagon" | "octagon";
