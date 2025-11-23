@@ -1,6 +1,8 @@
 import { LitElement, css, html } from "lit";
 import { customElement, state } from "lit/decorators.js";
 import { EventBus } from "../../../core/EventBus";
+import { PlayerType, nukeTypes } from "../../../core/game/Game";
+import { GameUpdateType } from "../../../core/game/GameUpdates";
 import { GameView } from "../../../core/game/GameView";
 import { Layer } from "./Layer";
 
@@ -11,9 +13,10 @@ export class AttackWarningOverlay extends LitElement implements Layer {
 
   @state()
   private isUnderAttack = false;
+  @state()
+  private isNukeAttack = false;
 
-  private attackCheckInterval: number | null = null;
-  private glowTimeout: number | null = null;
+  private incomingNukeIDs = new Set<number>();
 
   static styles = css`
     :host {
@@ -42,6 +45,12 @@ export class AttackWarningOverlay extends LitElement implements Layer {
       animation: pulse 2s ease-in-out infinite;
     }
 
+    .attack-glow.nuke {
+      box-shadow: inset 0 0 20px 8px rgba(255, 0, 0, 0.75);
+      animation: nuke-pulse 1.2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+      opacity: 1 !important;
+    }
+
     @keyframes pulse {
       0%,
       100% {
@@ -51,6 +60,16 @@ export class AttackWarningOverlay extends LitElement implements Layer {
         box-shadow: inset 0 0 20px 8px rgba(255, 255, 120, 0.95);
       }
     }
+
+    @keyframes nuke-pulse {
+      0%,
+      100% {
+        box-shadow: inset 0 0 20px 8px rgba(255, 0, 0, 0.75);
+      }
+      50% {
+        box-shadow: inset 0 0 20px 8px rgba(255, 100, 100, 0.95);
+      }
+    }
   `;
 
   init() {}
@@ -58,76 +77,86 @@ export class AttackWarningOverlay extends LitElement implements Layer {
   tick() {
     const myPlayer = this.game.myPlayer();
     if (!myPlayer || !myPlayer.isAlive()) {
-      if (this.isUnderAttack) {
+      if (this.isUnderAttack || this.isNukeAttack) {
         this.isUnderAttack = false;
+        this.isNukeAttack = false;
         this.requestUpdate();
       }
       return;
     }
 
-    const updates = this.game.updatesSinceLastTick();
-    if (!updates) return;
-
-    // Only consider attacks from human or fakehuman players
+    // Only consider attacks from human or fakehuman players (not bots)
     const incomingAttacks = myPlayer.incomingAttacks().filter((attack) => {
       const attacker = this.game.playerBySmallID(attack.attackerID);
-      // Only consider if attacker is a PlayerView (not TerraNullius)
       if (
         typeof attacker === "object" &&
         "type" in attacker &&
         typeof attacker.type === "function"
       ) {
         const t = attacker.type();
-        return t === "HUMAN" || t === "FAKEHUMAN";
+        return t !== PlayerType.Bot;
       }
       return false;
     });
 
-    if (incomingAttacks.length > 0 && !this.isUnderAttack) {
-      this.triggerAttackWarning();
-    } else if (incomingAttacks.length === 0 && this.isUnderAttack) {
-      this.clearAttackWarning();
-    }
-  }
-
-  private triggerAttackWarning() {
-    this.isUnderAttack = true;
-    this.requestUpdate();
-
-    // Clear any existing timeout
-    if (this.glowTimeout !== null) {
-      clearTimeout(this.glowTimeout);
+    // Check for new incoming nuke events from game updates
+    const updates = this.game.updatesSinceLastTick();
+    if (updates && updates[GameUpdateType.UnitIncoming]) {
+      updates[GameUpdateType.UnitIncoming].forEach((update) => {
+        if (update.playerID === myPlayer.smallID()) {
+          const unit = this.game.unit(update.unitID);
+          if (unit && nukeTypes.includes(unit.type())) {
+            this.incomingNukeIDs.add(update.unitID);
+          }
+        }
+      });
     }
 
-    // Keep the glow active for 5 seconds
-    this.glowTimeout = window.setTimeout(() => {
-      this.clearAttackWarning();
-    }, 5000);
-  }
+    // Prune nuke IDs that are no longer valid (exploded or destroyed)
+    for (const id of this.incomingNukeIDs) {
+      if (!this.game.unit(id)) {
+        this.incomingNukeIDs.delete(id);
+      }
+    }
 
-  private clearAttackWarning() {
-    this.isUnderAttack = false;
-    this.requestUpdate();
+    const hasIncomingNuke = this.incomingNukeIDs.size > 0;
 
-    if (this.glowTimeout !== null) {
-      clearTimeout(this.glowTimeout);
-      this.glowTimeout = null;
+    if (hasIncomingNuke) {
+      if (!this.isNukeAttack) {
+        this.isNukeAttack = true;
+        this.isUnderAttack = false; // Nuke takes precedence
+        this.requestUpdate();
+      }
+    } else if (this.isNukeAttack) {
+      this.isNukeAttack = false;
+      this.requestUpdate();
+    }
+
+    if (!hasIncomingNuke) {
+      if (incomingAttacks.length > 0) {
+        if (!this.isUnderAttack) {
+          this.isUnderAttack = true;
+          this.requestUpdate();
+        }
+      } else if (this.isUnderAttack) {
+        this.isUnderAttack = false;
+        this.requestUpdate();
+      }
     }
   }
 
   disconnectedCallback() {
     super.disconnectedCallback();
-    if (this.attackCheckInterval !== null) {
-      clearInterval(this.attackCheckInterval);
-    }
-    if (this.glowTimeout !== null) {
-      clearTimeout(this.glowTimeout);
-    }
   }
 
   render() {
     return html`
-      <div class="attack-glow ${this.isUnderAttack ? "active" : ""}"></div>
+      <div
+        class="attack-glow ${this.isUnderAttack ? "active" : ""} ${this
+          .isNukeAttack
+          ? "active nuke"
+          : ""}"
+      ></div>
     `;
   }
 
