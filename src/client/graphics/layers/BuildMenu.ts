@@ -683,7 +683,7 @@ export class BuildMenu extends LitElement {
                         />
                       </span>
                     </div>
-                    ${desiredLevel > 1
+                    ${desiredLevel >= 1
                       ? html`<div class="build-level-chip">
                           L${desiredLevel}
                         </div>`
