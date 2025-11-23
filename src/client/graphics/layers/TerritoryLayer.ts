@@ -1,3 +1,4 @@
+import { PriorityQueue } from "@datastructures-js/priority-queue";
 import { Colord } from "colord";
 import * as PIXI from "pixi.js";
 import { Theme } from "../../../core/configuration/Config";
@@ -30,8 +31,12 @@ export class TerritoryLayer implements Layer {
   private territorySprite: PIXI.Sprite; // sprite showing territory texture
   private highlightSprite: PIXI.Sprite; // sprite showing highlight texture
 
-  private tileToRenderQueue: Set<TileRef> = new Set();
-  private tilesToPaint: Set<TileRef> = new Set();
+  private tileToRenderQueue: PriorityQueue<{
+    tile: TileRef;
+    lastUpdate: number;
+  }> = new PriorityQueue((a, b) => {
+    return a.lastUpdate - b.lastUpdate;
+  });
   private random = new PseudoRandom(123);
   private theme: Theme;
 
@@ -544,19 +549,24 @@ export class TerritoryLayer implements Layer {
   }
 
   renderTerritory() {
-    if (this.tileToRenderQueue.size === 0) return;
-
-    this.tilesToPaint.clear();
-    for (const tile of this.tileToRenderQueue) {
-      this.tilesToPaint.add(tile);
-      for (const neighbor of this.game.neighbors(tile)) {
-        this.tilesToPaint.add(neighbor);
-      }
+    let numToRender = Math.floor(this.tileToRenderQueue.size() / 10);
+    if (numToRender === 0 || this.game.inSpawnPhase()) {
+      numToRender = this.tileToRenderQueue.size();
     }
-    this.tileToRenderQueue.clear();
 
-    for (const tile of this.tilesToPaint) {
+    while (numToRender > 0) {
+      numToRender--;
+
+      const entry = this.tileToRenderQueue.pop();
+      if (!entry) {
+        break;
+      }
+
+      const tile = entry.tile;
       this.paintTerritory(tile);
+      for (const neighbor of this.game.neighbors(tile)) {
+        this.paintTerritory(neighbor, true);
+      }
     }
   }
 
@@ -721,7 +731,10 @@ export class TerritoryLayer implements Layer {
   }
 
   enqueueTile(tile: TileRef) {
-    this.tileToRenderQueue.add(tile);
+    this.tileToRenderQueue.push({
+      tile: tile,
+      lastUpdate: this.game.ticks() + this.random.nextFloat(0, 0.5),
+    });
   }
 
   paintHighlightTile(tile: TileRef, color: Colord, alpha: number) {
