@@ -11,6 +11,10 @@ import {
   UpgradeType,
 } from "../../../core/game/Game";
 import { GameView, PlayerView, UnitView } from "../../../core/game/GameView";
+import {
+  maxStructureLevel,
+  maxUnitLevel,
+} from "../../../core/game/Upgradeables";
 import { getTechMeta, RESEARCH_TECH_IDS } from "../../../core/tech/TechEffects";
 // Ensure modal custom elements register at runtime
 import "../../BuildSettingsModal";
@@ -133,6 +137,12 @@ export class ControlPanel2 extends LitElement implements Layer {
 
   @state()
   private _multibuildEnabled: boolean = false;
+
+  @state()
+  private _structureLevels: Record<string, number> = {};
+
+  @state()
+  private _unitLevels: Record<string, number> = {};
 
   private unitIconMap: { [key: string]: string } = {
     City: "/images/CityIconWhite.svg",
@@ -321,6 +331,26 @@ export class ControlPanel2 extends LitElement implements Layer {
       this._updatePlayerHashAndRefresh();
     });
     this._updatePlayerHashAndRefresh(); // Initial hash calculation
+
+    // Load structure levels
+    try {
+      const raw = localStorage.getItem("buildSettings.levels");
+      if (raw) {
+        this._structureLevels = JSON.parse(raw);
+      }
+    } catch (e) {
+      console.warn("Failed to load build settings", e);
+    }
+
+    // Load unit levels
+    try {
+      const raw = localStorage.getItem("unitUpgradeSettings.levels");
+      if (raw) {
+        this._unitLevels = JSON.parse(raw);
+      }
+    } catch (e) {
+      console.warn("Failed to load unit upgrade settings", e);
+    }
   }
 
   private _updatePlayerHashAndRefresh() {
@@ -1463,51 +1493,95 @@ export class ControlPanel2 extends LitElement implements Layer {
                     <span>Multi-Build Structures</span>
                   </button>
                   <div class="relative inline-block">
-                    <button
-                      class="upgrade-structures-button ${this.uiState
-                        .upgradeMode
-                        ? "selected"
-                        : ""}"
-                      title="Click structures to upgrade them"
-                      @click=${() => {
-                        const enabled = !this.uiState.upgradeMode;
-                        this.uiState.upgradeMode = enabled;
-                        this.eventBus.emit(new ToggleUpgradeModeEvent(enabled));
-                        // Disable mass production if upgrade is enabled
-                        if (enabled && this._multibuildEnabled) {
-                          this._multibuildEnabled = false;
-                          this.uiState.multibuildEnabled = false;
-                        }
-                        // Clear pending build selection when upgrade is enabled
-                        if (enabled) {
-                          this.uiState.pendingBuildUnitType = null;
-                        }
-                        this.requestUpdate();
-                      }}
-                    >
-                      <img
-                        class="upgrade-icon"
-                        src=${upgradeArrowIcon}
-                        alt="Upgrade"
-                      />
-                      <span>Upgrade Structures</span>
-                    </button>
                     <div
-                      class="gear-settings-btn"
-                      role="button"
-                      tabindex="0"
-                      @click=${(e: Event) => {
-                        e.stopPropagation();
-                        this._openBuildSettings();
-                      }}
+                      class="flex items-center h-[36px] px-3"
+                      style="
+                        border: 2px solid var(--ui-panel-border);
+                        background: var(--ui-primary);
+                        border-radius: 6px;
+                        box-shadow: inset 0 0 10px rgba(0, 0, 0, 0.5), 0 2px 6px rgba(0, 0, 0, 0.4);
+                        white-space: nowrap;
+                      "
+                      title="Select a structure below to set its level"
                     >
-                      <img
-                        src="/images/SettingIconWhite.svg"
-                        alt="Settings"
-                        class="gear-settings-icon"
-                      />
+                      <span
+                        style="font-size: 11px; margin-right: 8px; font-weight: bold; color: var(--ui-text-accent);"
+                      >
+                        ${this.uiState.pendingBuildUnitType
+                          ? `Set ${this.uiState.pendingBuildUnitType} Level`
+                          : "Select a structure..."}
+                      </span>
+                      <button
+                        class="w-6 h-6 flex items-center justify-center bg-[#4c516d] hover:bg-[#5a617c] text-white rounded mr-1 font-bold disabled:opacity-50 disabled:cursor-not-allowed"
+                        ?disabled=${!this.uiState.pendingBuildUnitType}
+                        @click=${() => {
+                          if (!this.uiState.pendingBuildUnitType) return;
+                          const type = this.uiState.pendingBuildUnitType;
+                          const current = this._structureLevels[type] || 1;
+                          const max = maxStructureLevel(type);
+                          const next = Math.min(max, current + 1);
+                          this._structureLevels = {
+                            ...this._structureLevels,
+                            [type]: next,
+                          };
+                          localStorage.setItem(
+                            "buildSettings.levels",
+                            JSON.stringify(this._structureLevels),
+                          );
+                        }}
+                      >
+                        +
+                      </button>
+                      <button
+                        class="w-6 h-6 flex items-center justify-center bg-[#4c516d] hover:bg-[#5a617c] text-white rounded font-bold disabled:opacity-50 disabled:cursor-not-allowed"
+                        ?disabled=${!this.uiState.pendingBuildUnitType}
+                        @click=${() => {
+                          if (!this.uiState.pendingBuildUnitType) return;
+                          const type = this.uiState.pendingBuildUnitType;
+                          const current = this._structureLevels[type] || 1;
+                          const next = Math.max(1, current - 1);
+                          this._structureLevels = {
+                            ...this._structureLevels,
+                            [type]: next,
+                          };
+                          localStorage.setItem(
+                            "buildSettings.levels",
+                            JSON.stringify(this._structureLevels),
+                          );
+                        }}
+                      >
+                        -
+                      </button>
                     </div>
                   </div>
+                  <button
+                    class="upgrade-structures-button ${this.uiState.upgradeMode
+                      ? "selected"
+                      : ""}"
+                    title="Click structures to upgrade them"
+                    @click=${() => {
+                      const enabled = !this.uiState.upgradeMode;
+                      this.uiState.upgradeMode = enabled;
+                      this.eventBus.emit(new ToggleUpgradeModeEvent(enabled));
+                      // Disable mass production if upgrade is enabled
+                      if (enabled && this._multibuildEnabled) {
+                        this._multibuildEnabled = false;
+                        this.uiState.multibuildEnabled = false;
+                      }
+                      // Clear pending build selection when upgrade is enabled
+                      if (enabled) {
+                        this.uiState.pendingBuildUnitType = null;
+                      }
+                      this.requestUpdate();
+                    }}
+                  >
+                    <img
+                      class="upgrade-icon"
+                      src=${upgradeArrowIcon}
+                      alt="Upgrade"
+                    />
+                    <span>Upgrade Structures</span>
+                  </button>
                 </div>
                 <build-menu
                   style="width: 100%; display: block;"
@@ -1515,6 +1589,7 @@ export class ControlPanel2 extends LitElement implements Layer {
                   .eventBus=${this.eventBus}
                   .uiState=${this.uiState}
                   .unitFilter=${this.StructureTypes}
+                  .structureLevels=${this._structureLevels}
                 ></build-menu>
               `
             : ""}
@@ -1535,6 +1610,68 @@ export class ControlPanel2 extends LitElement implements Layer {
                     />
                     <span>Multi-Build Units</span>
                   </button>
+                  <div class="relative inline-block">
+                    <div
+                      class="flex items-center h-[36px] px-3"
+                      style="
+                        border: 2px solid var(--ui-panel-border);
+                        background: var(--ui-primary);
+                        border-radius: 6px;
+                        box-shadow: inset 0 0 10px rgba(0, 0, 0, 0.5), 0 2px 6px rgba(0, 0, 0, 0.4);
+                        white-space: nowrap;
+                      "
+                      title="Select a unit below to set its level"
+                    >
+                      <span
+                        style="font-size: 11px; margin-right: 8px; font-weight: bold; color: var(--ui-text-accent);"
+                      >
+                        ${this.uiState.pendingBuildUnitType
+                          ? `Set ${this.uiState.pendingBuildUnitType} Level`
+                          : "Select a unit..."}
+                      </span>
+                      <button
+                        class="w-6 h-6 flex items-center justify-center bg-[#4c516d] hover:bg-[#5a617c] text-white rounded mr-1 font-bold disabled:opacity-50 disabled:cursor-not-allowed"
+                        ?disabled=${!this.uiState.pendingBuildUnitType}
+                        @click=${() => {
+                          if (!this.uiState.pendingBuildUnitType) return;
+                          const type = this.uiState.pendingBuildUnitType;
+                          const current = this._unitLevels[type] || 1;
+                          const max = maxUnitLevel(type);
+                          const next = Math.min(max, current + 1);
+                          this._unitLevels = {
+                            ...this._unitLevels,
+                            [type]: next,
+                          };
+                          localStorage.setItem(
+                            "unitUpgradeSettings.levels",
+                            JSON.stringify(this._unitLevels),
+                          );
+                        }}
+                      >
+                        +
+                      </button>
+                      <button
+                        class="w-6 h-6 flex items-center justify-center bg-[#4c516d] hover:bg-[#5a617c] text-white rounded font-bold disabled:opacity-50 disabled:cursor-not-allowed"
+                        ?disabled=${!this.uiState.pendingBuildUnitType}
+                        @click=${() => {
+                          if (!this.uiState.pendingBuildUnitType) return;
+                          const type = this.uiState.pendingBuildUnitType;
+                          const current = this._unitLevels[type] || 1;
+                          const next = Math.max(1, current - 1);
+                          this._unitLevels = {
+                            ...this._unitLevels,
+                            [type]: next,
+                          };
+                          localStorage.setItem(
+                            "unitUpgradeSettings.levels",
+                            JSON.stringify(this._unitLevels),
+                          );
+                        }}
+                      >
+                        -
+                      </button>
+                    </div>
+                  </div>
                   <button
                     class="upgrade-structures-button"
                     title="Set default upgrade levels for units"
