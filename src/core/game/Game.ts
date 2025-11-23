@@ -19,6 +19,9 @@ export type Gold = bigint;
 
 export const AllPlayers = "AllPlayers" as const;
 
+// Attack execution subticks per game tick for smoother territory changes
+export const ATTACK_SUBTICKS_PER_TICK = 10;
+
 // export type GameUpdates = Record<GameUpdateType, GameUpdate[]>;
 // Create a type that maps GameUpdateType to its corresponding update type
 type UpdateTypeMap<T extends GameUpdateType> = Extract<GameUpdate, { type: T }>;
