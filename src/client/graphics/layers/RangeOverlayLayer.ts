@@ -415,8 +415,28 @@ export class RangeOverlayLayer implements Layer {
   private buildModeRadius(type: UnitType): number {
     if (type === UnitType.DefensePost)
       return this.game.config().defensePostRange();
-    if (type === UnitType.SAMLauncher)
-      return this.game.config().defaultSamRange();
+    if (type === UnitType.SAMLauncher) {
+      // Get the selected build level from localStorage (same as BuildMenu)
+      let desiredLevel = 1;
+      try {
+        const raw = localStorage.getItem("buildSettings.levels");
+        if (raw) {
+          const obj = JSON.parse(raw);
+          const val = obj?.[String(type)];
+          if (typeof val === "number" && val >= 1) {
+            desiredLevel = Math.min(3, val); // SAM max level is 3
+          }
+        }
+      } catch (_) {
+        // Fall back to level 1
+      }
+
+      const base = this.game.config().defaultSamRange();
+      if (desiredLevel <= 1) return base;
+      const bonus = this.game.config().samRangeUpgradePercent();
+      const factor = Math.pow(1 + bonus, desiredLevel - 1);
+      return Math.round(base * factor);
+    }
     if (type === UnitType.AtomBomb || type === UnitType.HydrogenBomb)
       return this.game.config().nukeMagnitudes(type).outer;
     return 0;
