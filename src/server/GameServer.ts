@@ -333,6 +333,7 @@ export class GameServer {
             case "ping": {
               this.lastPingUpdate = Date.now();
               client.lastPing = Date.now();
+              client.ws.send(JSON.stringify({ type: "ping" }));
               break;
             }
             case "hash": {

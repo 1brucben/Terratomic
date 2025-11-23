@@ -637,7 +637,7 @@ export class ClientGameRunner {
     }
     const now = Date.now();
     const timeSinceLastMessage = now - this.lastMessageTime;
-    if (timeSinceLastMessage > 5000) {
+    if (timeSinceLastMessage > 15000) {
       console.log(
         `No message from server for ${timeSinceLastMessage} ms, reconnecting`,
       );
