@@ -340,6 +340,17 @@ export class GameServer {
               client.hashes.set(clientMsg.turnNumber, clientMsg.hash);
               break;
             }
+            case "join": {
+              this.log.info(
+                "Client requested re-join/sync via existing connection",
+                {
+                  clientID: client.clientID,
+                  lastTurn: clientMsg.lastTurn,
+                },
+              );
+              this.sendStartGameMsg(client.ws, clientMsg.lastTurn);
+              break;
+            }
             case "winner": {
               if (
                 this.outOfSyncClients.has(client.clientID) ||

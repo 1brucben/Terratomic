@@ -417,14 +417,32 @@ export class Transport {
     onconnect: () => void,
     onmessage: (message: ServerMessage) => void,
   ) {
-    this.startPing();
-    this.killExistingSocket();
     const wsHost = window.location.host;
     const wsProtocol = window.location.protocol === "https:" ? "wss:" : "ws:";
     const workerPath = this.lobbyConfig.serverConfig.workerPath(
       this.lobbyConfig.gameID,
     );
-    this.socket = new WebSocket(`${wsProtocol}//${wsHost}/${workerPath}`);
+    const url = `${wsProtocol}//${wsHost}/${workerPath}`;
+
+    if (
+      this.socket !== null &&
+      this.socket.readyState === WebSocket.OPEN &&
+      this.socket.url === url
+    ) {
+      console.log("Reusing existing connection");
+      this.onconnect = onconnect;
+      this.onmessage = onmessage;
+      try {
+        this.onconnect();
+      } catch (err) {
+        console.error("Error in onconnect handler:", err);
+      }
+      return;
+    }
+
+    this.startPing();
+    this.killExistingSocket();
+    this.socket = new WebSocket(url);
     this.onconnect = onconnect;
     this.onmessage = onmessage;
     this.socket.onopen = () => {

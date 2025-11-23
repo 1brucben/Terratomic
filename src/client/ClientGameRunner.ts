@@ -325,7 +325,6 @@ export class ClientGameRunner {
     requestAnimationFrame(keepWorkerAlive);
 
     const onconnect = () => {
-      console.log("Connected to game server!");
       this.transport.joinGame(this.turnsSeen);
     };
     const onmessage = (message: ServerMessage) => {
