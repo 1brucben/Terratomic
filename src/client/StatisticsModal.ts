@@ -386,7 +386,7 @@ export class StatisticsModal extends LitElement {
           return html`<button
             class="list-th ${isActive ? "active" : ""}"
             @click=${() => this._toggleSort(i)}
-            title="Sort by ${label}"
+            title="Sort By ${label}"
           >
             <span>${label}</span>
             <span class="sort-icons"
@@ -429,7 +429,7 @@ export class StatisticsModal extends LitElement {
                   ? "active"
                   : ""}"
                 @click=${() => this._toggleSort(-1)}
-                title="Sort by Player"
+                title="Sort By Player"
               >
                 <span>Player</span>
                 <span class="sort-icons"
