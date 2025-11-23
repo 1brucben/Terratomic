@@ -7,6 +7,7 @@ import {
   tryParseUnitType,
 } from "../core/game/Upgradeables";
 import "./components/baseComponents/Modal";
+import { translateText } from "./Utils";
 
 interface UpgradeSettingsItem {
   id: string;
@@ -96,7 +97,7 @@ export class UnitUpgradeSettingsModal extends LitElement {
   render() {
     return html`
       <o-modal
-        title="Unit Upgrade Settings"
+        title=${translateText("unit_upgrade_settings.title")}
         max-width="520px"
         max-height="65dvh"
       >
@@ -201,7 +202,7 @@ export class UnitUpgradeSettingsModal extends LitElement {
                   <button
                     class="bs-btn"
                     @click=${() => this._dec(i.id)}
-                    title="Decrease"
+                    title=${translateText("unit_upgrade_settings.decrease")}
                   >
                     &#x25BC;
                   </button>
@@ -209,7 +210,7 @@ export class UnitUpgradeSettingsModal extends LitElement {
                   <button
                     class="bs-btn"
                     @click=${() => this._inc(i.id)}
-                    title="Increase"
+                    title=${translateText("unit_upgrade_settings.increase")}
                   >
                     &#x25B2;
                   </button>

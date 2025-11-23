@@ -3,6 +3,7 @@ import { customElement, property, query, state } from "lit/decorators.js";
 import { PlayerType, UnitType } from "../core/game/Game";
 import { GameView, PlayerView } from "../core/game/GameView";
 import { getTechNodes, type Category } from "../core/tech/ResearchTree";
+import { translateText } from "./Utils";
 import "./components/baseComponents/Modal";
 import { AVAILABLE_STATS, computeStatValue } from "./stats/StatDefinitions";
 import statsStore from "./stats/StatsStore";
@@ -386,7 +387,7 @@ export class StatisticsModal extends LitElement {
           return html`<button
             class="list-th ${isActive ? "active" : ""}"
             @click=${() => this._toggleSort(i)}
-            title="Sort By ${label}"
+            title=${translateText("statistics.sort_by", { label })}
           >
             <span>${label}</span>
             <span class="sort-icons"

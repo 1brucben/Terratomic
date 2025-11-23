@@ -24,7 +24,7 @@ import {
   SendPurchaseUpgradeIntentEvent,
   SendResearchTreeSelectIntentEvent,
 } from "./Transport";
-import { renderNumber } from "./Utils";
+import { renderNumber, translateText } from "./Utils";
 
 type ResearchTab = Category | "Overview";
 
@@ -696,7 +696,7 @@ export class ResearchTreeModal extends LitElement {
 
     return html`
       <o-modal
-        title="Research Tree"
+        title=${translateText("research_tree.title")}
         max-width="90vw"
         max-height="85dvh"
         content-overflow="hidden"

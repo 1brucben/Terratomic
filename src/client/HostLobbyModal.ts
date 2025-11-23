@@ -2,7 +2,6 @@ import { LitElement, html } from "lit";
 import { customElement, query, state } from "lit/decorators.js";
 import { repeat } from "lit/directives/repeat.js";
 import randomMap from "../../resources/images/RandomMap.webp";
-import { formatStartingGold, translateText } from "../client/Utils";
 import { getServerConfigFromClient } from "../core/configuration/ConfigLoader";
 import { PastelTheme } from "../core/configuration/PastelTheme";
 import {
@@ -33,6 +32,7 @@ import { DifficultyDescription } from "./components/Difficulties";
 import "./components/Maps";
 import { JoinLobbyEvent } from "./Main";
 import { renderUnitTypeOptions } from "./utilities/RenderUnitTypeOptions";
+import { formatStartingGold, translateText } from "./Utils";
 
 type StartingGoldOption = (typeof StartingGoldValues)[number];
 const startingGoldList = [...StartingGoldValues] as number[];
@@ -1331,7 +1331,9 @@ export class HostLobbyModal extends LitElement {
                       <button
                         class="remove-player-btn"
                         @click=${() => this.kickPlayer(client.clientID)}
-                        title="Remove ${client.username}"
+                        title=${translateText("host_modal.remove_player", {
+                          username: client.username,
+                        })}
                       >
                         ×
                       </button>
@@ -1434,7 +1436,7 @@ export class HostLobbyModal extends LitElement {
               <button
                 class="remove-player-btn"
                 @click=${() => this.kickPlayer(client.clientID)}
-                title="Remove ${client.username}"
+                title=$\{translateText("host_modal.remove_player", \{ username: client.username \})\}
               >
                 ×
               </button>

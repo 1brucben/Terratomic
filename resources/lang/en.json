@@ -228,7 +228,8 @@
     "start": "Start Game",
     "host_badge": "Host",
     "unassigned_players": "Unassigned Players",
-    "spectator": "Spectator"
+    "spectator": "Spectator",
+    "remove_player": "Remove {username}"
   },
   "team_colors": {
     "red": "Red",
@@ -636,5 +637,32 @@
     "international_trade_destination": "A cargo truck from {originName} arrived. You received {goldAmount} gold.",
     "insurance_refund": "Insurance refund {amount} gold.",
     "insurance_refund_conquest": "Insurance refund {amount} gold for conquered structure."
+  },
+  "research_tree": {
+    "title": "Research Tree"
+  },
+  "unit_upgrade_settings": {
+    "title": "Unit Upgrade Settings",
+    "decrease": "Decrease",
+    "increase": "Increase"
+  },
+  "statistics": {
+    "title": "Statistics",
+    "sort_by": "Sort By {label}",
+    "sort_by_player": "Sort By Player",
+    "graph_aria_label": "Graph"
+  },
+  "sound_button": {
+    "toggle_sound": "Toggle Sound"
+  },
+  "index": {
+    "initializing": "Initializing...",
+    "logout": "Log Out",
+    "create_lobby": "Create Lobby",
+    "join_lobby": "Join Lobby",
+    "chat_test": "Chat Test",
+    "single_player": "Single Player",
+    "instructions": "Instructions",
+    "settings": "Settings"
   }
 }
