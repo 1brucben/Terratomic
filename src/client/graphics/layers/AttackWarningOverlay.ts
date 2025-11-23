@@ -42,7 +42,7 @@ export class AttackWarningOverlay extends LitElement implements Layer {
 
     .attack-glow.active {
       opacity: 1;
-      animation: pulse 2s ease-in-out infinite;
+      animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
     }
 
     .attack-glow.nuke {
