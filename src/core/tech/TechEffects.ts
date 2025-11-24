@@ -326,9 +326,6 @@ export function getTech(
   if (strict || onMissing === "throw") {
     throw new Error(message);
   }
-  if (onMissing === "warn") {
-    console.warn(message);
-  }
   // Return a stub definition to keep callers robust in non-strict mode
   return { meta: { name: techId } } satisfies TechDefinition;
 }
