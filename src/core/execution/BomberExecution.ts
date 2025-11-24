@@ -95,18 +95,25 @@ export class BomberExecution implements Execution {
       return;
     }
 
-    // Check if source airfield was destroyed - rebase to nearest owned airfield
-    if (!this.sourceAirfield.isActive()) {
+    // Check if source airfield was destroyed or captured
+    if (
+      !this.sourceAirfield.isActive() ||
+      this.sourceAirfield.owner() !== this.origOwner
+    ) {
+      // If bomber is at the airfield when it's destroyed/captured, destroy the bomber
+      if (this.bomber.tile() === this.sourceAirfield.tile()) {
+        this.bomber.delete(false);
+        this.active = false;
+        return;
+      }
+
+      // Bomber is on mission - try to find another owned airfield
       const nearestAirfield = this.findNearestOwnedAirfield();
       if (nearestAirfield) {
         this.sourceAirfield = nearestAirfield;
         this.bomber.setSourceAirfield(nearestAirfield);
-        // Return to new airfield
-        if (this.onMission) {
-          this.onMission = false;
-          this.bombsLeft = 0;
-          this.currentTargetTile = null;
-        }
+        // Bomber will continue its mission and return to the new airfield
+        // No need to abort - just let it complete normally
       } else {
         // No airfields left - bomber is destroyed
         this.bomber.delete(false);
@@ -157,12 +164,12 @@ export class BomberExecution implements Execution {
   }
 
   private executeMission(): void {
-    if (!this.currentTargetTile) return;
-
     const returning = this.bombsLeft === 0;
+    if (!returning && !this.currentTargetTile) return;
+
     const destination = returning
       ? this.sourceAirfield.tile()
-      : this.currentTargetTile;
+      : this.currentTargetTile!;
 
     const speed = this.mg.config().bomberSpeed();
     for (let i = 0; i < speed; i++) {
@@ -175,6 +182,36 @@ export class BomberExecution implements Execution {
         } else if (returning) {
           // Bomber returned to airfield
           this.bomber.move(this.sourceAirfield.tile());
+
+          // Check if there's another bomber from this airfield
+          const otherBomber = this.origOwner
+            .units(UnitType.Bomber)
+            .find(
+              (b) =>
+                b !== this.bomber &&
+                b.sourceAirfield?.() === this.sourceAirfield &&
+                b.isActive(),
+            );
+
+          if (otherBomber) {
+            // Check if the other bomber is also at the airfield (not on mission)
+            if (otherBomber.tile() === this.sourceAirfield.tile()) {
+              // Merge health with the bomber at base
+              const maxHealth =
+                this.mg.unitInfo(UnitType.Bomber).maxHealth ?? 500;
+              const combinedHealth = Math.min(
+                maxHealth,
+                otherBomber.health() + this.bomber.health(),
+              );
+              otherBomber.setHealth(BigInt(combinedHealth));
+              // Delete this bomber (merged into the one at base)
+              this.bomber.delete(false);
+              this.active = false;
+              return;
+            }
+            // Other bomber is on mission - this bomber stays at airfield and waits
+            // It becomes the base bomber for this airfield
+          }
 
           // Clear from bombersOnTarget since mission is complete
           if (this.currentTargetTile) {
@@ -226,6 +263,7 @@ export class BomberExecution implements Execution {
       if (
         !returning &&
         this.bombsLeft > 0 &&
+        this.currentTargetTile &&
         ++this.dropTicker >= this.mg.config().bomberDropCadence() &&
         this.mg.euclideanDistSquared(
           this.bomber.tile(),
