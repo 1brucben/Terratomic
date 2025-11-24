@@ -350,7 +350,7 @@ describe("Bomber", () => {
     game.addExecution(bomberExec);
 
     game.executeNextTick();
-    executeTicks(game, 103); // Check after launch (102) but before arrival
+    executeTicks(game, 2); // Bomber launches immediately at tick 103
 
     const bombers = player1.units(UnitType.Bomber);
     // Should still target because 6 > 5
@@ -427,7 +427,7 @@ describe("Bomber", () => {
     game.addExecution(bomberExec);
 
     game.executeNextTick();
-    executeTicks(game, 103); // Check after launch (102) but before arrival
+    executeTicks(game, 2); // Bomber launches immediately at tick 103
 
     // Bomber should have launched and incremented count
     expect(player1.bombersOnTarget.get(city.tile())).toBe(1);
