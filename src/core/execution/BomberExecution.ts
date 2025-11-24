@@ -81,13 +81,7 @@ export class BomberExecution implements Execution {
         sourceAirfield: this.sourceAirfield,
       });
       this.bomber.setHealth(1n);
-      this.onMission = false;
-      this.bombsLeft = 0;
-      this.currentTargetTile = null;
-      this.currentTargetUnit = null;
-      this.waypoints = [];
-      this.currentWaypointIndex = 0;
-      this.cooldownEndsAtTick = ticks + 100; // 100-tick cooldown after respawn
+      this.resetMissionState(100); // 100-tick cooldown after respawn
       this.eligibleCities = [];
       return;
     }
@@ -169,24 +163,24 @@ export class BomberExecution implements Execution {
         if (newTarget) {
           this.startMission(newTarget.tile, newTarget.unit);
         } else {
-          // No valid targets, abort mission
-          this.onMission = false;
-          this.bombsLeft = 0;
-          this.waypoints = [];
-          this.currentWaypointIndex = 0;
-          this.bomber.setReturning(false);
+          // No valid targets, abort mission and return to airfield
           this.bomber.setTargetTile(this.sourceAirfield.tile());
-          // If already away from airfield, need to return
           if (this.bomber.tile() !== this.sourceAirfield.tile()) {
+            // Already away from airfield, need to return
             this.bomber.setReturning(true);
             const routeResult = this.findSafeRoute(
               this.bomber.tile(),
               this.sourceAirfield.tile(),
               null,
             );
+            this.onMission = true; // Keep mission active for return journey
+            this.bombsLeft = 0;
+            this.currentTargetTile = null;
+            this.currentTargetUnit = null;
             this.waypoints = routeResult.waypoints;
             this.currentWaypointIndex = 0;
-            this.onMission = true; // Keep mission active for return journey
+          } else {
+            this.resetMissionState(0);
           }
           return;
         }
@@ -299,14 +293,7 @@ export class BomberExecution implements Execution {
             this.decrementBomberCount(this.currentTargetUnit);
           }
 
-          this.onMission = false;
-          this.bombsLeft = 0;
-          this.currentTargetTile = null;
-          this.currentTargetUnit = null;
-          this.waypoints = [];
-          this.currentWaypointIndex = 0;
-          this.cooldownEndsAtTick = this.mg.ticks() + 100; // 100-tick cooldown
-          this.bomber.setReturning(false);
+          this.resetMissionState(100); // 100-tick cooldown
         }
         return;
       }
@@ -408,41 +395,11 @@ export class BomberExecution implements Execution {
       return a.dist2 - b.dist2;
     });
 
-    // Try each target in order using load balancing formula with SAM avoidance
-    for (const { unit } of sortedEnemies) {
-      const bombersOnTarget = this.getBomberCount(unit);
-      const health = Number(unit.health());
-      const threshold = health / 250 + 2;
-
-      if (threshold > bombersOnTarget) {
-        // Check if we can reach this target while avoiding SAMs
-        const routeResult = this.findSafeRoute(
-          this.sourceAirfield.tile(),
-          unit.tile(),
-          unit.tile(),
-        );
-
-        if (routeResult.reachable) {
-          this.incrementBomberCount(unit);
-          return { tile: unit.tile(), unit };
-        }
-        // Target unreachable while avoiding SAMs, try next target
-      }
-    }
-
-    // All targets exhausted and none reachable with SAM avoidance, try again with direct paths
-    for (const { unit } of sortedEnemies) {
-      const bombersOnTarget = this.getBomberCount(unit);
-      const health = Number(unit.health());
-      const threshold = health / 250 + 2;
-
-      if (threshold > bombersOnTarget) {
-        this.incrementBomberCount(unit);
-        return { tile: unit.tile(), unit };
-      }
-    }
-
-    return null;
+    // Try with SAM avoidance first, then fall back to direct paths
+    return (
+      this.trySelectTarget(sortedEnemies, true) ||
+      this.trySelectTarget(sortedEnemies, false)
+    );
   }
 
   private findTargetFromQueue(
@@ -476,42 +433,11 @@ export class BomberExecution implements Execution {
       return preferClosest ? a.dist2 - b.dist2 : b.dist2 - a.dist2;
     });
 
-    // Try each target in order using load balancing formula
-    // h/250+2 > n where h is health and n is bombers assigned
-    for (const { unit } of allTargets) {
-      const bombersOnTarget = this.getBomberCount(unit);
-      const health = Number(unit.health());
-      const threshold = health / 250 + 2;
-
-      if (threshold > bombersOnTarget) {
-        // Check if we can reach this target while avoiding SAMs
-        const routeResult = this.findSafeRoute(
-          this.sourceAirfield.tile(),
-          unit.tile(),
-          unit.tile(),
-        );
-
-        if (routeResult.reachable) {
-          this.incrementBomberCount(unit);
-          return { tile: unit.tile(), unit };
-        }
-        // Target unreachable while avoiding SAMs, try next target
-      }
-    }
-
-    // All targets exhausted and none reachable, try again with direct path
-    for (const { unit } of allTargets) {
-      const bombersOnTarget = this.getBomberCount(unit);
-      const health = Number(unit.health());
-      const threshold = health / 250 + 2;
-
-      if (threshold > bombersOnTarget) {
-        this.incrementBomberCount(unit);
-        return { tile: unit.tile(), unit };
-      }
-    }
-
-    return null;
+    // Try with SAM avoidance first, then fall back to direct paths
+    return (
+      this.trySelectTarget(allTargets, true) ||
+      this.trySelectTarget(allTargets, false)
+    );
   }
 
   private dropBomb(): void {
@@ -705,6 +631,44 @@ export class BomberExecution implements Execution {
     }
 
     return true; // Path completely avoids all SAM ranges
+  }
+
+  private resetMissionState(cooldownTicks: number): void {
+    this.onMission = false;
+    this.bombsLeft = 0;
+    this.currentTargetTile = null;
+    this.currentTargetUnit = null;
+    this.waypoints = [];
+    this.currentWaypointIndex = 0;
+    this.cooldownEndsAtTick = this.mg.ticks() + cooldownTicks;
+    this.bomber.setReturning(false);
+  }
+
+  private trySelectTarget(
+    candidates: { unit: Unit; dist2: number }[],
+    requireSafeRoute: boolean,
+  ): { tile: TileRef; unit: Unit } | null {
+    for (const { unit } of candidates) {
+      const bombersOnTarget = this.getBomberCount(unit);
+      const health = Number(unit.health());
+      const threshold = health / 250 + 2;
+
+      if (threshold > bombersOnTarget) {
+        if (requireSafeRoute) {
+          const routeResult = this.findSafeRoute(
+            this.sourceAirfield.tile(),
+            unit.tile(),
+            unit.tile(),
+          );
+          if (!routeResult.reachable) {
+            continue; // Try next target
+          }
+        }
+        this.incrementBomberCount(unit);
+        return { tile: unit.tile(), unit };
+      }
+    }
+    return null;
   }
 
   private findNearestOwnedAirfield(): Unit | null {
