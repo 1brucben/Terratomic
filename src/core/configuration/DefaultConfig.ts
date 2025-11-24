@@ -444,6 +444,9 @@ export class DefaultConfig implements Config {
   bomberLaunchGapTicks(): number {
     return 20; // Minimum ticks between bomber takeoffs from same airfield
   }
+  bomberTakeoffHealthThreshold(): number {
+    return 0.5; // Bomber must reach 50% health before taking off
+  }
   bomberPayload(): number {
     return 1;
   }

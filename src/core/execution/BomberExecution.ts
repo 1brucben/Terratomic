@@ -46,7 +46,8 @@ export class BomberExecution implements Execution {
       targetTile: this.sourceAirfield.tile(),
       sourceAirfield: this.sourceAirfield,
     });
-    this.bomber.setHealth(1n);
+    // New bombers start at 100% health (airfield construction/upgrade)
+    this.bomber.setHealth(BigInt(this.bomber.effectiveMaxHealth()));
   }
 
   tick(ticks: number): void {
@@ -121,6 +122,14 @@ export class BomberExecution implements Execution {
     if (!this.onMission && this.bomber.tile() === this.sourceAirfield.tile()) {
       if (ticks < this.cooldownEndsAtTick) {
         return; // Still on cooldown
+      }
+
+      // Check if bomber has reached health threshold before allowing takeoff
+      const healthThreshold = this.mg.config().bomberTakeoffHealthThreshold();
+      const maxHealth = this.bomber.effectiveMaxHealth();
+      const currentHealth = Number(this.bomber.health());
+      if (currentHealth < maxHealth * healthThreshold) {
+        return; // Wait for bomber to heal to threshold
       }
 
       // Check if another bomber took off recently from this airfield
