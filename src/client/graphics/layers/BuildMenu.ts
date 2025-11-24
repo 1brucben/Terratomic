@@ -29,6 +29,7 @@ import {
   maxStructureLevel,
   maxUnitLevel,
 } from "../../../core/game/Upgradeables";
+import { ToggleBomberUpgradeModeEvent } from "../../events/ToggleBomberUpgradeModeEvent";
 import { ToggleUpgradeModeEvent } from "../../events/ToggleUpgradeModeEvent";
 import { CloseViewEvent } from "../../InputHandler";
 import { displayKey, renderNumber } from "../../Utils";
@@ -609,6 +610,11 @@ export class BuildMenu extends LitElement {
     if (this.uiState?.upgradeMode) {
       this.uiState.upgradeMode = false;
       this.eventBus?.emit(new ToggleUpgradeModeEvent(false));
+    }
+    // Disable bomber upgrade mode on build action
+    if (this.uiState?.bomberUpgradeMode) {
+      this.uiState.bomberUpgradeMode = false;
+      this.eventBus?.emit(new ToggleBomberUpgradeModeEvent(false));
     }
     if (this.uiState.pendingBuildUnitType === item.unitType) {
       this.uiState.pendingBuildUnitType = null;

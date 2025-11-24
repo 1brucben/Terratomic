@@ -22,6 +22,7 @@ import {
   type InvestmentSyncDetail,
 } from "../../events/InvestmentEvents";
 import { PlayerListChangedEvent } from "../../events/PlayerListChangedEvent";
+import { ToggleBomberUpgradeModeEvent } from "../../events/ToggleBomberUpgradeModeEvent";
 import { ToggleUpgradeModeEvent } from "../../events/ToggleUpgradeModeEvent";
 import { AttackRatioEvent } from "../../InputHandler";
 import "../../StatisticsModal"; // ensure statistics modal is registered
@@ -924,6 +925,11 @@ export class ControlPanel2 extends LitElement implements Layer {
       this.uiState.upgradeMode = false;
       this.eventBus.emit(new ToggleUpgradeModeEvent(false));
     }
+    // Disable bomber upgrade mode if mass production is enabled
+    if (this._multibuildEnabled && this.uiState.bomberUpgradeMode) {
+      this.uiState.bomberUpgradeMode = false;
+      this.eventBus.emit(new ToggleBomberUpgradeModeEvent(false));
+    }
     this.requestUpdate();
   }
 
@@ -1299,6 +1305,39 @@ export class ControlPanel2 extends LitElement implements Layer {
         <div class="tab-content flex-grow overflow-y-auto max-w-full pr-4 pt-2">
           ${this.activeTab === "Bombers"
             ? html`
+                <div class="flex items-center mb-2 gap-4 ml-1">
+                  <button
+                    class="upgrade-structures-button ${this.uiState
+                      .bomberUpgradeMode
+                      ? "selected"
+                      : ""}"
+                    title="Click airfields to upgrade their bombers"
+                    @click=${() => {
+                      const enabled = !this.uiState.bomberUpgradeMode;
+                      this.uiState.bomberUpgradeMode = enabled;
+                      this.eventBus.emit(
+                        new ToggleBomberUpgradeModeEvent(enabled),
+                      );
+                      // Disable structure upgrade mode if bomber upgrade is enabled
+                      if (enabled && this.uiState.upgradeMode) {
+                        this.uiState.upgradeMode = false;
+                        this.eventBus.emit(new ToggleUpgradeModeEvent(false));
+                      }
+                      // Clear pending build selection when upgrade is enabled
+                      if (enabled) {
+                        this.uiState.pendingBuildUnitType = null;
+                      }
+                      this.requestUpdate();
+                    }}
+                  >
+                    <img
+                      class="upgrade-icon"
+                      src=${upgradeArrowIcon}
+                      alt="Upgrade"
+                    />
+                    <span>Upgrade Bombers</span>
+                  </button>
+                </div>
                 <div class="flex w-full">
                   <!-- Column 1: Auto-Bombing -->
                   <div class="w-1/3 pr-2">
@@ -1530,6 +1569,13 @@ export class ControlPanel2 extends LitElement implements Layer {
                         if (enabled && this._multibuildEnabled) {
                           this._multibuildEnabled = false;
                           this.uiState.multibuildEnabled = false;
+                        }
+                        // Disable bomber upgrade mode if structure upgrade is enabled
+                        if (enabled && this.uiState.bomberUpgradeMode) {
+                          this.uiState.bomberUpgradeMode = false;
+                          this.eventBus.emit(
+                            new ToggleBomberUpgradeModeEvent(false),
+                          );
                         }
                         // Clear pending build selection when upgrade is enabled
                         if (enabled) {

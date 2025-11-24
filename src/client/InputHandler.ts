@@ -113,6 +113,7 @@ export class CenterCameraEvent implements GameEvent {
 
 import { UnitType } from "../core/game/Game";
 import { GameView } from "../core/game/GameView";
+import { ToggleBomberUpgradeModeEvent } from "./events/ToggleBomberUpgradeModeEvent";
 import { ToggleUpgradeModeEvent } from "./events/ToggleUpgradeModeEvent";
 import { TransformHandler } from "./graphics/TransformHandler";
 import { UIState } from "./graphics/UIState";
@@ -395,7 +396,11 @@ export class InputHandler {
         this.uiState.upgradeMode = false;
         this.eventBus.emit(new ToggleUpgradeModeEvent(false));
       }
-      // unit upgrade mode removed
+      // Disable bomber upgrade mode on build action
+      if (this.uiState.bomberUpgradeMode) {
+        this.uiState.bomberUpgradeMode = false;
+        this.eventBus.emit(new ToggleBomberUpgradeModeEvent(false));
+      }
       const cell = this.transformHandler.screenToWorldCoordinates(
         this.lastPointerX,
         this.lastPointerY,
@@ -487,7 +492,11 @@ export class InputHandler {
         this.uiState.upgradeMode = false;
         this.eventBus.emit(new ToggleUpgradeModeEvent(false));
       }
-      // unit upgrade mode removed
+      // Disable bomber upgrade mode on build action
+      if (this.uiState.bomberUpgradeMode) {
+        this.uiState.bomberUpgradeMode = false;
+        this.eventBus.emit(new ToggleBomberUpgradeModeEvent(false));
+      }
       this.eventBus.emit(
         new BuildUnitIntentEvent(this.uiState.pendingBuildUnitType, tile),
       );

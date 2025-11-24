@@ -1120,12 +1120,13 @@ export class UnitLayer implements Layer {
       );
 
       // Draw a tiny top-right corner badge offset 1px outside the sprite
-      // Only for Warships, FighterJets, and Submarines
+      // Only for Warships, FighterJets, Submarines, and Bombers
       const type = unit.type();
       if (
         type === UnitType.Warship ||
         type === UnitType.FighterJet ||
-        type === UnitType.Submarine
+        type === UnitType.Submarine ||
+        type === UnitType.Bomber
       ) {
         const level = unit.level ? unit.level() : 1;
         // Tier color mapping: 1→bronze, 2→silver, 3→gold, 4+→platinum
@@ -1244,7 +1245,8 @@ export class UnitLayer implements Layer {
       if (
         type === UnitType.Warship ||
         type === UnitType.FighterJet ||
-        type === UnitType.Submarine
+        type === UnitType.Submarine ||
+        type === UnitType.Bomber
       ) {
         const level = (unit as any).level ? (unit as any).level() : 1;
         const tierColor =

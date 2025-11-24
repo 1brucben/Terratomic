@@ -1,0 +1,117 @@
+import { Execution, Gold, Player, Unit, UnitType } from "../game/Game";
+import { GameImpl } from "../game/GameImpl";
+import { NoOpExecution } from "./NoOpExecution";
+
+/** Maximum level for bombers. */
+export const MAX_BOMBER_LEVEL = 3;
+
+/** Bomber upgrade cost as a percentage of new airfield cost. */
+export const BOMBER_UPGRADE_COST_MULTIPLIER = 0.2;
+
+/**
+ * Upgrades all bombers associated with an airfield.
+ * Cost = 20% of new airfield cost × airfield level (number of bombers).
+ */
+export class UpgradeBomberExecution implements Execution {
+  private mg!: GameImpl;
+  private _isActive = true;
+
+  constructor(
+    private player: Player,
+    private airfield: Unit,
+  ) {}
+
+  isActive(): boolean {
+    return this._isActive;
+  }
+
+  activeDuringSpawnPhase(): boolean {
+    return true;
+  }
+
+  init(mg: GameImpl, _ticks: number): void {
+    this.mg = mg;
+
+    // Validate airfield
+    if (!this.airfield.isUnit?.() || !this.airfield.isActive()) {
+      this._isActive = false;
+      return;
+    }
+    if (this.airfield.owner() !== this.player) {
+      this._isActive = false;
+      return;
+    }
+    if (this.airfield.type() !== UnitType.Airfield) {
+      this._isActive = false;
+      return;
+    }
+
+    // Get bombers for this airfield
+    const bombers = this.player
+      .units(UnitType.Bomber)
+      .filter((b) => b.sourceAirfield?.()?.id() === this.airfield.id());
+
+    if (bombers.length === 0) {
+      this._isActive = false;
+      return;
+    }
+
+    // Check if any bomber can be upgraded (not at max level)
+    const upgradableBombers = bombers.filter(
+      (b) => (b.level?.() ?? 1) < MAX_BOMBER_LEVEL,
+    );
+    if (upgradableBombers.length === 0) {
+      this._isActive = false;
+      return;
+    }
+
+    // Calculate cost: 20% of airfield cost × airfield level
+    const airfieldBaseCost: Gold = this.mg
+      .unitInfo(UnitType.Airfield)
+      .cost(this.player);
+    const airfieldLevel = this.airfield.level?.() ?? 1;
+    const upgradeCost: Gold =
+      (airfieldBaseCost *
+        BigInt(Math.round(BOMBER_UPGRADE_COST_MULTIPLIER * 100)) *
+        BigInt(airfieldLevel)) /
+      100n;
+
+    if (this.player.gold() < upgradeCost) {
+      this._isActive = false;
+      return;
+    }
+
+    // Deduct cost and upgrade all bombers for this airfield
+    this.player.removeGold(upgradeCost);
+    for (const bomber of upgradableBombers) {
+      const currentLevel = bomber.level?.() ?? 1;
+      if (currentLevel < MAX_BOMBER_LEVEL) {
+        (bomber as any)._level = currentLevel + 1;
+        bomber.touch?.();
+      }
+    }
+
+    this._isActive = false;
+  }
+
+  tick(_ticks: number): void {
+    // One-shot handled in init
+  }
+
+  static fromIntent(
+    mg: GameImpl,
+    intent: {
+      type: "upgrade_bomber";
+      airfieldId: number;
+      clientID: string;
+    },
+  ): Execution {
+    const player = mg.playerByClientID(intent.clientID);
+    if (!player) return new NoOpExecution();
+    const airfield = player
+      .units(UnitType.Airfield)
+      .find((u) => u.id() === intent.airfieldId);
+    if (!airfield) return new NoOpExecution();
+    return new UpgradeBomberExecution(player, airfield);
+  }
+}

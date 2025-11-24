@@ -1,4 +1,4 @@
-import { Execution, Game } from "../game/Game";
+import { Execution, Game, UnitType } from "../game/Game";
 import { isUpgradeableStructure } from "../game/Upgradeables";
 import { PseudoRandom } from "../PseudoRandom";
 import { ClientID, GameID, Intent, Turn } from "../Schemas";
@@ -38,6 +38,7 @@ import { SetTargetTroopRatioExecution } from "./SetTargetTroopRatioExecution";
 import { SpawnExecution } from "./SpawnExecution";
 import { TargetPlayerExecution } from "./TargetPlayerExecution";
 import { TransportShipExecution } from "./TransportShipExecution";
+import { UpgradeBomberExecution } from "./UpgradeBomberExecution";
 import { UpgradeStructureExecution } from "./UpgradeStructureExecution";
 
 export class Executor {
@@ -199,6 +200,13 @@ export class Executor {
         return new MarkDisconnectedExecution(player, intent.isDisconnected);
       case "set_auto_bombing":
         return new SetAutoBombingExecution(player, intent.enabled);
+      case "upgrade_bomber": {
+        const airfield = player
+          .units(UnitType.Airfield)
+          .find((u) => u.id() === intent.airfieldId);
+        if (!airfield) return new NoOpExecution();
+        return new UpgradeBomberExecution(player, airfield);
+      }
       default:
         throw new Error(`intent type ${intent} not found`);
     }

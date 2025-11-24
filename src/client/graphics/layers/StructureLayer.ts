@@ -22,10 +22,14 @@ import {
   isUpgradeableStructure,
   maxStructureLevel,
 } from "../../../core/game/Upgradeables";
+import { ToggleBomberUpgradeModeEvent } from "../../events/ToggleBomberUpgradeModeEvent";
 import { ToggleUpgradeModeEvent } from "../../events/ToggleUpgradeModeEvent";
 import { UnitCooldownEndedEvent } from "../../events/UnitCooldownEndedEvent";
 import { MouseMoveEvent, MouseUpEvent } from "../../InputHandler";
-import { SendUpgradeStructureIntentEvent } from "../../Transport";
+import {
+  SendUpgradeBomberIntentEvent,
+  SendUpgradeStructureIntentEvent,
+} from "../../Transport";
 import { renderNumber } from "../../Utils";
 import { TransformHandler } from "../TransformHandler";
 import { Layer } from "./Layer";
@@ -93,6 +97,7 @@ export class StructureLayer implements Layer {
   private previouslySelected: UnitView | null = null;
   private hoveredStructure: UnitView | null = null;
   private upgradeMode: boolean = false; // When true, clicking own cities/ports sends upgrade intent
+  private bomberUpgradeMode: boolean = false; // When true, clicking own airfields upgrades their bombers
   // Track affordability per structure type to refresh highlights correctly
   private lastAffordableForUpgrade: Map<UnitType, boolean> = new Map();
   // Client-side level tracking for structures (temporary)
@@ -193,6 +198,21 @@ export class StructureLayer implements Layer {
       this.shouldRedraw = true;
       this.updateHighlights();
       // Rebuild price labels when toggling upgrade mode
+      this.updateLabels();
+      if (this.renderer) this.renderer.render(this.stage);
+    });
+    this.eventBus.on(ToggleBomberUpgradeModeEvent, (e) => {
+      this.bomberUpgradeMode = e.enabled;
+      // Rebuild textures for airfields so border tint updates immediately.
+      for (const r of this.renders) {
+        if (r.unit.type() === UnitType.Airfield) {
+          r.pixiSprite.texture = this.createTexture(r.unit);
+        }
+      }
+      // Force redraw so highlight state applies instantly.
+      this.shouldRedraw = true;
+      this.updateHighlights();
+      // Rebuild price labels when toggling bomber upgrade mode
       this.updateLabels();
       if (this.renderer) this.renderer.render(this.stage);
     });
@@ -354,6 +374,58 @@ export class StructureLayer implements Layer {
     return true;
   }
 
+  // Bomber upgrade cost: 20% of airfield cost × airfield level
+  private computeBomberUpgradeCost(airfield: UnitView): bigint {
+    const me = this.game.myPlayer();
+    if (!me) return 0n;
+    const cfg = this.game.config();
+    const airfieldBaseCost = cfg.unitInfo(UnitType.Airfield).cost(me as any);
+    const airfieldLevel = airfield.level?.() ?? 1;
+    // 20% of airfield cost × airfield level
+    return (airfieldBaseCost * 20n * BigInt(airfieldLevel)) / 100n;
+  }
+
+  // Check if player can afford to upgrade bombers for this airfield
+  private canAffordBomberUpgrade(airfield: UnitView): boolean {
+    const me = this.game.myPlayer();
+    if (!me) return false;
+    if (airfield.type() !== UnitType.Airfield) return false;
+    // Check if any bombers for this airfield can be upgraded
+    if (!this.hasBombersToUpgrade(airfield)) return false;
+    const upgradeCost = this.computeBomberUpgradeCost(airfield);
+    return me.gold() >= upgradeCost;
+  }
+
+  // Check if the airfield has any bombers that can be upgraded (not at max level 3)
+  private hasBombersToUpgrade(airfield: UnitView): boolean {
+    const me = this.game.myPlayer();
+    if (!me) return false;
+    // Get bombers for this airfield
+    const bombers = this.game
+      .units(UnitType.Bomber)
+      .filter(
+        (b) =>
+          b.owner() === me &&
+          (b as any).data?.sourceAirfieldId === airfield.id(),
+      );
+    // For now, check if airfield has any bombers based on its level (number of bombers = level)
+    // Since we can't easily get sourceAirfield from client view, check if airfield level > 0
+    // and at least one bomber could be below max level
+    const airfieldLevel = airfield.level?.() ?? 1;
+    if (airfieldLevel === 0) return false;
+    // We assume bombers can be upgraded if player has bombers
+    // The actual check happens on the server
+    return true;
+  }
+
+  // Check if airfield is eligible for bomber upgrade mode highlighting
+  private isEligibleForBomberUpgrade(unit: UnitView): boolean {
+    if (unit.type() !== UnitType.Airfield) return false;
+    const me = this.game.myPlayer();
+    if (!me || unit.owner() !== me) return false;
+    return this.hasBombersToUpgrade(unit);
+  }
+
   private updateHighlights() {
     // Build current affordability map for all upgradeable structure types
     const currentAffordable = new Map<UnitType, boolean>();
@@ -364,7 +436,7 @@ export class StructureLayer implements Layer {
       }
     }
 
-    if (!this.upgradeMode) {
+    if (!this.upgradeMode && !this.bomberUpgradeMode) {
       // When exiting upgrade mode, clear affordability cache and refresh upgradeable structures
       if (this.lastAffordableForUpgrade.size > 0) {
         for (const r of this.renders) {
@@ -387,6 +459,26 @@ export class StructureLayer implements Layer {
         this.shouldRedraw = true;
       }
       return;
+    }
+
+    // Handle bomber upgrade mode highlighting for airfields
+    if (this.bomberUpgradeMode) {
+      let anyChanged = false;
+      for (const r of this.renders) {
+        if (r.unit.type() !== UnitType.Airfield) continue;
+        const should = this.shouldHighlightForBomberUpgrade(r.unit);
+        const prev = this.lastHighlight.get(r.unit.id()) ?? false;
+        if (prev !== should) {
+          r.pixiSprite.texture = this.createTexture(r.unit);
+          this.lastHighlight.set(r.unit.id(), should);
+          anyChanged = true;
+        }
+      }
+      if (anyChanged) {
+        this.shouldRedraw = true;
+      }
+      // Still fall through to handle regular upgrade mode if both are somehow on
+      if (!this.upgradeMode) return;
     }
 
     // Check if affordability changed for any structure type
@@ -506,6 +598,11 @@ export class StructureLayer implements Layer {
       const hl = this.shouldHighlight(unit) ? 1 : 0;
       cacheKey += `-hl${hl}`;
     }
+    // Add bomber upgrade highlight state for airfields
+    if (!isConstruction && structureType === UnitType.Airfield) {
+      const bhl = this.shouldHighlightForBomberUpgrade(unit) ? 1 : 0;
+      cacheKey += `-bhl${bhl}`;
+    }
     if (this.textureCache.has(cacheKey)) {
       // If render requested invalidation (upgrade mode toggle), bypass cache by deleting
       // The caller sets render.invalidateTexture; we can't access it here, so rely on a global flag
@@ -557,6 +654,17 @@ export class StructureLayer implements Layer {
     ) {
       // Blend neon green with the base border color to reduce intensity
       highlightTint = this.blendHexColors("#00FF8A", borderColor, 0.6);
+      borderColor = highlightTint;
+      highlightEligibleIcon = true;
+    }
+    // Apply highlight for bomber upgrade mode on airfields
+    if (
+      !isConstruction &&
+      structureType === UnitType.Airfield &&
+      this.shouldHighlightForBomberUpgrade(unit)
+    ) {
+      // Use a different color for bomber upgrades (e.g., orange/amber)
+      highlightTint = this.blendHexColors("#FFA500", borderColor, 0.6);
       borderColor = highlightTint;
       highlightEligibleIcon = true;
     }
@@ -692,6 +800,17 @@ export class StructureLayer implements Layer {
     if (unit.type() === UnitType.Construction) return false;
     if (!this.isUpgradeableStructure(unit)) return false;
     return unit.owner().id() === me.id() && this.canAffordUpgrade(unit);
+  }
+
+  private shouldHighlightForBomberUpgrade(unit: UnitView): boolean {
+    if (!this.bomberUpgradeMode) return false;
+    const me = this.game.myPlayer();
+    if (!me) return false;
+    if (unit.type() !== UnitType.Airfield) return false;
+    if (unit.owner().id() !== me.id()) return false;
+    return (
+      this.isEligibleForBomberUpgrade(unit) && this.canAffordBomberUpgrade(unit)
+    );
   }
 
   private createPixiSprite(unit: UnitView): PIXI.Sprite {
@@ -838,6 +957,17 @@ export class StructureLayer implements Layer {
     if (clickedUnit) {
       if (clickedUnit.owner() !== this.game.myPlayer()) {
         return;
+      }
+      // In bomber upgrade mode: attempt to upgrade bombers for clicked airfield
+      if (this.bomberUpgradeMode && clickedUnit.type() === UnitType.Airfield) {
+        // Check if any bombers can be upgraded and player can afford it
+        if (this.canAffordBomberUpgrade(clickedUnit)) {
+          // Fire transport event to send intent
+          this.eventBus.emit(
+            new SendUpgradeBomberIntentEvent(clickedUnit.id()),
+          );
+        }
+        return; // Do not change selection while upgrading
       }
       // In upgrade mode: attempt to upgrade upgradeable structures immediately
       if (this.upgradeMode && isUpgradeableStructure(clickedUnit.type())) {
@@ -1063,6 +1193,76 @@ export class StructureLayer implements Layer {
           });
           const priceText = this.formatGoldCompact(
             this.computeUpgradeCostForType(u.type()),
+          );
+          const t = new PIXI.Text(priceText, style);
+
+          const paddingX = Math.round(fontSize * 0.5);
+          const paddingY = Math.round(fontSize * 0.35);
+          const pillWidth = t.width + paddingX * 2;
+          const pillHeight = t.height + paddingY * 2;
+          const bg = new PIXI.Graphics();
+          // Nudge even closer to icon (further up)
+          const gapBelow = Math.round(1 * labelScale);
+          const bgX = Math.round(screenPos.x - pillWidth / 2);
+          const bgY = Math.round(
+            screenPos.y + (iconDim * labelScale) / 2 + gapBelow,
+          );
+          bg.roundRect(
+            bgX,
+            bgY,
+            pillWidth,
+            pillHeight,
+            Math.min(14, fontSize),
+          ).fill({
+            color: 0x000000,
+            alpha: 0.55,
+          });
+          this.labelContainer.addChild(bg);
+          t.x = bgX + Math.round((pillWidth - t.width) / 2);
+          t.y = bgY + Math.round((pillHeight - t.height) / 2);
+          this.labelContainer.addChild(t);
+        }
+      }
+    }
+
+    // 3) In bomber upgrade mode, show UPGRADE PRICE BELOW for all eligible airfields owned by me
+    if (this.bomberUpgradeMode) {
+      const me = this.game.myPlayer();
+      if (me) {
+        for (const r of this.renders) {
+          const u = r.unit;
+          if (!u.isActive()) continue;
+          if (u.owner() !== me) continue;
+          if (u.type() !== UnitType.Airfield) continue;
+          if (!this.isEligibleForBomberUpgrade(u)) continue;
+
+          const tile = u.tile();
+          const worldX = this.game.x(tile);
+          const worldY = this.game.y(tile);
+          const screenPos = this.transformHandler.worldToScreenCoordinates(
+            new Cell(worldX, worldY),
+          );
+          const shape: BgShape =
+            STRUCTURE_BG_SHAPES[u.type() as UnitType] ?? "circle";
+          const iconDim = ICON_SIZES[shape] ?? ICON_SIZE;
+          const iconScale = this.iconScreenScale();
+          const labelScale = iconScale * ICON_TEXTURE_QUALITY;
+
+          // Shrink cost indicator by 50%
+          const fontSize = Math.round(iconDim * labelScale * 0.25);
+          // Use orange/amber for bomber upgrades when affordable; otherwise white
+          const affordable = this.canAffordBomberUpgrade(u);
+          const fillColor = affordable ? 0xffa500 : 0xffffff;
+          const style = new PIXI.TextStyle({
+            fontFamily:
+              "system-ui, -apple-system, Segoe UI, Roboto, sans-serif",
+            fontSize,
+            fontWeight: "600",
+            fill: fillColor,
+            align: "center",
+          });
+          const priceText = this.formatGoldCompact(
+            this.computeBomberUpgradeCost(u),
           );
           const t = new PIXI.Text(priceText, style);
 
