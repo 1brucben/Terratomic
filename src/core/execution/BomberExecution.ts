@@ -54,6 +54,12 @@ export class BomberExecution implements Execution {
   tick(ticks: number): void {
     // Respawn bomber if destroyed
     if (!this.bomber || !this.bomber.isActive()) {
+      // Decrement bomber count for the target we were attacking (if any)
+      if (this.currentTargetUnit) {
+        this.decrementBomberCount(this.currentTargetUnit);
+        this.currentTargetUnit = null;
+      }
+
       // Check if source airfield still exists
       if (!this.sourceAirfield.isActive()) {
         // Try to rebase to nearest airfield
