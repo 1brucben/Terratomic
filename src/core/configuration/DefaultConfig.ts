@@ -822,12 +822,7 @@ export class DefaultConfig implements Config {
           cost: (p: Player) =>
             p.type() === PlayerType.Human && this.infiniteGold()
               ? 0n
-              : BigInt(
-                  Math.min(
-                    2_000_000,
-                    Math.pow(2, p.unitsOwned(UnitType.Airfield)) * 400_000,
-                  ),
-                ),
+              : 1_000_000n,
           territoryBound: true,
           constructionDuration: this.instantBuild() ? 0 : 10 * 10,
           maxHealth: 1000,
