@@ -47,15 +47,22 @@ export class BomberExecution implements Execution {
       sourceAirfield: this.sourceAirfield,
     });
     this.bomber.setHealth(1n);
+    console.log(
+      `[BOMBER INIT] Created bomber ${this.bomber.id()} at airfield ${this.sourceAirfield.id()} for ${this.origOwner.name()}`,
+    );
   }
 
   tick(ticks: number): void {
-    // Log bomber health every 10 ticks
-    // if (ticks % 10 === 0 && this.bomber && this.bomber.isActive()) {
-    //   console.log(
-    //     `[Tick ${ticks}] Bomber health: ${this.bomber.health()} / 500 (Owner: ${this.origOwner.name()}, OnMission: ${this.onMission})`,
-    //   );
-    // }
+    // Log bomber status every 50 ticks (~5 seconds)
+    if (ticks % 50 === 0 && this.bomber && this.bomber.isActive()) {
+      const allBombers = this.origOwner.units(UnitType.Bomber);
+      const bombersAtAirfield = allBombers.filter(
+        (b) => b.tile() === this.sourceAirfield.tile(),
+      );
+      console.log(
+        `[BOMBER STATUS] Tick ${ticks}: Bomber ${this.bomber.id()} | OnMission: ${this.onMission} | Tile: ${this.bomber.tile()} | Airfield: ${this.sourceAirfield.tile()} | BombsLeft: ${this.bombsLeft} | Total bombers: ${allBombers.length} | At airfield: ${bombersAtAirfield.length}`,
+      );
+    }
 
     // Respawn bomber if destroyed
     if (!this.bomber || !this.bomber.isActive()) {
@@ -94,6 +101,10 @@ export class BomberExecution implements Execution {
       this.currentWaypointIndex = 0;
       this.cooldownEndsAtTick = ticks + 100; // 100-tick cooldown after respawn
       this.eligibleCities = [];
+      const totalBombers = this.origOwner.units(UnitType.Bomber).length;
+      console.log(
+        `[BOMBER RESPAWN] Tick ${ticks}: Created new bomber ${this.bomber.id()} at airfield ${this.sourceAirfield.tile()} | Total bombers now: ${totalBombers}`,
+      );
       return;
     }
 
@@ -190,6 +201,9 @@ export class BomberExecution implements Execution {
     if (!wasAlreadyOnMission) {
       this.bombsLeft = this.mg.config().bomberPayload();
     }
+    console.log(
+      `[BOMBER MISSION] Bomber ${this.bomber.id()} ${wasAlreadyOnMission ? "retargeting" : "starting mission"} to ${targetTile} | BombsLeft: ${this.bombsLeft} | CurrentTile: ${this.bomber.tile()}`,
+    );
     this.dropTicker = 0;
     this.bomber.setTargetTile(targetTile);
     this.bomber.setReturning(false);
@@ -248,6 +262,9 @@ export class BomberExecution implements Execution {
         } else if (returning) {
           // Bomber returned to airfield
           this.bomber.move(this.sourceAirfield.tile());
+          console.log(
+            `[BOMBER RETURN] Bomber ${this.bomber.id()} returned to airfield ${this.sourceAirfield.tile()}`,
+          );
 
           // Check if there's another bomber from this airfield
           const otherBomber = this.origOwner
@@ -266,15 +283,24 @@ export class BomberExecution implements Execution {
             // Another bomber is at the airfield
             if (this.bomber.health() > otherBomber.health()) {
               // Replace the weaker bomber
+              console.log(
+                `[BOMBER CLEANUP] Deleting weaker bomber ${otherBomber.id()} (health ${otherBomber.health()}) in favor of ${this.bomber.id()} (health ${this.bomber.health()})`,
+              );
               otherBomber.delete(false);
             } else {
               // This bomber is weaker, destroy it
+              console.log(
+                `[BOMBER CLEANUP] Deleting this bomber ${this.bomber.id()} (health ${this.bomber.health()}) in favor of ${otherBomber.id()} (health ${otherBomber.health()})`,
+              );
               this.bomber.delete(false);
               this.active = false;
               return;
             }
           } else if (otherBomber) {
             // Other bomber is on mission, destroy this one
+            console.log(
+              `[BOMBER CLEANUP] Other bomber ${otherBomber.id()} is on mission, deleting this bomber ${this.bomber.id()}`,
+            );
             this.bomber.delete(false);
             this.active = false;
             return;
