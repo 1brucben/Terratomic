@@ -1245,9 +1245,8 @@ export class PlayerImpl implements Player {
       this.mg.config().forceCanBuildBomberInTests?.() &&
       unitType === UnitType.Bomber
     ) {
-      // Assuming game.ref(1,1) is a valid airfield tile for the attacker in tests
-      // This bypasses the normal canBuild checks for bombers in tests
-      return this.mg.ref(1, 1);
+      // Return the target tile (airfield location) for bomber spawn in tests
+      return targetTile;
     }
 
     if (this.mg.config().isUnitDisabled(unitType)) {

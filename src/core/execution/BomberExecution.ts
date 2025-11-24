@@ -39,9 +39,6 @@ export class BomberExecution implements Execution {
       this.sourceAirfield.tile(),
     );
     if (!spawn) {
-      console.warn(
-        `Failed to create bomber at airfield ${this.sourceAirfield.tile()}`,
-      );
       this.active = false;
       return;
     }
@@ -54,11 +51,11 @@ export class BomberExecution implements Execution {
 
   tick(ticks: number): void {
     // Log bomber health every 10 ticks
-    if (ticks % 10 === 0 && this.bomber && this.bomber.isActive()) {
-      console.log(
-        `[Tick ${ticks}] Bomber health: ${this.bomber.health()} / 500 (Owner: ${this.origOwner.name()}, OnMission: ${this.onMission})`,
-      );
-    }
+    // if (ticks % 10 === 0 && this.bomber && this.bomber.isActive()) {
+    //   console.log(
+    //     `[Tick ${ticks}] Bomber health: ${this.bomber.health()} / 500 (Owner: ${this.origOwner.name()}, OnMission: ${this.onMission})`,
+    //   );
+    // }
 
     // Respawn bomber if destroyed
     if (!this.bomber || !this.bomber.isActive()) {
@@ -205,7 +202,7 @@ export class BomberExecution implements Execution {
   }
 
   private executeMission(): void {
-    const returning = this.bombsLeft === 0;
+    const returning = this.bomber.returning();
     if (!returning && !this.currentTargetTile) return;
 
     // Determine destination based on waypoint system
@@ -240,7 +237,10 @@ export class BomberExecution implements Execution {
 
         // Reached final destination
         if (!returning && this.bombsLeft > 0) {
-          this.dropBomb();
+          if (++this.dropTicker >= this.mg.config().bomberDropCadence()) {
+            this.dropBomb();
+            this.dropTicker = 0;
+          }
         } else if (returning) {
           // Bomber returned to airfield
           this.bomber.move(this.sourceAirfield.tile());
@@ -379,7 +379,7 @@ export class BomberExecution implements Execution {
     const enemies = this.mg
       .nearbyUnits(this.sourceAirfield.tile(), range, priority)
       .filter(({ unit }) => {
-        const o = this.mg.owner(unit.tile());
+        const o = unit.owner();
         return (
           o.isPlayer() &&
           o.id() !== this.origOwner.id() &&
@@ -453,6 +453,7 @@ export class BomberExecution implements Execution {
     for (const structureType of structures) {
       const units = targetPlayer.units(structureType);
       for (const unit of units) {
+        if (!unit.isActive()) continue;
         const dist2 = this.mg.euclideanDistSquared(
           this.sourceAirfield.tile(),
           unit.tile(),
