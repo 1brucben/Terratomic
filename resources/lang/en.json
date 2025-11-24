@@ -661,7 +661,22 @@
     "insurance_refund_conquest": "Insurance refund {amount} gold for conquered structure."
   },
   "research_tree": {
-    "title": "Research Tree"
+    "title": "Research Tree",
+    "toggle_tooltip": "Open the Research Tree",
+    "tab_tooltip": {
+      "overview": "View all research categories",
+      "land": "Land-based warfare technologies",
+      "sea": "Naval and amphibious technologies",
+      "air": "Air power technologies",
+      "nuclear": "Nuclear and missile technologies",
+      "economy": "Economic and infrastructure technologies"
+    },
+    "investment": {
+      "slider_locked": "Slider is locked. Double-click to unlock.",
+      "slider_unlocked": "Double-click slider to lock.",
+      "road_disabled": "Research Post-War Reconstruction to enable road investment.",
+      "research_goal": "Increase research investment to unlock technologies faster."
+    }
   },
   "unit_upgrade_settings": {
     "title": "Unit Upgrade Settings",
