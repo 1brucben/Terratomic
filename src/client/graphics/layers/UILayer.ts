@@ -131,6 +131,10 @@ export class UILayer implements Layer {
         this.drawHealthBar(unit);
         break;
       }
+      case UnitType.Bomber: {
+        this.drawHealthBar(unit);
+        break;
+      }
       case UnitType.Submarine: {
         // Only draw health bar when submarine is visible to the local player.
         // Visibility rules mirror UnitLayer: enemy subs are visible only when
