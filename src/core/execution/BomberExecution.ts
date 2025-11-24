@@ -193,24 +193,25 @@ export class BomberExecution implements Execution {
                 b.isActive(),
             );
 
-          if (otherBomber) {
-            // Check if the other bomber is also at the airfield (not on mission)
-            if (otherBomber.tile() === this.sourceAirfield.tile()) {
-              // Merge health with the bomber at base
-              const maxHealth =
-                this.mg.unitInfo(UnitType.Bomber).maxHealth ?? 500;
-              const combinedHealth = Math.min(
-                maxHealth,
-                otherBomber.health() + this.bomber.health(),
-              );
-              otherBomber.setHealth(BigInt(combinedHealth));
-              // Delete this bomber (merged into the one at base)
+          if (
+            otherBomber &&
+            otherBomber.tile() === this.sourceAirfield.tile()
+          ) {
+            // Another bomber is at the airfield
+            if (this.bomber.health() > otherBomber.health()) {
+              // Replace the weaker bomber
+              otherBomber.delete(false);
+            } else {
+              // This bomber is weaker, destroy it
               this.bomber.delete(false);
               this.active = false;
               return;
             }
-            // Other bomber is on mission - this bomber stays at airfield and waits
-            // It becomes the base bomber for this airfield
+          } else if (otherBomber) {
+            // Other bomber is on mission, destroy this one
+            this.bomber.delete(false);
+            this.active = false;
+            return;
           }
 
           // Clear from bombersOnTarget since mission is complete
