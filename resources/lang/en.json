@@ -590,7 +590,11 @@
     "paratrooper_sent": "Paratrooper",
     "doomsday_triggered": "{player}'s Doomsday Device has been Triggered!",
     "max_paratrooper_units_reached": "Maximum number of paratrooper planes reached.",
-    "incoming_paratrooper_attack": "Incoming Paratrooper Attack from {attackerName}"
+    "incoming_paratrooper_attack": "Incoming Paratrooper Attack from {attackerName}",
+    "filter_attack": "Filter Attack Events",
+    "filter_trade": "Filter Trade Events",
+    "filter_alliance": "Filter Alliance Events",
+    "filter_chat": "Filter Chat Events"
   },
   "unit_info_modal": {
     "structure_info": "Structure Info",
