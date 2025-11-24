@@ -90,7 +90,8 @@ export class Executor {
         return new BomberTargetExecution(
           player,
           intent.targetID,
-          intent.structure,
+          intent.structures,
+          intent.preferClosest,
         );
 
       case "spawn":

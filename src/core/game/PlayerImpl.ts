@@ -129,8 +129,11 @@ export class PlayerImpl implements Player {
   private _hasSpawned = false;
   private _isDisconnected = false;
 
-  private bomberIntent: { targetPlayerID: string; structure: UnitType } | null =
-    null;
+  private bomberIntent: {
+    targetPlayerID: string;
+    structures: UnitType[];
+    preferClosest: boolean;
+  } | null = null;
   private _autoBombingEnabled: boolean = false;
   public bombersOnTarget = new Map<TileRef, number>();
 
@@ -1663,13 +1666,18 @@ export class PlayerImpl implements Player {
     return airfields;
   }
   public setBomberIntent(
-    intent: { targetPlayerID: string; structure: UnitType } | null,
+    intent: {
+      targetPlayerID: string;
+      structures: UnitType[];
+      preferClosest: boolean;
+    } | null,
   ): void {
     this.bomberIntent = intent;
   }
   public getBomberIntent(): {
     targetPlayerID: string;
-    structure: UnitType;
+    structures: UnitType[];
+    preferClosest: boolean;
   } | null {
     return this.bomberIntent;
   }

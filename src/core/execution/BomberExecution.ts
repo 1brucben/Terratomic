@@ -58,6 +58,13 @@ export class BomberExecution implements Execution {
   }
 
   tick(ticks: number): void {
+    // Log bomber health every 10 ticks
+    if (ticks % 10 === 0 && this.bomber && this.bomber.isActive()) {
+      console.log(
+        `[Tick ${ticks}] Bomber health: ${this.bomber.health()} / 500 (Owner: ${this.origOwner.name()}, OnMission: ${this.onMission})`,
+      );
+    }
+
     // Respawn bomber if destroyed
     if (!this.bomber || !this.bomber.isActive()) {
       // Check if source airfield still exists
@@ -280,28 +287,47 @@ export class BomberExecution implements Execution {
 
   private findTarget(): TileRef | null {
     const intent = this.origOwner.getBomberIntent?.();
-    if (intent?.targetPlayerID && intent?.structure) {
+    if (
+      intent?.targetPlayerID &&
+      intent?.structures &&
+      intent.structures.length > 0
+    ) {
       const targetPlayer = this.mg.player(intent.targetPlayerID);
       if (targetPlayer && !this.origOwner.isFriendly(targetPlayer)) {
-        const targets = targetPlayer.units(intent.structure);
-        if (targets.length > 0) {
-          // Find target with fewest bombers already targeting it
-          let bestTarget: Unit | null = null;
-          let minBombers = Infinity;
-          for (const target of targets) {
-            const bombersOnTarget =
-              this.origOwner.bombersOnTarget.get(target.tile()) ?? 0;
-            if (bombersOnTarget < 6 && bombersOnTarget < minBombers) {
-              minBombers = bombersOnTarget;
-              bestTarget = target;
-            }
-          }
-          if (bestTarget) {
-            this.origOwner.bombersOnTarget.set(
-              bestTarget.tile(),
-              (this.origOwner.bombersOnTarget.get(bestTarget.tile()) ?? 0) + 1,
+        // Gather all targets of specified structure types
+        const allTargets: { unit: Unit; dist2: number }[] = [];
+        for (const structureType of intent.structures) {
+          const units = targetPlayer.units(structureType);
+          for (const unit of units) {
+            const dist2 = this.mg.euclideanDistSquared(
+              this.sourceAirfield.tile(),
+              unit.tile(),
             );
-            return bestTarget.tile();
+            allTargets.push({ unit, dist2 });
+          }
+        }
+
+        if (allTargets.length > 0) {
+          // Sort by distance based on preference
+          allTargets.sort((a, b) => {
+            return intent.preferClosest ? a.dist2 - b.dist2 : b.dist2 - a.dist2;
+          });
+
+          // Try each target in order using new load balancing formula
+          // h/250+2 > n where h is health and n is bombers assigned
+          for (const { unit } of allTargets) {
+            const bombersOnTarget =
+              this.origOwner.bombersOnTarget.get(unit.tile()) ?? 0;
+            const health = Number(unit.health());
+            const threshold = health / 250 + 2;
+
+            if (threshold > bombersOnTarget) {
+              this.origOwner.bombersOnTarget.set(
+                unit.tile(),
+                bombersOnTarget + 1,
+              );
+              return unit.tile();
+            }
           }
         }
       }

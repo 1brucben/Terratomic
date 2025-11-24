@@ -120,10 +120,13 @@ export class ControlPanel2 extends LitElement implements Layer {
   private _currentTargetPlayerId: PlayerID | null = null;
 
   @state()
-  private _currentTargetStructureType: UnitType | null = null;
+  private _currentTargetStructureTypes: UnitType[] = [];
 
   @state()
   private _currentTargetPlayerName: string | null = null;
+
+  @state()
+  private _bomberPreferClosest: boolean = true;
 
   @state()
   private _isAutoBombingEnabled: boolean = false;
@@ -850,43 +853,52 @@ export class ControlPanel2 extends LitElement implements Layer {
     const playerSelect = this.querySelector(
       "#bomber-player-select",
     ) as HTMLSelectElement;
-    const selectedStructure = this.querySelector(
+    const selectedStructures = this.querySelectorAll(
       "input[name='structure']:checked",
-    ) as HTMLInputElement | null;
+    ) as NodeListOf<HTMLInputElement>;
 
-    if (!playerSelect || !selectedStructure) return;
+    if (!playerSelect || selectedStructures.length === 0) return;
 
     const targetID = String(playerSelect.value);
-    const structure = selectedStructure.value as unknown as UnitType;
+    const structures = Array.from(selectedStructures).map(
+      (input) => input.value as unknown as UnitType,
+    );
 
-    this.sendBomberIntent(targetID, structure);
+    this.sendBomberIntent(targetID, structures, this._bomberPreferClosest);
   }
 
-  sendBomberIntent(targetID: string | null, structure: UnitType | null) {
+  sendBomberIntent(
+    targetID: string | null,
+    structures: UnitType[] | null,
+    preferClosest: boolean,
+  ) {
     if (!this.eventBus) return;
     this._currentTargetPlayerId = targetID;
-    this._currentTargetStructureType = structure;
+    this._currentTargetStructureTypes = structures ?? [];
+    this._bomberPreferClosest = preferClosest;
     if (targetID) {
       const targetPlayer = this.game.players().find((p) => p.id() === targetID);
       this._currentTargetPlayerName = targetPlayer ? targetPlayer.name() : null;
     } else {
       this._currentTargetPlayerName = null;
     }
-    this.eventBus.emit(new SendBomberIntentEvent(targetID, structure));
+    this.eventBus.emit(
+      new SendBomberIntentEvent(targetID, structures, preferClosest),
+    );
   }
 
   _startAutoBombing() {
     this._isAutoBombingEnabled = true;
     this.eventBus.emit(new SendSetAutoBombingEvent(true));
     // Clear any manual target when auto-bombing is enabled
-    this.sendBomberIntent(null, null);
+    this.sendBomberIntent(null, null, true);
   }
 
   async _stopAutoBombing() {
     this._isAutoBombingEnabled = false;
     this.eventBus.emit(new SendSetAutoBombingEvent(false));
     // Clear any manual target when auto-bombing is disabled
-    this.sendBomberIntent(null, null);
+    this.sendBomberIntent(null, null, true);
 
     await this.updateComplete; // Wait for the UI to update
 
@@ -894,17 +906,9 @@ export class ControlPanel2 extends LitElement implements Layer {
   }
 
   handleStructureChange(e: Event) {
-    const changedCheckbox = e.target as HTMLInputElement;
-    if (changedCheckbox.checked) {
-      const checkboxes = this.querySelectorAll(
-        "input[name='structure']",
-      ) as NodeListOf<HTMLInputElement>;
-      checkboxes.forEach((checkbox) => {
-        if (checkbox !== changedCheckbox) {
-          checkbox.checked = false;
-        }
-      });
-    }
+    // Allow multiple checkboxes to be selected
+    // No special logic needed - just update state
+    this.requestUpdate();
   }
 
   private _handleBomberTargetChange(e: Event) {
@@ -1353,7 +1357,47 @@ export class ControlPanel2 extends LitElement implements Layer {
                             </label>
 
                             <label class="block text-sm military-label"
-                              >Select Structure</label
+                              >Distance Priority</label
+                            >
+                            <div class="flex gap-2">
+                              <label
+                                class="flex items-center space-x-1 cursor-pointer"
+                              >
+                                <input
+                                  type="radio"
+                                  name="distance-pref"
+                                  value="closest"
+                                  ?checked=${this._bomberPreferClosest}
+                                  @change=${() => {
+                                    this._bomberPreferClosest = true;
+                                  }}
+                                  class="form-radio h-4 w-4 text-blue-400"
+                                />
+                                <span class="text-sm military-label"
+                                  >Closest</span
+                                >
+                              </label>
+                              <label
+                                class="flex items-center space-x-1 cursor-pointer"
+                              >
+                                <input
+                                  type="radio"
+                                  name="distance-pref"
+                                  value="furthest"
+                                  ?checked=${!this._bomberPreferClosest}
+                                  @change=${() => {
+                                    this._bomberPreferClosest = false;
+                                  }}
+                                  class="form-radio h-4 w-4 text-blue-400"
+                                />
+                                <span class="text-sm military-label"
+                                  >Furthest</span
+                                >
+                              </label>
+                            </div>
+
+                            <label class="block text-sm military-label"
+                              >Select Structures (multiple)</label
                             >
                             <div class="grid grid-cols-4 gap-2">
                               ${[
@@ -1382,7 +1426,6 @@ export class ControlPanel2 extends LitElement implements Layer {
                                       type="checkbox"
                                       name="structure"
                                       value="${s}"
-                                      ?checked=${s === UnitType.City}
                                       class="form-checkbox h-4 w-4 text-blue-400 bg-gray-700 border-gray-500 rounded-sm focus:ring-blue-400"
                                       @change=${this.handleStructureChange}
                                     />
@@ -1402,23 +1445,32 @@ export class ControlPanel2 extends LitElement implements Layer {
                           <h3 class="military-heading mb-2">Target Actions</h3>
                           <div class="text-sm min-h-[20px]">
                             ${this._currentTargetPlayerId &&
-                            this._currentTargetStructureType
+                            this._currentTargetStructureTypes.length > 0
                               ? html`<span class="font-bold military-label"
                                     >Target:</span
                                   >
                                   ${this._currentTargetPlayerName}
-                                  <img
-                                    src="${this.unitIconMap[
-                                      this._currentTargetStructureType
-                                    ]}"
-                                    alt="${this._currentTargetStructureType}"
-                                    class="inline-block align-top ml-1"
-                                    style="width: ${this.iconPixelSize(
-                                      this._currentTargetStructureType,
-                                    )}px; height: ${this.iconPixelSize(
-                                      this._currentTargetStructureType,
-                                    )}px;"
-                                  />`
+                                  <div class="flex flex-wrap gap-1 mt-1">
+                                    ${this._currentTargetStructureTypes.map(
+                                      (structType) => html`
+                                        <img
+                                          src="${this.unitIconMap[structType]}"
+                                          alt="${structType}"
+                                          class="inline-block"
+                                          style="width: ${this.iconPixelSize(
+                                            structType,
+                                          )}px; height: ${this.iconPixelSize(
+                                            structType,
+                                          )}px;"
+                                        />
+                                      `,
+                                    )}
+                                  </div>
+                                  <div class="text-xs military-label mt-1">
+                                    ${this._bomberPreferClosest
+                                      ? "Targeting closest first"
+                                      : "Targeting furthest first"}
+                                  </div>`
                               : html`<span class="military-label"
                                   >No target selected</span
                                 >`}
@@ -1435,7 +1487,8 @@ export class ControlPanel2 extends LitElement implements Layer {
                             <button
                               type="button"
                               class="military-button flex-1"
-                              @click=${() => this.sendBomberIntent(null, null)}
+                              @click=${() =>
+                                this.sendBomberIntent(null, null, true)}
                             >
                               Clear Target
                             </button>

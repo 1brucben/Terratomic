@@ -764,9 +764,17 @@ export interface Player {
   tradingPorts(port: Unit): Unit[];
   airfields(airfield: Unit): Unit[];
   setBomberIntent(
-    intent: { targetPlayerID: string; structure: UnitType } | null,
+    intent: {
+      targetPlayerID: string;
+      structures: UnitType[];
+      preferClosest: boolean;
+    } | null,
   ): void;
-  getBomberIntent(): { targetPlayerID: string; structure: UnitType } | null;
+  getBomberIntent(): {
+    targetPlayerID: string;
+    structures: UnitType[];
+    preferClosest: boolean;
+  } | null;
   bombersOnTarget: Map<TileRef, number>;
 
   setAutoBombingEnabled(enabled: boolean): void;

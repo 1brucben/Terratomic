@@ -466,7 +466,8 @@ export const MoveFighterJetIntentSchema = BaseIntentSchema.extend({
 export const BomberIntentSchema = BaseIntentSchema.extend({
   type: z.literal("bomber_intent"),
   targetID: ID.nullable(), // who to attack
-  structure: z.enum(UnitType).nullable(), // what to bomb
+  structures: z.array(z.enum(UnitType)).nullable(), // what to bomb
+  preferClosest: z.boolean(), // target closest or furthest
 });
 
 export const ParatrooperAttackIntentSchema = BaseIntentSchema.extend({

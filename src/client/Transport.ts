@@ -234,7 +234,8 @@ export class MoveFighterJetIntentEvent implements GameEvent {
 export class SendBomberIntentEvent implements GameEvent {
   constructor(
     public readonly targetID: PlayerID | null, // who to attack
-    public readonly structure: UnitType | null, // what to bomb
+    public readonly structures: UnitType[] | null, // what to bomb
+    public readonly preferClosest: boolean, // target closest or furthest
   ) {}
 }
 
@@ -896,7 +897,8 @@ export class Transport {
       type: "bomber_intent",
       clientID: this.lobbyConfig.clientID,
       targetID: event.targetID ?? null,
-      structure: event.structure ?? null,
+      structures: event.structures ?? null,
+      preferClosest: event.preferClosest,
     });
   }
 
