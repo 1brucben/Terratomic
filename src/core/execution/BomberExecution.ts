@@ -1,7 +1,6 @@
 import { Execution, Game, Player, Unit, UnitType } from "../game/Game";
 import { TileRef } from "../game/GameMap";
 import { StraightPathFinder } from "../pathfinding/PathFinding";
-import { PseudoRandom } from "../PseudoRandom";
 
 export class BomberExecution implements Execution {
   private active = true;
@@ -11,7 +10,6 @@ export class BomberExecution implements Execution {
   private onMission = false;
   private pathFinder: StraightPathFinder;
   private dropTicker = 0;
-  private random: PseudoRandom;
   private cooldownEndsAtTick = 0;
   private currentTargetTile: TileRef | null = null;
   private currentTargetUnit: Unit | null = null;
@@ -27,7 +25,6 @@ export class BomberExecution implements Execution {
   init(mg: Game, ticks: number): void {
     this.mg = mg;
     this.pathFinder = new StraightPathFinder(mg);
-    this.random = new PseudoRandom(ticks);
 
     // Create the bomber at the airfield
     const spawn = this.origOwner.canBuild(
@@ -217,9 +214,6 @@ export class BomberExecution implements Execution {
   private executeMission(): void {
     const returning = this.bomber.returning();
     if (!returning && !this.currentTargetTile) return;
-
-    // Early exit if bomber is already targeted by SAM - no point processing further
-    if (!this.bomber.isActive() || this.bomber.targetedBySAM()) return;
 
     // Determine destination based on waypoint system
     let destination: TileRef;
