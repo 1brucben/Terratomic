@@ -200,9 +200,10 @@ export interface Config {
   bomberSpawnInterval(): number;
   bomberLaunchGapTicks(): number;
   bomberTakeoffHealthThreshold(): number;
-  bomberTargetRange(): number;
+  bomberTargetRange(level?: number): number;
   bomberExplosionRadius(): number;
-  bomberSpeed(): number;
+  bomberSpeed(level?: number): number;
+  bomberMaxHealth(level?: number): number;
   bomberCooldownTicks(): number;
   safeFromPiratesCooldownMax(): number;
   defensePostRange(): number;

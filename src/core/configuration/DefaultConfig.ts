@@ -453,14 +453,41 @@ export class DefaultConfig implements Config {
   bomberDropCadence(): number {
     return 1;
   }
-  bomberTargetRange(): number {
-    return 250;
+  bomberTargetRange(level: number = 1): number {
+    switch (level) {
+      case 1:
+        return 250;
+      case 2:
+        return 350;
+      case 3:
+      default:
+        return 450;
+    }
   }
   bomberExplosionRadius(): number {
     return 4;
   }
-  bomberSpeed(): number {
-    return 2;
+  bomberSpeed(level: number = 1): number {
+    switch (level) {
+      case 1:
+        return 2;
+      case 2:
+        return 3;
+      case 3:
+      default:
+        return 4;
+    }
+  }
+  bomberMaxHealth(level: number = 1): number {
+    switch (level) {
+      case 1:
+        return 500;
+      case 2:
+        return 600;
+      case 3:
+      default:
+        return 700;
+    }
   }
   bomberCooldownTicks(): number {
     return 100; // Ticks before bomber can take off again after landing/respawn
@@ -836,7 +863,7 @@ export class DefaultConfig implements Config {
         return {
           cost: () => 0n,
           territoryBound: false,
-          maxHealth: 500,
+          maxHealth: this.bomberMaxHealth(), // Level 1 default; actual health set at spawn
         };
       case UnitType.FighterJet:
         return {
