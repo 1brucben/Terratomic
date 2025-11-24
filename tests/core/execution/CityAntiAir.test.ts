@@ -127,12 +127,7 @@ describe("CityAntiAir", () => {
 
     const airfield = attacker.buildUnit(UnitType.Airfield, game.ref(1, 1), {});
 
-    const bomberExec = new BomberExecution(
-      attacker,
-      airfield,
-      city.tile(),
-      new Map(),
-    );
+    const bomberExec = new BomberExecution(attacker, airfield);
     game.addExecution(bomberExec);
 
     // Act: Run enough ticks for interception to occur and be processed

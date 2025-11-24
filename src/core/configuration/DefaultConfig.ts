@@ -441,6 +441,9 @@ export class DefaultConfig implements Config {
   bomberSpawnInterval(): number {
     return 20;
   }
+  bomberLaunchGapTicks(): number {
+    return 20; // Minimum ticks between bomber takeoffs from same airfield
+  }
   bomberPayload(): number {
     return 1;
   }

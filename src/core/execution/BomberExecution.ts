@@ -1,4 +1,12 @@
-import { Execution, Game, Player, Unit, UnitType } from "../game/Game";
+import {
+  Execution,
+  Game,
+  Player,
+  PlayerType,
+  Relation,
+  Unit,
+  UnitType,
+} from "../game/Game";
 import { TileRef } from "../game/GameMap";
 import { StraightPathFinder } from "../pathfinding/PathFinding";
 import { PseudoRandom } from "../PseudoRandom";
@@ -11,55 +19,79 @@ export class BomberExecution implements Execution {
   private active = true;
   private mg: Game;
   private bomber!: Unit;
-  private bombsLeft!: number;
-  private returning = false;
+  private bombsLeft = 0;
+  private onMission = false;
   private pathFinder: StraightPathFinder;
   private dropTicker = 0;
   private eligibleCities: Unit[] = [];
   private random: PseudoRandom;
+  private cooldownEndsAtTick = 0;
+  private currentTargetTile: TileRef | null = null;
 
   constructor(
     private origOwner: Player,
     private sourceAirfield: Unit,
-    private targetTile: TileRef,
-    private bombersOnTarget: Map<TileRef, number>,
   ) {}
 
   init(mg: Game, ticks: number): void {
     this.mg = mg;
     this.pathFinder = new StraightPathFinder(mg);
-    this.bombsLeft = mg.config().bomberPayload();
     this.random = new PseudoRandom(ticks);
+
+    // Create the bomber at the airfield
+    const spawn = this.origOwner.canBuild(
+      UnitType.Bomber,
+      this.sourceAirfield.tile(),
+    );
+    if (!spawn) {
+      console.warn(
+        `Failed to create bomber at airfield ${this.sourceAirfield.tile()}`,
+      );
+      this.active = false;
+      return;
+    }
+    this.bomber = this.origOwner.buildUnit(UnitType.Bomber, spawn, {
+      targetTile: this.sourceAirfield.tile(),
+      sourceAirfield: this.sourceAirfield,
+    });
+    this.bomber.setHealth(1n);
   }
 
-  tick(_ticks: number): void {
-    if (!this.bomber) {
+  tick(ticks: number): void {
+    // Respawn bomber if destroyed
+    if (!this.bomber || !this.bomber.isActive()) {
+      // Check if source airfield still exists
+      if (!this.sourceAirfield.isActive()) {
+        // Try to rebase to nearest airfield
+        const nearestAirfield = this.findNearestOwnedAirfield();
+        if (nearestAirfield) {
+          this.sourceAirfield = nearestAirfield;
+        } else {
+          // No airfields left - bomber execution is done
+          this.active = false;
+          return;
+        }
+      }
+
+      // Respawn bomber at airfield with health=1
       const spawn = this.origOwner.canBuild(
         UnitType.Bomber,
         this.sourceAirfield.tile(),
       );
       if (!spawn) {
         this.active = false;
-        this.bombersOnTarget.set(
-          this.targetTile,
-          (this.bombersOnTarget.get(this.targetTile) ?? 1) - 1,
-        );
         return;
       }
       this.bomber = this.origOwner.buildUnit(UnitType.Bomber, spawn, {
-        targetTile: this.targetTile,
+        targetTile: this.sourceAirfield.tile(),
         sourceAirfield: this.sourceAirfield,
       });
-      // Set health to 1 when bomber spawns/respawns after being destroyed
       this.bomber.setHealth(1n);
-      this.eligibleCities = findEligibleCitiesForBomber(this.bomber, this.mg);
-    }
-    if (!this.bomber.isActive()) {
-      this.active = false;
-      this.bombersOnTarget.set(
-        this.targetTile,
-        (this.bombersOnTarget.get(this.targetTile) ?? 1) - 1,
-      );
+      this.onMission = false;
+      this.bombsLeft = 0;
+      this.currentTargetTile = null;
+      this.cooldownEndsAtTick = ticks + 100; // 100-tick cooldown after respawn
+      this.eligibleCities = [];
       return;
     }
 
@@ -69,79 +101,107 @@ export class BomberExecution implements Execution {
       if (nearestAirfield) {
         this.sourceAirfield = nearestAirfield;
         this.bomber.setSourceAirfield(nearestAirfield);
-        // Change destination to new airfield
-        this.returning = true;
-        this.bomber.setReturning(true);
+        // Return to new airfield
+        if (this.onMission) {
+          this.onMission = false;
+          this.bombsLeft = 0;
+          this.currentTargetTile = null;
+        }
       } else {
         // No airfields left - bomber is destroyed
         this.bomber.delete(false);
         this.active = false;
-        this.bombersOnTarget.set(
-          this.targetTile,
-          (this.bombersOnTarget.get(this.targetTile) ?? 1) - 1,
-        );
         return;
       }
     }
 
-    const destination = this.returning
+    // If bomber is at airfield and not on mission, check cooldown and find target
+    if (!this.onMission && this.bomber.tile() === this.sourceAirfield.tile()) {
+      if (ticks < this.cooldownEndsAtTick) {
+        return; // Still on cooldown
+      }
+
+      // Check if another bomber took off recently from this airfield
+      const timeSinceLastTakeoff =
+        ticks - this.sourceAirfield.lastBomberTakeoffTick();
+      const launchGap = this.mg.config().bomberLaunchGapTicks();
+      if (timeSinceLastTakeoff < launchGap) {
+        return; // Wait for launch gap
+      }
+
+      // Reserve this takeoff slot immediately to prevent race conditions
+      this.sourceAirfield.setLastBomberTakeoffTick(ticks);
+
+      // Check for a new target
+      const target = this.findTarget();
+      if (target) {
+        this.startMission(target);
+      }
+      return;
+    }
+
+    // Execute mission
+    if (this.onMission && this.currentTargetTile) {
+      this.executeMission();
+    }
+  }
+
+  private startMission(targetTile: TileRef): void {
+    this.onMission = true;
+    this.currentTargetTile = targetTile;
+    this.bombsLeft = this.mg.config().bomberPayload();
+    this.dropTicker = 0;
+    this.bomber.setTargetTile(targetTile);
+    this.bomber.setReturning(false);
+    this.eligibleCities = findEligibleCitiesForBomber(this.bomber, this.mg);
+  }
+
+  private executeMission(): void {
+    if (!this.currentTargetTile) return;
+
+    const returning = this.bombsLeft === 0;
+    const destination = returning
       ? this.sourceAirfield.tile()
-      : this.targetTile;
+      : this.currentTargetTile;
 
     const speed = this.mg.config().bomberSpeed();
     for (let i = 0; i < speed; i++) {
       const step = this.pathFinder.nextTile(this.bomber.tile(), destination, 1);
 
       if (step === true) {
-        if (!this.returning && this.bombsLeft > 0) {
+        // Reached destination
+        if (!returning && this.bombsLeft > 0) {
           this.dropBomb();
-        } else if (this.returning) {
-          // Bomber returns to airfield - handle merging with existing bomber
-          const existingBomber = this.origOwner
-            .units(UnitType.Bomber)
-            .find(
-              (b) =>
-                b !== this.bomber &&
-                b.sourceAirfield?.() === this.sourceAirfield,
-            );
+        } else if (returning) {
+          // Bomber returned to airfield
+          this.bomber.move(this.sourceAirfield.tile());
 
-          if (existingBomber) {
-            // Check if existing bomber is at the airfield (not on a mission)
-            if (existingBomber.tile() === this.sourceAirfield.tile()) {
-              // Existing bomber is at base - merge health
-              const maxHealth =
-                this.mg.unitInfo(UnitType.Bomber).maxHealth ?? 500;
-              const combinedHealth = Math.min(
-                maxHealth,
-                existingBomber.health() + this.bomber.health(),
-              );
-              existingBomber.setHealth(BigInt(combinedHealth));
-              // Delete this bomber (merged into existing)
-              this.bomber.delete(false);
-            } else {
-              // Existing bomber is on a mission - wait at airfield for it to return
-              // This bomber becomes the base bomber, keep it at the airfield
-              this.bomber.move(this.sourceAirfield.tile());
-              // The other bomber will merge into this one when it returns
-            }
-          } else {
-            // No existing bomber - just move to airfield and keep health
-            this.bomber.move(this.sourceAirfield.tile());
+          // Clear from bombersOnTarget since mission is complete
+          if (this.currentTargetTile) {
+            this.origOwner.bombersOnTarget.set(
+              this.currentTargetTile,
+              Math.max(
+                0,
+                (this.origOwner.bombersOnTarget.get(this.currentTargetTile) ??
+                  1) - 1,
+              ),
+            );
           }
 
-          this.active = false;
-          this.bombersOnTarget.set(
-            this.targetTile,
-            (this.bombersOnTarget.get(this.targetTile) ?? 1) - 1,
-          );
+          this.onMission = false;
+          this.bombsLeft = 0;
+          this.currentTargetTile = null;
+          this.cooldownEndsAtTick = this.mg.ticks() + 100; // 100-tick cooldown
+          this.bomber.setReturning(false);
         }
         return;
       }
 
       this.bomber.move(step);
 
-      if (this.bomber === null || this.bomber.targetedBySAM()) return;
+      if (!this.bomber.isActive() || this.bomber.targetedBySAM()) return;
 
+      // Check for city SAM interception
       const currentBomber = this.bomber;
       const readyInterceptors = this.eligibleCities.filter(
         (city) =>
@@ -162,17 +222,120 @@ export class BomberExecution implements Execution {
         attemptInterception(currentBomber, this.mg, closestInterceptor);
       }
 
+      // Drop bomb if at target
       if (
-        !this.returning &&
+        !returning &&
         this.bombsLeft > 0 &&
         ++this.dropTicker >= this.mg.config().bomberDropCadence() &&
-        this.mg.euclideanDistSquared(this.bomber.tile(), this.targetTile) <= 1
+        this.mg.euclideanDistSquared(
+          this.bomber.tile(),
+          this.currentTargetTile,
+        ) <= 1
       ) {
         this.dropBomb();
         this.dropTicker = 0;
         return;
       }
     }
+  }
+
+  private findTarget(): TileRef | null {
+    const intent = this.origOwner.getBomberIntent?.();
+    if (intent?.targetPlayerID && intent?.structure) {
+      const targetPlayer = this.mg.player(intent.targetPlayerID);
+      if (targetPlayer && !this.origOwner.isFriendly(targetPlayer)) {
+        const targets = targetPlayer.units(intent.structure);
+        if (targets.length > 0) {
+          // Find target with fewest bombers already targeting it
+          let bestTarget: Unit | null = null;
+          let minBombers = Infinity;
+          for (const target of targets) {
+            const bombersOnTarget =
+              this.origOwner.bombersOnTarget.get(target.tile()) ?? 0;
+            if (bombersOnTarget < 6 && bombersOnTarget < minBombers) {
+              minBombers = bombersOnTarget;
+              bestTarget = target;
+            }
+          }
+          if (bestTarget) {
+            this.origOwner.bombersOnTarget.set(
+              bestTarget.tile(),
+              (this.origOwner.bombersOnTarget.get(bestTarget.tile()) ?? 0) + 1,
+            );
+            return bestTarget.tile();
+          }
+        }
+      }
+    }
+
+    // Default targeting logic
+    if (!this.origOwner.isAutoBombingEnabled()) {
+      return null;
+    }
+
+    const range = this.mg.config().bomberTargetRange();
+    const enemies = this.mg
+      .nearbyUnits(this.sourceAirfield.tile(), range, [
+        UnitType.SAMLauncher,
+        UnitType.Airfield,
+        UnitType.MissileSilo,
+        UnitType.Port,
+        UnitType.DefensePost,
+        UnitType.City,
+        UnitType.Academy,
+        UnitType.Hospital,
+        UnitType.DoomsdayDevice,
+        UnitType.Factory,
+        UnitType.ResearchLab,
+      ])
+      .filter(({ unit }) => {
+        const o = this.mg.owner(unit.tile());
+        return (
+          o.isPlayer() &&
+          o.id() !== this.origOwner.id() &&
+          (this.origOwner.type() === PlayerType.FakeHuman
+            ? this.origOwner.relation(o) <= Relation.Hostile
+            : !this.origOwner.isFriendly(o))
+        );
+      })
+      .map(({ unit, distSquared }) => ({ unit, dist2: distSquared }));
+
+    if (enemies.length === 0) return null;
+
+    const priority: UnitType[] = [
+      UnitType.SAMLauncher,
+      UnitType.Airfield,
+      UnitType.MissileSilo,
+      UnitType.Port,
+      UnitType.DefensePost,
+      UnitType.City,
+      UnitType.Academy,
+      UnitType.Hospital,
+      UnitType.DoomsdayDevice,
+      UnitType.Factory,
+      UnitType.ResearchLab,
+    ];
+
+    const sortedEnemies = enemies.sort((a, b) => {
+      const priorityA = priority.indexOf(a.unit.type());
+      const priorityB = priority.indexOf(b.unit.type());
+      if (priorityA !== priorityB) {
+        return priorityA - priorityB;
+      }
+      return a.dist2 - b.dist2;
+    });
+
+    // Find target with fewest bombers
+    for (const { unit } of sortedEnemies) {
+      const bombersOnTarget =
+        this.origOwner.bombersOnTarget.get(unit.tile()) ?? 0;
+      if (bombersOnTarget < 6) {
+        this.origOwner.bombersOnTarget.set(unit.tile(), bombersOnTarget + 1);
+        return unit.tile();
+      }
+    }
+
+    return null;
   }
 
   private dropBomb(): void {
@@ -183,7 +346,6 @@ export class BomberExecution implements Execution {
     );
     this.bombsLeft--;
     if (this.bombsLeft === 0) {
-      this.returning = true;
       this.bomber.setReturning(true);
     }
   }

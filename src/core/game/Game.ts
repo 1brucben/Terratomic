@@ -521,6 +521,10 @@ export interface Unit {
   sourceAirfield(): Unit | undefined;
   setSourceAirfield(airfield: Unit | undefined): void;
 
+  // Airfield-specific
+  lastBomberTakeoffTick(): number;
+  setLastBomberTakeoffTick(tick: number): void;
+
   // --- UNIT SPECIFIC ---
 
   // SAMs & Missile Silos

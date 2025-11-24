@@ -523,6 +523,21 @@ export class UnitLayer implements Layer {
         continue;
       }
 
+      // Hide bombers at their airfield
+      if (unit.type() === UnitType.Bomber) {
+        const airfieldAtSamePos = this.game
+          .units(UnitType.Airfield)
+          .find(
+            (a) =>
+              a.owner() === unit.owner() &&
+              a.tile() === unit.tile() &&
+              a.isActive(),
+          );
+        if (airfieldAtSamePos) {
+          continue; // Skip rendering this bomber
+        }
+      }
+
       // Respect submarine visibility rules from onUnitEvent
       if (
         unit.type() === UnitType.Submarine &&
@@ -674,6 +689,21 @@ export class UnitLayer implements Layer {
     // Check if unit was deactivated
     if (!unit.isActive()) {
       this.handleUnitDeactivation(unit);
+    }
+
+    // Hide bombers at their airfield
+    if (unit.type() === UnitType.Bomber) {
+      const airfieldAtSamePos = this.game
+        .units(UnitType.Airfield)
+        .find(
+          (a) =>
+            a.owner() === unit.owner() &&
+            a.tile() === unit.tile() &&
+            a.isActive(),
+        );
+      if (airfieldAtSamePos) {
+        return; // Skip rendering this bomber
+      }
     }
 
     if (

@@ -46,10 +46,9 @@ export class DevConfig extends DefaultConfig {
     super(sc, gc, us, isReplay);
   }
 
-  // numSpawnPhaseTurns(): number {
-  //   return this.gameConfig().gameType == GameType.Singleplayer ? 70 : 100;
-  //   // return 100
-  // }
+  numSpawnPhaseTurns(): number {
+    return 100; // 5 seconds for dev
+  }
 
   unitInfo(type: UnitType): UnitInfo {
     const info = super.unitInfo(type);

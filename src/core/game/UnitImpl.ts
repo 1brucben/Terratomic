@@ -68,6 +68,8 @@ export class UnitImpl implements Unit {
   private _pendingTradeShipDueTicks: Tick[] = [];
   // Bomber-specific: source airfield for respawning
   private _sourceAirfield: Unit | undefined;
+  // Airfield-specific: last bomber takeoff tick
+  private _lastBomberTakeoffTick: number = -1000;
 
   constructor(
     private _type: UnitType,
@@ -778,5 +780,13 @@ export class UnitImpl implements Unit {
 
   setSourceAirfield(airfield: Unit | undefined): void {
     this._sourceAirfield = airfield;
+  }
+
+  lastBomberTakeoffTick(): number {
+    return this._lastBomberTakeoffTick;
+  }
+
+  setLastBomberTakeoffTick(tick: number): void {
+    this._lastBomberTakeoffTick = tick;
   }
 }

@@ -198,6 +198,7 @@ export interface Config {
   bomberDropCadence(): number;
   bomberPayload(): number;
   bomberSpawnInterval(): number;
+  bomberLaunchGapTicks(): number;
   bomberTargetRange(): number;
   bomberExplosionRadius(): number;
   bomberSpeed(): number;
