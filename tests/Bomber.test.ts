@@ -265,20 +265,16 @@ describe("Bomber", () => {
     game.addExecution(bomberExec);
 
     game.executeNextTick();
-    executeTicks(game, 101); // Just before launch (102)
 
     const bombers = player1.units(UnitType.Bomber);
 
-    // Execute tick 102 to launch the bomber
-    game.executeNextTick();
+    // Bomber launches immediately (no initial cooldown) and starts moving at tick 104
+    executeTicks(game, 3);
 
     // Verify bomber has launched and has target
     expect(bombers[0].targetTile()).toBe(city.tile());
 
-    // Execute a few more ticks so bomber is mid-flight
-    executeTicks(game, 5);
-
-    // Bomber should be away from airfield now
+    // Bomber should be away from airfield now (started moving at tick 104)
     expect(bombers[0].tile()).not.toBe(airfield.tile());
 
     // Destroy the only target while bomber is en route
