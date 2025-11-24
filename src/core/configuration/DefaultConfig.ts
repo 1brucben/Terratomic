@@ -489,6 +489,17 @@ export class DefaultConfig implements Config {
         return 700;
     }
   }
+  bomberDamage(level: number = 1): number {
+    switch (level) {
+      case 1:
+        return 250;
+      case 2:
+        return 300;
+      case 3:
+      default:
+        return 350;
+    }
+  }
   bomberCooldownTicks(): number {
     return 100; // Ticks before bomber can take off again after landing/respawn
   }

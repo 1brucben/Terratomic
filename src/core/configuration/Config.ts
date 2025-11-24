@@ -204,6 +204,7 @@ export interface Config {
   bomberExplosionRadius(): number;
   bomberSpeed(level?: number): number;
   bomberMaxHealth(level?: number): number;
+  bomberDamage(level?: number): number;
   bomberCooldownTicks(): number;
   safeFromPiratesCooldownMax(): number;
   defensePostRange(): number;

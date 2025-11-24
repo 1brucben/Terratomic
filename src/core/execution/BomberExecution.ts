@@ -27,6 +27,23 @@ export class BomberExecution implements Execution {
     return this.sourceAirfield.bomberLevel?.() ?? 1;
   }
 
+  /** Get the minimum bomber damage across all of this player's airfields */
+  private getMinBomberDamage(): number {
+    const airfields = this.origOwner.units(UnitType.Airfield);
+    if (airfields.length === 0) {
+      return this.mg.config().bomberDamage(1); // Fallback to level 1 damage
+    }
+    let minDamage = Infinity;
+    for (const airfield of airfields) {
+      const level = airfield.bomberLevel?.() ?? 1;
+      const damage = this.mg.config().bomberDamage(level);
+      if (damage < minDamage) {
+        minDamage = damage;
+      }
+    }
+    return minDamage;
+  }
+
   /** Get level-based max health for this bomber */
   private getMaxHealth(): number {
     return this.mg.config().bomberMaxHealth(this.getBomberLevel());
@@ -423,6 +440,7 @@ export class BomberExecution implements Execution {
     this.mg.bomberExplosion(
       this.bomber.tile(),
       this.mg.config().bomberExplosionRadius(),
+      this.mg.config().bomberDamage(this.getBomberLevel()),
       this.origOwner,
     );
     this.bombsLeft--;
@@ -630,7 +648,9 @@ export class BomberExecution implements Execution {
     for (const { unit } of candidates) {
       const bombersOnTarget = this.getBomberCount(unit);
       const health = Number(unit.health());
-      const threshold = health / 250 + 2;
+      // Use minimum bomber damage across player's airfields for threshold calculation
+      const minBomberDamage = this.getMinBomberDamage();
+      const threshold = health / minBomberDamage + 2;
 
       if (threshold > bombersOnTarget) {
         if (requireSafeRoute) {

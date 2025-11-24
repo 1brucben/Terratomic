@@ -816,7 +816,12 @@ export class GameImpl implements Game {
     });
   }
 
-  public bomberExplosion(tile: TileRef, radius: number, owner: Player): void {
+  public bomberExplosion(
+    tile: TileRef,
+    radius: number,
+    damage: number,
+    owner: Player,
+  ): void {
     const r2 = radius * radius;
     this.forEachTile((t) => {
       if (this.euclideanDistSquared(tile, t) <= r2) {
@@ -828,7 +833,7 @@ export class GameImpl implements Game {
           if (owner.isFriendly(uowner)) continue;
 
           if (isStructureType(u.type())) {
-            u.modifyHealth(-250);
+            u.modifyHealth(-damage);
           } else {
             u.delete(true, owner);
           }
