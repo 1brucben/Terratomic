@@ -1471,6 +1471,7 @@ export class DefaultConfig implements Config {
       case UnitType.Academy:
       case UnitType.ResearchLab:
       case UnitType.Factory:
+      case UnitType.Airfield:
         return 0.8; // Default 80%
       case UnitType.MissileSilo:
         return 0.2; // Missile silo: 20%

@@ -19,6 +19,7 @@ export class AirfieldExecution implements Execution {
   private random: PseudoRandom | null = null;
   private checkOffset: number | null = null;
   private spawnTicker = 0;
+  private lastBomberLaunchTick = -100; // Track last bomber launch for minimum gap
 
   constructor(
     private player: Player,
@@ -64,13 +65,21 @@ export class AirfieldExecution implements Execution {
 
     const airfieldUnit = this.airfield;
 
-    // Check if this airfield already has a bomber attached
-    const existingBomber = this.player
+    // Count bombers attached to this airfield
+    const bombersAtThisAirfield = this.player
       .units(UnitType.Bomber)
-      .find((b) => b.sourceAirfield?.() === airfieldUnit);
+      .filter((b) => b.sourceAirfield?.() === airfieldUnit);
 
-    if (existingBomber) {
-      return; // This airfield's bomber already exists
+    // Each airfield level allows one bomber
+    const maxBombers = airfieldUnit.level?.() ?? 1;
+
+    if (bombersAtThisAirfield.length >= maxBombers) {
+      return; // This airfield has reached its bomber capacity
+    }
+
+    // Enforce minimum 20-tick gap between bomber launches from same airfield
+    if (mg.ticks() - this.lastBomberLaunchTick < 20) {
+      return;
     }
 
     if (mg.config().cargoPlanesEnabled()) {
@@ -122,6 +131,8 @@ export class AirfieldExecution implements Execution {
             targetUnit.tile(),
             currentBombers + 1,
           );
+          // Record launch time for minimum gap enforcement
+          this.lastBomberLaunchTick = mg.ticks();
           return true;
         }
       }

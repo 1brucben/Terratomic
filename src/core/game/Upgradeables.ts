@@ -3,6 +3,7 @@ import { UnitType } from "./Game";
 export const UPGRADEABLE_STRUCTURES: ReadonlySet<UnitType> = new Set<UnitType>([
   UnitType.City,
   UnitType.Port,
+  UnitType.Airfield,
   UnitType.Hospital,
   UnitType.Academy,
   UnitType.ResearchLab,
@@ -11,7 +12,7 @@ export const UPGRADEABLE_STRUCTURES: ReadonlySet<UnitType> = new Set<UnitType>([
   UnitType.SAMLauncher,
 ]);
 
-// Units that can be upgraded (placeholder list; logic TBD)
+// Units that can be upgraded
 export const UPGRADEABLE_UNITS: ReadonlySet<UnitType> = new Set<UnitType>([
   UnitType.Warship,
   UnitType.FighterJet,

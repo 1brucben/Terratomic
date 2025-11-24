@@ -14,9 +14,14 @@ import SAMMissileIcon from "../../../../resources/images/SamLauncherUnit.png";
 import shieldIcon from "../../../../resources/images/ShieldIcon.png";
 import { Theme } from "../../../core/configuration/Config";
 import { EventBus } from "../../../core/EventBus";
+import { computeUpgradeStepCost } from "../../../core/game/Costs";
 import { Cell, PlayerID, UnitType } from "../../../core/game/Game";
 import { GameUpdateType } from "../../../core/game/GameUpdates";
 import { GameView, UnitView } from "../../../core/game/GameView";
+import {
+  isUpgradeableStructure,
+  maxStructureLevel,
+} from "../../../core/game/Upgradeables";
 import { ToggleUpgradeModeEvent } from "../../events/ToggleUpgradeModeEvent";
 import { UnitCooldownEndedEvent } from "../../events/UnitCooldownEndedEvent";
 import { MouseMoveEvent, MouseUpEvent } from "../../InputHandler";
@@ -89,14 +94,7 @@ export class StructureLayer implements Layer {
   private hoveredStructure: UnitView | null = null;
   private upgradeMode: boolean = false; // When true, clicking own cities/ports sends upgrade intent
   // Track affordability per structure type to refresh highlights correctly
-  private lastAffordableForUpgradeCity: boolean | null = null;
-  private lastAffordableForUpgradePort: boolean | null = null;
-  private lastAffordableForUpgradeHospital: boolean | null = null;
-  private lastAffordableForUpgradeAcademy: boolean | null = null;
-  private lastAffordableForUpgradeResearchLab: boolean | null = null;
-  private lastAffordableForUpgradeSilo: boolean | null = null;
-  private lastAffordableForUpgradeSAM: boolean | null = null;
-  private lastAffordableForUpgradeFactory: boolean | null = null;
+  private lastAffordableForUpgrade: Map<UnitType, boolean> = new Map();
   // Client-side level tracking for structures (temporary)
   private structureLevels = new Map<
     number,
@@ -187,16 +185,7 @@ export class StructureLayer implements Layer {
       this.upgradeMode = e.enabled;
       // Rebuild textures for existing sprites so border tint updates immediately.
       for (const r of this.renders) {
-        if (
-          r.unit.type() === UnitType.City ||
-          r.unit.type() === UnitType.Port ||
-          r.unit.type() === UnitType.Hospital ||
-          r.unit.type() === UnitType.Academy ||
-          r.unit.type() === UnitType.MissileSilo ||
-          r.unit.type() === UnitType.SAMLauncher ||
-          r.unit.type() === UnitType.ResearchLab ||
-          r.unit.type() === UnitType.Factory
-        ) {
+        if (isUpgradeableStructure(r.unit.type())) {
           r.pixiSprite.texture = this.createTexture(r.unit);
         }
       }
@@ -334,9 +323,7 @@ export class StructureLayer implements Layer {
     const cfg = this.game.config();
     const baseCost = cfg.unitInfo(unitType).cost(me as any);
     const multiplier = cfg.structureUpgradeCostMultiplier(unitType);
-    const scale = 100n; // fixed-point precision: 2 decimals
-    const scaledMultiplier = BigInt(Math.round(multiplier * Number(scale)));
-    const upgradeCost = (baseCost * scaledMultiplier) / scale;
+    const upgradeCost = computeUpgradeStepCost(baseCost, multiplier);
     return me.gold() >= upgradeCost;
   }
 
@@ -347,10 +334,7 @@ export class StructureLayer implements Layer {
     const cfg = this.game.config();
     const baseCost = cfg.unitInfo(unitType).cost(me as any);
     const multiplier = cfg.structureUpgradeCostMultiplier(unitType);
-    const scale = 100n; // fixed-point precision: 2 decimals
-    const scaledMultiplier = BigInt(Math.round(multiplier * Number(scale)));
-    const upgradeCost = (baseCost * scaledMultiplier) / scale;
-    return upgradeCost;
+    return computeUpgradeStepCost(baseCost, multiplier);
   }
 
   // Compact gold formatter using k/m lowercase suffixes
@@ -363,66 +347,32 @@ export class StructureLayer implements Layer {
   }
 
   private isUpgradeableStructure(unit: UnitView): boolean {
-    if (
-      unit.type() !== UnitType.City &&
-      unit.type() !== UnitType.Port &&
-      unit.type() !== UnitType.Hospital &&
-      unit.type() !== UnitType.Academy &&
-      unit.type() !== UnitType.ResearchLab &&
-      unit.type() !== UnitType.Factory &&
-      unit.type() !== UnitType.MissileSilo &&
-      unit.type() !== UnitType.SAMLauncher
-    )
-      return false;
-    if (unit.type() === UnitType.MissileSilo && unit.level() >= 3) return false;
-    if (unit.type() === UnitType.SAMLauncher && unit.level() >= 3) return false;
+    if (!isUpgradeableStructure(unit.type())) return false;
+    // Check if at max level
+    const maxLevel = maxStructureLevel(unit.type());
+    if (unit.level() >= maxLevel) return false;
     return true;
   }
 
   private updateHighlights() {
-    const affordableCity = this.canAffordUpgradeForType(UnitType.City);
-    const affordablePort = this.canAffordUpgradeForType(UnitType.Port);
-    const affordableHospital = this.canAffordUpgradeForType(UnitType.Hospital);
-    const affordableAcademy = this.canAffordUpgradeForType(UnitType.Academy);
-    const affordableSilo = this.canAffordUpgradeForType(UnitType.MissileSilo);
-    const affordableSAM = this.canAffordUpgradeForType(UnitType.SAMLauncher);
-    const affordableResearchLab = this.canAffordUpgradeForType(
-      UnitType.ResearchLab,
-    );
-    const affordableFactory = this.canAffordUpgradeForType(UnitType.Factory);
+    // Build current affordability map for all upgradeable structure types
+    const currentAffordable = new Map<UnitType, boolean>();
+    for (const r of this.renders) {
+      const t = r.unit.type();
+      if (isUpgradeableStructure(t) && !currentAffordable.has(t)) {
+        currentAffordable.set(t, this.canAffordUpgradeForType(t));
+      }
+    }
+
     if (!this.upgradeMode) {
-      if (
-        this.lastAffordableForUpgradeCity !== null ||
-        this.lastAffordableForUpgradePort !== null ||
-        this.lastAffordableForUpgradeHospital !== null ||
-        this.lastAffordableForUpgradeAcademy !== null ||
-        this.lastAffordableForUpgradeResearchLab !== null ||
-        this.lastAffordableForUpgradeSilo !== null ||
-        this.lastAffordableForUpgradeSAM !== null ||
-        this.lastAffordableForUpgradeFactory !== null
-      ) {
+      // When exiting upgrade mode, clear affordability cache and refresh upgradeable structures
+      if (this.lastAffordableForUpgrade.size > 0) {
         for (const r of this.renders) {
-          if (
-            r.unit.type() === UnitType.City ||
-            r.unit.type() === UnitType.Port ||
-            r.unit.type() === UnitType.Hospital ||
-            r.unit.type() === UnitType.Academy ||
-            r.unit.type() === UnitType.ResearchLab ||
-            r.unit.type() === UnitType.MissileSilo ||
-            r.unit.type() === UnitType.SAMLauncher ||
-            r.unit.type() === UnitType.Factory
-          ) {
+          if (isUpgradeableStructure(r.unit.type())) {
             r.pixiSprite.texture = this.createTexture(r.unit);
           }
         }
-        this.lastAffordableForUpgradeCity = null;
-        this.lastAffordableForUpgradePort = null;
-        this.lastAffordableForUpgradeHospital = null;
-        this.lastAffordableForUpgradeAcademy = null;
-        this.lastAffordableForUpgradeResearchLab = null;
-        this.lastAffordableForUpgradeFactory = null;
-        this.lastAffordableForUpgradeSilo = null;
-        this.lastAffordableForUpgradeSAM = null;
+        this.lastAffordableForUpgrade.clear();
         this.shouldRedraw = true;
       }
       // When exiting upgrade mode, ensure any previously highlighted sprites are refreshed
@@ -438,68 +388,31 @@ export class StructureLayer implements Layer {
       }
       return;
     }
-    const cityChanged = this.lastAffordableForUpgradeCity !== affordableCity;
-    const portChanged = this.lastAffordableForUpgradePort !== affordablePort;
-    const hospitalChanged =
-      this.lastAffordableForUpgradeHospital !== affordableHospital;
-    const academyChanged =
-      this.lastAffordableForUpgradeAcademy !== affordableAcademy;
-    const siloChanged = this.lastAffordableForUpgradeSilo !== affordableSilo;
-    const samChanged = this.lastAffordableForUpgradeSAM !== affordableSAM;
-    const labChanged =
-      this.lastAffordableForUpgradeResearchLab !== affordableResearchLab;
-    const factoryChanged =
-      this.lastAffordableForUpgradeFactory !== affordableFactory;
-    if (
-      cityChanged ||
-      portChanged ||
-      hospitalChanged ||
-      academyChanged ||
-      siloChanged ||
-      samChanged ||
-      labChanged ||
-      factoryChanged
-    ) {
+
+    // Check if affordability changed for any structure type
+    const changedTypes = new Set<UnitType>();
+    for (const [type, affordable] of currentAffordable) {
+      const lastAffordable = this.lastAffordableForUpgrade.get(type);
+      if (lastAffordable !== affordable) {
+        changedTypes.add(type);
+        this.lastAffordableForUpgrade.set(type, affordable);
+      }
+    }
+
+    // Refresh textures for structures whose affordability changed
+    if (changedTypes.size > 0) {
       for (const r of this.renders) {
-        const t = r.unit.type();
-        if (
-          (cityChanged && t === UnitType.City) ||
-          (portChanged && t === UnitType.Port) ||
-          (hospitalChanged && t === UnitType.Hospital) ||
-          (academyChanged && t === UnitType.Academy) ||
-          (labChanged && t === UnitType.ResearchLab) ||
-          (siloChanged && t === UnitType.MissileSilo) ||
-          (samChanged && t === UnitType.SAMLauncher) ||
-          (factoryChanged && t === UnitType.Factory)
-        ) {
+        if (changedTypes.has(r.unit.type())) {
           r.pixiSprite.texture = this.createTexture(r.unit);
         }
       }
-      this.lastAffordableForUpgradeCity = affordableCity;
-      this.lastAffordableForUpgradePort = affordablePort;
-      this.lastAffordableForUpgradeHospital = affordableHospital;
-      this.lastAffordableForUpgradeAcademy = affordableAcademy;
-      this.lastAffordableForUpgradeResearchLab = affordableResearchLab;
-      this.lastAffordableForUpgradeSilo = affordableSilo;
-      this.lastAffordableForUpgradeSAM = affordableSAM;
-      this.lastAffordableForUpgradeFactory = affordableFactory;
       this.shouldRedraw = true;
     }
 
     // Per-unit sanity check: if highlight eligibility changed (e.g., level cap reached), refresh that unit
     let anyUnitChanged = false;
     for (const r of this.renders) {
-      const t = r.unit.type();
-      if (
-        t !== UnitType.City &&
-        t !== UnitType.Port &&
-        t !== UnitType.Hospital &&
-        t !== UnitType.Academy &&
-        t !== UnitType.ResearchLab &&
-        t !== UnitType.Factory &&
-        t !== UnitType.MissileSilo &&
-        t !== UnitType.SAMLauncher
-      ) {
+      if (!isUpgradeableStructure(r.unit.type())) {
         continue;
       }
       const should = this.shouldHighlight(r.unit);
@@ -589,21 +502,9 @@ export class StructureLayer implements Layer {
     }
     // Differentiate textures by upgrade highlight state so mixed eligibility among
     // units of the same type/owner doesn't lead to incorrect texture reuse.
-    if (!isConstruction) {
-      const t = structureType as UnitType;
-      if (
-        t === UnitType.City ||
-        t === UnitType.Port ||
-        t === UnitType.Hospital ||
-        t === UnitType.Academy ||
-        t === UnitType.MissileSilo ||
-        t === UnitType.SAMLauncher ||
-        t === UnitType.ResearchLab ||
-        t === UnitType.Factory
-      ) {
-        const hl = this.shouldHighlight(unit) ? 1 : 0;
-        cacheKey += `-hl${hl}`;
-      }
+    if (!isConstruction && isUpgradeableStructure(structureType as UnitType)) {
+      const hl = this.shouldHighlight(unit) ? 1 : 0;
+      cacheKey += `-hl${hl}`;
     }
     if (this.textureCache.has(cacheKey)) {
       // If render requested invalidation (upgrade mode toggle), bypass cache by deleting
@@ -651,14 +552,7 @@ export class StructureLayer implements Layer {
     let highlightTint = borderColor;
     if (
       !isConstruction &&
-      (structureType === UnitType.City ||
-        structureType === UnitType.Port ||
-        structureType === UnitType.Hospital ||
-        structureType === UnitType.Academy ||
-        structureType === UnitType.ResearchLab ||
-        structureType === UnitType.Factory ||
-        structureType === UnitType.MissileSilo ||
-        structureType === UnitType.SAMLauncher) &&
+      isUpgradeableStructure(structureType as UnitType) &&
       this.shouldHighlight(unit)
     ) {
       // Blend neon green with the base border color to reduce intensity
@@ -945,34 +839,13 @@ export class StructureLayer implements Layer {
       if (clickedUnit.owner() !== this.game.myPlayer()) {
         return;
       }
-      // In upgrade mode: attempt to upgrade structure (City/Port/Hospital/Academy/ResearchLab/MissileSilo/SAMLauncher) immediately
-      if (
-        this.upgradeMode &&
-        (clickedUnit.type() === UnitType.City ||
-          clickedUnit.type() === UnitType.Port ||
-          clickedUnit.type() === UnitType.Hospital ||
-          clickedUnit.type() === UnitType.Academy ||
-          clickedUnit.type() === UnitType.ResearchLab ||
-          clickedUnit.type() === UnitType.Factory ||
-          clickedUnit.type() === UnitType.MissileSilo ||
-          clickedUnit.type() === UnitType.SAMLauncher)
-      ) {
-        // Only if affordable
-        // And only if not at level cap for Missile Silo
+      // In upgrade mode: attempt to upgrade upgradeable structures immediately
+      if (this.upgradeMode && isUpgradeableStructure(clickedUnit.type())) {
+        // Check if upgradeable (not at max level) and affordable
         if (
-          clickedUnit.type() === UnitType.MissileSilo &&
-          clickedUnit.level() >= 3
+          this.isUpgradeableStructure(clickedUnit) &&
+          this.canAffordUpgrade(clickedUnit)
         ) {
-          return;
-        }
-        // SAMs also cap at level 3
-        if (
-          clickedUnit.type() === UnitType.SAMLauncher &&
-          clickedUnit.level() >= 3
-        ) {
-          return;
-        }
-        if (this.canAffordUpgrade(clickedUnit)) {
           // Fire transport event to send intent; rely on server update to change level
           this.eventBus.emit(
             new SendUpgradeStructureIntentEvent(

@@ -340,7 +340,9 @@ export class PlayerImpl implements Player {
           type === UnitType.City ||
           type === UnitType.Port ||
           type === UnitType.Hospital ||
-          type === UnitType.Academy
+          type === UnitType.Academy ||
+          type === UnitType.ResearchLab ||
+          type === UnitType.Factory
         ) {
           // Upgraded cities, ports, hospitals, and academies count toward totals
           // (affects scaling like new build cost and display counts)
