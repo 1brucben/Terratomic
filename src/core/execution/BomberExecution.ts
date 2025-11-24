@@ -81,7 +81,7 @@ export class BomberExecution implements Execution {
         sourceAirfield: this.sourceAirfield,
       });
       this.bomber.setHealth(1n);
-      this.resetMissionState(100); // 100-tick cooldown after respawn
+      this.resetMissionState(this.mg.config().bomberCooldownTicks());
       this.eligibleCities = [];
       return;
     }
@@ -136,12 +136,11 @@ export class BomberExecution implements Execution {
         return; // Wait for launch gap
       }
 
-      // Reserve this takeoff slot immediately to prevent race conditions
-      this.sourceAirfield.setLastBomberTakeoffTick(ticks);
-
       // Check for a new target
       const target = this.findTarget();
       if (target) {
+        // Reserve this takeoff slot only when actually taking off
+        this.sourceAirfield.setLastBomberTakeoffTick(ticks);
         this.startMission(target.tile, target.unit);
       }
       return;
@@ -293,7 +292,7 @@ export class BomberExecution implements Execution {
             this.decrementBomberCount(this.currentTargetUnit);
           }
 
-          this.resetMissionState(100); // 100-tick cooldown
+          this.resetMissionState(this.mg.config().bomberCooldownTicks());
         }
         return;
       }

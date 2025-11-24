@@ -203,6 +203,7 @@ export interface Config {
   bomberTargetRange(): number;
   bomberExplosionRadius(): number;
   bomberSpeed(): number;
+  bomberCooldownTicks(): number;
   safeFromPiratesCooldownMax(): number;
   defensePostRange(): number;
   citySamLaunchRange(): number;

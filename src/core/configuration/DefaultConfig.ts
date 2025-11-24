@@ -462,6 +462,9 @@ export class DefaultConfig implements Config {
   bomberSpeed(): number {
     return 2;
   }
+  bomberCooldownTicks(): number {
+    return 100; // Ticks before bomber can take off again after landing/respawn
+  }
 
   // Fighter Jets
   fighterJetPatrolRange(): number {
