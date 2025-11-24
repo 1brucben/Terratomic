@@ -12,6 +12,7 @@ import {
 } from "../../../core/game/Game";
 import { GameView, PlayerView, UnitView } from "../../../core/game/GameView";
 import { getTechMeta, RESEARCH_TECH_IDS } from "../../../core/tech/TechEffects";
+import { translateText } from "../../Utils";
 // Ensure modal custom elements register at runtime
 import "../../BuildSettingsModal";
 import {
@@ -809,6 +810,14 @@ export class ControlPanel2 extends LitElement implements Layer {
         }, 3000); // Highlight for 3 seconds
       }
     }
+
+    // Apply translations to tooltips after rendering
+    this.querySelectorAll("[data-i18n-title]").forEach((el) => {
+      const key = el.getAttribute("data-i18n-title");
+      if (key) {
+        el.setAttribute("title", translateText(key));
+      }
+    });
   }
 
   populateBomberForm() {
@@ -1224,6 +1233,7 @@ export class ControlPanel2 extends LitElement implements Layer {
               ? "active"
               : ""}"
             @click=${() => this._changeTab("Build")}
+            data-i18n-title="control_panel2.build_tab_tooltip"
           >
             Build
           </button>
@@ -1233,6 +1243,7 @@ export class ControlPanel2 extends LitElement implements Layer {
               ? "active"
               : ""}"
             @click=${() => this._changeTab("Attack")}
+            data-i18n-title="control_panel2.attack_tab_tooltip"
           >
             Attack
           </button>
@@ -1242,6 +1253,7 @@ export class ControlPanel2 extends LitElement implements Layer {
               ? "active"
               : ""}"
             @click=${() => this._changeTab("Economy")}
+            data-i18n-title="control_panel2.economy_tab_tooltip"
           >
             Economy
           </button>
@@ -1251,6 +1263,7 @@ export class ControlPanel2 extends LitElement implements Layer {
               ? "active"
               : ""}"
             @click=${() => this._changeTab("Trade")}
+            data-i18n-title="control_panel2.trade_tab_tooltip"
           >
             Trade
           </button>
@@ -1260,6 +1273,7 @@ export class ControlPanel2 extends LitElement implements Layer {
               ? "active"
               : ""}"
             @click=${() => this._changeTab("Diplomacy")}
+            data-i18n-title="control_panel2.diplomacy_tab_tooltip"
           >
             Diplomacy
           </button>
@@ -1271,6 +1285,7 @@ export class ControlPanel2 extends LitElement implements Layer {
                     ? "active"
                     : ""} ${this._highlightBombersTab ? "highlight-tab" : ""}"
                   @click=${() => this._changeTab("Bombers")}
+                  data-i18n-title="control_panel2.bombers_tab_tooltip"
                 >
                   Bombers
                 </button>
@@ -1565,6 +1580,7 @@ export class ControlPanel2 extends LitElement implements Layer {
                     <label
                       class="block military-label mb-1 whitespace-nowrap"
                       translate="no"
+                      data-i18n-title="control_panel2.production_investment_tooltip"
                     >
                       Production Investment Rate:
                       ${(this.investmentRate * 100).toFixed(0)}%
@@ -1615,6 +1631,7 @@ export class ControlPanel2 extends LitElement implements Layer {
                           ._lockProd
                           ? "slider-locked"
                           : ""}"
+                        data-i18n-title="control_panel2.production_investment_tooltip"
                         @dblclick=${() => {
                           this._lockProd = !this._lockProd;
                           this.emitInvestmentSync();
@@ -1675,6 +1692,7 @@ export class ControlPanel2 extends LitElement implements Layer {
                         <label
                           class="block military-label mb-1 whitespace-nowrap"
                           translate="no"
+                          data-i18n-title="control_panel2.road_investment_tooltip"
                         >
                           Road investment: ${(effectiveRoad * 100).toFixed(0)}%
                           ${this._lockRoad && hasRoads
@@ -1791,6 +1809,7 @@ export class ControlPanel2 extends LitElement implements Layer {
                         title=${!hasRoads
                           ? `Research '${getTechMeta(RESEARCH_TECH_IDS.POST_WAR_RECONSTRUCTION, { strict: false }).name}' to enable road investment`
                           : ""}
+                        data-i18n-title="control_panel2.road_investment_tooltip"
                         @input=${(e: Event) => {
                           if (!hasRoads) return;
                           const input = e.target as HTMLInputElement;
@@ -1835,7 +1854,11 @@ export class ControlPanel2 extends LitElement implements Layer {
                     ${(() => {
                       // Removed gold cost display next to the research slider per request
                       return html`
-                        <label class="block military-label mb-1" translate="no">
+                        <label
+                          class="block military-label mb-1"
+                          translate="no"
+                          data-i18n-title="control_panel2.research_investment_tooltip"
+                        >
                           Research investment:
                           ${(this._researchInvestmentRate * 100).toFixed(0)}%
                           ${this._lockResearch
@@ -1879,6 +1902,7 @@ export class ControlPanel2 extends LitElement implements Layer {
                         .value=${(
                           this._researchInvestmentRate * 100
                         ).toString()}
+                        data-i18n-title="control_panel2.research_investment_tooltip"
                         @input=${(e: Event) => {
                           const input = e.target as HTMLInputElement;
                           const proposed = parseInt(input.value) / 100;
@@ -2112,6 +2136,7 @@ export class ControlPanel2 extends LitElement implements Layer {
                 color: var(--ui-text-accent);
                 box-shadow: inset 0 0 10px rgba(0, 0, 0, 0.5), 0 2px 6px rgba(0, 0, 0, 0.4);
               "
+              data-i18n-title="control_panel2.embargo_all_tooltip"
               @click=${this._handleEmbargoAll}
             >
               Embargo All
@@ -2124,6 +2149,7 @@ export class ControlPanel2 extends LitElement implements Layer {
                 color: var(--ui-text-accent);
                 box-shadow: inset 0 0 10px rgba(0, 0, 0, 0.5), 0 2px 6px rgba(0, 0, 0, 0.4);
               "
+              data-i18n-title="control_panel2.remove_all_embargos_tooltip"
               @click=${this._handleRemoveAllEmbargos}
             >
               Remove All Embargos
