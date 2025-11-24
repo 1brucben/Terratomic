@@ -2,10 +2,6 @@ import { Execution, Game, Player, Unit, UnitType } from "../game/Game";
 import { TileRef } from "../game/GameMap";
 import { StraightPathFinder } from "../pathfinding/PathFinding";
 import { PseudoRandom } from "../PseudoRandom";
-import {
-  attemptInterception,
-  findEligibleCitiesForBomber,
-} from "./utils/CityAntiAirUtils";
 
 export class BomberExecution implements Execution {
   private active = true;
@@ -15,7 +11,6 @@ export class BomberExecution implements Execution {
   private onMission = false;
   private pathFinder: StraightPathFinder;
   private dropTicker = 0;
-  private eligibleCities: Unit[] = [];
   private random: PseudoRandom;
   private cooldownEndsAtTick = 0;
   private currentTargetTile: TileRef | null = null;
@@ -60,17 +55,15 @@ export class BomberExecution implements Execution {
         this.currentTargetUnit = null;
       }
 
-      // Check if source airfield still exists
-      if (!this.sourceAirfield.isActive()) {
-        // Try to rebase to nearest airfield
-        const nearestAirfield = this.findNearestOwnedAirfield();
-        if (nearestAirfield) {
-          this.sourceAirfield = nearestAirfield;
-        } else {
-          // No airfields left - bomber execution is done
-          this.active = false;
-          return;
-        }
+      // Check if source airfield still exists and is owned by us
+      if (
+        !this.sourceAirfield.isActive() ||
+        this.sourceAirfield.owner() !== this.origOwner
+      ) {
+        // Airfield destroyed or captured - this bomber execution is done
+        // (the nearest airfield should already have its own bomber)
+        this.active = false;
+        return;
       }
 
       // Respawn bomber at airfield with health=1
@@ -88,7 +81,6 @@ export class BomberExecution implements Execution {
       });
       this.bomber.setHealth(1n);
       this.resetMissionState(this.mg.config().bomberCooldownTicks());
-      this.eligibleCities = [];
       return;
     }
 
@@ -207,7 +199,6 @@ export class BomberExecution implements Execution {
     this.dropTicker = 0;
     this.bomber.setTargetTile(targetTile);
     this.bomber.setReturning(false);
-    this.eligibleCities = findEligibleCitiesForBomber(this.bomber, this.mg);
 
     // Generate waypoints to avoid SAM coverage
     // Use bomber's current position if already on mission, otherwise use airfield
@@ -313,27 +304,6 @@ export class BomberExecution implements Execution {
       this.bomber.move(step);
 
       if (!this.bomber.isActive() || this.bomber.targetedBySAM()) return;
-
-      // Check for city SAM interception
-      const currentBomber = this.bomber;
-      const readyInterceptors = this.eligibleCities.filter(
-        (city) =>
-          (city.ticksLeftInCooldown() ?? 0) <= 0 &&
-          this.mg.euclideanDistSquared(currentBomber.tile(), city.tile()) <=
-            this.mg.config().citySamLaunchRange() *
-              this.mg.config().citySamLaunchRange(),
-      );
-
-      if (readyInterceptors.length > 0) {
-        readyInterceptors.sort(
-          (a, b) =>
-            this.mg.euclideanDistSquared(currentBomber.tile(), a.tile()) -
-            this.mg.euclideanDistSquared(currentBomber.tile(), b.tile()),
-        );
-
-        const closestInterceptor = readyInterceptors[0];
-        attemptInterception(currentBomber, this.mg, closestInterceptor);
-      }
     }
   }
 
