@@ -257,32 +257,11 @@ export class BomberExecution implements Execution {
           // Bomber returned to airfield
           this.bomber.move(this.sourceAirfield.tile());
 
-          // Only check for replacement if this bomber rebased due to home airfield destruction
+          // If this bomber rebased due to home airfield destruction, delete it
           if (this.hasRebasedToNewAirfield) {
-            const otherBomber = this.origOwner
-              .units(UnitType.Bomber)
-              .find(
-                (b) =>
-                  b !== this.bomber &&
-                  b.sourceAirfield?.() === this.sourceAirfield &&
-                  b.tile() === this.sourceAirfield.tile() &&
-                  b.isActive(),
-              );
-
-            if (otherBomber) {
-              // Another bomber is parked at this airfield
-              if (this.bomber.health() > otherBomber.health()) {
-                // Replace the weaker bomber
-                otherBomber.delete(false);
-              } else {
-                // This bomber is weaker, destroy it and end this execution
-                this.bomber.delete(false);
-                this.active = false;
-                return;
-              }
-            }
-            // Reset the rebase flag now that we've handled it
-            this.hasRebasedToNewAirfield = false;
+            this.bomber.delete(false);
+            this.active = false;
+            return;
           }
 
           // Clear from bombersOnTarget since mission is complete

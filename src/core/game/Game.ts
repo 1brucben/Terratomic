@@ -524,6 +524,8 @@ export interface Unit {
   // Airfield-specific
   lastBomberTakeoffTick(): number;
   setLastBomberTakeoffTick(tick: number): void;
+  bomberLevel(): number;
+  setBomberLevel(level: number): void;
 
   // --- UNIT SPECIFIC ---
 

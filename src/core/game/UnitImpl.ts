@@ -70,6 +70,8 @@ export class UnitImpl implements Unit {
   private _sourceAirfield: Unit | undefined;
   // Airfield-specific: last bomber takeoff tick
   private _lastBomberTakeoffTick: number = -1000;
+  // Airfield-specific: bomber upgrade level (1-3)
+  private _bomberLevel: number = 1;
 
   constructor(
     private _type: UnitType,
@@ -210,6 +212,10 @@ export class UnitImpl implements Unit {
         this._type === UnitType.Port &&
         this._pendingTradeShipDueTicks.length > 0
           ? [...this._pendingTradeShipDueTicks]
+          : undefined,
+      bomberLevel:
+        this._type === UnitType.Airfield && this._bomberLevel > 1
+          ? this._bomberLevel
           : undefined,
     };
   }
@@ -788,5 +794,14 @@ export class UnitImpl implements Unit {
 
   setLastBomberTakeoffTick(tick: number): void {
     this._lastBomberTakeoffTick = tick;
+  }
+
+  bomberLevel(): number {
+    return this._bomberLevel;
+  }
+
+  setBomberLevel(level: number): void {
+    this._bomberLevel = level;
+    this.mg.addUpdate(this.toUpdate());
   }
 }

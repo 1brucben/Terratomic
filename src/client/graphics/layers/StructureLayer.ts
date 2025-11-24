@@ -1032,11 +1032,18 @@ export class StructureLayer implements Layer {
       unit.type() !== UnitType.Construction
     ) {
       // Initialize with server level (typically 1 unless upgraded before client joined)
-      this.structureLevels.set(id, { primary: unit.level(), secondary: 0 });
+      // For airfields, set secondary to bomber level
+      const secondary =
+        unit.type() === UnitType.Airfield ? unit.bomberLevel() - 1 : 0;
+      this.structureLevels.set(id, { primary: unit.level(), secondary });
     } else if (this.structureLevels.has(id)) {
       // Keep in sync with authoritative server level each tick/render cycle
       const rec = this.structureLevels.get(id)!;
       rec.primary = unit.level();
+      // For airfields, update secondary to bomber level
+      if (unit.type() === UnitType.Airfield) {
+        rec.secondary = unit.bomberLevel() - 1;
+      }
     }
   }
 

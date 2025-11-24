@@ -159,6 +159,8 @@ export interface UnitUpdate {
   pendingTradeShipDueTick?: Tick;
   // Port-specific: support multiple concurrent trade ship constructions
   pendingTradeShipDueTicks?: Tick[];
+  // Airfield-specific: bomber upgrade level (1-3)
+  bomberLevel?: number;
 }
 
 export interface AttackUpdate {

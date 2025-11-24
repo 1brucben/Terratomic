@@ -56,11 +56,9 @@ export class UpgradeBomberExecution implements Execution {
       return;
     }
 
-    // Check if any bomber can be upgraded (not at max level)
-    const upgradableBombers = bombers.filter(
-      (b) => (b.level?.() ?? 1) < MAX_BOMBER_LEVEL,
-    );
-    if (upgradableBombers.length === 0) {
+    // Check if airfield's bomber level can be upgraded (not at max level)
+    const currentBomberLevel = this.airfield.bomberLevel?.() ?? 1;
+    if (currentBomberLevel >= MAX_BOMBER_LEVEL) {
       this._isActive = false;
       return;
     }
@@ -81,15 +79,9 @@ export class UpgradeBomberExecution implements Execution {
       return;
     }
 
-    // Deduct cost and upgrade all bombers for this airfield
+    // Deduct cost and upgrade airfield's bomber level
     this.player.removeGold(upgradeCost);
-    for (const bomber of upgradableBombers) {
-      const currentLevel = bomber.level?.() ?? 1;
-      if (currentLevel < MAX_BOMBER_LEVEL) {
-        (bomber as any)._level = currentLevel + 1;
-        bomber.touch?.();
-      }
-    }
+    this.airfield.setBomberLevel?.(currentBomberLevel + 1);
 
     this._isActive = false;
   }
