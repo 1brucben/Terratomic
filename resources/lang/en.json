@@ -609,7 +609,11 @@
     "gold": "Gold",
     "troops": "Troops",
     "workers": "Workers",
-    "attack_ratio": "Attack Ratio"
+    "attack_ratio": "Attack Ratio",
+    "pop_tooltip": "Your current population (troops + workers) out of maximum capacity. The green number shows population growth per second. Build Cities to increase max population.",
+    "gold_tooltip": "Your current gold treasury. The number in parentheses shows your net gold income per second (after all investments). Workers generate gold - the more workers you have, the more gold you earn!",
+    "troops_workers_tooltip": "Balance your population between Troops (for combat) and Workers (for gold generation). More troops = stronger military but less income. More workers = more gold but weaker defense. Adjust based on your strategy!",
+    "attack_ratio_tooltip": "Percentage of your troops to send when attacking. Higher ratio = more troops per attack = faster conquest but leaves you vulnerable. Lower ratio = slower expansion but better defense. Tip: Use 30-50% for balanced play."
   },
   "player_panel": {
     "gold": "Gold",
