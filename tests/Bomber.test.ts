@@ -40,7 +40,7 @@ describe("Bomber", () => {
     player2.setWarWith(player1);
   });
 
-  test("Bomber spawns at airfield with health 1", () => {
+  test("Bomber spawns at airfield with full health", () => {
     const airfield = player1.buildUnit(UnitType.Airfield, game.ref(10, 10), {});
     const bomberExec = new BomberExecution(player1, airfield);
     game.addExecution(bomberExec);
@@ -49,7 +49,8 @@ describe("Bomber", () => {
 
     const bombers = player1.units(UnitType.Bomber);
     expect(bombers.length).toBe(1);
-    expect(bombers[0].health()).toBe(1);
+    // New bombers spawn at 100% health (500)
+    expect(bombers[0].health()).toBe(500);
     expect(bombers[0].tile()).toBe(airfield.tile());
   });
 
