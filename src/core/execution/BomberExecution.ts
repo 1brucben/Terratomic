@@ -182,10 +182,14 @@ export class BomberExecution implements Execution {
   }
 
   private startMission(targetTile: TileRef, targetUnit: Unit | null): void {
+    const wasAlreadyOnMission = this.onMission;
     this.onMission = true;
     this.currentTargetTile = targetTile;
     this.currentTargetUnit = targetUnit;
-    this.bombsLeft = this.mg.config().bomberPayload();
+    // Only load bombs when starting a fresh mission, not when retargeting
+    if (!wasAlreadyOnMission) {
+      this.bombsLeft = this.mg.config().bomberPayload();
+    }
     this.dropTicker = 0;
     this.bomber.setTargetTile(targetTile);
     this.bomber.setReturning(false);
