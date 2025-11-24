@@ -1,12 +1,4 @@
-import {
-  Execution,
-  Game,
-  Player,
-  PlayerType,
-  Relation,
-  Unit,
-  UnitType,
-} from "../game/Game";
+import { Execution, Game, Player, Unit, UnitType } from "../game/Game";
 import { TileRef } from "../game/GameMap";
 import { StraightPathFinder } from "../pathfinding/PathFinding";
 import { PseudoRandom } from "../PseudoRandom";
@@ -356,10 +348,7 @@ export class BomberExecution implements Execution {
       intent.structures.length > 0
     ) {
       const targetPlayer = this.mg.player(intent.targetPlayerID);
-      if (
-        targetPlayer &&
-        this.origOwner.relation(targetPlayer) === Relation.Hostile
-      ) {
+      if (targetPlayer && this.origOwner.isAtWarWith(targetPlayer)) {
         return this.findTargetFromQueue(
           targetPlayer,
           intent.structures,
@@ -394,9 +383,7 @@ export class BomberExecution implements Execution {
         return (
           o.isPlayer() &&
           o.id() !== this.origOwner.id() &&
-          (this.origOwner.type() === PlayerType.FakeHuman
-            ? this.origOwner.relation(o) <= Relation.Hostile
-            : !this.origOwner.isFriendly(o))
+          this.origOwner.isAtWarWith(o)
         );
       })
       .map(({ unit, distSquared }) => ({ unit, dist2: distSquared }));
@@ -548,7 +535,7 @@ export class BomberExecution implements Execution {
     if (!unit.isActive()) return false;
     const owner = unit.owner();
     if (!owner || owner === this.origOwner) return false;
-    if (this.origOwner.relation(owner) !== Relation.Hostile) return false;
+    if (!this.origOwner.isAtWarWith(owner)) return false;
     return true;
   }
 
@@ -604,9 +591,7 @@ export class BomberExecution implements Execution {
     const hostileSAMs = this.mg
       .players()
       .filter(
-        (p) =>
-          p.id() !== this.origOwner.id() &&
-          this.origOwner.relation(p) === Relation.Hostile,
+        (p) => p.id() !== this.origOwner.id() && this.origOwner.isAtWarWith(p),
       )
       .flatMap((p) => p.units(UnitType.SAMLauncher))
       .filter((sam) => !targetTile || sam.tile() !== targetTile)
