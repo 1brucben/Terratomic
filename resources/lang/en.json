@@ -537,6 +537,7 @@
   "leaderboard": {
     "title": "Leaderboard",
     "hide": "Hide",
+    "show": "Show leaderboard",
     "rank": "Rank",
     "player": "Player",
     "team": "Team",
