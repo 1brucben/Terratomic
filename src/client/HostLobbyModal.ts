@@ -1,4 +1,4 @@
-import { LitElement, html } from "lit";
+import { LitElement, html, nothing } from "lit";
 import { customElement, query, state } from "lit/decorators.js";
 import { repeat } from "lit/directives/repeat.js";
 import randomMap from "../../resources/images/RandomMap.webp";
@@ -807,7 +807,10 @@ export class HostLobbyModal extends LitElement {
 
                 <!-- Bot Slider -->
                 <div class="mb-4 px-2">
-                  <div class="flex justify-between text-sm text-gray-300 mb-1">
+                  <div
+                    class="flex justify-between text-sm text-gray-300 mb-1"
+                    data-i18n-title="host_modal.bots_tooltip"
+                  >
                     <span>${translateText("host_modal.bots")}</span>
                     <span class="font-bold">${this.bots}</span>
                   </div>
@@ -819,19 +822,24 @@ export class HostLobbyModal extends LitElement {
                     .value=${String(this.bots)}
                     @input=${this.handleBotsChange}
                     style="--slider-progress: ${sliderPercent}%"
+                    data-i18n-title="host_modal.bots_tooltip"
                   />
                 </div>
 
                 <!-- Dropdowns (3 columns) -->
                 <div class="grid grid-cols-3 gap-4 mb-3">
                   <div class="flex flex-col">
-                    <div class="text-sm text-gray-300 mb-1 font-bold">
+                    <div
+                      class="text-sm text-gray-300 mb-1 font-bold"
+                      data-i18n-title="gold_multiplier.tooltip"
+                    >
                       ${translateText("gold_multiplier.label")}
                     </div>
                     <select
                       class="sp-select"
                       @change=${this.handleGoldMultiplierChange}
                       .value=${String(this.goldMultiplier)}
+                      data-i18n-title="gold_multiplier.tooltip"
                     >
                       ${GoldMultiplierValues.map(
                         (v) =>
@@ -842,13 +850,17 @@ export class HostLobbyModal extends LitElement {
                     </select>
                   </div>
                   <div class="flex flex-col">
-                    <div class="text-sm text-gray-300 mb-1 font-bold">
+                    <div
+                      class="text-sm text-gray-300 mb-1 font-bold"
+                      data-i18n-title="starting_gold.tooltip"
+                    >
                       ${translateText("starting_gold.label")}
                     </div>
                     <select
                       class="sp-select"
                       @change=${this.handleStartingGoldChange}
                       .value=${String(this.startingGold)}
+                      data-i18n-title="starting_gold.tooltip"
                     >
                       ${StartingGoldValues.map(
                         (v) =>
@@ -859,13 +871,17 @@ export class HostLobbyModal extends LitElement {
                     </select>
                   </div>
                   <div class="flex flex-col">
-                    <div class="text-sm text-gray-300 mb-1 font-bold">
+                    <div
+                      class="text-sm text-gray-300 mb-1 font-bold"
+                      data-i18n-title="host_modal.peace_timer_tooltip"
+                    >
                       ${translateText("host_modal.peace_timer")}
                     </div>
                     <select
                       class="sp-select"
                       @change=${this.handlePeaceTimerChange}
                       .value=${String(this.selectedPeaceTimerDuration)}
+                      data-i18n-title="host_modal.peace_timer_tooltip"
                     >
                       ${Object.values(PeaceTimerDuration)
                         .filter((v) => typeof v === "number")
@@ -894,6 +910,7 @@ export class HostLobbyModal extends LitElement {
                     this.disableNPCs,
                     "host_modal.disable_nations",
                     this.handleDisableNPCsChange,
+                    "host_modal.disable_nations_tooltip",
                   )}
                   ${this.renderToggle(
                     this.instantBuild,
@@ -904,6 +921,7 @@ export class HostLobbyModal extends LitElement {
                     this.instantResearchHumanOnly,
                     "host_modal.instant_research",
                     this.handleInstantResearchHumanOnlyChange,
+                    "host_modal.instant_research_tooltip",
                   )}
                   ${this.renderToggle(
                     this.researchAllTechs,
@@ -917,6 +935,7 @@ export class HostLobbyModal extends LitElement {
                     this.infiniteGold,
                     "host_modal.infinite_gold",
                     this.handleInfiniteGoldChange,
+                    "host_modal.infinite_gold_tooltip",
                   )}
                   ${this.renderToggle(
                     this.infiniteTroops,
@@ -1023,9 +1042,13 @@ export class HostLobbyModal extends LitElement {
     checked: boolean,
     labelKey: string,
     onChange: (e: any) => void,
+    tooltipKey?: string,
   ) {
     return html`
-      <label class="sp-btn ${checked ? "selected" : ""}">
+      <label
+        class="sp-btn ${checked ? "selected" : ""}"
+        data-i18n-title=${tooltipKey ? tooltipKey : nothing}
+      >
         <div class="sp-check"></div>
         <input
           type="checkbox"
@@ -1039,6 +1062,16 @@ export class HostLobbyModal extends LitElement {
   }
 
   /* --- LOGIC METHODS --- */
+
+  updated() {
+    // Apply translations to tooltips after rendering
+    this.querySelectorAll("[data-i18n-title]").forEach((el) => {
+      const key = el.getAttribute("data-i18n-title");
+      if (key) {
+        el.setAttribute("title", translateText(key));
+      }
+    });
+  }
 
   createRenderRoot() {
     return this;
