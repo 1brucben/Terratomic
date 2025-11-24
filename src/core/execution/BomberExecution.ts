@@ -22,6 +22,7 @@ export class BomberExecution implements Execution {
   private currentTargetUnit: Unit | null = null;
   private waypoints: TileRef[] = [];
   private currentWaypointIndex = 0;
+  private hasRebasedToNewAirfield = false; // Track if bomber rebased due to home airfield destruction
 
   constructor(
     private origOwner: Player,
@@ -108,6 +109,7 @@ export class BomberExecution implements Execution {
       if (nearestAirfield) {
         this.sourceAirfield = nearestAirfield;
         this.bomber.setSourceAirfield(nearestAirfield);
+        this.hasRebasedToNewAirfield = true; // Mark that this bomber rebased
         // Bomber will continue its mission and return to the new airfield
         // No need to abort - just let it complete normally
       } else {
@@ -264,35 +266,32 @@ export class BomberExecution implements Execution {
           // Bomber returned to airfield
           this.bomber.move(this.sourceAirfield.tile());
 
-          // Check if there's another bomber from this airfield
-          const otherBomber = this.origOwner
-            .units(UnitType.Bomber)
-            .find(
-              (b) =>
-                b !== this.bomber &&
-                b.sourceAirfield?.() === this.sourceAirfield &&
-                b.isActive(),
-            );
+          // Only check for replacement if this bomber rebased due to home airfield destruction
+          if (this.hasRebasedToNewAirfield) {
+            const otherBomber = this.origOwner
+              .units(UnitType.Bomber)
+              .find(
+                (b) =>
+                  b !== this.bomber &&
+                  b.sourceAirfield?.() === this.sourceAirfield &&
+                  b.tile() === this.sourceAirfield.tile() &&
+                  b.isActive(),
+              );
 
-          if (
-            otherBomber &&
-            otherBomber.tile() === this.sourceAirfield.tile()
-          ) {
-            // Another bomber is at the airfield
-            if (this.bomber.health() > otherBomber.health()) {
-              // Replace the weaker bomber
-              otherBomber.delete(false);
-            } else {
-              // This bomber is weaker, destroy it
-              this.bomber.delete(false);
-              this.active = false;
-              return;
+            if (otherBomber) {
+              // Another bomber is parked at this airfield
+              if (this.bomber.health() > otherBomber.health()) {
+                // Replace the weaker bomber
+                otherBomber.delete(false);
+              } else {
+                // This bomber is weaker, destroy it and end this execution
+                this.bomber.delete(false);
+                this.active = false;
+                return;
+              }
             }
-          } else if (otherBomber) {
-            // Other bomber is on mission, destroy this one
-            this.bomber.delete(false);
-            this.active = false;
-            return;
+            // Reset the rebase flag now that we've handled it
+            this.hasRebasedToNewAirfield = false;
           }
 
           // Clear from bombersOnTarget since mission is complete
