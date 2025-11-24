@@ -744,12 +744,14 @@ export class ControlPanel2 extends LitElement implements Layer {
       return [];
     }
 
-    const bomberRange = this.game.config().bomberTargetRange();
     const reachablePlayers = new Map<PlayerID, PlayerView>();
 
     const structureIndex = this.game.getStructureIndex();
 
     for (const airfield of myAirfields) {
+      const bomberRange = this.game
+        .config()
+        .bomberTargetRange(airfield.bomberLevel());
       const airfieldPos = {
         x: this.game.x(airfield.tile()),
         y: this.game.y(airfield.tile()),

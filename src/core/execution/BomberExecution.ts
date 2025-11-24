@@ -22,6 +22,26 @@ export class BomberExecution implements Execution {
     private sourceAirfield: Unit,
   ) {}
 
+  /** Get the bomber level from the source airfield */
+  private getBomberLevel(): number {
+    return this.sourceAirfield.bomberLevel?.() ?? 1;
+  }
+
+  /** Get level-based max health for this bomber */
+  private getMaxHealth(): number {
+    return this.mg.config().bomberMaxHealth(this.getBomberLevel());
+  }
+
+  /** Set bomber's bonus max health based on airfield's bomber level */
+  private applyBomberLevelStats(): void {
+    const baseHealth = this.mg.unitInfo(UnitType.Bomber).maxHealth ?? 500;
+    const levelHealth = this.getMaxHealth();
+    const bonus = levelHealth - baseHealth;
+    if (bonus > 0) {
+      (this.bomber as any)._bonusMaxHealth = bonus;
+    }
+  }
+
   init(mg: Game, ticks: number): void {
     this.mg = mg;
     this.pathFinder = new StraightPathFinder(mg);
@@ -39,8 +59,10 @@ export class BomberExecution implements Execution {
       targetTile: this.sourceAirfield.tile(),
       sourceAirfield: this.sourceAirfield,
     });
-    // New bombers start at 100% health (airfield construction/upgrade)
-    this.bomber.setHealth(BigInt(this.bomber.effectiveMaxHealth()));
+    // Apply level-based bonus health before setting full health
+    this.applyBomberLevelStats();
+    // New bombers start at 100% health based on airfield's bomber level
+    this.bomber.setHealth(BigInt(this.getMaxHealth()));
   }
 
   tick(ticks: number): void {
@@ -76,6 +98,8 @@ export class BomberExecution implements Execution {
         targetTile: this.sourceAirfield.tile(),
         sourceAirfield: this.sourceAirfield,
       });
+      // Apply level-based bonus health before setting respawn health
+      this.applyBomberLevelStats();
       this.bomber.setHealth(1n);
       this.resetMissionState(this.mg.config().bomberCooldownTicks());
       return;
@@ -117,7 +141,7 @@ export class BomberExecution implements Execution {
 
       // Check if bomber has reached health threshold before allowing takeoff
       const healthThreshold = this.mg.config().bomberTakeoffHealthThreshold();
-      const maxHealth = this.bomber.effectiveMaxHealth();
+      const maxHealth = this.getMaxHealth();
       const currentHealth = Number(this.bomber.health());
       if (currentHealth < maxHealth * healthThreshold) {
         return; // Wait for bomber to heal to threshold
@@ -233,7 +257,7 @@ export class BomberExecution implements Execution {
       }
     }
 
-    const speed = this.mg.config().bomberSpeed();
+    const speed = this.mg.config().bomberSpeed(this.getBomberLevel());
     for (let i = 0; i < speed; i++) {
       const bomberTile = this.bomber.tile();
       const step = this.pathFinder.nextTile(bomberTile, destination, 1);
@@ -304,7 +328,7 @@ export class BomberExecution implements Execution {
       return null;
     }
 
-    const range = this.mg.config().bomberTargetRange();
+    const range = this.mg.config().bomberTargetRange(this.getBomberLevel());
     const priority: UnitType[] = [
       UnitType.SAMLauncher,
       UnitType.Airfield,
