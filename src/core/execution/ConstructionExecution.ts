@@ -109,6 +109,7 @@ export class ConstructionExecution implements Execution {
                 this.mg,
                 this.player,
                 this.bomberLevel ?? 1,
+                this.desiredLevel,
               )
             : 0n);
         if (this.player.gold() < total) {
@@ -151,6 +152,7 @@ export class ConstructionExecution implements Execution {
               this.mg,
               this.player,
               this.bomberLevel ?? 1,
+              this.desiredLevel,
             )
           : 0n);
       if (this.player.gold() < totalCost) {

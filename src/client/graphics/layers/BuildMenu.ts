@@ -559,6 +559,7 @@ export class BuildMenu extends LitElement {
           this.game.config(),
           this.game.myPlayer()!,
           bomberLevel,
+          desired,
         );
       }
       return structureCost;

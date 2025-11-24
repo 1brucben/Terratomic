@@ -14,7 +14,10 @@ import SAMMissileIcon from "../../../../resources/images/SamLauncherUnit.png";
 import shieldIcon from "../../../../resources/images/ShieldIcon.png";
 import { Theme } from "../../../core/configuration/Config";
 import { EventBus } from "../../../core/EventBus";
-import { computeUpgradeStepCost } from "../../../core/game/Costs";
+import {
+  BOMBER_UPGRADE_COST_MULTIPLIER,
+  computeUpgradeStepCost,
+} from "../../../core/game/Costs";
 import { Cell, PlayerID, UnitType } from "../../../core/game/Game";
 import { GameUpdateType } from "../../../core/game/GameUpdates";
 import { GameView, UnitView } from "../../../core/game/GameView";
@@ -381,8 +384,13 @@ export class StructureLayer implements Layer {
     const cfg = this.game.config();
     const airfieldBaseCost = cfg.unitInfo(UnitType.Airfield).cost(me as any);
     const airfieldLevel = airfield.level?.() ?? 1;
-    // 20% of airfield cost × airfield level
-    return (airfieldBaseCost * 20n * BigInt(airfieldLevel)) / 100n;
+    // BOMBER_UPGRADE_COST_MULTIPLIER of airfield cost × airfield level
+    return (
+      (airfieldBaseCost *
+        BigInt(Math.round(BOMBER_UPGRADE_COST_MULTIPLIER * 100)) *
+        BigInt(airfieldLevel)) /
+      100n
+    );
   }
 
   // Check if player can afford to upgrade bombers for this airfield
