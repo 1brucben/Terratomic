@@ -63,16 +63,20 @@ export class AirfieldExecution implements Execution {
     }
 
     const airfieldUnit = this.airfield;
-    const totalEffectiveAirfields = mg
-      .players()
-      .reduce((sum, p) => sum + p.effectiveUnits(UnitType.Airfield), 0);
-    const activeBombers = this.player.units(UnitType.Bomber).length;
 
-    if (activeBombers >= totalEffectiveAirfields) {
-      return;
+    // Check if this airfield already has a bomber attached
+    const existingBomber = this.player
+      .units(UnitType.Bomber)
+      .find((b) => b.sourceAirfield?.() === airfieldUnit);
+
+    if (existingBomber) {
+      return; // This airfield's bomber already exists
     }
 
     if (mg.config().cargoPlanesEnabled()) {
+      const totalEffectiveAirfields = mg
+        .players()
+        .reduce((sum, p) => sum + p.effectiveUnits(UnitType.Airfield), 0);
       if (
         this.random.chance(
           mg.config().cargoPlaneSpawnRate(totalEffectiveAirfields),

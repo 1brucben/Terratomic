@@ -66,6 +66,8 @@ export class UnitImpl implements Unit {
   // Port-specific: pending trade ship construction due tick (legacy single) and multiple concurrent builds
   private _pendingTradeShipDueTick: Tick | null = null; // deprecated after multi-build
   private _pendingTradeShipDueTicks: Tick[] = [];
+  // Bomber-specific: source airfield for respawning
+  private _sourceAirfield: Unit | undefined;
 
   constructor(
     private _type: UnitType,
@@ -90,6 +92,10 @@ export class UnitImpl implements Unit {
       "patrolTile" in params ? (params.patrolTile ?? undefined) : undefined;
     this._targetUnit =
       "targetUnit" in params ? (params.targetUnit ?? undefined) : undefined;
+    this._sourceAirfield =
+      "sourceAirfield" in params
+        ? (params.sourceAirfield ?? undefined)
+        : undefined;
     if (
       isStructureType(this._type) &&
       this._owner.hasUpgrade(UpgradeType.StructureInsurance)
@@ -232,6 +238,19 @@ export class UnitImpl implements Unit {
   }
   health(): number {
     return Number(this._health);
+  }
+
+  setHealth(health: bigint): void {
+    this._health = health;
+    // Ensure health doesn't exceed max
+    const maxHealth = toInt(this.effectiveMaxHealth());
+    if (this._health > maxHealth) {
+      this._health = maxHealth;
+    }
+    // Ensure health doesn't go below 0
+    if (this._health < 0n) {
+      this._health = 0n;
+    }
   }
   hasHealth(): boolean {
     return this.info().maxHealth !== undefined;
@@ -741,5 +760,13 @@ export class UnitImpl implements Unit {
   }
   cargoGold(): bigint {
     return this._cargoGold;
+  }
+
+  sourceAirfield(): Unit | undefined {
+    return this._sourceAirfield;
+  }
+
+  setSourceAirfield(airfield: Unit | undefined): void {
+    this._sourceAirfield = airfield;
   }
 }

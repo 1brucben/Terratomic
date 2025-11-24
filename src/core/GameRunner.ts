@@ -147,6 +147,26 @@ export class GameRunner {
     const ghostLinger = this.game.config().submarineGhostLingerTicks?.() ?? 300;
 
     for (const u of updates[GameUpdateType.Unit]) {
+      // Filter bombers at their airfield - they should be invisible
+      // Check if bomber is at an airfield position by finding matching airfield update
+      if (u.unitType === UnitType.Bomber) {
+        // Check if there's an airfield at the bomber's position owned by same player
+        const airfieldAtSamePos = updates[GameUpdateType.Unit].find(
+          (other) =>
+            other.unitType === UnitType.Airfield &&
+            other.ownerID === u.ownerID &&
+            other.pos === u.pos &&
+            other.isActive,
+        );
+
+        // Hide bomber if it's at the same position as an owned airfield
+        if (airfieldAtSamePos) {
+          continue; // Skip this bomber - don't add to newUnits
+        }
+        newUnits.push(u);
+        continue;
+      }
+
       // Only filter submarines; pass-through everything else
       if (u.unitType !== UnitType.Submarine) {
         newUnits.push(u);

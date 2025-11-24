@@ -303,6 +303,7 @@ export interface UnitParamsMap {
 
   [UnitType.Bomber]: {
     targetTile: TileRef;
+    sourceAirfield?: Unit;
   };
 
   [UnitType.Paratrooper]: {
@@ -509,11 +510,17 @@ export interface Unit {
   retreating(): boolean;
   orderBoatRetreat(): void;
   health(): number;
+  setHealth(health: bigint): void;
   modifyHealth(delta: number, attacker?: Player): void;
 
   // Troops
   setTroops(troops: number): void;
   troops(): number;
+
+  // Bomber-specific
+  sourceAirfield(): Unit | undefined;
+  setSourceAirfield(airfield: Unit | undefined): void;
+
   // --- UNIT SPECIFIC ---
 
   // SAMs & Missile Silos
