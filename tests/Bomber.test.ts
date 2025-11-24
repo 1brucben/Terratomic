@@ -17,7 +17,7 @@ let player2: Player;
 describe("Bomber", () => {
   beforeEach(async () => {
     game = await setup(
-      "half_land_half_ocean",
+      "BigPlains",
       {
         infiniteGold: true,
         instantBuild: true,
@@ -252,7 +252,8 @@ describe("Bomber", () => {
 
   test("Bomber returns home when target becomes invalid (no other targets)", () => {
     const airfield = player1.buildUnit(UnitType.Airfield, game.ref(10, 10), {});
-    const city = player2.buildUnit(UnitType.City, game.ref(15, 15), {});
+    // Use a much farther target so bomber doesn't complete mission instantly
+    const city = player2.buildUnit(UnitType.City, game.ref(10, 30), {});
 
     player1.setBomberIntent({
       targetPlayerID: player2.id(),
@@ -264,20 +265,27 @@ describe("Bomber", () => {
     game.addExecution(bomberExec);
 
     game.executeNextTick();
-    executeTicks(game, 20);
+    executeTicks(game, 101); // Just before launch (102)
 
     const bombers = player1.units(UnitType.Bomber);
-    console.log("Bomber tile before delete:", bombers[0].tile());
-    console.log("Target tile:", city.tile());
-    expect(bombers[0].targetTile()).toBe(city.tile());
 
-    // Destroy the only target
-    city.delete(false);
-
+    // Execute tick 102 to launch the bomber
     game.executeNextTick();
 
-    console.log("Bomber returning:", bombers[0].returning());
-    console.log("Bomber tile after tick:", bombers[0].tile());
+    // Verify bomber has launched and has target
+    expect(bombers[0].targetTile()).toBe(city.tile());
+
+    // Execute a few more ticks so bomber is mid-flight
+    executeTicks(game, 5);
+
+    // Bomber should be away from airfield now
+    expect(bombers[0].tile()).not.toBe(airfield.tile());
+
+    // Destroy the only target while bomber is en route
+    city.delete(false);
+
+    // Execute next tick to trigger abort logic
+    game.executeNextTick();
 
     // Should be returning to airfield
     expect(bombers[0].returning()).toBe(true);
@@ -328,7 +336,7 @@ describe("Bomber", () => {
     const airfield = player1.buildUnit(UnitType.Airfield, game.ref(10, 10), {});
     const highHealthCity = player2.buildUnit(
       UnitType.City,
-      game.ref(15, 15),
+      game.ref(20, 20),
       {},
     );
     highHealthCity.setHealth(1000n); // h/250+2 = 6 bombers allowed
@@ -346,7 +354,7 @@ describe("Bomber", () => {
     game.addExecution(bomberExec);
 
     game.executeNextTick();
-    executeTicks(game, 110);
+    executeTicks(game, 103); // Check after launch (102) but before arrival
 
     const bombers = player1.units(UnitType.Bomber);
     // Should still target because 6 > 5
@@ -358,7 +366,7 @@ describe("Bomber", () => {
     const airfield = player1.buildUnit(UnitType.Airfield, game.ref(10, 10), {});
     const lowHealthCity = player2.buildUnit(
       UnitType.City,
-      game.ref(15, 15),
+      game.ref(20, 20),
       {},
     );
     lowHealthCity.setHealth(250n); // h/250+2 = 3 bombers allowed
@@ -411,7 +419,7 @@ describe("Bomber", () => {
 
   test("Bomber decrements bomber count on mission completion", () => {
     const airfield = player1.buildUnit(UnitType.Airfield, game.ref(10, 10), {});
-    const city = player2.buildUnit(UnitType.City, game.ref(12, 10), {});
+    const city = player2.buildUnit(UnitType.City, game.ref(20, 20), {});
 
     player1.setBomberIntent({
       targetPlayerID: player2.id(),
@@ -423,12 +431,13 @@ describe("Bomber", () => {
     game.addExecution(bomberExec);
 
     game.executeNextTick();
-    executeTicks(game, 110);
+    executeTicks(game, 103); // Check after launch (102) but before arrival
 
+    // Bomber should have launched and incremented count
     expect(player1.bombersOnTarget.get(city.tile())).toBe(1);
 
     // Let bomber complete mission (reach target, bomb, return)
-    executeTicks(game, 100);
+    executeTicks(game, 10);
 
     // Should decrement when returned to airfield
     expect(

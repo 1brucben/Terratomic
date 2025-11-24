@@ -292,7 +292,7 @@ export class DefaultConfig implements Config {
     return 1;
   }
   samPlaneHittingChance(): number {
-    return 0.8;
+    return 1;
   }
   samWarheadHittingChance(): number {
     return 0.5;
