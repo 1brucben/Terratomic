@@ -1,4 +1,5 @@
-import { Execution, Game, UnitType } from "../game/Game";
+import { Execution, Game } from "../game/Game";
+import { isUpgradeableStructure } from "../game/Upgradeables";
 import { PseudoRandom } from "../PseudoRandom";
 import { ClientID, GameID, Intent, Turn } from "../Schemas";
 import { simpleHash } from "../Util";
@@ -158,17 +159,11 @@ export class Executor {
       case "upgrade_structure": {
         const unit = player.units().find((u) => u.id() === intent.unitId);
         if (!unit || unit.owner() !== player) return new NoOpExecution();
-        // Allow upgrades for City, Port, Hospital, Academy, Research Lab, Missile Silo, SAM Launcher
-        const allowed =
-          intent.unitType === UnitType.City ||
-          intent.unitType === UnitType.Port ||
-          intent.unitType === UnitType.Hospital ||
-          intent.unitType === UnitType.Academy ||
-          intent.unitType === UnitType.ResearchLab ||
-          intent.unitType === UnitType.Factory ||
-          intent.unitType === UnitType.MissileSilo ||
-          intent.unitType === UnitType.SAMLauncher;
-        if (!allowed || unit.type() !== intent.unitType) {
+        // Check if this is an upgradeable structure type
+        if (
+          !isUpgradeableStructure(intent.unitType) ||
+          unit.type() !== intent.unitType
+        ) {
           return new NoOpExecution();
         }
         return new UpgradeStructureExecution(player, unit);
