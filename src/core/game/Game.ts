@@ -520,6 +520,8 @@ export interface Unit {
   // Bomber-specific
   sourceAirfield(): Unit | undefined;
   setSourceAirfield(airfield: Unit | undefined): void;
+  /** Returns true if this bomber is at its source airfield (not targetable by SAMs/fighters) */
+  isAtSourceAirfield(): boolean;
 
   // Airfield-specific
   lastBomberTakeoffTick(): number;

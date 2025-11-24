@@ -368,6 +368,11 @@ export class SAMLauncherExecution implements Execution {
           return false;
         }
 
+        // Exclude bombers at their source airfield
+        if (unit.isAtSourceAirfield()) {
+          return false;
+        }
+
         return !unit.targetedBySAM();
       })
       .sort((a, b) => {

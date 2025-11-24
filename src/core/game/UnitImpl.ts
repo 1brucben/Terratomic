@@ -788,6 +788,12 @@ export class UnitImpl implements Unit {
     this._sourceAirfield = airfield;
   }
 
+  isAtSourceAirfield(): boolean {
+    if (this._type !== UnitType.Bomber) return false;
+    if (!this._sourceAirfield) return false;
+    return this.tile() === this._sourceAirfield.tile();
+  }
+
   lastBomberTakeoffTick(): number {
     return this._lastBomberTakeoffTick;
   }
