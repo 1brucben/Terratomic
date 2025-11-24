@@ -1,12 +1,8 @@
+import { BOMBER_UPGRADE_COST_MULTIPLIER } from "../game/Costs";
 import { Execution, Gold, Player, Unit, UnitType } from "../game/Game";
 import { GameImpl } from "../game/GameImpl";
+import { maxUnitLevel } from "../game/Upgradeables";
 import { NoOpExecution } from "./NoOpExecution";
-
-/** Maximum level for bombers. */
-export const MAX_BOMBER_LEVEL = 3;
-
-/** Bomber upgrade cost as a percentage of new airfield cost. */
-export const BOMBER_UPGRADE_COST_MULTIPLIER = 0.2;
 
 /**
  * Upgrades all bombers associated with an airfield.
@@ -58,7 +54,7 @@ export class UpgradeBomberExecution implements Execution {
 
     // Check if airfield's bomber level can be upgraded (not at max level)
     const currentBomberLevel = this.airfield.bomberLevel?.() ?? 1;
-    if (currentBomberLevel >= MAX_BOMBER_LEVEL) {
+    if (currentBomberLevel >= maxUnitLevel(UnitType.Bomber)) {
       this._isActive = false;
       return;
     }

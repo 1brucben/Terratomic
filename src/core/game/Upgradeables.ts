@@ -17,6 +17,7 @@ export const UPGRADEABLE_UNITS: ReadonlySet<UnitType> = new Set<UnitType>([
   UnitType.Warship,
   UnitType.FighterJet,
   UnitType.Submarine,
+  UnitType.Bomber, // Bomber level affects airfield construction cost
 ]);
 
 export function isUpgradeableStructure(type: UnitType): boolean {
@@ -35,13 +36,14 @@ export function maxStructureLevel(type: UnitType): number {
 }
 
 // Return maximum upgrade level for upgradeable combat units.
-// Warship & Submarine: 3 levels. Fighter Jet: 4 levels. Non-upgradeable units: 1.
+// Warship, Submarine & Bomber: 3 levels. Fighter Jet: 4 levels. Non-upgradeable units: 1.
 export function maxUnitLevel(type: UnitType): number {
   switch (type) {
     case UnitType.FighterJet:
       return 4;
     case UnitType.Warship:
     case UnitType.Submarine:
+    case UnitType.Bomber:
       return 3;
     default:
       return 1;

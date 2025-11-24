@@ -1,4 +1,7 @@
-import { aggregateStructureBuildCost } from "../game/Costs";
+import {
+  aggregateStructureBuildCost,
+  computeBomberUpgradeCost,
+} from "../game/Costs";
 import {
   Execution,
   Game,
@@ -43,6 +46,7 @@ export class ConstructionExecution implements Execution {
     private constructionType: UnitType,
     private tile: TileRef,
     private targetLevel?: number,
+    private bomberLevel?: number, // Bomber upgrade level for airfields (1-3)
   ) {}
 
   init(mg: Game, ticks: number): void {
@@ -86,17 +90,27 @@ export class ConstructionExecution implements Execution {
           this.active = false;
           return;
         }
-        const total = aggregateStructureBuildCost(
-          this.mg,
-          this.player,
-          this.constructionType,
-          this.desiredLevel,
-          isUpgradeableUnit(this.constructionType)
-            ? this.mg.config().unitUpgradeCostMultiplier(this.constructionType)
-            : this.mg
-                .config()
-                .structureUpgradeCostMultiplier(this.constructionType),
-        );
+        const total =
+          aggregateStructureBuildCost(
+            this.mg,
+            this.player,
+            this.constructionType,
+            this.desiredLevel,
+            isUpgradeableUnit(this.constructionType)
+              ? this.mg
+                  .config()
+                  .unitUpgradeCostMultiplier(this.constructionType)
+              : this.mg
+                  .config()
+                  .structureUpgradeCostMultiplier(this.constructionType),
+          ) +
+          (this.constructionType === UnitType.Airfield
+            ? computeBomberUpgradeCost(
+                this.mg,
+                this.player,
+                this.bomberLevel ?? 1,
+              )
+            : 0n);
         if (this.player.gold() < total) {
           console.warn(
             `cannot afford construction ${this.constructionType} at level ${this.desiredLevel}`,
@@ -120,17 +134,25 @@ export class ConstructionExecution implements Execution {
         this.constructionType,
         this.targetLevel,
       );
-      const totalCost = aggregateStructureBuildCost(
-        this.mg,
-        this.player,
-        this.constructionType,
-        this.desiredLevel,
-        isUpgradeableUnit(this.constructionType)
-          ? this.mg.config().unitUpgradeCostMultiplier(this.constructionType)
-          : this.mg
-              .config()
-              .structureUpgradeCostMultiplier(this.constructionType),
-      );
+      const totalCost =
+        aggregateStructureBuildCost(
+          this.mg,
+          this.player,
+          this.constructionType,
+          this.desiredLevel,
+          isUpgradeableUnit(this.constructionType)
+            ? this.mg.config().unitUpgradeCostMultiplier(this.constructionType)
+            : this.mg
+                .config()
+                .structureUpgradeCostMultiplier(this.constructionType),
+        ) +
+        (this.constructionType === UnitType.Airfield
+          ? computeBomberUpgradeCost(
+              this.mg,
+              this.player,
+              this.bomberLevel ?? 1,
+            )
+          : 0n);
       if (this.player.gold() < totalCost) {
         console.warn(
           `cannot afford construction ${this.constructionType} at level ${this.desiredLevel}`,
@@ -264,7 +286,9 @@ export class ConstructionExecution implements Execution {
         }
         break;
       case UnitType.Airfield:
-        this.mg.addExecution(new AirfieldExecution(player, this.tile));
+        this.mg.addExecution(
+          new AirfieldExecution(player, this.tile, this.bomberLevel),
+        );
         break;
       default:
         {

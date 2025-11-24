@@ -983,6 +983,7 @@ export class ControlPanel2 extends LitElement implements Layer {
       UnitType.Warship,
       UnitType.FighterJet,
       UnitType.Submarine,
+      UnitType.Bomber,
     ];
     if (typeof openFn !== "function") {
       console.warn("UnitUpgradeSettingsModal missing open() method");

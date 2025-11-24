@@ -1,5 +1,6 @@
 import { Execution, Game, Player, Unit, UnitType } from "../game/Game";
 import { TileRef } from "../game/GameMap";
+import { maxUnitLevel } from "../game/Upgradeables";
 import { PseudoRandom } from "../PseudoRandom";
 import { BomberExecution } from "./BomberExecution";
 import { CargoPlaneExecution } from "./CargoPlaneExecution";
@@ -15,6 +16,7 @@ export class AirfieldExecution implements Execution {
   constructor(
     private player: Player,
     private tile: TileRef,
+    private initialBomberLevel: number = 1, // Bomber upgrade level (1-3)
   ) {}
 
   init(mg: Game, ticks: number): void {
@@ -40,6 +42,15 @@ export class AirfieldExecution implements Execution {
       }
       this.airfield = this.player.buildUnit(UnitType.Airfield, spawn, {});
       this.lastLevel = this.airfield.level?.() ?? 1;
+
+      // Set initial bomber upgrade level if specified (clamped to max)
+      const bomberLvl = Math.min(
+        maxUnitLevel(UnitType.Bomber),
+        Math.max(1, this.initialBomberLevel),
+      );
+      if (bomberLvl > 1) {
+        this.airfield.setBomberLevel?.(bomberLvl);
+      }
 
       // Spawn initial bombers when airfield is built
       this.spawnBombersForLevel(mg);

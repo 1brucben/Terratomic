@@ -155,6 +155,7 @@ export class Executor {
           intent.unit,
           intent.tile,
           intent.targetLevel,
+          intent.bomberLevel,
         );
       case "purchase_upgrade":
         return new PurchaseUpgradeExecution(player, intent.upgrade);
