@@ -190,7 +190,7 @@ export class UnitView {
     return (this.data as any).level ?? 1;
   }
 
-  // Airfield-specific: bomber upgrade level (1-3). Defaults to 1.
+  // Airfield-specific: bomber upgrade level. Defaults to 1.
   bomberLevel(): number {
     return (this.data as any).bomberLevel ?? 1;
   }

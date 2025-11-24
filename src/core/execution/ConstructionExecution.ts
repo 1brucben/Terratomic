@@ -46,7 +46,7 @@ export class ConstructionExecution implements Execution {
     private constructionType: UnitType,
     private tile: TileRef,
     private targetLevel?: number,
-    private bomberLevel?: number, // Bomber upgrade level for airfields (1-3)
+    private bomberLevel?: number, // Bomber upgrade level for airfields
   ) {}
 
   init(mg: Game, ticks: number): void {

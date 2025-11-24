@@ -16,7 +16,7 @@ export class AirfieldExecution implements Execution {
   constructor(
     private player: Player,
     private tile: TileRef,
-    private initialBomberLevel: number = 1, // Bomber upgrade level (1-3)
+    private initialBomberLevel: number = 1, // Bomber upgrade level
   ) {}
 
   init(mg: Game, ticks: number): void {

@@ -70,7 +70,7 @@ export class UnitImpl implements Unit {
   private _sourceAirfield: Unit | undefined;
   // Airfield-specific: last bomber takeoff tick
   private _lastBomberTakeoffTick: number = -1000;
-  // Airfield-specific: bomber upgrade level (1-3)
+  // Airfield-specific: bomber upgrade level
   private _bomberLevel: number = 1;
 
   constructor(
