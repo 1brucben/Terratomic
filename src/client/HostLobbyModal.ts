@@ -836,7 +836,7 @@ export class HostLobbyModal extends LitElement {
                       ${GoldMultiplierValues.map(
                         (v) =>
                           html`<option value=${v}>
-                            ${v}x${v === 1 ? " (Default)" : ""}
+                            ${v}x${v === 1 ? " (default)" : ""}
                           </option>`,
                       )}
                     </select>
