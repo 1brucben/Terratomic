@@ -204,8 +204,12 @@ export class BomberExecution implements Execution {
     this.eligibleCities = findEligibleCitiesForBomber(this.bomber, this.mg);
 
     // Generate waypoints to avoid SAM coverage
+    // Use bomber's current position if already on mission, otherwise use airfield
+    const startPosition = wasAlreadyOnMission
+      ? this.bomber.tile()
+      : this.sourceAirfield.tile();
     const routeResult = this.findSafeRoute(
-      this.sourceAirfield.tile(),
+      startPosition,
       targetTile,
       targetTile,
     );
@@ -216,6 +220,9 @@ export class BomberExecution implements Execution {
   private executeMission(): void {
     const returning = this.bomber.returning();
     if (!returning && !this.currentTargetTile) return;
+
+    // Early exit if bomber is already targeted by SAM - no point processing further
+    if (!this.bomber.isActive() || this.bomber.targetedBySAM()) return;
 
     // Determine destination based on waypoint system
     let destination: TileRef;
