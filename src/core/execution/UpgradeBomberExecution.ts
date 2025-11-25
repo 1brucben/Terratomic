@@ -79,6 +79,17 @@ export class UpgradeBomberExecution implements Execution {
     this.player.removeGold(upgradeCost);
     this.airfield.setBomberLevel?.(currentBomberLevel + 1);
 
+    // Update existing bombers' max health to match new level
+    const newLevel = currentBomberLevel + 1;
+    const baseHealth = this.mg.unitInfo(UnitType.Bomber).maxHealth ?? 500;
+    const newMaxHealth = this.mg.config().bomberMaxHealth(newLevel);
+    const bonus = newMaxHealth - baseHealth;
+    for (const bomber of bombers) {
+      (bomber as any)._bonusMaxHealth = bonus > 0 ? bonus : 0;
+      // Emit update so client sees new max health
+      this.mg.addUpdate(bomber.toUpdate());
+    }
+
     this._isActive = false;
   }
 
