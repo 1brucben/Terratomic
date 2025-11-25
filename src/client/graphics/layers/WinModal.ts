@@ -158,6 +158,15 @@ export class WinModal extends LitElement implements Layer {
             ${translateText("win_modal.keep")}
           </button>
         </div>
+        <div class="button-container" style="margin-top: 10px;">
+          <button
+            @click=${() =>
+              window.open("https://discord.gg/w8HXjhaBkU", "_blank")}
+            style="background-color: #5865F2;"
+          >
+            ${translateText("main.join_discord")}
+          </button>
+        </div>
       </div>
     `;
   }
