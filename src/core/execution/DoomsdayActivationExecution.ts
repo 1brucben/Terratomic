@@ -1,6 +1,21 @@
-import { Execution, Game, MessageType, Player, Unit } from "../game/Game";
+import {
+  Execution,
+  Game,
+  MessageType,
+  Player,
+  Unit,
+  UnitType,
+} from "../game/Game";
 import { TileRef } from "../game/GameMap";
 import { PseudoRandom } from "../PseudoRandom";
+
+// Unit types that are instantly destroyed by the doomsday wave
+const DOOMSDAY_DESTROY_TYPES = new Set<UnitType>([
+  UnitType.Bomber,
+  UnitType.FighterJet,
+  UnitType.Warship,
+  UnitType.TradeShip,
+]);
 
 // Simple 2D value noise with spatial coherence for fallout blobs
 class FalloutNoise {
@@ -201,9 +216,15 @@ export class DoomsdayActivationExecution implements Execution {
       }
       this.expansionIndex++;
 
-      // Apply 80% health reduction to any structures on this tile
+      // Apply effects to units on this tile
       const unitsHere = this.mg.unitsAt(tile);
       for (const unit of unitsHere) {
+        // Instantly destroy bombers, fighters, warships, tradeships
+        if (DOOMSDAY_DESTROY_TYPES.has(unit.type())) {
+          unit.delete(true, this.player);
+          continue;
+        }
+        // Apply 80% health reduction to other structures
         if (!unit.hasHealth()) continue;
         const currentHealth = Number(unit.health());
         if (currentHealth <= 0) continue;
