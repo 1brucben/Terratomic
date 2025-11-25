@@ -109,7 +109,15 @@ export class LobbyNotificationPopup extends LitElement {
     }
 
     .popup-content {
-      margin-bottom: 16px;
+      margin-bottom: 10px;
+    }
+
+    .game-info {
+      display: flex;
+      gap: 8px;
+      justify-content: center;
+      align-items: center;
+      flex-wrap: wrap;
     }
 
     .game-mode {
@@ -119,8 +127,9 @@ export class LobbyNotificationPopup extends LitElement {
       display: inline-block;
       padding: 2px 6px;
       border-radius: 2px;
-      margin-bottom: 6px;
+      margin-bottom: 0;
       font-weight: 600;
+      text-align: center;
     }
 
     .map-name {
@@ -131,15 +140,17 @@ export class LobbyNotificationPopup extends LitElement {
       display: inline-block;
       padding: 2px 8px;
       border-radius: 6px;
-      margin-bottom: 12px;
+      margin-bottom: 0;
       font-weight: 600;
       box-shadow: 0 0 8px rgba(14, 26, 51, 0.35);
+      text-align: center;
     }
 
     .lobby-info {
       display: flex;
       justify-content: space-between;
       align-items: center;
+      margin-bottom: 14px;
     }
 
     .player-count {
@@ -158,6 +169,12 @@ export class LobbyNotificationPopup extends LitElement {
       display: flex;
       gap: 10px;
       flex-direction: column;
+    }
+
+    .secondary-actions {
+      display: flex;
+      gap: 8px;
+      flex-direction: row;
     }
 
     .btn {
@@ -296,13 +313,15 @@ export class LobbyNotificationPopup extends LitElement {
         </div>
 
         <div class="popup-content">
-          <div class="game-mode">${this.gameMode}</div>
-          <div class="map-name">${this.mapName}</div>
           <div class="lobby-info">
             <div class="player-count">
               ${this.currentPlayers} / ${this.maxPlayers}
             </div>
             <div class="time-remaining">${this.timeRemaining}</div>
+          </div>
+          <div class="game-info">
+            <div class="game-mode">${this.gameMode}</div>
+            <div class="map-name">${this.mapName}</div>
           </div>
         </div>
 
@@ -310,12 +329,14 @@ export class LobbyNotificationPopup extends LitElement {
           <button class="btn btn-primary" @click=${this.handleJoin}>
             ${translateText("lobby_notification.join_game")}
           </button>
-          <button class="btn btn-secondary" @click=${this.handleMute}>
-            ${translateText("lobby_notification.mute_30m")}
-          </button>
-          <button class="btn btn-secondary" @click=${this.handleDisable}>
-            ${translateText("lobby_notification.disable")}
-          </button>
+          <div class="secondary-actions">
+            <button class="btn btn-secondary" @click=${this.handleMute}>
+              ${translateText("lobby_notification.mute_30m")}
+            </button>
+            <button class="btn btn-secondary" @click=${this.handleDisable}>
+              ${translateText("lobby_notification.disable")}
+            </button>
+          </div>
         </div>
       </div>
     `;
