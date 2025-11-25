@@ -15,7 +15,7 @@ import { PseudoRandom } from "../PseudoRandom";
 import { NukeType } from "../StatsSchemas";
 import { DoomsdayActivationExecution } from "./DoomsdayActivationExecution";
 import {
-  attemptInterception,
+  attemptNukeInterception,
   findEligibleCitiesForNuke,
 } from "./utils/CityAntiAirUtils";
 
@@ -214,7 +214,7 @@ export class NukeExecution implements Execution {
           );
 
           const closestInterceptor = readyInterceptors[0];
-          attemptInterception(currentNuke, this.mg, closestInterceptor);
+          attemptNukeInterception(currentNuke, this.mg, closestInterceptor);
         }
       }
     }

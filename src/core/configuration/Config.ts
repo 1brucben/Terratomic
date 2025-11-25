@@ -210,6 +210,10 @@ export interface Config {
   defensePostRange(): number;
   citySamLaunchRange(): number;
   citySamCooldown(): number;
+  cityAARange(): number;
+  cityAAFireRate(): number;
+  cityAABulletDamage(): number;
+  cityAABulletSpeed(): number;
   SAMNukeCooldown(): number;
   SAMPlaneCooldown(): number;
   SiloCooldown(): number;

@@ -1,3 +1,4 @@
+import { CityAAExecution } from "../execution/CityAAExecution";
 import { Game, Player, UpgradeType } from "../game/Game";
 
 // Central tech IDs for research tree items that have gameplay effects.
@@ -157,17 +158,20 @@ export const TECHS: Readonly<Record<string, TechDefinition>> = Object.freeze({
     meta: {
       name: "City Anti-Air",
       description:
-        "Allows cities to defend themselves against aerial threats. Does not defend against MIRVs.",
+        "Allows cities to defend themselves against aerial threats with rapid-fire AA guns. Does not defend against MIRVs.",
     },
     effects: {
-      onComplete: (player) => {
+      onComplete: (player, game) => {
         if (!player.hasUpgrade?.(UpgradeType.CityAntiAir)) {
           player.addUpgrade?.(UpgradeType.CityAntiAir);
+          // Start the city AA execution to fire bullets at planes
+          game.addExecution(new CityAAExecution(player));
         }
       },
       onRevoke: (player) => {
         if (player.hasUpgrade?.(UpgradeType.CityAntiAir)) {
           player.removeUpgrade?.(UpgradeType.CityAntiAir);
+          // Note: CityAAExecution will deactivate itself when upgrade is removed
         }
       },
     },

@@ -288,6 +288,19 @@ export class DefaultConfig implements Config {
   citySamCooldown(): number {
     return 300;
   }
+  // City AA bullet-based anti-aircraft system for planes
+  cityAARange(): number {
+    return 50; // Same as citySamLaunchRange
+  }
+  cityAAFireRate(): number {
+    return 5; // Fire every 5 ticks
+  }
+  cityAABulletDamage(): number {
+    return 10; // Each bullet causes 10 damage
+  }
+  cityAABulletSpeed(): number {
+    return 15; // Fast moving bullets
+  }
   samNukeHittingChance(): number {
     return 1;
   }
@@ -680,6 +693,12 @@ export class DefaultConfig implements Config {
           cost: () => 0n,
           territoryBound: false,
           damage: 250,
+        };
+      case UnitType.AABullet:
+        return {
+          cost: () => 0n,
+          territoryBound: false,
+          damage: 10,
         };
       case UnitType.SAMMissile:
         return {

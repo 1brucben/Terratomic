@@ -4,7 +4,6 @@ import {
   MessageType,
   Player,
   PlayerType,
-  Unit,
   UnitType,
   UpgradeType,
 } from "../game/Game";
@@ -12,10 +11,6 @@ import {
 import { TileRef } from "../game/GameMap";
 import { StraightPathFinder } from "../pathfinding/PathFinding";
 import { AttackExecution } from "./AttackExecution";
-import {
-  attemptInterception,
-  findEligibleCitiesForBomber,
-} from "./utils/CityAntiAirUtils";
 
 export class ParatrooperAttackExecution implements Execution {
   private paratrooperUnitID: number | null = null;
@@ -25,8 +20,7 @@ export class ParatrooperAttackExecution implements Execution {
   private dst: TileRef;
   private targetPlayerID: string | null;
   private attacker: Player;
-  private mg: Game; // Add this line
-  private eligibleCities: Unit[] = [];
+  private mg: Game;
 
   constructor(
     attacker: Player,
@@ -144,7 +138,6 @@ export class ParatrooperAttackExecution implements Execution {
       { troops: this.troops, targetTile: this.dst },
     );
     this.paratrooperUnitID = paratrooper.id();
-    this.eligibleCities = findEligibleCitiesForBomber(paratrooper, game);
 
     // Initialize pathfinder
     this.pathFinder = new StraightPathFinder(this.mg.map());
@@ -175,24 +168,7 @@ export class ParatrooperAttackExecution implements Execution {
       return;
     }
 
-    const readyInterceptors = this.eligibleCities.filter(
-      (city) =>
-        (city.ticksLeftInCooldown() ?? 0) <= 0 &&
-        game.euclideanDistSquared(paratrooper.tile(), city.tile()) <=
-          game.config().citySamLaunchRange() *
-            game.config().citySamLaunchRange(),
-    );
-
-    if (readyInterceptors.length > 0) {
-      readyInterceptors.sort(
-        (a, b) =>
-          game.euclideanDistSquared(paratrooper.tile(), a.tile()) -
-          game.euclideanDistSquared(paratrooper.tile(), b.tile()),
-      );
-
-      const closestInterceptor = readyInterceptors[0];
-      attemptInterception(paratrooper, game, closestInterceptor);
-    }
+    // Note: City AA bullets are now handled by CityAAExecution
 
     if (this.pathFinder === null) {
       // This should not happen if init was successful

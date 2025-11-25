@@ -141,6 +141,26 @@ export class FxLayer implements Layer {
       case UnitType.Shell:
         this.onShellEvent(unit);
         break;
+      case UnitType.AABullet:
+        this.onAABulletEvent(unit);
+        break;
+    }
+  }
+
+  onAABulletEvent(unit: UnitView) {
+    if (!unit.isActive()) {
+      if (unit.reachedTarget()) {
+        // Small flash effect when bullet hits
+        const worldX = this.game.x(unit.lastTile());
+        const worldY = this.game.y(unit.lastTile());
+        const flash = new SpriteFx(
+          this.animatedSpriteLoader,
+          0,
+          0,
+          FxType.MiniExplosion,
+        );
+        this.addFx(flash, worldX, worldY);
+      }
     }
   }
 

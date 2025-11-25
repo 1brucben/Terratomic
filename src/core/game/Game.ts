@@ -175,6 +175,7 @@ export enum UnitType {
   Paratrooper = "Paratrooper",
   FighterJet = "Fighter Jet", // Represents a Fighter Jet unit.
   DoomsdayDevice = "Doomsday Device",
+  AABullet = "AA Bullet", // City anti-aircraft bullet for targeting planes
 }
 
 export enum UpgradeType {
@@ -251,6 +252,8 @@ export interface UnitParamsMap {
   };
 
   [UnitType.Shell]: Record<string, never>;
+
+  [UnitType.AABullet]: Record<string, never>;
 
   [UnitType.SAMMissile]: Record<string, never>;
 

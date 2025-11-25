@@ -76,6 +76,7 @@ export class UnitLayer implements Layer {
     UnitType.MIRV,
     UnitType.MIRVWarhead,
     UnitType.Shell,
+    UnitType.AABullet,
     UnitType.Warship,
     UnitType.TransportShip,
     UnitType.TradeShip,
@@ -553,6 +554,9 @@ export class UnitLayer implements Layer {
         case UnitType.Shell:
           this.renderShell(unit, position);
           continue;
+        case UnitType.AABullet:
+          this.renderAABullet(unit, position);
+          continue;
         case UnitType.MIRVWarhead:
           this.renderWarhead(unit, position);
           continue;
@@ -595,6 +599,30 @@ export class UnitLayer implements Layer {
     };
     if (last.x !== position.x || last.y !== position.y) {
       this.drawInterpolatedSegment(last, position, rel, color, 0.7);
+    }
+  }
+
+  /**
+   * Render AA bullets as bright light flashes - smaller and brighter than shells
+   */
+  private renderAABullet(unit: UnitView, position: { x: number; y: number }) {
+    const rel = this.relationship(unit);
+    // Use a bright yellow/white color for the "light flash" effect
+    const flashColor = colord("rgb(255,255,200)");
+    const trailColor = colord("rgb(255,220,100)");
+
+    // Bright center point
+    this.drawInterpolatedSquare(position, rel, flashColor, 1, 1);
+    // Glow effect
+    this.drawInterpolatedSquare(position, rel, trailColor, 2, 0.6);
+
+    // Short bright trail
+    const last = {
+      x: this.game.x(unit.lastTile()),
+      y: this.game.y(unit.lastTile()),
+    };
+    if (last.x !== position.x || last.y !== position.y) {
+      this.drawInterpolatedSegment(last, position, rel, trailColor, 0.5);
     }
   }
 
@@ -744,6 +772,9 @@ export class UnitLayer implements Layer {
       case UnitType.Shell:
         this.handleShellEvent(unit);
         break;
+      case UnitType.AABullet:
+        this.handleAABulletEvent(unit);
+        break;
       case UnitType.SAMMissile:
         this.handleMissileEvent(unit);
         break;
@@ -810,6 +841,42 @@ export class UnitLayer implements Layer {
       rel,
       this.theme.borderColor(unit.owner()),
       255,
+    );
+  }
+
+  /**
+   * Handle AA bullet events - similar to shells but with bright flash colors
+   */
+  private handleAABulletEvent(unit: UnitView) {
+    const rel = this.relationship(unit);
+    const flashColor = colord("rgb(255,255,200)");
+
+    // Clear current and previous positions
+    this.clearCell(this.game.x(unit.lastTile()), this.game.y(unit.lastTile()));
+    const oldTile = this.oldShellTile.get(unit);
+    if (oldTile !== undefined) {
+      this.clearCell(this.game.x(oldTile), this.game.y(oldTile));
+    }
+
+    this.oldShellTile.set(unit, unit.lastTile());
+    if (!unit.isActive()) {
+      return;
+    }
+
+    // Paint current and previous positions with bright flash color
+    this.paintCell(
+      this.game.x(unit.tile()),
+      this.game.y(unit.tile()),
+      rel,
+      flashColor,
+      255,
+    );
+    this.paintCell(
+      this.game.x(unit.lastTile()),
+      this.game.y(unit.lastTile()),
+      rel,
+      flashColor,
+      200,
     );
   }
 

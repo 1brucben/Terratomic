@@ -1275,6 +1275,7 @@ export class PlayerImpl implements Player {
         return this.warshipSpawn(targetTile);
       case UnitType.Shell:
       case UnitType.SAMMissile:
+      case UnitType.AABullet:
         return targetTile;
       case UnitType.TransportShip:
         return canBuildTransportShip(this.mg, this, targetTile);
