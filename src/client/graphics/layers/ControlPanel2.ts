@@ -139,6 +139,9 @@ export class ControlPanel2 extends LitElement implements Layer {
   @state()
   private _multibuildEnabled: boolean = false;
 
+  @state()
+  private _uiSelectedStructures: UnitType[] = [];
+
   private unitIconMap: { [key: string]: string } = {
     City: "/images/CityIconWhite.svg",
     Hospital: "/images/HospitalIconWhite.svg",
@@ -292,6 +295,16 @@ export class ControlPanel2 extends LitElement implements Layer {
     this.uiState.investmentRate = this.investmentRate;
     this.init_ = true;
     this.uiState.attackRatio = this.attackRatio;
+
+    // Select first 6 structures by default for the UI
+    this._uiSelectedStructures = [
+      UnitType.City,
+      UnitType.DefensePost,
+      UnitType.SAMLauncher,
+      UnitType.MissileSilo,
+      UnitType.Port,
+      UnitType.Airfield,
+    ];
 
     this.eventBus.on(AttackRatioEvent, (event: AttackRatioEvent) => {
       let newAttackRatio =
@@ -865,16 +878,12 @@ export class ControlPanel2 extends LitElement implements Layer {
     const playerSelect = this.querySelector(
       "#bomber-player-select",
     ) as HTMLSelectElement;
-    const selectedStructures = this.querySelectorAll(
-      "input[name='structure']:checked",
-    ) as NodeListOf<HTMLInputElement>;
 
-    if (!playerSelect || selectedStructures.length === 0) return;
+    if (!playerSelect || this._uiSelectedStructures.length === 0) return;
 
     const targetID = String(playerSelect.value);
-    const structures = Array.from(selectedStructures).map(
-      (input) => input.value as unknown as UnitType,
-    );
+    // Use the state variable instead of querying the DOM
+    const structures = [...this._uiSelectedStructures];
 
     this.sendBomberIntent(targetID, structures, this._bomberPreferClosest);
   }
@@ -918,8 +927,18 @@ export class ControlPanel2 extends LitElement implements Layer {
   }
 
   handleStructureChange(e: Event) {
-    // Allow multiple checkboxes to be selected
-    // No special logic needed - just update state
+    const checkbox = e.target as HTMLInputElement;
+    const value = checkbox.value as UnitType;
+
+    if (checkbox.checked) {
+      if (!this._uiSelectedStructures.includes(value)) {
+        this._uiSelectedStructures = [...this._uiSelectedStructures, value];
+      }
+    } else {
+      this._uiSelectedStructures = this._uiSelectedStructures.filter(
+        (s) => s !== value,
+      );
+    }
     this.requestUpdate();
   }
 
@@ -1323,237 +1342,284 @@ export class ControlPanel2 extends LitElement implements Layer {
         <div class="tab-content flex-grow overflow-y-auto max-w-full pr-4 pt-2">
           ${this.activeTab === "Bombers"
             ? html`
-                <div class="flex items-center mb-2 gap-4 ml-1">
-                  <button
-                    class="upgrade-structures-button ${this.uiState
-                      .bomberUpgradeMode
-                      ? "selected"
-                      : ""}"
-                    title="Click airfields to upgrade their bombers"
-                    @click=${() => {
-                      const enabled = !this.uiState.bomberUpgradeMode;
-                      this.uiState.bomberUpgradeMode = enabled;
-                      this.eventBus.emit(
-                        new ToggleBomberUpgradeModeEvent(enabled),
-                      );
-                      // Disable structure upgrade mode if bomber upgrade is enabled
-                      if (enabled && this.uiState.upgradeMode) {
-                        this.uiState.upgradeMode = false;
-                        this.eventBus.emit(new ToggleUpgradeModeEvent(false));
-                      }
-                      // Clear pending build selection when upgrade is enabled
-                      if (enabled) {
-                        this.uiState.pendingBuildUnitType = null;
-                      }
-                      this.requestUpdate();
-                    }}
-                  >
-                    <img
-                      class="upgrade-icon"
-                      src=${upgradeArrowIcon}
-                      alt="Upgrade"
-                    />
-                    <span>Upgrade Bombers</span>
-                  </button>
-                </div>
-                <div class="flex w-full">
-                  <!-- Column 1: Auto-Bombing -->
-                  <div class="w-1/3 pr-2">
-                    <h3 class="military-heading mb-2">Auto-Bombing</h3>
-                    <div class="flex flex-col gap-2">
+
+                <div class="flex w-full gap-2 h-full">
+                  <!-- Column 1: Targeting Configuration (2/3 width) -->
+                  <div class="w-2/3 flex flex-col gap-2">
+                    ${
+                      this._isAutoBombingEnabled
+                        ? html`
+                            <div
+                              class="flex flex-col items-center justify-center h-full text-blue-300 font-bold text-center border border-dashed border-blue-900 rounded bg-blue-900/20"
+                            >
+                              <div class="text-lg mb-2">
+                                AUTO-BOMBING ACTIVE
+                              </div>
+                              <div class="text-sm opacity-80">
+                                Bombers are automatically targeting nearby
+                                enemies.
+                              </div>
+                            </div>
+                          `
+                        : html`
+                            <div class="flex gap-2 items-end">
+                              <label class="flex-grow text-sm military-label">
+                                Target Player
+                                <select
+                                  id="bomber-player-select"
+                                  class="mt-1 block w-full p-1 text-white rounded-sm truncate text-sm"
+                                  style="background-color: var(--ui-secondary); border: 1px solid var(--ui-panel-border);"
+                                  @change=${this._handleBomberTargetChange}
+                                ></select>
+                              </label>
+
+                              <div class="flex flex-col justify-end pb-0.5">
+                                <span class="text-[10px] military-label mb-1"
+                                  >Priority</span
+                                >
+                                <div class="flex bg-gray-800 rounded p-0.5">
+                                  <label
+                                    class="flex items-center px-2 py-0.5 cursor-pointer hover:bg-gray-700 rounded transition-colors"
+                                    title="Target closest structures first"
+                                  >
+                                    <input
+                                      type="radio"
+                                      name="distance-pref"
+                                      value="closest"
+                                      ?checked=${this._bomberPreferClosest}
+                                      @change=${() => {
+                                        this._bomberPreferClosest = true;
+                                      }}
+                                      class="hidden"
+                                    />
+                                    <span
+                                      class="text-xs ${this._bomberPreferClosest
+                                        ? "text-blue-400 font-bold"
+                                        : "text-gray-400"}"
+                                      >Closest</span
+                                    >
+                                  </label>
+                                  <div class="w-px bg-gray-700 mx-0.5"></div>
+                                  <label
+                                    class="flex items-center px-2 py-0.5 cursor-pointer hover:bg-gray-700 rounded transition-colors"
+                                    title="Target furthest structures first"
+                                  >
+                                    <input
+                                      type="radio"
+                                      name="distance-pref"
+                                      value="furthest"
+                                      ?checked=${!this._bomberPreferClosest}
+                                      @change=${() => {
+                                        this._bomberPreferClosest = false;
+                                      }}
+                                      class="hidden"
+                                    />
+                                    <span
+                                      class="text-xs ${!this
+                                        ._bomberPreferClosest
+                                        ? "text-blue-400 font-bold"
+                                        : "text-gray-400"}"
+                                      >Furthest</span
+                                    >
+                                  </label>
+                                </div>
+                              </div>
+                            </div>
+
+                            <div class="flex-grow flex flex-col min-h-0">
+                              <label class="text-xs military-label mb-1"
+                                >Target Structures</label
+                              >
+                              <div
+                                class="grid grid-cols-11 gap-1.5 overflow-y-auto pr-1"
+                              >
+                                ${[
+                                  UnitType.City,
+                                  UnitType.DefensePost,
+                                  UnitType.SAMLauncher,
+                                  UnitType.MissileSilo,
+                                  UnitType.Port,
+                                  UnitType.Airfield,
+                                  UnitType.Hospital,
+                                  UnitType.Academy,
+                                  UnitType.ResearchLab,
+                                  UnitType.Factory,
+                                  UnitType.DoomsdayDevice,
+                                ].map((s) => {
+                                  const isSelected =
+                                    this._uiSelectedStructures.includes(s);
+                                  return html`
+                                    <label
+                                      class="flex flex-col items-center justify-center p-0.5 rounded cursor-pointer transition-all aspect-square ${isSelected
+                                        ? "border-[0.5px] border-white shadow-[0_0_5px_rgba(29,58,96,1.0)]"
+                                        : "border border-gray-700 hover:bg-gray-800"}"
+                                      style="${isSelected
+                                        ? "background-color: rgb(29, 58, 96);"
+                                        : ""}"
+                                      title="${s}"
+                                    >
+                                      <input
+                                        type="checkbox"
+                                        name="structure"
+                                        value="${s}"
+                                        class="hidden"
+                                        .checked=${isSelected}
+                                        @change=${this.handleStructureChange}
+                                      />
+                                      <img
+                                        src="${this.unitIconMap[s]}"
+                                        alt="${s}"
+                                        class="w-4 h-4 object-contain"
+                                      />
+                                    </label>
+                                  `;
+                                })}
+                              </div>
+                            </div>
+
+                            <!-- SET TARGET Button -->
+                            <div class="flex gap-2 items-center mt-2">
+                              <button
+                                type="button"
+                                class="military-button py-2 px-4 font-bold"
+                                @click=${this.handleBomberIntent}
+                              >
+                                SET TARGET
+                              </button>
+                              <button
+                                type="button"
+                                class="text-xs text-gray-400 hover:text-white underline"
+                                @click=${() =>
+                                  this.sendBomberIntent(null, null, true)}
+                              >
+                                Clear
+                              </button>
+                              <div class="text-xs flex-grow">
+                                ${this._currentTargetPlayerId &&
+                                this._currentTargetStructureTypes.length > 0
+                                  ? html`
+                                      <div class="flex items-center gap-2">
+                                        <span class="font-bold text-blue-300"
+                                          >${this
+                                            ._currentTargetPlayerName}</span
+                                        >
+                                        <span class="text-[10px] text-gray-400"
+                                          >${this._bomberPreferClosest
+                                            ? "Closest"
+                                            : "Furthest"}</span
+                                        >
+                                        <div class="flex gap-0.5">
+                                          ${this._currentTargetStructureTypes.map(
+                                            (structType) => html`
+                                              <img
+                                                src="${this.unitIconMap[
+                                                  structType
+                                                ]}"
+                                                class="w-3 h-3 opacity-80"
+                                              />
+                                            `,
+                                          )}
+                                        </div>
+                                      </div>
+                                    `
+                                  : html`<span class="text-gray-500 italic"
+                                      >No target set</span
+                                    >`}
+                              </div>
+                            </div>
+                          `
+                    }
+                  </div>
+
+                  <!-- Column 2: Actions & Status (1/3 width) -->
+                  <div class="w-1/3 flex flex-col gap-2 pl-2 border-l border-gray-800">
+                    <!-- Upgrade Bombers Button -->
+                    <div class="bg-gray-900/50 p-2 rounded border border-gray-800">
+                      <div class="flex items-center justify-between mb-1">
+                        <span class="text-xs font-bold text-gray-300"
+                          >Upgrade Bombers</span
+                        >
+                        <div
+                          class="w-2 h-2 rounded-full ${
+                            this.uiState.bomberUpgradeMode
+                              ? "bg-green-500 shadow-[0_0_5px_#22c55e]"
+                              : "bg-gray-600"
+                          }"
+                        ></div>
+                      </div>
                       <button
                         type="button"
-                        class="military-button w-full"
-                        @click=${this._startAutoBombing}
+                        class="military-button w-full text-xs py-1.5"
+                        title="Click airfields to upgrade their bombers"
+                        @click=${() => {
+                          const enabled = !this.uiState.bomberUpgradeMode;
+                          this.uiState.bomberUpgradeMode = enabled;
+                          this.eventBus.emit(
+                            new ToggleBomberUpgradeModeEvent(enabled),
+                          );
+                          // Disable structure upgrade mode if bomber upgrade is enabled
+                          if (enabled && this.uiState.upgradeMode) {
+                            this.uiState.upgradeMode = false;
+                            this.eventBus.emit(
+                              new ToggleUpgradeModeEvent(false),
+                            );
+                          }
+                          // Clear pending build selection when upgrade is enabled
+                          if (enabled) {
+                            this.uiState.pendingBuildUnitType = null;
+                          }
+                          this.requestUpdate();
+                        }}
                       >
-                        Start Auto Bombing
-                      </button>
-                      <button
-                        type="button"
-                        class="military-button w-full"
-                        style="background-color: var(--alertColor); border-color: var(--alertColor);"
-                        @click=${this._stopAutoBombing}
-                      >
-                        Stop Auto Bombing
+                        Upgrade Bombers
                       </button>
                     </div>
-                    <p class="text-xs mt-3 text-gray-400">
-                      Autobombing sends bombers to nearby non-allied territory
-                      and bombs their structures.
-                    </p>
-                  </div>
 
-                  <!-- Column 2: Manual Targeting -->
-                  <div class="w-1/3 px-2">
-                    ${this._isAutoBombingEnabled
-                      ? html`
-                          <div
-                            class="flex flex-col items-center justify-center h-full text-blue-300 font-bold text-center"
-                          >
-                            Automatic bombing is enabled.
-                          </div>
-                        `
-                      : html`
-                          <h3 class="military-heading mb-2">
-                            Manual Targeting
-                          </h3>
-                          <form
-                            @submit=${(e: Event) => e.preventDefault()}
-                            class="flex flex-col gap-2"
-                          >
-                            <label
-                              class="inline-flex items-center text-sm military-label"
-                            >
-                              Select Target
-                              <select
-                                id="bomber-player-select"
-                                class="ml-1 p-1 text-white rounded-sm w-full truncate"
-                                style="background-color: var(--ui-secondary); border: 1px solid var(--ui-panel-border);"
-                                @change=${this._handleBomberTargetChange}
-                              ></select>
-                            </label>
-
-                            <label class="block text-sm military-label"
-                              >Distance Priority</label
-                            >
-                            <div class="flex gap-2">
-                              <label
-                                class="flex items-center space-x-1 cursor-pointer"
+                    <!-- Auto-Bombing Toggle -->
+                    <div class="bg-gray-900/50 p-2 rounded border border-gray-800">
+                      <div class="flex items-center justify-between mb-1">
+                        <span class="text-xs font-bold text-gray-300"
+                          >Auto-Bomb</span
+                        >
+                        <div
+                          class="w-2 h-2 rounded-full ${
+                            this._isAutoBombingEnabled
+                              ? "bg-green-500 shadow-[0_0_5px_#22c55e]"
+                              : "bg-gray-600"
+                          }"
+                        ></div>
+                      </div>
+                      ${
+                        this._isAutoBombingEnabled
+                          ? html`
+                              <button
+                                type="button"
+                                class="military-button w-full text-xs py-1.5"
+                                style="background-color: var(--alertColor); border-color: var(--alertColor);"
+                                @click=${this._stopAutoBombing}
                               >
-                                <input
-                                  type="radio"
-                                  name="distance-pref"
-                                  value="closest"
-                                  ?checked=${this._bomberPreferClosest}
-                                  @change=${() => {
-                                    this._bomberPreferClosest = true;
-                                  }}
-                                  class="form-radio h-4 w-4 text-blue-400"
-                                />
-                                <span class="text-sm military-label"
-                                  >Closest</span
-                                >
-                              </label>
-                              <label
-                                class="flex items-center space-x-1 cursor-pointer"
+                                Stop Auto
+                              </button>
+                            `
+                          : html`
+                              <button
+                                type="button"
+                                class="military-button w-full text-xs py-1.5"
+                                @click=${this._startAutoBombing}
+                                title="Automatically target nearby enemies"
                               >
-                                <input
-                                  type="radio"
-                                  name="distance-pref"
-                                  value="furthest"
-                                  ?checked=${!this._bomberPreferClosest}
-                                  @change=${() => {
-                                    this._bomberPreferClosest = false;
-                                  }}
-                                  class="form-radio h-4 w-4 text-blue-400"
-                                />
-                                <span class="text-sm military-label"
-                                  >Furthest</span
-                                >
-                              </label>
-                            </div>
-
-                            <label class="block text-sm military-label"
-                              >Select Structures (multiple)</label
-                            >
-                            <div class="grid grid-cols-4 gap-2">
-                              ${[
-                                UnitType.City,
-                                UnitType.DefensePost,
-                                UnitType.SAMLauncher,
-                                UnitType.MissileSilo,
-                                UnitType.Port,
-                                UnitType.Airfield,
-                                UnitType.Hospital,
-                                UnitType.Academy,
-                                UnitType.ResearchLab,
-                                UnitType.Factory,
-                                UnitType.DoomsdayDevice,
-                              ].map((s) => {
-                                return html`
-                                  <label
-                                    class="flex items-center space-x-1 p-1 border border-gray-700 rounded-sm cursor-pointer has-checked:border-blue-400"
-                                  >
-                                    <img
-                                      src="${this.unitIconMap[s]}"
-                                      alt="${s}"
-                                      class="w-4 h-4"
-                                    />
-                                    <input
-                                      type="checkbox"
-                                      name="structure"
-                                      value="${s}"
-                                      class="form-checkbox h-4 w-4 text-blue-400 bg-gray-700 border-gray-500 rounded-sm focus:ring-blue-400"
-                                      @change=${this.handleStructureChange}
-                                    />
-                                  </label>
-                                `;
-                              })}
-                            </div>
-                          </form>
-                        `}
+                                Start Auto
+                              </button>
+                            `
+                      }
+                    </div>
                   </div>
-
-                  <!-- Column 3: Target Actions -->
-                  <div class="w-1/3 pl-2">
-                    ${this._isAutoBombingEnabled
-                      ? ""
-                      : html`
-                          <h3 class="military-heading mb-2">Target Actions</h3>
-                          <div class="text-sm min-h-[20px]">
-                            ${this._currentTargetPlayerId &&
-                            this._currentTargetStructureTypes.length > 0
-                              ? html`<span class="font-bold military-label"
-                                    >Target:</span
-                                  >
-                                  ${this._currentTargetPlayerName}
-                                  <div class="flex flex-wrap gap-1 mt-1">
-                                    ${this._currentTargetStructureTypes.map(
-                                      (structType) => html`
-                                        <img
-                                          src="${this.unitIconMap[structType]}"
-                                          alt="${structType}"
-                                          class="inline-block"
-                                          style="width: ${this.iconPixelSize(
-                                            structType,
-                                          )}px; height: ${this.iconPixelSize(
-                                            structType,
-                                          )}px;"
-                                        />
-                                      `,
-                                    )}
-                                  </div>
-                                  <div class="text-xs military-label mt-1">
-                                    ${this._bomberPreferClosest
-                                      ? "Targeting closest first"
-                                      : "Targeting furthest first"}
-                                  </div>`
-                              : html`<span class="military-label"
-                                  >No target selected</span
-                                >`}
-                          </div>
-
-                          <div class="flex gap-2 mt-auto">
-                            <button
-                              type="button"
-                              class="military-button flex-1"
-                              @click=${this.handleBomberIntent}
-                            >
-                              Set Target
-                            </button>
-                            <button
-                              type="button"
-                              class="military-button flex-1"
-                              @click=${() =>
-                                this.sendBomberIntent(null, null, true)}
-                            >
-                              Clear Target
-                            </button>
-                          </div>
-                        `}
                   </div>
                 </div>
               `
+            : ""}
+          ${this.activeTab === "Build"
+            ? html` <div class="flex items-center mb-2 gap-4 ml-1"></div> `
             : ""}
           ${this.activeTab === "Build"
             ? html`
@@ -2097,16 +2163,16 @@ export class ControlPanel2 extends LitElement implements Layer {
         100,
         Math.max(0, Math.round(((delay - remaining) / delay) * 100)),
       );
-      return html`<div
-        class="py-1 px-2 border-b"
-        style="border-color: var(--ui-panel-border)"
-      >
-        <div class="mb-1 text-gray-300">
-          Cargo Ship #${idx + 1} (Port #${port.id()}) constructing…
-        </div>
-        <div class="progress-track" style="height:6px;">
-          <div class="progress-fill" style="width:${pct}%;"></div>
-        </div>
+      return html`< div
+class="py-1 px-2 border-b"
+style = "border-color: var(--ui-panel-border)"
+  >
+  <div class="mb-1 text-gray-300" >
+    Cargo Ship #${idx + 1} (Port #${port.id()}) constructing…
+</div>
+  < div class="progress-track" style = "height:6px;" >
+    <div class="progress-fill" style = "width:${pct}%;" > </div>
+      </div>
       </div>`;
     });
 
