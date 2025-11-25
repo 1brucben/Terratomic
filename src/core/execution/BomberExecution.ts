@@ -16,6 +16,7 @@ export class BomberExecution implements Execution {
   private waypoints: TileRef[] = [];
   private currentWaypointIndex = 0;
   private hasRebasedToNewAirfield = false; // Track if bomber rebased due to home airfield destruction
+  private lastHealthLogTick = 0; // For health logging
 
   constructor(
     private origOwner: Player,
@@ -83,6 +84,18 @@ export class BomberExecution implements Execution {
   }
 
   tick(ticks: number): void {
+    // Log bomber health every 5 seconds (50 ticks)
+    if (
+      this.bomber &&
+      this.bomber.isActive() &&
+      ticks - this.lastHealthLogTick >= 50
+    ) {
+      console.log(
+        `[tick ${ticks}] Bomber health: ${this.bomber.health()}/${this.getMaxHealth()} (level ${this.getBomberLevel()})`,
+      );
+      this.lastHealthLogTick = ticks;
+    }
+
     // Respawn bomber if destroyed
     if (!this.bomber || !this.bomber.isActive()) {
       // Decrement bomber count for the target we were attacking (if any)
@@ -183,11 +196,12 @@ export class BomberExecution implements Execution {
     }
 
     // Execute mission
-    if (this.onMission && this.currentTargetTile) {
-      // Check if current target is still valid
+    if (this.onMission && (this.currentTargetTile || this.bomber.returning())) {
+      // Check if current target is still valid (only retarget if not already returning)
       if (
         this.currentTargetUnit &&
-        !this.isTargetValid(this.currentTargetUnit)
+        !this.isTargetValid(this.currentTargetUnit) &&
+        !this.bomber.returning()
       ) {
         // Target is no longer valid, find a new one
         this.decrementBomberCount(this.currentTargetUnit);
