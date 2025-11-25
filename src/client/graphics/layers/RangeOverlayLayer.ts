@@ -136,6 +136,7 @@ export class RangeOverlayLayer implements Layer {
     if (
       pending === UnitType.SAMLauncher ||
       pending === UnitType.DefensePost ||
+      pending === UnitType.Airfield ||
       pending === UnitType.AtomBomb ||
       pending === UnitType.HydrogenBomb
     ) {
@@ -381,6 +382,7 @@ export class RangeOverlayLayer implements Layer {
     const types = [
       UnitType.DefensePost,
       UnitType.SAMLauncher,
+      UnitType.Airfield,
       UnitType.AtomBomb,
       UnitType.HydrogenBomb,
     ];
@@ -405,6 +407,10 @@ export class RangeOverlayLayer implements Layer {
       if (lvl <= 1) return base;
       const factor = Math.pow(1 + bonus, lvl - 1);
       return Math.round(base * factor);
+    }
+    if (u.type() === UnitType.Airfield) {
+      // Show bomber range based on airfield's bomber level
+      return this.game.config().bomberTargetRange(u.bomberLevel());
     }
     if (u.type() === UnitType.AtomBomb || u.type() === UnitType.HydrogenBomb) {
       return this.game.config().nukeMagnitudes(u.type()).outer;
@@ -436,6 +442,23 @@ export class RangeOverlayLayer implements Layer {
       const bonus = this.game.config().samRangeUpgradePercent();
       const factor = Math.pow(1 + bonus, desiredLevel - 1);
       return Math.round(base * factor);
+    }
+    if (type === UnitType.Airfield) {
+      // Get the selected build level from localStorage (same as BuildMenu)
+      let desiredLevel = 1;
+      try {
+        const raw = localStorage.getItem("buildSettings.levels");
+        if (raw) {
+          const obj = JSON.parse(raw);
+          const val = obj?.[String(type)];
+          if (typeof val === "number" && val >= 1) {
+            desiredLevel = Math.min(3, val); // Airfield bomber max level is 3
+          }
+        }
+      } catch (_) {
+        // Fall back to level 1
+      }
+      return this.game.config().bomberTargetRange(desiredLevel);
     }
     if (type === UnitType.AtomBomb || type === UnitType.HydrogenBomb)
       return this.game.config().nukeMagnitudes(type).outer;
