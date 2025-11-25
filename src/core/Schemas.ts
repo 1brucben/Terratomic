@@ -47,7 +47,7 @@ export type Intent =
   | RoadInvestmentIntent
   | ResearchInvestmentIntent
   | BuildUnitIntent
-  | PurchaseUpgradeIntent
+  | ScorchedEarthIntent
   | ResearchTreeSelectIntent
   | EmbargoIntent
   | QuickChatIntent
