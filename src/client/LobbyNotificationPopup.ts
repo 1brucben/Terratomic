@@ -218,14 +218,28 @@ export class LobbyNotificationPopup extends LitElement {
   `;
 
   public show(event: SendLobbyNotificationEvent) {
+    // If player count is 0, hide the popup
+    if (event.currentPlayers === 0) {
+      this.hide();
+      return;
+    }
+
+    // Update popup data
     this.currentPlayers = event.currentPlayers;
     this.maxPlayers = event.maxPlayers;
     this.gameID = event.gameID;
     this.mapName = event.mapName;
     this.gameMode = "Free for All"; // Default to FFA for public lobbies
+    this.targetTime = Date.now() + event.timeRemaining;
+
+    // If popup is already visible, just update the display
+    if (this.visible) {
+      this.updateCountdown(); // Update countdown immediately for fresh data
+      this.requestUpdate();
+      return;
+    }
 
     // Calculate target time
-    this.targetTime = Date.now() + event.timeRemaining;
     this.updateCountdown();
 
     // Start countdown interval

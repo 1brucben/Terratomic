@@ -59,14 +59,12 @@ export class LobbyWatcher {
       const msUntilStart = mainLobby.msUntilStart ?? 0;
 
       // Logic:
-      // 1. Must meet threshold.
-      // 2. Must be an increase from last check (to avoid spamming same count).
-      // 3. Must not be muted (checked at start).
+      // 1. Emit event if count changed (increase or decrease)
+      // 2. Hide popup if count drops to 0
+      // 3. Only show new popup if count increased and meets threshold
 
-      if (
-        currentCount >= this.TRIGGER_THRESHOLD &&
-        currentCount > this.lastPlayerCount
-      ) {
+      if (currentCount !== this.lastPlayerCount) {
+        // Always emit event to update the popup if it's visible
         this.eventBus.emit(
           new SendLobbyNotificationEvent(
             currentCount,
