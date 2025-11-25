@@ -671,8 +671,8 @@ export class StructureLayer implements Layer {
       structureType === UnitType.Airfield &&
       this.shouldHighlightForBomberUpgrade(unit)
     ) {
-      // Use a different color for bomber upgrades (e.g., orange/amber)
-      highlightTint = this.blendHexColors("#FFA500", borderColor, 0.6);
+      // Use the same neon green as regular upgrade mode
+      highlightTint = this.blendHexColors("#00FF8A", borderColor, 0.6);
       borderColor = highlightTint;
       highlightEligibleIcon = true;
     }
