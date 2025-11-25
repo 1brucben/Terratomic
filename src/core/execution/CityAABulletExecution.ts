@@ -57,6 +57,10 @@ export class CityAABulletExecution implements Execution {
       );
 
       if (result === true) {
+        // Move bullet to target's exact position for visual sync
+        // This ensures the explosion appears on the plane, not behind it
+        this.bullet.move(this.target.tile());
+
         // Bullet reached target - deal damage
         // Don't damage planes that have landed at their airfield
         if (!this.target.isAtSourceAirfield()) {

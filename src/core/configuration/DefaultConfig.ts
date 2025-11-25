@@ -293,7 +293,7 @@ export class DefaultConfig implements Config {
     return 50; // Same as citySamLaunchRange
   }
   cityAAFireRate(): number {
-    return 5; // Fire every 5 ticks
+    return 3; // Fire every 3 ticks
   }
   cityAABulletDamage(): number {
     return 10; // Each bullet causes 10 damage

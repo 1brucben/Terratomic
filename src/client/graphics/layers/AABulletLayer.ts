@@ -135,16 +135,20 @@ export class AABulletLayer implements Layer {
         new Cell(bullet.lastX, bullet.lastY),
       );
 
+      // Calculate trail start (50% shorter - midpoint between last and current)
+      const trailStartX = screenPos.x + (lastScreenPos.x - screenPos.x) * 0.5;
+      const trailStartY = screenPos.y + (lastScreenPos.y - screenPos.y) * 0.5;
+
       // Redraw the bullet
       bullet.graphics.clear();
 
-      // Tracer trail (line from last position to current)
+      // Tracer trail (line from midpoint to current position - 50% shorter)
       bullet.graphics.setStrokeStyle({
         width: Math.max(1, scale * 0.5),
         color: 0xffdd66,
         alpha: 0.6,
       });
-      bullet.graphics.moveTo(lastScreenPos.x, lastScreenPos.y);
+      bullet.graphics.moveTo(trailStartX, trailStartY);
       bullet.graphics.lineTo(screenPos.x, screenPos.y);
       bullet.graphics.stroke();
 

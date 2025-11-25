@@ -86,7 +86,8 @@ export class CityAAExecution implements Execution {
           return (
             unit.isActive() &&
             owner !== this.player &&
-            !this.player.isFriendly(owner)
+            !this.player.isFriendly(owner) &&
+            !unit.isAtSourceAirfield() // Don't target planes at their airfield
           );
         });
 
