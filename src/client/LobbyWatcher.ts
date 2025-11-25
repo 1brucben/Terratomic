@@ -3,6 +3,9 @@ import { UserSettings } from "../core/game/UserSettings";
 import { GameInfo } from "../core/Schemas";
 import { SendLobbyNotificationEvent } from "./Transport";
 
+// Global toggle for lobby notifications - set to false to disable game-wide
+const LOBBY_NOTIFICATIONS_ENABLED = true;
+
 export class LobbyWatcher {
   private intervalId: number | null = null;
   private lastPlayerCount: number = 0;
@@ -30,7 +33,10 @@ export class LobbyWatcher {
   }
 
   private async checkLobbies() {
-    // Check if notifications are disabled
+    // Check if notifications are disabled game-wide
+    if (!LOBBY_NOTIFICATIONS_ENABLED) return;
+
+    // Check if notifications are disabled by user
     const userSettings = new UserSettings();
     if (!userSettings.lobbyNotificationsEnabled()) return;
 
