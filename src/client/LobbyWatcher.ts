@@ -1,4 +1,5 @@
 import { EventBus } from "../core/EventBus";
+import { UserSettings } from "../core/game/UserSettings";
 import { GameInfo } from "../core/Schemas";
 import { SendLobbyNotificationEvent } from "./Transport";
 
@@ -29,6 +30,10 @@ export class LobbyWatcher {
   }
 
   private async checkLobbies() {
+    // Check if notifications are disabled
+    const userSettings = new UserSettings();
+    if (!userSettings.lobbyNotificationsEnabled()) return;
+
     if (this.isMuted()) return;
 
     try {

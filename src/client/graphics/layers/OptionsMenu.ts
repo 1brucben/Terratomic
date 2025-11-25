@@ -142,6 +142,11 @@ export class OptionsMenu extends LitElement implements Layer {
     this.requestUpdate();
   }
 
+  private onToggleLobbyNotificationsButtonClick() {
+    this.userSettings.toggleLobbyNotifications();
+    this.requestUpdate();
+  }
+
   private onToggleSpecialEffectsButtonClick() {
     this.userSettings.toggleFxLayer();
     this.requestUpdate();
@@ -303,6 +308,13 @@ export class OptionsMenu extends LitElement implements Layer {
             onClick: this.onToggleSpecialEffectsButtonClick,
             title: "Toggle Special effects",
             children: "💥: " + (this.userSettings.fxLayer() ? "On" : "Off"),
+          })}
+          ${button({
+            onClick: this.onToggleLobbyNotificationsButtonClick,
+            title: "Toggle Lobby Notifications",
+            children:
+              "🔔: " +
+              (this.userSettings.lobbyNotificationsEnabled() ? "On" : "Off"),
           })}
           ${button({
             onClick: this.onToggleRandomNameModeButtonClick,

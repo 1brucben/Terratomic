@@ -43,6 +43,10 @@ export class UserSettings {
     return this.get("settings.soundMuted", false);
   }
 
+  lobbyNotificationsEnabled() {
+    return this.get("settings.lobbyNotifications", true);
+  }
+
   leftClickOpensMenu() {
     return this.get("settings.leftClickOpensMenu", false);
   }
@@ -105,5 +109,9 @@ export class UserSettings {
         detail: { muted: next },
       }),
     );
+  }
+
+  toggleLobbyNotifications() {
+    this.set("settings.lobbyNotifications", !this.lobbyNotificationsEnabled());
   }
 }

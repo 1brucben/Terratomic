@@ -1,5 +1,6 @@
 import { LitElement, css, html } from "lit";
 import { customElement, state } from "lit/decorators.js";
+import { UserSettings } from "../core/game/UserSettings";
 import { SendLobbyNotificationEvent } from "./Transport";
 import { getMapsImage } from "./utilities/Maps";
 import { translateText } from "./Utils";
@@ -13,6 +14,7 @@ export class LobbyNotificationPopup extends LitElement {
   @state() private gameID: string = "";
   @state() private mapName: string = "";
   @state() private gameMode: string = "Free for All";
+  private userSettings: UserSettings = new UserSettings();
   private countdownInterval: number | null = null;
   private targetTime: number = 0;
 
@@ -263,6 +265,11 @@ export class LobbyNotificationPopup extends LitElement {
     this.hide();
   }
 
+  private handleDisable() {
+    this.userSettings.toggleLobbyNotifications();
+    this.hide();
+  }
+
   private handleJoin() {
     // Set the URL hash to join the lobby, then reload the page
     // This will trigger the lobby join on page load
@@ -305,6 +312,9 @@ export class LobbyNotificationPopup extends LitElement {
           </button>
           <button class="btn btn-secondary" @click=${this.handleMute}>
             ${translateText("lobby_notification.mute_30m")}
+          </button>
+          <button class="btn btn-secondary" @click=${this.handleDisable}>
+            ${translateText("lobby_notification.disable")}
           </button>
         </div>
       </div>

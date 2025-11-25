@@ -731,6 +731,7 @@
     "title": "Players Waiting!",
     "starts_in": "Starts in {time}",
     "join_game": "Join Game",
-    "mute_30m": "Mute for 30 minutes"
+    "mute_30m": "Mute for 30 minutes",
+    "disable": "Disable Notifications"
   }
 }
