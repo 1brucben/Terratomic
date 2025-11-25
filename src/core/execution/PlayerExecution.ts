@@ -132,7 +132,7 @@ export class PlayerExecution implements Execution {
 
     // Regenerate health of damaged buildings
     this.player.units().forEach((u) => {
-      if (u.hasHealth() && u.health() < (u.info().maxHealth ?? 0)) {
+      if (u.hasHealth() && u.health() < u.effectiveMaxHealth()) {
         u.modifyHealth(0.5);
       }
     });

@@ -91,7 +91,7 @@ export class BomberExecution implements Execution {
       ticks - this.lastHealthLogTick >= 50
     ) {
       console.log(
-        `[tick ${ticks}] Bomber health: ${this.bomber.health()}/${this.getMaxHealth()} (level ${this.getBomberLevel()})`,
+        `[tick ${ticks}] Bomber id=${this.bomber.id()} health: ${this.bomber.health()}/${this.getMaxHealth()} (level ${this.getBomberLevel()}, airfield id=${this.sourceAirfield.id()}, airfield bomberLevel=${this.sourceAirfield.bomberLevel?.()})`,
       );
       this.lastHealthLogTick = ticks;
     }
