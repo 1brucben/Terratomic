@@ -131,6 +131,10 @@ export class UILayer implements Layer {
         this.drawHealthBar(unit);
         break;
       }
+      case UnitType.FighterJet: {
+        this.drawHealthBar(unit);
+        break;
+      }
       case UnitType.Bomber: {
         // Don't show health bar for bombers at their airfield
         const airfieldAtSamePos = this.game
