@@ -17,6 +17,7 @@ import { JoinPrivateLobbyModal } from "./JoinPrivateLobbyModal";
 import "./LangSelector";
 import { LangSelector } from "./LangSelector";
 import { LanguageModal } from "./LanguageModal";
+import "./LobbyNotificationPopup";
 import { NewsModal } from "./NewsModal";
 import "./PublicLobby";
 import { PublicLobby } from "./PublicLobby";
@@ -415,9 +416,40 @@ class Client {
     if (hash.startsWith("#")) {
       const params = new URLSearchParams(hash.slice(1));
       const lobbyId = params.get("join");
+      const isPublic = params.get("public") === "true";
+
       if (lobbyId && ID.safeParse(lobbyId).success) {
-        this.joinModal.open(lobbyId);
-        console.log(`joining lobby ${lobbyId}`);
+        if (isPublic) {
+          // For public lobbies, join directly without showing the modal
+          console.log(`joining public lobby ${lobbyId}`);
+          // Wait a bit to ensure event handlers are registered
+          setTimeout(() => {
+            const chars =
+              "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
+            let clientID = "";
+            for (let i = 0; i < 8; i++) {
+              clientID += chars.charAt(
+                Math.floor(Math.random() * chars.length),
+              );
+            }
+
+            const joinEvent = new CustomEvent("join-lobby", {
+              detail: {
+                clientID: clientID,
+                gameID: lobbyId,
+              },
+              bubbles: true,
+              composed: true,
+            });
+            document.dispatchEvent(joinEvent);
+            // Clear the hash after dispatching
+            window.location.hash = "";
+          }, 100);
+        } else {
+          // For private lobbies, show the modal
+          this.joinModal.open(lobbyId);
+          console.log(`joining lobby ${lobbyId}`);
+        }
       }
     }
   }

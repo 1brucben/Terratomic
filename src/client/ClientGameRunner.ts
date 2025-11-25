@@ -11,7 +11,12 @@ import {
 import { createGameRecord } from "../core/Util";
 import { ServerConfig } from "../core/configuration/Config";
 import { getConfig } from "../core/configuration/ConfigLoader";
-import { PlayerActions, PlayerType, UnitType } from "../core/game/Game";
+import {
+  GameType,
+  PlayerActions,
+  PlayerType,
+  UnitType,
+} from "../core/game/Game";
 import { TileRef } from "../core/game/GameMap";
 import {
   ErrorUpdate,
@@ -32,12 +37,15 @@ import {
   MouseUpEvent,
   UnitSelectionEvent,
 } from "./InputHandler";
+import { LobbyNotificationPopup } from "./LobbyNotificationPopup";
+import { LobbyWatcher } from "./LobbyWatcher";
 import { endGame, startGame, startTime } from "./LocalPersistantStats";
 import { getPersistentID } from "./Main";
 import {
   SendAttackIntentEvent,
   SendBoatAttackIntentEvent,
   SendHashEvent,
+  SendLobbyNotificationEvent,
   SendSpawnIntentEvent,
   Transport,
 } from "./Transport";
@@ -195,6 +203,7 @@ export class ClientGameRunner {
   private connectionCheckInterval: NodeJS.Timeout | null = null;
 
   private selectedUnit: UnitView | null = null;
+  private lobbyWatcher: LobbyWatcher | null = null;
 
   constructor(
     private lobby: LobbyConfig,
@@ -206,6 +215,22 @@ export class ClientGameRunner {
     private gameView: GameView,
   ) {
     this.lastMessageTime = Date.now();
+    // Start lobby watcher for Single Player games
+    if (
+      this.transport.isLocal &&
+      this.lobby.gameStartInfo?.config.gameType === GameType.Singleplayer
+    ) {
+      this.lobbyWatcher = new LobbyWatcher(this.eventBus);
+      // Listen for lobby notifications and show popup
+      this.eventBus.on(SendLobbyNotificationEvent, (e) => {
+        const popup = document.querySelector(
+          "lobby-notification-popup",
+        ) as LobbyNotificationPopup;
+        if (popup) {
+          popup.show(e);
+        }
+      });
+    }
   }
 
   private saveGame(update: WinUpdate) {
@@ -260,6 +285,10 @@ export class ClientGameRunner {
 
     this.isActive = true;
     this.lastMessageTime = Date.now();
+    // Start lobby watcher if it exists
+    if (this.lobbyWatcher) {
+      this.lobbyWatcher.start();
+    }
     setTimeout(() => {
       this.connectionCheckInterval = setInterval(
         () => this.onConnectionCheck(),
@@ -399,6 +428,10 @@ export class ClientGameRunner {
     if (this.connectionCheckInterval) {
       clearInterval(this.connectionCheckInterval);
       this.connectionCheckInterval = null;
+    }
+    // Stop lobby watcher if it exists
+    if (this.lobbyWatcher) {
+      this.lobbyWatcher.stop();
     }
   }
 

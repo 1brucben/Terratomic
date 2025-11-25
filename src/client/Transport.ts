@@ -250,6 +250,16 @@ export class SendKickPlayerIntentEvent implements GameEvent {
   constructor(public readonly target: string) {}
 }
 
+export class SendLobbyNotificationEvent implements GameEvent {
+  constructor(
+    public readonly currentPlayers: number,
+    public readonly maxPlayers: number,
+    public readonly timeRemaining: number,
+    public readonly gameID: string,
+    public readonly mapName: string,
+  ) {}
+}
+
 export class Transport {
   private socket: WebSocket | null = null;
 

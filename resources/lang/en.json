@@ -726,5 +726,11 @@
     "single_player": "Single Player",
     "instructions": "Instructions",
     "settings": "Settings"
+  },
+  "lobby_notification": {
+    "title": "Players Waiting!",
+    "starts_in": "Starts in {time}",
+    "join_game": "Join Game",
+    "mute_30m": "Mute for 30 minutes"
   }
 }
