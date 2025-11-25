@@ -1,4 +1,4 @@
-import { PurchaseUpgradeExecution } from "../../src/core/execution/PurchaseUpgradeExecution";
+import { ScorchedEarthExecution } from "../../src/core/execution/ScorchedEarthExecution";
 import { PlayerType, UnitType, UpgradeType } from "../../src/core/game/Game";
 import { GameImpl } from "../../src/core/game/GameImpl";
 import { PlayerImpl } from "../../src/core/game/PlayerImpl";
@@ -48,9 +48,7 @@ describe("Scorched Earth Full Cycle Integration Test", () => {
 
     // Step 2: Research and activate Scorched Earth, verify network destruction and tech rollback
     player.addResearchedTech(RESEARCH_TECH_IDS.SCORCHED_EARTH);
-    game.addExecution(
-      new PurchaseUpgradeExecution(player, UpgradeType.ScorchedEarth),
-    );
+    game.addExecution(new ScorchedEarthExecution(player));
     game.executeNextTick();
     expect(game.roads().length).toBe(0);
     expect(player.hasUpgrade(UpgradeType.Roads)).toBe(false);

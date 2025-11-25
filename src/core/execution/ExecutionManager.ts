@@ -26,10 +26,10 @@ import { NoOpExecution } from "./NoOpExecution";
 import { ParatrooperAttackExecution } from "./ParatrooperAttackExecution";
 import { ParatrooperRetreatExecution } from "./ParatrooperRetreatExecution";
 import { PeaceRequestExecution } from "./PeaceRequestExecution";
-import { PurchaseUpgradeExecution } from "./PurchaseUpgradeExecution";
 import { QuickChatExecution } from "./QuickChatExecution";
 import { ResearchTreeSelectExecution } from "./ResearchTreeSelectExecution";
 import { RetreatExecution } from "./RetreatExecution";
+import { ScorchedEarthExecution } from "./ScorchedEarthExecution";
 import { SetAutoBombingExecution } from "./SetAutoBombingExecution";
 import { SetInvestmentRateExecution } from "./SetInvestmentRateExecution";
 import { SetResearchInvestmentExecution } from "./SetResearchInvestmentExecution";
@@ -157,8 +157,8 @@ export class Executor {
           intent.targetLevel,
           intent.bomberLevel,
         );
-      case "purchase_upgrade":
-        return new PurchaseUpgradeExecution(player, intent.upgrade);
+      case "activate_scorched_earth":
+        return new ScorchedEarthExecution(player);
       case "upgrade_structure": {
         const unit = player.units().find((u) => u.id() === intent.unitId);
         if (!unit || unit.owner() !== player) return new NoOpExecution();

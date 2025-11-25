@@ -7,6 +7,7 @@ import {
   PlayerInfo,
   PlayerType,
   UnitType,
+  UpgradeType,
 } from "../src/core/game/Game";
 import { TileRef } from "../src/core/game/GameMap";
 import { setup } from "./util/Setup";
@@ -73,6 +74,10 @@ describe("Attack", () => {
     }
 
     (game.config() as TestConfig).setDefaultNukeSpeed(50);
+
+    // Grant nuclear upgrade so players can build nukes
+    defender.addUpgrade(UpgradeType.NuclearFission);
+    attacker.addUpgrade(UpgradeType.NuclearFission);
   });
 
   test("Nuke reduce attacking troop counts", async () => {

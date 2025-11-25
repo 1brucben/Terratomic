@@ -17,6 +17,10 @@ export const RESEARCH_TECH_IDS = {
   PARATROOPERS: "Air-2B",
   SUBMARINE_WARFARE: "Sea-2",
   NUCLEAR_SUBMARINES: "Sea-3",
+  NUCLEAR_FISSION: "Nuclear-1",
+  THERMONUCLEAR_STAGING: "Nuclear-2",
+  MIRV_TECHNOLOGY: "Nuclear-3",
+  DOOMSDAY_DEVICE: "Nuclear-4",
 } as const;
 
 export interface TechMeta {
@@ -300,6 +304,78 @@ export const TECHS: Readonly<Record<string, TechDefinition>> = Object.freeze({
       onRevoke: (player) => {
         if (player.hasUpgrade?.(UpgradeType.NuclearSubmarineResearch)) {
           player.removeUpgrade?.(UpgradeType.NuclearSubmarineResearch);
+        }
+      },
+    },
+  },
+  [RESEARCH_TECH_IDS.NUCLEAR_FISSION]: {
+    meta: {
+      name: "Nuclear Fission",
+      description: "Enables: Atom Bomb",
+    },
+    effects: {
+      onComplete: (player) => {
+        if (!player.hasUpgrade?.(UpgradeType.NuclearFission)) {
+          player.addUpgrade?.(UpgradeType.NuclearFission);
+        }
+      },
+      onRevoke: (player) => {
+        if (player.hasUpgrade?.(UpgradeType.NuclearFission)) {
+          player.removeUpgrade?.(UpgradeType.NuclearFission);
+        }
+      },
+    },
+  },
+  [RESEARCH_TECH_IDS.THERMONUCLEAR_STAGING]: {
+    meta: {
+      name: "Thermonuclear Staging",
+      description: "Enables: Hydrogen Bomb",
+    },
+    effects: {
+      onComplete: (player) => {
+        if (!player.hasUpgrade?.(UpgradeType.ThermonuclearStaging)) {
+          player.addUpgrade?.(UpgradeType.ThermonuclearStaging);
+        }
+      },
+      onRevoke: (player) => {
+        if (player.hasUpgrade?.(UpgradeType.ThermonuclearStaging)) {
+          player.removeUpgrade?.(UpgradeType.ThermonuclearStaging);
+        }
+      },
+    },
+  },
+  [RESEARCH_TECH_IDS.MIRV_TECHNOLOGY]: {
+    meta: {
+      name: "MIRV Technology",
+      description: "Enables: MIRV",
+    },
+    effects: {
+      onComplete: (player) => {
+        if (!player.hasUpgrade?.(UpgradeType.MIRVTechnology)) {
+          player.addUpgrade?.(UpgradeType.MIRVTechnology);
+        }
+      },
+      onRevoke: (player) => {
+        if (player.hasUpgrade?.(UpgradeType.MIRVTechnology)) {
+          player.removeUpgrade?.(UpgradeType.MIRVTechnology);
+        }
+      },
+    },
+  },
+  [RESEARCH_TECH_IDS.DOOMSDAY_DEVICE]: {
+    meta: {
+      name: "Doomsday Device",
+      description: "Enables: Doomsday Device",
+    },
+    effects: {
+      onComplete: (player) => {
+        if (!player.hasUpgrade?.(UpgradeType.DoomsdayDeviceResearch)) {
+          player.addUpgrade?.(UpgradeType.DoomsdayDeviceResearch);
+        }
+      },
+      onRevoke: (player) => {
+        if (player.hasUpgrade?.(UpgradeType.DoomsdayDeviceResearch)) {
+          player.removeUpgrade?.(UpgradeType.DoomsdayDeviceResearch);
         }
       },
     },

@@ -898,72 +898,11 @@ export class DefaultConfig implements Config {
         assertNever(type);
     }
   }
-  upgradeInfo(type: UpgradeType): {
-    cost: (player: Player) => Gold;
-    prerequisite?: (player: Player) => boolean;
-  } {
-    const costForPlayer = (cost: bigint) => (p: Player) => {
-      if (p.type() === PlayerType.Human && this.infiniteGold()) {
-        return 0n;
-      }
-      return cost;
-    };
-
-    switch (type) {
-      case UpgradeType.Roads:
-        return { cost: costForPlayer(1_000_000n) };
-
-      // Land
-      case UpgradeType.InternationalTrade:
-        return { cost: costForPlayer(2_000_000n) };
-      case UpgradeType.UrbanPlanning:
-        return { cost: costForPlayer(1_000_000n) };
-      case UpgradeType.ScorchedEarth:
-        return { cost: costForPlayer(3_000_000n) };
-
-      // Water
-      case UpgradeType.SubmarineResearch:
-        return { cost: costForPlayer(1_000_000n) };
-      case UpgradeType.NuclearSubmarineResearch:
-        return {
-          cost: costForPlayer(3_000_000n),
-          prerequisite: (p: Player) =>
-            p.hasUpgrade(UpgradeType.SubmarineResearch),
-        };
-      case UpgradeType.WaterUpgrade1:
-        return { cost: costForPlayer(1_000_000n) };
-      case UpgradeType.WarshipAntiAir:
-        return { cost: costForPlayer(2_000_000n) };
-      case UpgradeType.WaterUpgrade2:
-        return { cost: costForPlayer(2_000_000n) };
-      case UpgradeType.WaterUpgrade3:
-        return { cost: costForPlayer(3_000_000n) };
-
-      // Air
-      case UpgradeType.AirUpgrade1:
-        return { cost: costForPlayer(1_000_000n) };
-      case UpgradeType.CityAntiAir:
-        return { cost: costForPlayer(2_000_000n) };
-      case UpgradeType.FighterJetNavalTargeting:
-        return { cost: costForPlayer(3_000_000n) };
-      case UpgradeType.AirUpgrade3:
-        return { cost: costForPlayer(3_000_000n) };
-
-      // Economy
-      case UpgradeType.EconomyUpgrade1:
-        return { cost: costForPlayer(1_000_000n) };
-      case UpgradeType.EconomyUpgrade2:
-        return { cost: costForPlayer(2_000_000n) };
-      case UpgradeType.StructureInsurance:
-        return { cost: costForPlayer(2_000_000n) };
-      case UpgradeType.Automation:
-        return { cost: costForPlayer(3_000_000n) };
-      case UpgradeType.EconomyUpgrade3:
-        return { cost: costForPlayer(3_000_000n) };
-
-      default:
-        assertNever(type);
+  scorchedEarthActivationCost(player: Player | PlayerView): Gold {
+    if (player.type() === PlayerType.Human && this.infiniteGold()) {
+      return 0n;
     }
+    return 3_000_000n;
   }
   defaultDonationAmount(sender: Player): number {
     return Math.floor(sender.troops() / 3);

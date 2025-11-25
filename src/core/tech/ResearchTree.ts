@@ -26,7 +26,8 @@ const mkId = (cat: Category, lvl: number) => `${cat}-${lvl}`;
 const baseLevels: TechNode[] = (() => {
   const nodes: TechNode[] = [];
   for (let lvl = 1; lvl <= 5; lvl++) {
-    for (const cat of ["Land", "Sea", "Air", "Nuclear", "Economy"] as const) {
+    // Nuclear techs are defined separately as explicit nodes
+    for (const cat of ["Land", "Sea", "Air", "Economy"] as const) {
       const id = mkId(cat, lvl);
       const meta = getTechMeta(id, { strict: false });
       const node: TechNode = {
@@ -43,6 +44,58 @@ const baseLevels: TechNode[] = (() => {
   }
   return nodes;
 })();
+
+// Nuclear branch techs (explicit definitions)
+const nuclearTechs: TechNode[] = [
+  {
+    id: "Nuclear-1",
+    name:
+      getTechMeta("Nuclear-1", { strict: false })?.name ?? "Nuclear Fission",
+    category: "Nuclear",
+    level: 1,
+    description:
+      getTechMeta("Nuclear-1", { strict: false })?.description ??
+      "Enables: Atom Bomb",
+    cost: costForLevel(1),
+  },
+  {
+    id: "Nuclear-2",
+    name:
+      getTechMeta("Nuclear-2", { strict: false })?.name ??
+      "Thermonuclear Staging",
+    category: "Nuclear",
+    level: 2,
+    requiresAllOf: ["Nuclear-1"],
+    description:
+      getTechMeta("Nuclear-2", { strict: false })?.description ??
+      "Enables: Hydrogen Bomb",
+    cost: costForLevel(2),
+  },
+  {
+    id: "Nuclear-3",
+    name:
+      getTechMeta("Nuclear-3", { strict: false })?.name ?? "MIRV Technology",
+    category: "Nuclear",
+    level: 3,
+    requiresAllOf: ["Nuclear-2"],
+    description:
+      getTechMeta("Nuclear-3", { strict: false })?.description ??
+      "Enables: MIRV",
+    cost: costForLevel(3),
+  },
+  {
+    id: "Nuclear-4",
+    name:
+      getTechMeta("Nuclear-4", { strict: false })?.name ?? "Doomsday Device",
+    category: "Nuclear",
+    level: 4,
+    requiresAllOf: ["Nuclear-3"],
+    description:
+      getTechMeta("Nuclear-4", { strict: false })?.description ??
+      "Enables: Doomsday Device",
+    cost: costForLevel(4),
+  },
+];
 
 // Parallel/branching techs as per current UI
 const extras: TechNode[] = [
@@ -90,10 +143,7 @@ const extras: TechNode[] = [
 
 // Compose full tree and tweak special prerequisites
 const tree: TechNode[] = (() => {
-  const t = [...baseLevels, ...extras];
-  // Nuclear-5 requires Nuclear-4 only (remove cross-category remnants)
-  const n5 = t.find((x) => x.id === "Nuclear-5");
-  if (n5) n5.requiresAllOf = ["Nuclear-4"];
+  const t = [...baseLevels, ...nuclearTechs, ...extras];
   // Sea-5 can require one of Sea-4 or Sea-4B
   const sea5 = t.find((x) => x.id === "Sea-5");
   if (sea5) {

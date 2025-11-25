@@ -13,11 +13,11 @@ import {
 import { TileRef } from "../game/GameMap";
 import { PseudoRandom } from "../PseudoRandom";
 import { GameID } from "../Schemas";
+import { RESEARCH_TECH_IDS } from "../tech/TechEffects";
 import { flattenedEmojiTable, simpleHash } from "../Util";
 import { EmojiExecution } from "./EmojiExecution";
 import { NukeExecutionHelper } from "./NukeExecutionHelper";
 import { PeaceRequestExecution } from "./PeaceRequestExecution";
-import { PurchaseUpgradeExecution } from "./PurchaseUpgradeExecution";
 import { SetResearchInvestmentExecution } from "./SetResearchInvestmentExecution";
 import { SetRoadInvestmentExecution } from "./SetRoadInvestmentExecution";
 import { SpawnExecution } from "./SpawnExecution";
@@ -193,12 +193,13 @@ export class FakeHumanExecution implements Execution {
       this.updateRelationsFromEmbargos();
       this.behavior.handleAllianceRequests();
       this.behavior.handleBombers();
+      // Grant Roads via research tech if AI has enough gold and doesn't have it
       if (
         this.player.gold() > 1_000_000 &&
         !this.player.hasUpgrade(UpgradeType.Roads)
       ) {
-        this.mg.addExecution(
-          new PurchaseUpgradeExecution(this.player, UpgradeType.Roads),
+        this.player.addResearchedTech(
+          RESEARCH_TECH_IDS.POST_WAR_RECONSTRUCTION,
         );
       }
       this.unitCreationHelper.handleUnits();

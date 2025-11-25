@@ -12,7 +12,6 @@ import {
   Quads,
   Trios,
   UnitType,
-  UpgradeType,
 } from "./game/Game";
 import { PlayerStatsSchema } from "./StatsSchemas";
 import { flattenedEmojiTable } from "./Util";
@@ -90,7 +89,7 @@ export type ResearchInvestmentIntent = z.infer<
   typeof ResearchInvestmentIntentSchema
 >;
 export type BuildUnitIntent = z.infer<typeof BuildUnitIntentSchema>;
-export type PurchaseUpgradeIntent = z.infer<typeof PurchaseUpgradeIntentSchema>;
+export type ScorchedEarthIntent = z.infer<typeof ScorchedEarthIntentSchema>;
 export type ResearchTreeSelectIntent = z.infer<
   typeof ResearchTreeSelectIntentSchema
 >;
@@ -424,9 +423,8 @@ export const BuildUnitIntentSchema = BaseIntentSchema.extend({
   bomberLevel: z.number().int().min(1).max(99).optional(),
 });
 
-export const PurchaseUpgradeIntentSchema = BaseIntentSchema.extend({
-  type: z.literal("purchase_upgrade"),
-  upgrade: z.nativeEnum(UpgradeType),
+export const ScorchedEarthIntentSchema = BaseIntentSchema.extend({
+  type: z.literal("activate_scorched_earth"),
 });
 
 export const UpgradeStructureIntentSchema = BaseIntentSchema.extend({
@@ -535,7 +533,7 @@ const IntentSchema = z.discriminatedUnion("type", [
   RoadInvestmentIntentSchema,
   ResearchInvestmentIntentSchema,
   BuildUnitIntentSchema,
-  PurchaseUpgradeIntentSchema,
+  ScorchedEarthIntentSchema,
   UpgradeStructureIntentSchema,
   UpgradeBomberIntentSchema,
   ResearchTreeSelectIntentSchema,

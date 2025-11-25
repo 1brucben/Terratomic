@@ -314,6 +314,18 @@ export class BuildMenu extends LitElement {
           if (item.unitType === UnitType.Submarine) {
             return player.hasUpgrade(UpgradeType.SubmarineResearch);
           }
+          if (item.unitType === UnitType.AtomBomb) {
+            return player.hasUpgrade(UpgradeType.NuclearFission);
+          }
+          if (item.unitType === UnitType.HydrogenBomb) {
+            return player.hasUpgrade(UpgradeType.ThermonuclearStaging);
+          }
+          if (item.unitType === UnitType.MIRV) {
+            return player.hasUpgrade(UpgradeType.MIRVTechnology);
+          }
+          if (item.unitType === UnitType.DoomsdayDevice) {
+            return player.hasUpgrade(UpgradeType.DoomsdayDeviceResearch);
+          }
           return true;
         }),
       );

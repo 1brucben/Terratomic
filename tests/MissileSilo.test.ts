@@ -6,6 +6,7 @@ import {
   PlayerInfo,
   PlayerType,
   UnitType,
+  UpgradeType,
 } from "../src/core/game/Game";
 import { TileRef } from "../src/core/game/GameMap";
 import { setup } from "./util/Setup";
@@ -49,6 +50,9 @@ describe("MissileSilo", () => {
     }
 
     attacker = game.player("attacker_id");
+
+    // Grant nuclear upgrade so player can build nukes
+    attacker.addUpgrade(UpgradeType.NuclearFission);
 
     constructionExecution(game, attacker, 1, 1, UnitType.MissileSilo);
   });

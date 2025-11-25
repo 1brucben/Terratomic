@@ -204,6 +204,12 @@ export enum UpgradeType {
   AirUpgrade3 = "AirUpgrade3",
   FighterJetNavalTargeting = "FighterJetNavalTargeting",
 
+  // Nuclear Upgrades
+  NuclearFission = "NuclearFission",
+  ThermonuclearStaging = "ThermonuclearStaging",
+  MIRVTechnology = "MIRVTechnology",
+  DoomsdayDeviceResearch = "DoomsdayDeviceResearch",
+
   // Dummy Economy Upgrades
   EconomyUpgrade1 = "EconomyUpgrade1",
   EconomyUpgrade2 = "EconomyUpgrade2",

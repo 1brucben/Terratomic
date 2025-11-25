@@ -21,8 +21,8 @@ import {
 } from "./events/InvestmentEvents";
 import { CloseViewEvent } from "./InputHandler";
 import {
-  SendPurchaseUpgradeIntentEvent,
   SendResearchTreeSelectIntentEvent,
+  SendScorchedEarthIntentEvent,
 } from "./Transport";
 import { renderNumber, translateText } from "./Utils";
 
@@ -153,9 +153,7 @@ export class ResearchTreeModal extends LitElement {
     const me = this.game.myPlayer();
     if (!me || this.game.inSpawnPhase()) return;
     if (me.hasUpgrade?.(UpgradeType.ScorchedEarth)) return;
-    this.eventBus.emit(
-      new SendPurchaseUpgradeIntentEvent(UpgradeType.ScorchedEarth),
-    );
+    this.eventBus.emit(new SendScorchedEarthIntentEvent());
   }
 
   private renderScorchedEarthAction(
@@ -168,8 +166,7 @@ export class ResearchTreeModal extends LitElement {
     }
     const config = this.game?.config?.();
     if (!config) return "";
-    const { cost } = config.upgradeInfo(UpgradeType.ScorchedEarth);
-    const activationCost = cost(me);
+    const activationCost = config.scorchedEarthActivationCost(me);
     const gold = me.gold();
     const hasUpgrade = me.hasUpgrade(UpgradeType.ScorchedEarth);
     const disabled =

@@ -8,7 +8,6 @@ import {
   PlayerType,
   Tick,
   UnitType,
-  UpgradeType,
 } from "../core/game/Game";
 import { TileRef } from "../core/game/GameMap";
 import { PlayerView } from "../core/game/GameView";
@@ -124,9 +123,7 @@ export class BuildUnitIntentEvent implements GameEvent {
   ) {}
 }
 
-export class SendPurchaseUpgradeIntentEvent implements GameEvent {
-  constructor(public readonly upgrade: UpgradeType) {}
-}
+export class SendScorchedEarthIntentEvent implements GameEvent {}
 
 export class SendResearchTreeSelectIntentEvent implements GameEvent {
   constructor(public readonly techId: string) {}
@@ -341,8 +338,8 @@ export class Transport {
       this.onSendSetAutoBombingEvent(e),
     );
 
-    this.eventBus.on(SendPurchaseUpgradeIntentEvent, (e) =>
-      this.onSendPurchaseUpgradeIntent(e),
+    this.eventBus.on(SendScorchedEarthIntentEvent, () =>
+      this.onSendScorchedEarthIntent(),
     );
     this.eventBus.on(SendUpgradeStructureIntentEvent, (e) =>
       this.onSendUpgradeStructureIntent(e),
@@ -801,11 +798,10 @@ export class Transport {
     });
   }
 
-  private onSendPurchaseUpgradeIntent(event: SendPurchaseUpgradeIntentEvent) {
+  private onSendScorchedEarthIntent() {
     this.sendIntent({
-      type: "purchase_upgrade",
+      type: "activate_scorched_earth",
       clientID: this.lobbyConfig.clientID,
-      upgrade: event.upgrade,
     });
   }
 

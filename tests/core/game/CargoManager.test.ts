@@ -1,16 +1,11 @@
-import { PurchaseUpgradeExecution } from "../../../src/core/execution/PurchaseUpgradeExecution";
-import {
-  Player,
-  PlayerType,
-  UnitType,
-  UpgradeType,
-} from "../../../src/core/game/Game";
+import { Player, PlayerType, UnitType } from "../../../src/core/game/Game";
 import { GameImpl } from "../../../src/core/game/GameImpl";
 import {
   CargoTrucksUpdate,
   GameUpdateType,
 } from "../../../src/core/game/GameUpdates";
 import { PseudoRandom } from "../../../src/core/PseudoRandom";
+import { RESEARCH_TECH_IDS } from "../../../src/core/tech/TechEffects";
 import { simpleHash } from "../../../src/core/Util";
 import { playerInfo, setup } from "../../util/Setup";
 
@@ -50,8 +45,8 @@ describe("CargoManager", () => {
       }
     }
 
-    // Buy Roads via execution so RoadManager reconnects nodes immediately
-    game.addExecution(new PurchaseUpgradeExecution(player, UpgradeType.Roads));
+    // Grant Roads via research tech so RoadManager reconnects nodes immediately
+    player.addResearchedTech(RESEARCH_TECH_IDS.POST_WAR_RECONSTRUCTION);
 
     // Let roads form
     for (let i = 0; i < 200; i++) {

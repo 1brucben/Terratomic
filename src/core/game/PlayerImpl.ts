@@ -1252,6 +1252,28 @@ export class PlayerImpl implements Player {
       }
     }
 
+    // Nuclear tech requirements
+    if (unitType === UnitType.AtomBomb) {
+      if (!this.hasUpgrade(UpgradeType.NuclearFission)) {
+        return false;
+      }
+    }
+    if (unitType === UnitType.HydrogenBomb) {
+      if (!this.hasUpgrade(UpgradeType.ThermonuclearStaging)) {
+        return false;
+      }
+    }
+    if (unitType === UnitType.MIRV) {
+      if (!this.hasUpgrade(UpgradeType.MIRVTechnology)) {
+        return false;
+      }
+    }
+    if (unitType === UnitType.DoomsdayDevice) {
+      if (!this.hasUpgrade(UpgradeType.DoomsdayDeviceResearch)) {
+        return false;
+      }
+    }
+
     // Test-specific override: Force canBuild for bombers if enabled in TestConfig
     if (
       this.mg.config().forceCanBuildBomberInTests?.() &&
