@@ -4,6 +4,7 @@ import { GameStartingModal } from "../GameStartingModal";
 import { RefreshGraphicsEvent as RedrawGraphicsEvent } from "../InputHandler";
 import { TransformHandler } from "./TransformHandler";
 import { UIState } from "./UIState";
+import { AABulletLayer } from "./layers/AABulletLayer";
 import { BuildMenu } from "./layers/BuildMenu";
 import { CargoTruckLayer } from "./layers/CargoTruckLayer";
 import { ChatDisplay } from "./layers/ChatDisplay";
@@ -253,6 +254,7 @@ export function createRenderer(
     new RangeOverlayLayer(game, eventBus, transformHandler, uiState),
     structureLayer,
     new UnitLayer(game, eventBus, transformHandler, uiState),
+    new AABulletLayer(game, transformHandler),
     new FxLayer(game, transformHandler),
     // Draw name labels in world space along with other transformed layers
     new NameLayer(game, transformHandler, eventBus),
