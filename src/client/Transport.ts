@@ -746,7 +746,6 @@ export class Transport {
     this._lastBuildUnit = event.unit;
     this._lastBuildAt = now;
 
-    // Compute desired starting level for upgradeable structures from local settings.
     // Compute desired starting level for upgradeable structures or units from local settings.
     let targetLevel: number | undefined;
     let bomberLevel: number | undefined;
@@ -758,6 +757,7 @@ export class Transport {
           const obj = JSON.parse(rawUnits) as Record<string, number>;
           const val = obj?.[key];
           if (typeof val === "number" && val > 1) {
+            // Server will clamp to player's researched max level
             targetLevel = Math.min(maxUnitLevel(event.unit), val);
           }
         }

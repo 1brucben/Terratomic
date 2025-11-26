@@ -25,13 +25,25 @@ export class BuildSettingsModal extends LitElement {
   @state() private items: BuildSettingsItem[] = [];
   @state() private levels: Record<string, number> = {};
 
-  /** Populate and open the modal. Loads persisted levels; defaults to 1 */
+  // Optional function to get player-specific max level (falls back to global max)
+  private _maxLevelFn: ((type: UnitType) => number) | null = null;
+
+  /** Populate and open the modal. Loads persisted levels; defaults to 1
+   * @param structureTypes - Array of structure types to show
+   * @param unitIconMap - Map of unit type string to icon URL
+   * @param maxLevelFn - Optional function to get player-specific max level
+   * @param isAvailableFn - Optional function to check if structure is available to player
+   */
   public open(
     structureTypes: UnitType[] = [],
     unitIconMap: Record<string, string | undefined> = {},
+    maxLevelFn?: (type: UnitType) => number,
+    isAvailableFn?: (type: UnitType) => boolean,
   ) {
-    const upgradeables = structureTypes.filter((t) =>
-      isUpgradeableStructure(t),
+    this._maxLevelFn = maxLevelFn ?? null;
+    // Filter to upgradeable structures that are available to the player
+    const upgradeables = structureTypes.filter(
+      (t) => isUpgradeableStructure(t) && (!isAvailableFn || isAvailableFn(t)),
     );
     this.items = upgradeables.map((t) => {
       const id = String(t);
@@ -72,11 +84,12 @@ export class BuildSettingsModal extends LitElement {
     }
   }
 
-  // Apply structure-specific level caps via shared rule
+  // Apply structure-specific level caps via shared rule or player-specific function
   private _applyCap(id: string, desired: number): number {
     const t = tryParseUnitType(id);
     if (!t) return Math.max(1, desired);
-    return Math.min(maxStructureLevel(t), Math.max(1, desired));
+    const cap = this._maxLevelFn ? this._maxLevelFn(t) : maxStructureLevel(t);
+    return Math.min(cap, Math.max(1, desired));
   }
 
   private _inc(id: string) {

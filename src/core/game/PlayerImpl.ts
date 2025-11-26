@@ -1279,6 +1279,24 @@ export class PlayerImpl implements Player {
       }
     }
 
+    // Submarine tech requirement
+    if (unitType === UnitType.Submarine) {
+      if (!this.hasUpgrade(UpgradeType.SubmarineResearch)) {
+        return false;
+      }
+    }
+
+    // Air tech requirements (Jet Engines)
+    if (
+      unitType === UnitType.Airfield ||
+      unitType === UnitType.FighterJet ||
+      unitType === UnitType.Bomber
+    ) {
+      if (!this.hasUpgrade(UpgradeType.JetEngines)) {
+        return false;
+      }
+    }
+
     // Test-specific override: Force canBuild for bombers if enabled in TestConfig
     if (
       this.mg.config().forceCanBuildBomberInTests?.() &&

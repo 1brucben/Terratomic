@@ -4,17 +4,34 @@ import { Game, Player, UpgradeType } from "../game/Game";
 // Central tech IDs for research tree items that have gameplay effects.
 // Keep IDs aligned with ResearchTreeModal generation (e.g., "Land-1").
 export const RESEARCH_TECH_IDS = {
-  FIGHTER_JET_NAVAL_TARGETING: "Air-1",
+  // Air techs - Level 1
+  JET_ENGINES: "Air-0",
+  ANTI_AIR_GUNS: "Air-1",
+  // Air techs - Level 2
+  SUPERSONIC_FLIGHT: "Air-2A",
+  TURBOJET_BOMBERS: "Air-2B",
+  AIRBORNE_OPERATIONS: "Air-2C",
+  SURFACE_TO_AIR_MISSILES: "Air-2D",
+  // Air techs - Level 3
+  PULSE_DOPPLER_RADAR: "Air-3A",
+  NAVAL_STRIKE_TARGETING: "Air-3B",
+  SUPERSONIC_BOMBERS: "Air-3C",
+  RADAR_GUIDED_SAMS: "Air-3D",
+  // Air techs - Level 4
+  FLY_BY_WIRE_SYSTEMS: "Air-4A",
+  PRECISION_GUIDED_MUNITIONS: "Air-4B",
+  STRATEGIC_SAM_SYSTEMS: "Air-4C",
+  // Sea techs
   WARSHIP_ANTI_AIR: "Sea-1",
+  // Land techs
   WWII_LESSONS: "Land-1",
   URBAN_PLANNING: "Land-2",
-  CITY_ANTI_AIR: "Air-2",
   SCORCHED_EARTH: "Land-2B",
+  // Economy techs
   POST_WAR_RECONSTRUCTION: "Economy-1",
   INTERNATIONAL_TRADE: "Economy-2",
   STRUCTURE_INSURANCE: "Economy-3",
   AUTOMATION: "Economy-4",
-  PARATROOPERS: "Air-2B",
   SUBMARINE_WARFARE: "Sea-2",
   NUCLEAR_SUBMARINES: "Sea-3",
   NUCLEAR_FISSION: "Nuclear-1",
@@ -158,9 +175,9 @@ export const TECHS: Readonly<Record<string, TechDefinition>> = Object.freeze({
       },
     },
   },
-  [RESEARCH_TECH_IDS.CITY_ANTI_AIR]: {
+  [RESEARCH_TECH_IDS.ANTI_AIR_GUNS]: {
     meta: {
-      name: "City Anti-Air",
+      name: "Anti-Air Guns",
       description:
         "Allows cities to defend themselves against aerial threats with rapid-fire AA guns. Does not defend against MIRVs.",
     },
@@ -234,42 +251,184 @@ export const TECHS: Readonly<Record<string, TechDefinition>> = Object.freeze({
       },
     },
   },
-  [RESEARCH_TECH_IDS.FIGHTER_JET_NAVAL_TARGETING]: {
+  [RESEARCH_TECH_IDS.JET_ENGINES]: {
     meta: {
-      name: "Fighter Anti-Ship",
+      name: "Jet Engines",
+      description: "Enables: Fighters, Bombers, Airfields",
+    },
+    effects: {
+      onComplete: (player) => {
+        if (!player.hasUpgrade?.(UpgradeType.JetEngines)) {
+          player.addUpgrade?.(UpgradeType.JetEngines);
+        }
+      },
+      onRevoke: (player) => {
+        if (player.hasUpgrade?.(UpgradeType.JetEngines)) {
+          player.removeUpgrade?.(UpgradeType.JetEngines);
+        }
+      },
+    },
+  },
+  [RESEARCH_TECH_IDS.SUPERSONIC_FLIGHT]: {
+    meta: {
+      name: "Supersonic Flight",
       description:
-        "Equips Fighter Jets with advanced targeting systems to engage and destroy enemy naval units (Warships, Transport Ships, Trade Ships).",
+        "Enables Level 2 Fighters. Equips Fighter Jets with advanced targeting systems to engage and destroy enemy naval units.",
     },
     effects: {
       onComplete: (player) => {
         if (!player.hasUpgrade?.(UpgradeType.FighterJetNavalTargeting)) {
           player.addUpgrade?.(UpgradeType.FighterJetNavalTargeting);
         }
+        if (!player.hasUpgrade?.(UpgradeType.FighterLevel2)) {
+          player.addUpgrade?.(UpgradeType.FighterLevel2);
+        }
       },
       onRevoke: (player) => {
         if (player.hasUpgrade?.(UpgradeType.FighterJetNavalTargeting)) {
           player.removeUpgrade?.(UpgradeType.FighterJetNavalTargeting);
         }
+        if (player.hasUpgrade?.(UpgradeType.FighterLevel2)) {
+          player.removeUpgrade?.(UpgradeType.FighterLevel2);
+        }
       },
     },
   },
-  [RESEARCH_TECH_IDS.PARATROOPERS]: {
+  [RESEARCH_TECH_IDS.TURBOJET_BOMBERS]: {
     meta: {
-      name: "Paratroopers",
+      name: "Turbojet Bombers",
+      description:
+        "Advanced bomber technology improving bomber effectiveness and capabilities.",
+    },
+    effects: {
+      onComplete: (player) => {
+        if (!player.hasUpgrade?.(UpgradeType.AirUpgrade3)) {
+          player.addUpgrade?.(UpgradeType.AirUpgrade3);
+        }
+      },
+      onRevoke: (player) => {
+        if (player.hasUpgrade?.(UpgradeType.AirUpgrade3)) {
+          player.removeUpgrade?.(UpgradeType.AirUpgrade3);
+        }
+      },
+    },
+  },
+  [RESEARCH_TECH_IDS.AIRBORNE_OPERATIONS]: {
+    meta: {
+      name: "Airborne Operations",
       description:
         "Unlocks Paratroopers, allowing you to launch surprise attacks from the sky. Requires an Airfield.",
     },
     effects: {
       onComplete: (player) => {
-        if (!player.hasUpgrade(UpgradeType.AirUpgrade1)) {
-          player.addUpgrade(UpgradeType.AirUpgrade1);
+        if (!player.hasUpgrade?.(UpgradeType.AirUpgrade1)) {
+          player.addUpgrade?.(UpgradeType.AirUpgrade1);
         }
       },
       onRevoke: (player) => {
-        if (player.hasUpgrade(UpgradeType.AirUpgrade1)) {
-          player.removeUpgrade(UpgradeType.AirUpgrade1);
+        if (player.hasUpgrade?.(UpgradeType.AirUpgrade1)) {
+          player.removeUpgrade?.(UpgradeType.AirUpgrade1);
         }
       },
+    },
+  },
+  [RESEARCH_TECH_IDS.SURFACE_TO_AIR_MISSILES]: {
+    meta: {
+      name: "Surface-to-Air Missiles",
+      description:
+        "Advanced SAM technology for enhanced air defense capabilities.",
+    },
+    effects: {
+      // Placeholder - add specific upgrade when needed
+    },
+  },
+  // Air techs - Level 3
+  [RESEARCH_TECH_IDS.PULSE_DOPPLER_RADAR]: {
+    meta: {
+      name: "Pulse-Doppler Radar",
+      description:
+        "Enables Level 3 Fighters. Advanced radar technology for improved aircraft detection and tracking.",
+    },
+    effects: {
+      onComplete: (player) => {
+        if (!player.hasUpgrade?.(UpgradeType.FighterLevel3)) {
+          player.addUpgrade?.(UpgradeType.FighterLevel3);
+        }
+      },
+      onRevoke: (player) => {
+        if (player.hasUpgrade?.(UpgradeType.FighterLevel3)) {
+          player.removeUpgrade?.(UpgradeType.FighterLevel3);
+        }
+      },
+    },
+  },
+  [RESEARCH_TECH_IDS.NAVAL_STRIKE_TARGETING]: {
+    meta: {
+      name: "Naval Strike Targeting",
+      description: "Precision targeting systems for anti-ship operations.",
+    },
+    effects: {
+      // Placeholder - add specific upgrade when needed
+    },
+  },
+  [RESEARCH_TECH_IDS.SUPERSONIC_BOMBERS]: {
+    meta: {
+      name: "Supersonic Bombers",
+      description:
+        "High-speed bomber aircraft capable of evading enemy defenses.",
+    },
+    effects: {
+      // Placeholder - add specific upgrade when needed
+    },
+  },
+  [RESEARCH_TECH_IDS.RADAR_GUIDED_SAMS]: {
+    meta: {
+      name: "Radar-Guided SAMs",
+      description:
+        "Advanced radar-guided surface-to-air missiles with improved accuracy.",
+    },
+    effects: {
+      // Placeholder - add specific upgrade when needed
+    },
+  },
+  // Air techs - Level 4
+  [RESEARCH_TECH_IDS.FLY_BY_WIRE_SYSTEMS]: {
+    meta: {
+      name: "Fly-By-Wire Systems",
+      description:
+        "Enables Level 4 Fighters. Digital flight control systems for enhanced aircraft maneuverability and stability.",
+    },
+    effects: {
+      onComplete: (player) => {
+        if (!player.hasUpgrade?.(UpgradeType.FighterLevel4)) {
+          player.addUpgrade?.(UpgradeType.FighterLevel4);
+        }
+      },
+      onRevoke: (player) => {
+        if (player.hasUpgrade?.(UpgradeType.FighterLevel4)) {
+          player.removeUpgrade?.(UpgradeType.FighterLevel4);
+        }
+      },
+    },
+  },
+  [RESEARCH_TECH_IDS.PRECISION_GUIDED_MUNITIONS]: {
+    meta: {
+      name: "Precision-Guided Munitions",
+      description:
+        "Smart bombs and missiles with pinpoint accuracy for strategic targets.",
+    },
+    effects: {
+      // Placeholder - add specific upgrade when needed
+    },
+  },
+  [RESEARCH_TECH_IDS.STRATEGIC_SAM_SYSTEMS]: {
+    meta: {
+      name: "Strategic SAM Systems",
+      description:
+        "Long-range surface-to-air missile systems for area denial and strategic defense.",
+    },
+    effects: {
+      // Placeholder - add specific upgrade when needed
     },
   },
   [RESEARCH_TECH_IDS.SUBMARINE_WARFARE]: {

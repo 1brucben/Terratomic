@@ -26,8 +26,8 @@ const mkId = (cat: Category, lvl: number) => `${cat}-${lvl}`;
 const baseLevels: TechNode[] = (() => {
   const nodes: TechNode[] = [];
   for (let lvl = 1; lvl <= 5; lvl++) {
-    // Nuclear techs are defined separately as explicit nodes
-    for (const cat of ["Land", "Sea", "Air", "Economy"] as const) {
+    // Nuclear and Air techs are defined separately as explicit nodes
+    for (const cat of ["Land", "Sea", "Economy"] as const) {
       const id = mkId(cat, lvl);
       const meta = getTechMeta(id, { strict: false });
       const node: TechNode = {
@@ -99,6 +99,163 @@ const nuclearTechs: TechNode[] = [
 
 // Parallel/branching techs as per current UI
 const extras: TechNode[] = [
+  // Air tech tree - Level 1 (two parallel starting techs)
+  {
+    id: "Air-0",
+    name: getTechMeta("Air-0", { strict: false })?.name ?? "Jet Engines",
+    category: "Air",
+    level: 1,
+    description:
+      getTechMeta("Air-0", { strict: false })?.description ??
+      "Enables: Fighters, Bombers, Airfields",
+    cost: costForLevel(1),
+  },
+  {
+    id: "Air-1",
+    name: getTechMeta("Air-1", { strict: false })?.name ?? "Anti-Air Guns",
+    category: "Air",
+    level: 1,
+    description:
+      getTechMeta("Air-1", { strict: false })?.description ??
+      "Allows cities to defend themselves against aerial threats.",
+    cost: costForLevel(1),
+  },
+  // Air tech tree - Level 2 (four techs)
+  {
+    id: "Air-2A",
+    name: getTechMeta("Air-2A", { strict: false })?.name ?? "Supersonic Flight",
+    category: "Air",
+    level: 2,
+    requiresAllOf: ["Air-0"],
+    description:
+      getTechMeta("Air-2A", { strict: false })?.description ??
+      "Equips Fighter Jets with advanced targeting systems to engage enemy naval units.",
+    cost: costForLevel(2),
+  },
+  {
+    id: "Air-2B",
+    name: getTechMeta("Air-2B", { strict: false })?.name ?? "Turbojet Bombers",
+    category: "Air",
+    level: 2,
+    requiresAllOf: ["Air-0"],
+    description:
+      getTechMeta("Air-2B", { strict: false })?.description ??
+      "Advanced bomber technology improving bomber effectiveness and capabilities.",
+    cost: costForLevel(2),
+  },
+  {
+    id: "Air-2C",
+    name:
+      getTechMeta("Air-2C", { strict: false })?.name ?? "Airborne Operations",
+    category: "Air",
+    level: 2,
+    requiresAllOf: ["Air-0"],
+    description:
+      getTechMeta("Air-2C", { strict: false })?.description ??
+      "Unlocks Paratroopers, allowing you to launch surprise attacks from the sky.",
+    cost: costForLevel(2),
+  },
+  {
+    id: "Air-2D",
+    name:
+      getTechMeta("Air-2D", { strict: false })?.name ??
+      "Surface-to-Air Missiles",
+    category: "Air",
+    level: 2,
+    requiresAllOf: ["Air-1"],
+    description:
+      getTechMeta("Air-2D", { strict: false })?.description ??
+      "Advanced SAM technology for enhanced air defense capabilities.",
+    cost: costForLevel(2),
+  },
+  // Air tech tree - Level 3 (four techs)
+  {
+    id: "Air-3A",
+    name:
+      getTechMeta("Air-3A", { strict: false })?.name ?? "Pulse-Doppler Radar",
+    category: "Air",
+    level: 3,
+    requiresAllOf: ["Air-2A"],
+    description:
+      getTechMeta("Air-3A", { strict: false })?.description ??
+      "Advanced radar technology for improved aircraft detection and tracking.",
+    cost: costForLevel(3),
+  },
+  {
+    id: "Air-3B",
+    name:
+      getTechMeta("Air-3B", { strict: false })?.name ??
+      "Naval Strike Targeting",
+    category: "Air",
+    level: 3,
+    requiresAllOf: ["Air-2A"],
+    description:
+      getTechMeta("Air-3B", { strict: false })?.description ??
+      "Precision targeting systems for anti-ship operations.",
+    cost: costForLevel(3),
+  },
+  {
+    id: "Air-3C",
+    name:
+      getTechMeta("Air-3C", { strict: false })?.name ?? "Supersonic Bombers",
+    category: "Air",
+    level: 3,
+    requiresAllOf: ["Air-2B"],
+    description:
+      getTechMeta("Air-3C", { strict: false })?.description ??
+      "High-speed bomber aircraft capable of evading enemy defenses.",
+    cost: costForLevel(3),
+  },
+  {
+    id: "Air-3D",
+    name: getTechMeta("Air-3D", { strict: false })?.name ?? "Radar-Guided SAMs",
+    category: "Air",
+    level: 3,
+    requiresAllOf: ["Air-2D"],
+    description:
+      getTechMeta("Air-3D", { strict: false })?.description ??
+      "Advanced radar-guided surface-to-air missiles with improved accuracy.",
+    cost: costForLevel(3),
+  },
+  // Air tech tree - Level 4 (three techs)
+  {
+    id: "Air-4A",
+    name:
+      getTechMeta("Air-4A", { strict: false })?.name ?? "Fly-By-Wire Systems",
+    category: "Air",
+    level: 4,
+    requiresAllOf: ["Air-3A"],
+    description:
+      getTechMeta("Air-4A", { strict: false })?.description ??
+      "Digital flight control systems for enhanced aircraft maneuverability and stability.",
+    cost: costForLevel(4),
+  },
+  {
+    id: "Air-4B",
+    name:
+      getTechMeta("Air-4B", { strict: false })?.name ??
+      "Precision-Guided Munitions",
+    category: "Air",
+    level: 4,
+    requiresAllOf: ["Air-3C"],
+    description:
+      getTechMeta("Air-4B", { strict: false })?.description ??
+      "Smart bombs and missiles with pinpoint accuracy for strategic targets.",
+    cost: costForLevel(4),
+  },
+  {
+    id: "Air-4C",
+    name:
+      getTechMeta("Air-4C", { strict: false })?.name ?? "Strategic SAM Systems",
+    category: "Air",
+    level: 4,
+    requiresAllOf: ["Air-3D"],
+    description:
+      getTechMeta("Air-4C", { strict: false })?.description ??
+      "Long-range surface-to-air missile systems for area denial and strategic defense.",
+    cost: costForLevel(4),
+  },
+  // Land branch tech
   {
     id: "Land-2B",
     name: getTechMeta("Land-2B", { strict: false })?.name ?? "Scorched Earth",
@@ -108,16 +265,6 @@ const extras: TechNode[] = [
     description:
       getTechMeta("Land-2B", { strict: false })?.description ??
       "Unlocks the Scorched Earth decision, letting you raze roads and reset economic techs.",
-    cost: costForLevel(2),
-  },
-  {
-    id: "Air-2B",
-    name: "Paratroopers",
-    category: "Air",
-    level: 2,
-    requiresAllOf: ["Air-1"],
-    description:
-      "Unlocks Paratroopers, allowing you to launch surprise attacks from the sky. Requires an Airfield.",
     cost: costForLevel(2),
   },
   {
@@ -149,11 +296,6 @@ const tree: TechNode[] = (() => {
   if (sea5) {
     sea5.requiresAllOf = undefined;
     sea5.requiresOneOf = ["Sea-4", "Sea-4B"];
-  }
-  const air3 = t.find((x) => x.id === "Air-3");
-  if (air3) {
-    air3.requiresAllOf = undefined;
-    air3.requiresOneOf = ["Air-2", "Air-2B"];
   }
   return t;
 })();

@@ -31,6 +31,7 @@ import {
   isUpgradeableUnit,
   maxStructureLevel,
   maxUnitLevel,
+  playerMaxUnitLevel,
 } from "../../../core/game/Upgradeables";
 import { ToggleBomberUpgradeModeEvent } from "../../events/ToggleBomberUpgradeModeEvent";
 import { ToggleUpgradeModeEvent } from "../../events/ToggleUpgradeModeEvent";
@@ -319,6 +320,13 @@ export class BuildMenu extends LitElement {
         row.filter((item) => {
           if (item.unitType === UnitType.Submarine) {
             return player.hasUpgrade(UpgradeType.SubmarineResearch);
+          }
+          if (
+            item.unitType === UnitType.Airfield ||
+            item.unitType === UnitType.FighterJet ||
+            item.unitType === UnitType.Bomber
+          ) {
+            return player.hasUpgrade(UpgradeType.JetEngines);
           }
           if (item.unitType === UnitType.AtomBomb) {
             return player.hasUpgrade(UpgradeType.NuclearFission);
@@ -625,7 +633,12 @@ export class BuildMenu extends LitElement {
       const key = String(type);
       const val = obj?.[key];
       if (typeof val !== "number" || val < 1) return 1;
-      return Math.min(maxUnitLevel(type), val);
+      // Use player-specific max level based on researched techs
+      const player = this.game?.myPlayer();
+      const cap = player
+        ? playerMaxUnitLevel(player, type)
+        : maxUnitLevel(type);
+      return Math.min(cap, val);
     } catch (_) {
       return 1;
     }

@@ -11,6 +11,10 @@ import {
   UpgradeType,
 } from "../../../core/game/Game";
 import { GameView, PlayerView, UnitView } from "../../../core/game/GameView";
+import {
+  isUnitAvailable,
+  playerMaxUnitLevel,
+} from "../../../core/game/Upgradeables";
 import { getTechMeta, RESEARCH_TECH_IDS } from "../../../core/tech/TechEffects";
 import { translateText } from "../../Utils";
 // Ensure modal custom elements register at runtime
@@ -972,19 +976,36 @@ export class ControlPanel2 extends LitElement implements Layer {
       return;
     }
     const openFn = modal.open;
+    // Get player-specific availability filter
+    const player = this.game?.myPlayer();
+    const isAvailableFn = player
+      ? (type: UnitType) => isUnitAvailable(player, type)
+      : undefined;
     if (typeof openFn !== "function") {
       // Fallback if element existed before registration; re-import then retry
       import("../../BuildSettingsModal").then(() => {
         const retryOpen = modal.open;
         if (typeof retryOpen === "function") {
-          retryOpen.call(modal, this.StructureTypes, this.unitIconMap);
+          retryOpen.call(
+            modal,
+            this.StructureTypes,
+            this.unitIconMap,
+            undefined,
+            isAvailableFn,
+          );
         } else {
           console.warn("BuildSettingsModal still missing open() after import");
         }
       });
       return;
     }
-    openFn.call(modal, this.StructureTypes, this.unitIconMap);
+    openFn.call(
+      modal,
+      this.StructureTypes,
+      this.unitIconMap,
+      undefined,
+      isAvailableFn,
+    );
   }
 
   private _ensureBuildSettingsModal(): HTMLElement | null {
@@ -1019,7 +1040,15 @@ export class ControlPanel2 extends LitElement implements Layer {
       console.warn("UnitUpgradeSettingsModal missing open() method");
       return;
     }
-    openFn.call(modal, unitTypes, {});
+    // Pass player-specific max level function and availability check based on researched techs
+    const player = this.game?.myPlayer();
+    const maxLevelFn = player
+      ? (type: UnitType) => playerMaxUnitLevel(player, type)
+      : undefined;
+    const isAvailableFn = player
+      ? (type: UnitType) => isUnitAvailable(player, type)
+      : undefined;
+    openFn.call(modal, unitTypes, {}, maxLevelFn, isAvailableFn);
   }
 
   private _ensureUnitUpgradeSettingsModal(): HTMLElement | null {

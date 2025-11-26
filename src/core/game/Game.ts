@@ -199,10 +199,15 @@ export enum UpgradeType {
   WaterUpgrade3 = "WaterUpgrade3",
 
   // Air Upgrades
+  JetEngines = "JetEngines",
   AirUpgrade1 = "AirUpgrade1",
   CityAntiAir = "CityAntiAir",
   AirUpgrade3 = "AirUpgrade3",
   FighterJetNavalTargeting = "FighterJetNavalTargeting",
+  // Fighter level upgrades (Jet Engines gives level 1 by default)
+  FighterLevel2 = "FighterLevel2",
+  FighterLevel3 = "FighterLevel3",
+  FighterLevel4 = "FighterLevel4",
 
   // Nuclear Upgrades
   NuclearFission = "NuclearFission",
