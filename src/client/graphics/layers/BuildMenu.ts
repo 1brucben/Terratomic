@@ -188,13 +188,13 @@ export class BuildMenu extends LitElement {
   unitFilter: UnitType[] | null = null;
 
   @state()
-  private filteredBuildTable: BuildItemDisplay[][] = buildTable;
+  private filteredBuildTable: BuildItemDisplay[][] = [];
 
   @state()
   private hotkeyMap: Map<UnitType, string> = new Map();
 
   @state()
-  private _lastUpgradeCount: number = 0;
+  private _lastUpgradeCount: number = -1;
 
   // Per-unit icon scale for build menu thumbnails
   private static readonly ICON_SCALE: Partial<Record<UnitType, number>> = {
