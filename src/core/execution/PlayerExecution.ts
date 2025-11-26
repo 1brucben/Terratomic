@@ -9,6 +9,7 @@ import {
 } from "../game/Game";
 import { PseudoRandom } from "../PseudoRandom";
 import { getTechNodes, isTechAvailable } from "../tech/ResearchTree";
+import { researchEffectivenessModifiers } from "../tech/TechEffects";
 import { simpleHash } from "../Util";
 
 export class PlayerExecution implements Execution {
@@ -166,6 +167,10 @@ export class PlayerExecution implements Execution {
       const multiplier = 1 + boostSum; // caps at 1.8 as labs -> infinity
       xTotal *= multiplier;
     }
+
+    // Apply tech-based research effectiveness multiplier
+    const researchMods = researchEffectivenessModifiers(this.player);
+    xTotal *= researchMods.effectivenessMul;
 
     // Build researched set and available techs
     const nodes = getTechNodes();

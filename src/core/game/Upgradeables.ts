@@ -142,7 +142,7 @@ export function tryParseUnitType(value: string): UnitType | null {
   return null;
 }
 
-// Check if a unit type is available to the player based on researched techs.
+// Check if a unit/structure type is available to the player based on researched techs.
 // Returns true if the player has the required upgrade to build/use this unit type.
 export function isUnitAvailable(player: HasUpgrade, type: UnitType): boolean {
   switch (type) {
@@ -163,24 +163,14 @@ export function isUnitAvailable(player: HasUpgrade, type: UnitType): boolean {
       return player.hasUpgrade(UpgradeType.MIRVTechnology);
     case UnitType.DoomsdayDevice:
       return player.hasUpgrade(UpgradeType.DoomsdayDeviceResearch);
-    default:
-      return true;
-  }
-}
-
-// Check if a structure type is available to the player based on researched techs.
-// Returns true if the player has the required upgrade to build this structure type.
-export function isStructureAvailable(
-  player: HasUpgrade,
-  type: UnitType,
-): boolean {
-  switch (type) {
     case UnitType.SAMLauncher:
       return player.hasUpgrade(UpgradeType.SAMLevel1);
-    case UnitType.MissileSilo:
-      return player.hasUpgrade(UpgradeType.NuclearFission);
-    case UnitType.Airfield:
-      return player.hasUpgrade(UpgradeType.JetEngines);
+    case UnitType.Academy:
+      return player.hasUpgrade(UpgradeType.MilitaryAcademy);
+    case UnitType.Hospital:
+      return player.hasUpgrade(UpgradeType.HospitalResearch);
+    case UnitType.ResearchLab:
+      return player.hasUpgrade(UpgradeType.ResearchLabResearch);
     default:
       return true;
   }

@@ -34,6 +34,7 @@ import {
   attackCasualtyModifiers,
   attackSpeedModifiers,
   defenseCasualtyModifiers,
+  incomeModifiers,
 } from "../tech/TechEffects";
 import { assertNever, simpleHash, within } from "../Util";
 import { Config, GameEnv, NukeMagnitude, ServerConfig, Theme } from "./Config";
@@ -1235,7 +1236,10 @@ export class DefaultConfig implements Config {
     const k = player.effectiveUnits(UnitType.Factory);
     const factoryFactor = Math.pow(1 + k, 0.35);
     const multiplier = this._gameConfig.goldMultiplier ?? 1;
-    const grossGold = base * productivity * factoryFactor * multiplier;
+    // Apply tech-based income multiplier
+    const incomeMods = incomeModifiers(player);
+    const grossGold =
+      base * productivity * factoryFactor * multiplier * incomeMods.incomeMul;
     return Number.isFinite(grossGold) && grossGold >= 0 ? grossGold : 0;
   }
 

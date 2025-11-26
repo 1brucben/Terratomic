@@ -96,6 +96,16 @@ export interface ConstructionSpeedModifiers {
   speedMul: number;
 }
 
+export interface ResearchEffectivenessModifiers {
+  // Multiplier to apply to research effectiveness (higher = faster research)
+  effectivenessMul: number;
+}
+
+export interface IncomeModifiers {
+  // Multiplier to apply to gross gold income
+  incomeMul: number;
+}
+
 // Central registry shape for tech effects: on-complete side-effects and battle modifiers
 export type TechEffect = {
   // Runs once when the tech is completed
@@ -110,6 +120,10 @@ export type TechEffect = {
   attackSpeed?: (mods: AttackSpeedModifiers) => void;
   // Applied to modify construction speed
   constructionSpeed?: (mods: ConstructionSpeedModifiers) => void;
+  // Applied to modify research effectiveness
+  researchEffectiveness?: (mods: ResearchEffectivenessModifiers) => void;
+  // Applied to modify gross gold income
+  income?: (mods: IncomeModifiers) => void;
 };
 
 export type TechDefinition = {
@@ -428,26 +442,48 @@ export const TECHS: Readonly<Record<string, TechDefinition>> = Object.freeze({
     meta: {
       name: "Scientific Research Network",
       description:
-        "Establish national research networks for scientific advancement.",
+        "Establish national research networks for scientific advancement. Effects: Unlocks Research Lab structures.",
+    },
+    effects: {
+      onComplete: (player) => {
+        player.addUpgrade?.(UpgradeType.ResearchLabResearch);
+      },
+      onRevoke: (player) => {
+        player.removeUpgrade?.(UpgradeType.ResearchLabResearch);
+      },
     },
   },
   [RESEARCH_TECH_IDS.ADVANCED_MACHINE_TOOLS_AUTOMATION]: {
     meta: {
       name: "Advanced Machine Tools & Automation",
-      description: "Develop advanced manufacturing and automation systems.",
+      description:
+        "Develop advanced manufacturing and automation systems. Effects: Construction speed +10%.",
+    },
+    effects: {
+      constructionSpeed: (mods) => {
+        mods.speedMul *= 1.1; // 10% faster construction
+      },
+      // TODO: Infrastructure spending effectiveness +30%
     },
   },
   [RESEARCH_TECH_IDS.ENERGY_INFRASTRUCTURE_EXPANSION]: {
     meta: {
       name: "Energy Infrastructure Expansion",
-      description: "Expand power generation and distribution networks.",
+      description:
+        "Expand power generation and distribution networks. Effects: Income +10%.",
+    },
+    effects: {
+      income: (mods) => {
+        mods.incomeMul *= 1.1; // 10% more income
+      },
+      // TODO: Maintenance cost reduction +5%
     },
   },
   [RESEARCH_TECH_IDS.NATIONAL_HEALTH_SYSTEM]: {
     meta: {
       name: "National Health System",
       description:
-        "Establish a comprehensive national health system. Enables Hospital construction.",
+        "Establish a comprehensive national health system. Effects: Enables Hospital construction. Income +5%.",
     },
     effects: {
       onComplete: (player) => {
@@ -459,6 +495,9 @@ export const TECHS: Readonly<Record<string, TechDefinition>> = Object.freeze({
         if (player.hasUpgrade?.(UpgradeType.HospitalResearch)) {
           player.removeUpgrade?.(UpgradeType.HospitalResearch);
         }
+      },
+      income: (mods) => {
+        mods.incomeMul *= 1.05; // 5% more income
       },
     },
   },
@@ -1080,6 +1119,42 @@ export function constructionSpeedModifiers(
   for (const [techId, def] of Object.entries(TECHS)) {
     if (player.hasResearchedTech?.(techId)) {
       def.effects?.constructionSpeed?.(mods);
+    }
+  }
+  return mods;
+}
+
+/**
+ * Compute research effectiveness multiplier based on researched techs.
+ * effectivenessMul > 1 means research progresses faster.
+ */
+export function researchEffectivenessModifiers(
+  player: Player,
+): ResearchEffectivenessModifiers {
+  const mods: ResearchEffectivenessModifiers = {
+    effectivenessMul: 1.0,
+  };
+  for (const [techId, def] of Object.entries(TECHS)) {
+    if (player.hasResearchedTech?.(techId)) {
+      def.effects?.researchEffectiveness?.(mods);
+    }
+  }
+  return mods;
+}
+
+/**
+ * Compute income multiplier based on researched techs.
+ * incomeMul > 1 means higher gross gold income.
+ */
+export function incomeModifiers(player: {
+  hasResearchedTech?(techId: string): boolean;
+}): IncomeModifiers {
+  const mods: IncomeModifiers = {
+    incomeMul: 1.0,
+  };
+  for (const [techId, def] of Object.entries(TECHS)) {
+    if (player.hasResearchedTech?.(techId)) {
+      def.effects?.income?.(mods);
     }
   }
   return mods;

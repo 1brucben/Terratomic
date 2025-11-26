@@ -11,7 +11,6 @@ import type {
   UnitView,
 } from "../../../core/game/GameView";
 import {
-  isStructureAvailable,
   isUnitAvailable,
   playerMaxStructureLevel,
   playerMaxUnitLevel,
@@ -983,7 +982,7 @@ export class ControlPanel2 extends LitElement implements Layer {
       ? (type: UnitType) => playerMaxStructureLevel(player, type)
       : undefined;
     const isAvailableFn = player
-      ? (type: UnitType) => isStructureAvailable(player, type)
+      ? (type: UnitType) => isUnitAvailable(player, type)
       : undefined;
     if (typeof openFn !== "function") {
       // Fallback if element existed before registration; re-import then retry

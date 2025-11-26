@@ -27,6 +27,7 @@ import {
 import { Gold, UnitType, UpgradeType } from "../../../core/game/Game";
 import { GameView } from "../../../core/game/GameView";
 import {
+  isUnitAvailable,
   isUpgradeableStructure,
   isUpgradeableUnit,
   maxUnitLevel,
@@ -317,43 +318,7 @@ export class BuildMenu extends LitElement {
     if (this.game?.myPlayer()) {
       const player = this.game.myPlayer()!;
       this.filteredBuildTable = current.map((row) =>
-        row.filter((item) => {
-          if (item.unitType === UnitType.Warship) {
-            return player.hasUpgrade(UpgradeType.WarshipLevel1);
-          }
-          if (item.unitType === UnitType.Submarine) {
-            return player.hasUpgrade(UpgradeType.SubmarineLevel1);
-          }
-          if (
-            item.unitType === UnitType.Airfield ||
-            item.unitType === UnitType.FighterJet ||
-            item.unitType === UnitType.Bomber
-          ) {
-            return player.hasUpgrade(UpgradeType.JetEngines);
-          }
-          if (item.unitType === UnitType.SAMLauncher) {
-            return player.hasUpgrade(UpgradeType.SAMLevel1);
-          }
-          if (item.unitType === UnitType.Academy) {
-            return player.hasUpgrade(UpgradeType.MilitaryAcademy);
-          }
-          if (item.unitType === UnitType.AtomBomb) {
-            return player.hasUpgrade(UpgradeType.NuclearFission);
-          }
-          if (item.unitType === UnitType.MissileSilo) {
-            return player.hasUpgrade(UpgradeType.NuclearFission);
-          }
-          if (item.unitType === UnitType.HydrogenBomb) {
-            return player.hasUpgrade(UpgradeType.ThermonuclearStaging);
-          }
-          if (item.unitType === UnitType.MIRV) {
-            return player.hasUpgrade(UpgradeType.MIRVTechnology);
-          }
-          if (item.unitType === UnitType.DoomsdayDevice) {
-            return player.hasUpgrade(UpgradeType.DoomsdayDeviceResearch);
-          }
-          return true;
-        }),
+        row.filter((item) => isUnitAvailable(player, item.unitType)),
       );
     } else {
       this.filteredBuildTable = current;

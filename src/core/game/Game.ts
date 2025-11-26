@@ -188,6 +188,7 @@ export enum UpgradeType {
   InternationalTrade = "InternationalTrade",
   StructureInsurance = "StructureInsurance",
   HospitalResearch = "HospitalResearch",
+  ResearchLabResearch = "ResearchLabResearch",
 
   // Water Upgrades
   SubmarineResearch = "SubmarineResearch",
