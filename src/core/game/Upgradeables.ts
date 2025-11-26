@@ -58,6 +58,8 @@ export function maxUnitLevel(type: UnitType): number {
 // Return maximum upgrade level for a player based on their researched techs.
 // For FighterJet: Jet Engines = level 1, Supersonic Flight = level 2,
 // Pulse-Doppler Radar = level 3, Fly-By-Wire Systems = level 4.
+// For Bomber: Jet Engines = level 1, Turbojet Bombers = level 2,
+// Supersonic Bombers = level 3.
 export function playerMaxUnitLevel(player: HasUpgrade, type: UnitType): number {
   const globalMax = maxUnitLevel(type);
 
@@ -72,7 +74,16 @@ export function playerMaxUnitLevel(player: HasUpgrade, type: UnitType): number {
     return 1;
   }
 
-  // For other unit types, return global max (can add bomber levels later)
+  if (type === UnitType.Bomber) {
+    if (player.hasUpgrade(UpgradeType.BomberLevel3))
+      return Math.min(3, globalMax);
+    if (player.hasUpgrade(UpgradeType.BomberLevel2))
+      return Math.min(2, globalMax);
+    // Jet Engines (required to build bombers) gives level 1
+    return 1;
+  }
+
+  // For other unit types, return global max
   return globalMax;
 }
 

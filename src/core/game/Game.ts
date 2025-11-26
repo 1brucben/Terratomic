@@ -212,6 +212,9 @@ export enum UpgradeType {
   SAMLevel1 = "SAMLevel1",
   SAMLevel2 = "SAMLevel2",
   SAMLevel3 = "SAMLevel3",
+  // Bomber level upgrades (Jet Engines gives level 1 by default)
+  BomberLevel2 = "BomberLevel2",
+  BomberLevel3 = "BomberLevel3",
 
   // Nuclear Upgrades
   NuclearFission = "NuclearFission",

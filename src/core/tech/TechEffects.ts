@@ -298,17 +298,17 @@ export const TECHS: Readonly<Record<string, TechDefinition>> = Object.freeze({
     meta: {
       name: "Turbojet Bombers",
       description:
-        "Advanced bomber technology improving bomber effectiveness and capabilities.",
+        "Enables Level 2 Bombers. Advanced bomber technology improving bomber effectiveness and capabilities.",
     },
     effects: {
       onComplete: (player) => {
-        if (!player.hasUpgrade?.(UpgradeType.AirUpgrade3)) {
-          player.addUpgrade?.(UpgradeType.AirUpgrade3);
+        if (!player.hasUpgrade?.(UpgradeType.BomberLevel2)) {
+          player.addUpgrade?.(UpgradeType.BomberLevel2);
         }
       },
       onRevoke: (player) => {
-        if (player.hasUpgrade?.(UpgradeType.AirUpgrade3)) {
-          player.removeUpgrade?.(UpgradeType.AirUpgrade3);
+        if (player.hasUpgrade?.(UpgradeType.BomberLevel2)) {
+          player.removeUpgrade?.(UpgradeType.BomberLevel2);
         }
       },
     },
@@ -384,10 +384,19 @@ export const TECHS: Readonly<Record<string, TechDefinition>> = Object.freeze({
     meta: {
       name: "Supersonic Bombers",
       description:
-        "High-speed bomber aircraft capable of evading enemy defenses.",
+        "Enables Level 3 Bombers. High-speed bomber aircraft capable of evading enemy defenses.",
     },
     effects: {
-      // Placeholder - add specific upgrade when needed
+      onComplete: (player) => {
+        if (!player.hasUpgrade?.(UpgradeType.BomberLevel3)) {
+          player.addUpgrade?.(UpgradeType.BomberLevel3);
+        }
+      },
+      onRevoke: (player) => {
+        if (player.hasUpgrade?.(UpgradeType.BomberLevel3)) {
+          player.removeUpgrade?.(UpgradeType.BomberLevel3);
+        }
+      },
     },
   },
   [RESEARCH_TECH_IDS.RADAR_GUIDED_SAMS]: {
