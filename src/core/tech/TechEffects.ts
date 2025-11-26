@@ -273,21 +273,15 @@ export const TECHS: Readonly<Record<string, TechDefinition>> = Object.freeze({
     meta: {
       name: "Supersonic Flight",
       description:
-        "Enables Level 2 Fighters. Equips Fighter Jets with advanced targeting systems to engage and destroy enemy naval units.",
+        "Enables Level 2 Fighters. Advanced supersonic aircraft with improved speed and maneuverability.",
     },
     effects: {
       onComplete: (player) => {
-        if (!player.hasUpgrade?.(UpgradeType.FighterJetNavalTargeting)) {
-          player.addUpgrade?.(UpgradeType.FighterJetNavalTargeting);
-        }
         if (!player.hasUpgrade?.(UpgradeType.FighterLevel2)) {
           player.addUpgrade?.(UpgradeType.FighterLevel2);
         }
       },
       onRevoke: (player) => {
-        if (player.hasUpgrade?.(UpgradeType.FighterJetNavalTargeting)) {
-          player.removeUpgrade?.(UpgradeType.FighterJetNavalTargeting);
-        }
         if (player.hasUpgrade?.(UpgradeType.FighterLevel2)) {
           player.removeUpgrade?.(UpgradeType.FighterLevel2);
         }
@@ -374,10 +368,20 @@ export const TECHS: Readonly<Record<string, TechDefinition>> = Object.freeze({
   [RESEARCH_TECH_IDS.NAVAL_STRIKE_TARGETING]: {
     meta: {
       name: "Naval Strike Targeting",
-      description: "Precision targeting systems for anti-ship operations.",
+      description:
+        "Equips Fighter Jets with advanced targeting systems to engage and destroy enemy naval units.",
     },
     effects: {
-      // Placeholder - add specific upgrade when needed
+      onComplete: (player) => {
+        if (!player.hasUpgrade?.(UpgradeType.FighterJetNavalTargeting)) {
+          player.addUpgrade?.(UpgradeType.FighterJetNavalTargeting);
+        }
+      },
+      onRevoke: (player) => {
+        if (player.hasUpgrade?.(UpgradeType.FighterJetNavalTargeting)) {
+          player.removeUpgrade?.(UpgradeType.FighterJetNavalTargeting);
+        }
+      },
     },
   },
   [RESEARCH_TECH_IDS.SUPERSONIC_BOMBERS]: {
