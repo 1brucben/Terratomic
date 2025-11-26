@@ -13,11 +13,11 @@ import {
   UnitType,
   mapCategories,
 } from "../core/game/Game";
+import type { TeamCountConfig } from "../core/Schemas";
 import {
   GoldMultiplierValues,
   PeaceTimerDuration,
   StartingGoldValues,
-  TeamCountConfig,
 } from "../core/Schemas";
 import { generateID } from "../core/Util";
 import "./components/baseComponents/Button";
@@ -25,9 +25,9 @@ import "./components/baseComponents/Modal";
 import "./components/Difficulties";
 import { DifficultyDescription } from "./components/Difficulties";
 import "./components/Maps";
-import { FlagInput } from "./FlagInput";
-import { JoinLobbyEvent } from "./Main";
-import { UsernameInput } from "./UsernameInput";
+import type { FlagInput } from "./FlagInput";
+import type { JoinLobbyEvent } from "./Main";
+import type { UsernameInput } from "./UsernameInput";
 import { renderUnitTypeOptions } from "./utilities/RenderUnitTypeOptions";
 
 type StartingGoldOption = (typeof StartingGoldValues)[number];
@@ -759,7 +759,7 @@ export class SinglePlayerModal extends LitElement {
     return html`
       <label
         class="sp-btn ${checked ? "selected" : ""}"
-        data-i18n-title=${tooltipKey ? tooltipKey : nothing}
+        data-i18n-title=${tooltipKey ?? nothing}
       >
         <div class="sp-check"></div>
         <input

@@ -1,18 +1,19 @@
-import { Colord } from "colord";
-import { Theme } from "../../../core/configuration/Config";
-import { EventBus } from "../../../core/EventBus";
+import type { Colord } from "colord";
+import type { Theme } from "../../../core/configuration/Config";
+import type { EventBus } from "../../../core/EventBus";
 import { Cell, PlayerType, UnitType } from "../../../core/game/Game";
-import { TileRef } from "../../../core/game/GameMap";
+import type { TileRef } from "../../../core/game/GameMap";
 import { GameUpdateType } from "../../../core/game/GameUpdates";
-import { GameView, PlayerView } from "../../../core/game/GameView";
+import type { GameView } from "../../../core/game/GameView";
+import { PlayerView } from "../../../core/game/GameView";
 import { PseudoRandom } from "../../../core/PseudoRandom";
 import {
   AlternateViewEvent,
   DragEvent,
   MouseOverEvent,
 } from "../../InputHandler";
-import { TransformHandler } from "../TransformHandler";
-import { Layer } from "./Layer";
+import type { TransformHandler } from "../TransformHandler";
+import type { Layer } from "./Layer";
 
 export class TerritoryLayer implements Layer {
   private canvas: HTMLCanvasElement;
@@ -80,12 +81,10 @@ export class TerritoryLayer implements Layer {
     unitUpdates.forEach((update) => {
       if (update.unitType === UnitType.DefensePost) {
         const tile = update.pos;
-        if (!this.defensePostOffsets) {
-          this.defensePostOffsets = this.getOffsets(
-            this.game.config().defensePostRange(),
-            false,
-          );
-        }
+        this.defensePostOffsets ??= this.getOffsets(
+          this.game.config().defensePostRange(),
+          false,
+        );
         const cx = this.game.x(tile);
         const cy = this.game.y(tile);
 
@@ -241,9 +240,7 @@ export class TerritoryLayer implements Layer {
         color = this.theme.selfColor();
       }
 
-      if (!this.spawnHighlightOffsets) {
-        this.spawnHighlightOffsets = this.getOffsets(9, true);
-      }
+      this.spawnHighlightOffsets ??= this.getOffsets(9, true);
       const cx = this.game.x(centerTile);
       const cy = this.game.y(centerTile);
 

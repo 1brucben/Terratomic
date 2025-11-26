@@ -1,5 +1,6 @@
-import { Execution, Game, Player, Unit, UnitType } from "../game/Game";
-import { TileRef } from "../game/GameMap";
+import type { Execution, Game, Player, Unit } from "../game/Game";
+import { UnitType } from "../game/Game";
+import type { TileRef } from "../game/GameMap";
 import { StraightPathFinder } from "../pathfinding/PathFinding";
 
 export class BomberExecution implements Execution {
@@ -94,7 +95,7 @@ export class BomberExecution implements Execution {
     }
 
     // Respawn bomber if destroyed
-    if (!this.bomber || !this.bomber.isActive()) {
+    if (!this.bomber?.isActive()) {
       // Decrement bomber count for the target we were attacking (if any)
       if (this.currentTargetUnit) {
         this.decrementBomberCount(this.currentTargetUnit);
@@ -404,7 +405,7 @@ export class BomberExecution implements Execution {
 
     // Try with SAM avoidance first, then fall back to direct paths
     return (
-      this.trySelectTarget(sortedEnemies, true) ||
+      this.trySelectTarget(sortedEnemies, true) ??
       this.trySelectTarget(sortedEnemies, false)
     );
   }
@@ -442,7 +443,7 @@ export class BomberExecution implements Execution {
 
     // Try with SAM avoidance first, then fall back to direct paths
     return (
-      this.trySelectTarget(allTargets, true) ||
+      this.trySelectTarget(allTargets, true) ??
       this.trySelectTarget(allTargets, false)
     );
   }

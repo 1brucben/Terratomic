@@ -2,15 +2,14 @@ import { html, LitElement } from "lit";
 import { customElement, state } from "lit/decorators.js";
 import multiBuildIcon from "../../../../resources/images/MultiBuildIcon.svg";
 import upgradeArrowIcon from "../../../../resources/images/UpgradeArrowIcon.svg";
-import { EventBus } from "../../../core/EventBus";
-import {
-  Gold,
-  PlayerID,
-  PlayerType,
-  UnitType,
-  UpgradeType,
-} from "../../../core/game/Game";
-import { GameView, PlayerView, UnitView } from "../../../core/game/GameView";
+import type { EventBus } from "../../../core/EventBus";
+import type { Gold, PlayerID } from "../../../core/game/Game";
+import { PlayerType, UnitType, UpgradeType } from "../../../core/game/Game";
+import type {
+  GameView,
+  PlayerView,
+  UnitView,
+} from "../../../core/game/GameView";
 import {
   isStructureAvailable,
   isUnitAvailable,
@@ -43,9 +42,9 @@ import {
   SendSetTargetTroopRatioEvent,
 } from "../../Transport";
 import "../../UnitUpgradeSettingsModal";
-import { UIState } from "../UIState";
+import type { UIState } from "../UIState";
 import { ToggleBuildPanelEvent } from "./ControlPanel";
-import { Layer } from "./Layer";
+import type { Layer } from "./Layer";
 
 @customElement("control-panel2")
 export class ControlPanel2 extends LitElement implements Layer {
@@ -383,7 +382,7 @@ export class ControlPanel2 extends LitElement implements Layer {
     }
 
     const player = this.game.myPlayer();
-    if (player === null || !player.isAlive()) {
+    if (!player?.isAlive()) {
       this.setVisibile(false);
       return;
     }
@@ -753,7 +752,7 @@ export class ControlPanel2 extends LitElement implements Layer {
 
   private _getPlayersInAirfieldRange(): PlayerView[] {
     const myPlayer = this.game.myPlayer();
-    if (!myPlayer || !myPlayer.isAlive()) {
+    if (!myPlayer?.isAlive()) {
       return [];
     }
 
@@ -1026,7 +1025,7 @@ export class ControlPanel2 extends LitElement implements Layer {
 
   private _openUnitUpgradeSettings() {
     const modal =
-      (document.querySelector("unit-upgrade-settings-modal") as any) ||
+      (document.querySelector("unit-upgrade-settings-modal") as any) ??
       this._ensureUnitUpgradeSettingsModal();
     if (!modal) {
       console.warn(
@@ -1078,7 +1077,7 @@ export class ControlPanel2 extends LitElement implements Layer {
 
   private _openStatistics() {
     const modal =
-      (document.querySelector("statistics-modal") as any) ||
+      (document.querySelector("statistics-modal") as any) ??
       this._ensureStatisticsModal();
     if (!modal) {
       console.warn("StatisticsModal element not found or failed to create");

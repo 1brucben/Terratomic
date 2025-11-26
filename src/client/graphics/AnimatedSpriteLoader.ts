@@ -8,8 +8,8 @@ import sinkingShip from "../../../resources/sprites/sinkingShip.png";
 import miniSmoke from "../../../resources/sprites/smoke.png";
 import miniSmokeAndFire from "../../../resources/sprites/smokeAndFire.png";
 import unitExplosion from "../../../resources/sprites/unitExplosion.png";
-import { Theme } from "../../core/configuration/Config";
-import { PlayerView } from "../../core/game/GameView";
+import type { Theme } from "../../core/configuration/Config";
+import type { PlayerView } from "../../core/game/GameView";
 import { AnimatedSprite } from "./AnimatedSprite";
 import { FxType } from "./fx/Fx";
 import { colorizeCanvas } from "./SpriteLoader";
@@ -242,7 +242,7 @@ export class AnimatedSpriteLoader {
     if (owner && theme) {
       image = this.getColoredAnimatedSprite(owner, fxType, theme);
     } else {
-      image = this.animatedSpriteImageMap.get(fxType) || null;
+      image = this.animatedSpriteImageMap.get(fxType) ?? null;
     }
 
     if (!image) return null;

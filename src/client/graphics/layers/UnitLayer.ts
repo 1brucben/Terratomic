@@ -1,9 +1,10 @@
-import { colord, Colord } from "colord";
-import { EventBus } from "../../../core/EventBus";
-import { Theme } from "../../../core/configuration/Config";
+import type { Colord } from "colord";
+import { colord } from "colord";
+import type { EventBus } from "../../../core/EventBus";
+import type { Theme } from "../../../core/configuration/Config";
 import { UnitType } from "../../../core/game/Game";
-import { TileRef } from "../../../core/game/GameMap";
-import { GameView, UnitView } from "../../../core/game/GameView";
+import type { TileRef } from "../../../core/game/GameMap";
+import type { GameView, UnitView } from "../../../core/game/GameView";
 import { BezenhamLine } from "../../../core/utilities/Line";
 import {
   AlternateViewEvent,
@@ -16,13 +17,11 @@ import {
   MoveSubmarineIntentEvent,
   MoveWarshipIntentEvent,
 } from "../../Transport";
-import {
-  defaultReplaySpeedMultiplier,
-  ReplaySpeedMultiplier,
-} from "../../utilities/ReplaySpeedMultiplier";
-import { TransformHandler } from "../TransformHandler";
-import { UIState } from "../UIState";
-import { Layer } from "./Layer";
+import type { ReplaySpeedMultiplier } from "../../utilities/ReplaySpeedMultiplier";
+import { defaultReplaySpeedMultiplier } from "../../utilities/ReplaySpeedMultiplier";
+import type { TransformHandler } from "../TransformHandler";
+import type { UIState } from "../UIState";
+import type { Layer } from "./Layer";
 
 import { GameUpdateType } from "../../../core/game/GameUpdates";
 import {
@@ -1360,9 +1359,10 @@ export class UnitLayer implements Layer {
       unit.type() === UnitType.Submarine &&
       unit.owner() === this.game.myPlayer()
     ) {
-      const isAttacking = (unit as any).isAttacking?.() ?? false;
-      const isDetected = (unit as any).isDetectedByNavalUnit?.() ?? false;
-      const isOnCooldown = (unit as any).isCooldown?.() ?? false;
+      const isAttacking = ((unit as any).isAttacking?.() ?? false) as boolean;
+      const isDetected = ((unit as any).isDetectedByNavalUnit?.() ??
+        false) as boolean;
+      const isOnCooldown = ((unit as any).isCooldown?.() ?? false) as boolean;
       const isVisibleToEnemies = isAttacking || isDetected || isOnCooldown;
       if (!isVisibleToEnemies) {
         return 0.75;

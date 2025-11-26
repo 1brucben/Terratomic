@@ -1,7 +1,8 @@
-import { LitElement, PropertyValues, html, svg } from "lit";
+import type { PropertyValues } from "lit";
+import { LitElement, html, svg } from "lit";
 import { customElement, property, query, state } from "lit/decorators.js";
 import { PlayerType, UnitType } from "../core/game/Game";
-import { GameView, PlayerView } from "../core/game/GameView";
+import type { GameView, PlayerView } from "../core/game/GameView";
 import { getTechNodes, type Category } from "../core/tech/ResearchTree";
 import { translateText } from "./Utils";
 import "./components/baseComponents/Modal";
@@ -105,7 +106,7 @@ export class StatisticsModal extends LitElement {
   private _selectedPlayer(): PlayerView | null {
     if (!this.game || !this.selectedPlayerId) return null;
     return (
-      this.game.players().find((p) => p.id() === this.selectedPlayerId) || null
+      this.game.players().find((p) => p.id() === this.selectedPlayerId) ?? null
     );
   }
 
@@ -496,7 +497,7 @@ export class StatisticsModal extends LitElement {
   }
 
   private _ensureGraphDefaults() {
-    if (!this._graphMetric) this._graphMetric = this._availableListStats()[0];
+    this._graphMetric ??= this._availableListStats()[0];
     if (this._graphSelected.size === 0) {
       const me = this.game?.myPlayer();
       if (me) this._graphSelected.add(me.id());

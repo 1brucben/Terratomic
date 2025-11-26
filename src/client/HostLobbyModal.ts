@@ -4,6 +4,7 @@ import { repeat } from "lit/directives/repeat.js";
 import randomMap from "../../resources/images/RandomMap.webp";
 import { getServerConfigFromClient } from "../core/configuration/ConfigLoader";
 import { PastelTheme } from "../core/configuration/PastelTheme";
+import type { UnitType } from "../core/game/Game";
 import {
   ColoredTeams,
   Difficulty,
@@ -12,25 +13,26 @@ import {
   GameMode,
   Quads,
   Trios,
-  UnitType,
   mapCategories,
 } from "../core/game/Game";
 import { UserSettings } from "../core/game/UserSettings";
-import {
+import type {
   ClientInfo,
   GameConfig,
   GameInfo,
+  TeamCountConfig,
+} from "../core/Schemas";
+import {
   GoldMultiplierValues,
   PeaceTimerDuration,
   StartingGoldValues,
-  TeamCountConfig,
 } from "../core/Schemas";
 import { generateID } from "../core/Util";
 import "./components/baseComponents/Modal";
 import "./components/Difficulties";
 import { DifficultyDescription } from "./components/Difficulties";
 import "./components/Maps";
-import { JoinLobbyEvent } from "./Main";
+import type { JoinLobbyEvent } from "./Main";
 import { renderUnitTypeOptions } from "./utilities/RenderUnitTypeOptions";
 import { formatStartingGold, translateText } from "./Utils";
 
@@ -1047,7 +1049,7 @@ export class HostLobbyModal extends LitElement {
     return html`
       <label
         class="sp-btn ${checked ? "selected" : ""}"
-        data-i18n-title=${tooltipKey ? tooltipKey : nothing}
+        data-i18n-title=${tooltipKey ?? nothing}
       >
         <div class="sp-check"></div>
         <input
