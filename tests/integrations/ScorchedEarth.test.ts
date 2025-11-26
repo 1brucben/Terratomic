@@ -30,7 +30,7 @@ describe("Scorched Earth Full Cycle Integration Test", () => {
     }
 
     // Research core economy techs to unlock and test revocation behavior
-    player.addResearchedTech(RESEARCH_TECH_IDS.WWII_LESSONS);
+    player.addResearchedTech(RESEARCH_TECH_IDS.POST_WW2_MODERNIZATION);
     player.addResearchedTech(RESEARCH_TECH_IDS.POST_WAR_RECONSTRUCTION);
     player.addResearchedTech(RESEARCH_TECH_IDS.NATIONAL_HIGHWAY_EXPANSION);
     player.addResearchedTech(RESEARCH_TECH_IDS.NATIONAL_HEALTH_SYSTEM);

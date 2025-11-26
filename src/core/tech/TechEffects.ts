@@ -36,7 +36,7 @@ export const RESEARCH_TECH_IDS = {
   AEGIS_WARSHIP_SYSTEMS: "Sea-4A",
   QUIETING_ACOUSTIC_STEALTH: "Sea-4B",
   // Land techs - Level 1
-  WWII_LESSONS: "Land-1",
+  POST_WW2_MODERNIZATION: "Land-1",
   // Land techs - Level 2
   EARLY_MECHANIZATION: "Land-2A",
   IMPROVED_ARTILLERY_SYSTEMS: "Land-2B",
@@ -86,6 +86,11 @@ export interface DefenseCasualtyModifiers {
   defenderLossMul: number;
 }
 
+export interface AttackSpeedModifiers {
+  // Multiplier to apply to attack speed (tiles conquered per tick)
+  speedMul: number;
+}
+
 // Central registry shape for tech effects: on-complete side-effects and battle modifiers
 export type TechEffect = {
   // Runs once when the tech is completed
@@ -96,6 +101,8 @@ export type TechEffect = {
   defense?: (mods: DefenseCasualtyModifiers) => void;
   // Applied each time casualty modifiers are computed while attacking
   attack?: (mods: DefenseCasualtyModifiers) => void;
+  // Applied to modify offensive attack speed
+  attackSpeed?: (mods: AttackSpeedModifiers) => void;
 };
 
 export type TechDefinition = {
@@ -281,11 +288,11 @@ export const TECHS: Readonly<Record<string, TechDefinition>> = Object.freeze({
       // Placeholder - no effect for now
     },
   },
-  [RESEARCH_TECH_IDS.WWII_LESSONS]: {
+  [RESEARCH_TECH_IDS.POST_WW2_MODERNIZATION]: {
     meta: {
-      name: "WWII Lessons Learned",
+      name: "Post-WW2 Modernization",
       description:
-        "Doctrine refined by hard-won experience improves defensive readiness, logistics, and counter-attack planning. Effects: Enables Military Academy. While defending, your troop losses are reduced by 10% and the attacker's troop losses are increased by 10%.",
+        "Doctrine refined by hard-won experience improves offensive capabilities and tactical efficiency. Effects: Enables Military Academy. Enemy takes +5% more losses when you attack them. Your offensive speed +5%.",
     },
     effects: {
       onComplete: (player) => {
@@ -298,9 +305,11 @@ export const TECHS: Readonly<Record<string, TechDefinition>> = Object.freeze({
           player.removeUpgrade?.(UpgradeType.MilitaryAcademy);
         }
       },
-      defense: (mods) => {
-        mods.attackerLossMul *= 1.1; // enemy (attacker) takes more losses
-        mods.defenderLossMul *= 0.9; // defender takes fewer losses
+      attack: (mods) => {
+        mods.defenderLossMul *= 1.05; // enemy (defender) takes 5% more losses when we attack
+      },
+      attackSpeed: (mods) => {
+        mods.speedMul *= 1.05; // 5% faster offensive speed
       },
     },
   },
@@ -464,70 +473,141 @@ export const TECHS: Readonly<Record<string, TechDefinition>> = Object.freeze({
         "Unleash a scorched earth campaign: raze your road network and reset economic research to deny enemy logistics.",
     },
   },
-  // Land Level 2 techs (placeholders - no effects for now)
+  // Land Level 2 techs
   [RESEARCH_TECH_IDS.EARLY_MECHANIZATION]: {
     meta: {
       name: "Early Mechanization",
       description:
-        "Introduce mechanized infantry and motorized transport to increase battlefield mobility.",
+        "Introduce mechanized infantry and motorized transport to increase battlefield mobility. Effects: Your offensive speed +10%. Your army takes 10% fewer losses when you attack.",
+    },
+    effects: {
+      attack: (mods) => {
+        mods.attackerLossMul *= 0.9; // our army takes 10% fewer losses when attacking
+      },
+      attackSpeed: (mods) => {
+        mods.speedMul *= 1.1; // 10% faster offensive speed
+      },
     },
   },
   [RESEARCH_TECH_IDS.IMPROVED_ARTILLERY_SYSTEMS]: {
     meta: {
       name: "Improved Artillery Systems",
       description:
-        "Develop more accurate and powerful artillery pieces with improved range and fire rates.",
+        "Develop more accurate and powerful artillery pieces with improved range and fire rates. Effects: Enemy takes +10% more losses when they attack you. Your army takes 10% fewer losses when defending.",
+    },
+    effects: {
+      defense: (mods) => {
+        mods.attackerLossMul *= 1.1; // enemy (attacker) takes 10% more losses
+        mods.defenderLossMul *= 0.9; // our army takes 10% fewer losses when defending
+      },
     },
   },
   [RESEARCH_TECH_IDS.INTEGRATED_LOGISTICS_CORPS]: {
     meta: {
       name: "Integrated Logistics Corps",
       description:
-        "Establish unified supply chains and logistics networks for efficient resource distribution.",
+        "Establish unified supply chains and logistics networks for efficient resource distribution. Effects: Your offensive speed +10%. Your army takes 5% fewer losses when you attack. Your army takes 5% fewer losses when defending.",
+    },
+    effects: {
+      attack: (mods) => {
+        mods.attackerLossMul *= 0.95; // our army takes 5% fewer losses when attacking
+      },
+      defense: (mods) => {
+        mods.defenderLossMul *= 0.95; // our army takes 5% fewer losses when defending
+      },
+      attackSpeed: (mods) => {
+        mods.speedMul *= 1.1; // 10% faster offensive speed
+      },
     },
   },
-  // Land Level 3 techs (placeholders - no effects for now)
+  // Land Level 3 techs
   [RESEARCH_TECH_IDS.MAIN_BATTLE_TANK_STANDARDIZATION]: {
     meta: {
       name: "Main Battle Tank Standardization",
       description:
-        "Adopt standardized tank designs for improved maintenance and battlefield coordination.",
+        "Adopt standardized tank designs for improved maintenance and battlefield coordination. Effects: Your army takes 10% fewer losses when you attack. Your army takes 10% fewer losses when defending.",
+    },
+    effects: {
+      attack: (mods) => {
+        mods.attackerLossMul *= 0.9; // our army takes 10% fewer losses when attacking
+      },
+      defense: (mods) => {
+        mods.defenderLossMul *= 0.9; // our army takes 10% fewer losses when defending
+      },
     },
   },
   [RESEARCH_TECH_IDS.COMPOSITE_ARMOR_HEAT_MUNITIONS]: {
     meta: {
       name: "Composite Armor & HEAT Munitions",
       description:
-        "Develop advanced armor materials and high-explosive anti-tank warheads.",
+        "Develop advanced armor materials and high-explosive anti-tank warheads. Effects: Enemy takes +10% more losses when you attack them. Your army takes 5% fewer losses when you attack.",
+    },
+    effects: {
+      attack: (mods) => {
+        mods.defenderLossMul *= 1.1; // enemy (defender) takes 10% more losses when we attack
+        mods.attackerLossMul *= 0.95; // our army takes 5% fewer losses when attacking
+      },
     },
   },
   [RESEARCH_TECH_IDS.SELF_PROPELLED_ARTILLERY]: {
     meta: {
       name: "Self-Propelled Artillery",
       description:
-        "Mount artillery on mobile platforms for rapid deployment and shoot-and-scoot tactics.",
+        "Mount artillery on mobile platforms for rapid deployment and shoot-and-scoot tactics. Effects: Enemy takes +10% more losses when you attack them. Your offensive speed +10%.",
+    },
+    effects: {
+      attack: (mods) => {
+        mods.defenderLossMul *= 1.1; // enemy (defender) takes 10% more losses when we attack
+      },
+      attackSpeed: (mods) => {
+        mods.speedMul *= 1.1; // 10% faster offensive speed
+      },
     },
   },
-  // Land Level 4 techs (placeholders - no effects for now)
+  // Land Level 4 techs
   [RESEARCH_TECH_IDS.NIGHT_VISION_BATTLEFIELD_SENSORS]: {
     meta: {
       name: "Night Vision & Battlefield Sensors",
       description:
-        "Equip forces with infrared and thermal imaging for 24-hour combat capability.",
+        "Equip forces with infrared and thermal imaging for 24-hour combat capability. Effects: Your offensive speed +10%. Enemy takes +10% more losses when you attack them.",
+    },
+    effects: {
+      attack: (mods) => {
+        mods.defenderLossMul *= 1.1; // enemy (defender) takes 10% more losses when we attack
+      },
+      attackSpeed: (mods) => {
+        mods.speedMul *= 1.1; // 10% faster offensive speed
+      },
     },
   },
   [RESEARCH_TECH_IDS.PRECISION_GUIDED_MUNITIONS_LAND]: {
     meta: {
       name: "Precision-Guided Munitions (Land)",
       description:
-        "Develop laser and GPS-guided artillery shells and missiles for pinpoint accuracy.",
+        "Develop laser and GPS-guided artillery shells and missiles for pinpoint accuracy. Effects: Enemy takes +15% more losses when they attack you. Enemy takes +15% more losses when you attack them.",
+    },
+    effects: {
+      attack: (mods) => {
+        mods.defenderLossMul *= 1.15; // enemy (defender) takes 15% more losses when we attack
+      },
+      defense: (mods) => {
+        mods.attackerLossMul *= 1.15; // enemy (attacker) takes 15% more losses when they attack us
+      },
     },
   },
   [RESEARCH_TECH_IDS.C3I_SYSTEMS]: {
     meta: {
       name: "C3I Systems",
       description:
-        "Command, Control, Communications, and Intelligence systems for integrated battlefield awareness.",
+        "Command, Control, Communications, and Intelligence systems for integrated battlefield awareness. Effects: Your army takes 10% fewer losses when you attack. Your army takes 10% fewer losses when defending.",
+    },
+    effects: {
+      attack: (mods) => {
+        mods.attackerLossMul *= 0.9; // our army takes 10% fewer losses when attacking
+      },
+      defense: (mods) => {
+        mods.defenderLossMul *= 0.9; // our army takes 10% fewer losses when defending
+      },
     },
   },
   [RESEARCH_TECH_IDS.ANTI_AIR_GUNS]: {
@@ -950,6 +1030,22 @@ export function attackCasualtyModifiers(
   for (const [techId, def] of Object.entries(TECHS)) {
     if (attacker.hasResearchedTech?.(techId)) {
       def.effects?.attack?.(mods);
+    }
+  }
+  return mods;
+}
+
+/**
+ * Compute attack speed multiplier based on researched techs.
+ * speedMul > 1 increases tiles conquered per tick (faster attacks).
+ */
+export function attackSpeedModifiers(attacker: Player): AttackSpeedModifiers {
+  const mods: AttackSpeedModifiers = {
+    speedMul: 1.0,
+  };
+  for (const [techId, def] of Object.entries(TECHS)) {
+    if (attacker.hasResearchedTech?.(techId)) {
+      def.effects?.attackSpeed?.(mods);
     }
   }
   return mods;

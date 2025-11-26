@@ -32,6 +32,7 @@ import {
 } from "../Schemas";
 import {
   attackCasualtyModifiers,
+  attackSpeedModifiers,
   defenseCasualtyModifiers,
 } from "../tech/TechEffects";
 import { assertNever, simpleHash, within } from "../Util";
@@ -1104,11 +1105,12 @@ export class DefaultConfig implements Config {
     defender: Player | TerraNullius,
     numAdjacentTilesWithEnemy: number,
   ): number {
-    if (defender.isPlayer()) {
-      return 10 * numAdjacentTilesWithEnemy;
-    } else {
-      return 12 * numAdjacentTilesWithEnemy;
-    }
+    // Get tech-based speed modifier
+    const speedMods = attackSpeedModifiers(attacker);
+    const baseTiles = defender.isPlayer()
+      ? 10 * numAdjacentTilesWithEnemy
+      : 12 * numAdjacentTilesWithEnemy;
+    return baseTiles * speedMods.speedMul;
   }
 
   boatAttackAmount(attacker: Player, defender: Player | TerraNullius): number {

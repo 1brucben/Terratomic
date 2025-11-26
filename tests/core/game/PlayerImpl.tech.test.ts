@@ -11,7 +11,7 @@ describe("PlayerImpl.removeResearchedTechsByCategory", () => {
     game.addPlayer(info);
     const player = game.player(info.id) as PlayerImpl;
 
-    player.addResearchedTech(RESEARCH_TECH_IDS.WWII_LESSONS);
+    player.addResearchedTech(RESEARCH_TECH_IDS.POST_WW2_MODERNIZATION);
     player.addResearchedTech(RESEARCH_TECH_IDS.POST_WAR_RECONSTRUCTION);
     player.addResearchedTech(RESEARCH_TECH_IDS.NATIONAL_HIGHWAY_EXPANSION);
     player.addResearchedTech(RESEARCH_TECH_IDS.NATIONAL_HEALTH_SYSTEM);
@@ -24,7 +24,9 @@ describe("PlayerImpl.removeResearchedTechsByCategory", () => {
 
     player.removeResearchedTechsByCategory("Economy");
 
-    expect(player.hasResearchedTech(RESEARCH_TECH_IDS.WWII_LESSONS)).toBe(true);
+    expect(
+      player.hasResearchedTech(RESEARCH_TECH_IDS.POST_WW2_MODERNIZATION),
+    ).toBe(true);
     expect(
       player.hasResearchedTech(RESEARCH_TECH_IDS.POST_WAR_RECONSTRUCTION),
     ).toBe(false);
