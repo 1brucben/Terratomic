@@ -13,6 +13,7 @@ import { TileRef } from "../game/GameMap";
 import { PathFindResultType } from "../pathfinding/AStar";
 import { PathFinder } from "../pathfinding/PathFinding";
 import { PseudoRandom } from "../PseudoRandom";
+import { tradeIncomeModifiers } from "../tech/TechEffects";
 
 type PairKey = string; // `${fromId}->${toId}`
 
@@ -1090,15 +1091,29 @@ export class AssignedTradeRouteExecution implements Execution {
 
   private complete(): void {
     // Award fixed income split between traders and ship owner
-    const total = this.mg.config().tradeIncomeFixed();
-    const third = total / 3n;
-    const remainder = total - third * 3n;
+    const baseTotal = this.mg.config().tradeIncomeFixed();
     const owner = this.ship.owner();
     const a = this.startPort.owner();
     const b = this.endPort.owner();
-    a.addGold(third);
-    b.addGold(third);
-    owner.addGold(third + remainder);
+
+    // Apply trade income modifiers from researched techs for each recipient
+    const aMods = tradeIncomeModifiers(a);
+    const bMods = tradeIncomeModifiers(b);
+    const ownerMods = tradeIncomeModifiers(owner);
+
+    const third = baseTotal / 3n;
+    const remainder = baseTotal - third * 3n;
+
+    // Each player gets their share multiplied by their trade income modifier
+    const aShare = BigInt(Math.floor(Number(third) * aMods.incomeMul));
+    const bShare = BigInt(Math.floor(Number(third) * bMods.incomeMul));
+    const ownerShare = BigInt(
+      Math.floor(Number(third + remainder) * ownerMods.incomeMul),
+    );
+
+    a.addGold(aShare);
+    b.addGold(bShare);
+    owner.addGold(ownerShare);
 
     // Clear trade phase upon successful completion so the ship is eligible for reassignment
     this.setPhaseWithLog(null, "complete_clear_phase");
@@ -1109,7 +1124,7 @@ export class AssignedTradeRouteExecution implements Execution {
     this.ship.touch();
     this.active = false;
     this.log(
-      `completed ship=${this.ship.id()} startPort=${this.startPort.id()} endPort=${this.endPort.id()} income=${total} ownerShare=${third + remainder}`,
+      `completed ship=${this.ship.id()} startPort=${this.startPort.id()} endPort=${this.endPort.id()} baseIncome=${baseTotal} aShare=${aShare} bShare=${bShare} ownerShare=${ownerShare}`,
     );
   }
 

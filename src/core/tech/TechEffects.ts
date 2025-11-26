@@ -106,6 +106,16 @@ export interface IncomeModifiers {
   incomeMul: number;
 }
 
+export interface InfrastructureEffectivenessModifiers {
+  // Multiplier to apply to infrastructure spending effectiveness (higher = more roads per gold)
+  effectivenessMul: number;
+}
+
+export interface TradeIncomeModifiers {
+  // Multiplier to apply to trade income
+  incomeMul: number;
+}
+
 // Central registry shape for tech effects: on-complete side-effects and battle modifiers
 export type TechEffect = {
   // Runs once when the tech is completed
@@ -124,6 +134,12 @@ export type TechEffect = {
   researchEffectiveness?: (mods: ResearchEffectivenessModifiers) => void;
   // Applied to modify gross gold income
   income?: (mods: IncomeModifiers) => void;
+  // Applied to modify infrastructure spending effectiveness
+  infrastructureEffectiveness?: (
+    mods: InfrastructureEffectivenessModifiers,
+  ) => void;
+  // Applied to modify trade income
+  tradeIncome?: (mods: TradeIncomeModifiers) => void;
 };
 
 export type TechDefinition = {
@@ -506,19 +522,40 @@ export const TECHS: Readonly<Record<string, TechDefinition>> = Object.freeze({
     meta: {
       name: "Computing & Data Systems",
       description:
-        "Develop computing infrastructure and data processing systems.",
+        "Develop computing infrastructure and data processing systems. Effects: Research spending effectiveness +20%. Infrastructure spending effectiveness +20%.",
+    },
+    effects: {
+      researchEffectiveness: (mods) => {
+        mods.effectivenessMul *= 1.2; // 20% more effective research
+      },
+      infrastructureEffectiveness: (mods) => {
+        mods.effectivenessMul *= 1.2; // 20% more effective infrastructure spending
+      },
     },
   },
   [RESEARCH_TECH_IDS.TELECOMMUNICATIONS_INTEGRATION]: {
     meta: {
       name: "Telecommunications Integration",
-      description: "Integrate telecommunications networks nationally.",
+      description:
+        "Integrate telecommunications networks nationally. Effects: Trade income +20%.",
+    },
+    effects: {
+      tradeIncome: (mods) => {
+        mods.incomeMul *= 1.2; // 20% more trade income
+      },
     },
   },
   [RESEARCH_TECH_IDS.ECONOMIC_COORDINATION_SYSTEMS]: {
     meta: {
       name: "Economic Coordination Systems",
-      description: "National systems for economic planning and coordination.",
+      description:
+        "National systems for economic planning and coordination. Better allocation of resources reduces waste. Effects: Income +10%.",
+    },
+    effects: {
+      income: (mods) => {
+        mods.incomeMul *= 1.1; // 10% more income
+      },
+      // TODO: Maintenance cost reduction +10%
     },
   },
   [RESEARCH_TECH_IDS.SCORCHED_EARTH]: {
@@ -1155,6 +1192,42 @@ export function incomeModifiers(player: {
   for (const [techId, def] of Object.entries(TECHS)) {
     if (player.hasResearchedTech?.(techId)) {
       def.effects?.income?.(mods);
+    }
+  }
+  return mods;
+}
+
+/**
+ * Compute infrastructure spending effectiveness multiplier based on researched techs.
+ * effectivenessMul > 1 means more roads per gold spent.
+ */
+export function infrastructureEffectivenessModifiers(player: {
+  hasResearchedTech?(techId: string): boolean;
+}): InfrastructureEffectivenessModifiers {
+  const mods: InfrastructureEffectivenessModifiers = {
+    effectivenessMul: 1.0,
+  };
+  for (const [techId, def] of Object.entries(TECHS)) {
+    if (player.hasResearchedTech?.(techId)) {
+      def.effects?.infrastructureEffectiveness?.(mods);
+    }
+  }
+  return mods;
+}
+
+/**
+ * Compute trade income multiplier based on researched techs.
+ * incomeMul > 1 means higher trade income.
+ */
+export function tradeIncomeModifiers(player: {
+  hasResearchedTech?(techId: string): boolean;
+}): TradeIncomeModifiers {
+  const mods: TradeIncomeModifiers = {
+    incomeMul: 1.0,
+  };
+  for (const [techId, def] of Object.entries(TECHS)) {
+    if (player.hasResearchedTech?.(techId)) {
+      def.effects?.tradeIncome?.(mods);
     }
   }
   return mods;
