@@ -91,6 +91,11 @@ export interface AttackSpeedModifiers {
   speedMul: number;
 }
 
+export interface ConstructionSpeedModifiers {
+  // Multiplier to apply to construction speed (higher = faster)
+  speedMul: number;
+}
+
 // Central registry shape for tech effects: on-complete side-effects and battle modifiers
 export type TechEffect = {
   // Runs once when the tech is completed
@@ -103,6 +108,8 @@ export type TechEffect = {
   attack?: (mods: DefenseCasualtyModifiers) => void;
   // Applied to modify offensive attack speed
   attackSpeed?: (mods: AttackSpeedModifiers) => void;
+  // Applied to modify construction speed
+  constructionSpeed?: (mods: ConstructionSpeedModifiers) => void;
 };
 
 export type TechDefinition = {
@@ -343,7 +350,13 @@ export const TECHS: Readonly<Record<string, TechDefinition>> = Object.freeze({
     meta: {
       name: "National Highway Expansion",
       description:
-        "Expand national highway networks for improved logistics and troop movement.",
+        "Expand national highway networks for improved logistics and troop movement. Effects: Construction speed +10%.",
+    },
+    effects: {
+      constructionSpeed: (mods) => {
+        mods.speedMul *= 1.1; // 10% faster construction
+      },
+      // TODO: Stronger road effects +5% (roads boost structure output more effectively)
     },
   },
   [RESEARCH_TECH_IDS.PORT_TRANSPORT_MODERNIZATION]: {
@@ -369,7 +382,10 @@ export const TECHS: Readonly<Record<string, TechDefinition>> = Object.freeze({
     meta: {
       name: "Civil Defense Measures",
       description:
-        "Establish civil defense protocols. Enables the Scorched Earth decision.",
+        "Establish civil defense protocols. Effects: Enables the Scorched Earth decision.",
+    },
+    effects: {
+      // TODO: Maintenance cost reduction +5%
     },
   },
   [RESEARCH_TECH_IDS.INFRASTRUCTURE_RECOVERY_FUND]: {
@@ -1046,6 +1062,24 @@ export function attackSpeedModifiers(attacker: Player): AttackSpeedModifiers {
   for (const [techId, def] of Object.entries(TECHS)) {
     if (attacker.hasResearchedTech?.(techId)) {
       def.effects?.attackSpeed?.(mods);
+    }
+  }
+  return mods;
+}
+
+/**
+ * Compute construction speed multiplier based on researched techs.
+ * speedMul > 1 means construction completes faster (fewer ticks).
+ */
+export function constructionSpeedModifiers(
+  player: Player,
+): ConstructionSpeedModifiers {
+  const mods: ConstructionSpeedModifiers = {
+    speedMul: 1.0,
+  };
+  for (const [techId, def] of Object.entries(TECHS)) {
+    if (player.hasResearchedTech?.(techId)) {
+      def.effects?.constructionSpeed?.(mods);
     }
   }
   return mods;
