@@ -35,14 +35,26 @@ export const RESEARCH_TECH_IDS = {
   // Sea techs - Level 4
   AEGIS_WARSHIP_SYSTEMS: "Sea-4A",
   QUIETING_ACOUSTIC_STEALTH: "Sea-4B",
-  // Land techs
+  // Land techs - Level 1
   WWII_LESSONS: "Land-1",
-  URBAN_PLANNING: "Land-2",
-  SCORCHED_EARTH: "Land-2B",
+  // Land techs - Level 2
+  EARLY_MECHANIZATION: "Land-2A",
+  IMPROVED_ARTILLERY_SYSTEMS: "Land-2B",
+  INTEGRATED_LOGISTICS_CORPS: "Land-2C",
+  // Land techs - Level 3
+  MAIN_BATTLE_TANK_STANDARDIZATION: "Land-3A",
+  COMPOSITE_ARMOR_HEAT_MUNITIONS: "Land-3B",
+  SELF_PROPELLED_ARTILLERY: "Land-3C",
+  // Land techs - Level 4
+  NIGHT_VISION_BATTLEFIELD_SENSORS: "Land-4A",
+  PRECISION_GUIDED_MUNITIONS_LAND: "Land-4B",
+  C3I_SYSTEMS: "Land-4C",
   // Economy techs
   POST_WAR_RECONSTRUCTION: "Economy-1",
   INTERNATIONAL_TRADE: "Economy-2",
+  URBAN_PLANNING: "Economy-2B",
   STRUCTURE_INSURANCE: "Economy-3",
+  SCORCHED_EARTH: "Economy-3B",
   AUTOMATION: "Economy-4",
   // Nuclear techs
   NUCLEAR_FISSION: "Nuclear-1",
@@ -327,13 +339,6 @@ export const TECHS: Readonly<Record<string, TechDefinition>> = Object.freeze({
       },
     },
   },
-  [RESEARCH_TECH_IDS.SCORCHED_EARTH]: {
-    meta: {
-      name: "Scorched Earth",
-      description:
-        "Unleash a scorched earth campaign: raze your road network and reset economic research to deny enemy logistics.",
-    },
-  },
   [RESEARCH_TECH_IDS.URBAN_PLANNING]: {
     meta: {
       name: "Urban Planning",
@@ -351,6 +356,79 @@ export const TECHS: Readonly<Record<string, TechDefinition>> = Object.freeze({
           player.removeUpgrade?.(UpgradeType.UrbanPlanning);
         }
       },
+    },
+  },
+  [RESEARCH_TECH_IDS.SCORCHED_EARTH]: {
+    meta: {
+      name: "Scorched Earth",
+      description:
+        "Unleash a scorched earth campaign: raze your road network and reset economic research to deny enemy logistics.",
+    },
+  },
+  // Land Level 2 techs (placeholders - no effects for now)
+  [RESEARCH_TECH_IDS.EARLY_MECHANIZATION]: {
+    meta: {
+      name: "Early Mechanization",
+      description:
+        "Introduce mechanized infantry and motorized transport to increase battlefield mobility.",
+    },
+  },
+  [RESEARCH_TECH_IDS.IMPROVED_ARTILLERY_SYSTEMS]: {
+    meta: {
+      name: "Improved Artillery Systems",
+      description:
+        "Develop more accurate and powerful artillery pieces with improved range and fire rates.",
+    },
+  },
+  [RESEARCH_TECH_IDS.INTEGRATED_LOGISTICS_CORPS]: {
+    meta: {
+      name: "Integrated Logistics Corps",
+      description:
+        "Establish unified supply chains and logistics networks for efficient resource distribution.",
+    },
+  },
+  // Land Level 3 techs (placeholders - no effects for now)
+  [RESEARCH_TECH_IDS.MAIN_BATTLE_TANK_STANDARDIZATION]: {
+    meta: {
+      name: "Main Battle Tank Standardization",
+      description:
+        "Adopt standardized tank designs for improved maintenance and battlefield coordination.",
+    },
+  },
+  [RESEARCH_TECH_IDS.COMPOSITE_ARMOR_HEAT_MUNITIONS]: {
+    meta: {
+      name: "Composite Armor & HEAT Munitions",
+      description:
+        "Develop advanced armor materials and high-explosive anti-tank warheads.",
+    },
+  },
+  [RESEARCH_TECH_IDS.SELF_PROPELLED_ARTILLERY]: {
+    meta: {
+      name: "Self-Propelled Artillery",
+      description:
+        "Mount artillery on mobile platforms for rapid deployment and shoot-and-scoot tactics.",
+    },
+  },
+  // Land Level 4 techs (placeholders - no effects for now)
+  [RESEARCH_TECH_IDS.NIGHT_VISION_BATTLEFIELD_SENSORS]: {
+    meta: {
+      name: "Night Vision & Battlefield Sensors",
+      description:
+        "Equip forces with infrared and thermal imaging for 24-hour combat capability.",
+    },
+  },
+  [RESEARCH_TECH_IDS.PRECISION_GUIDED_MUNITIONS_LAND]: {
+    meta: {
+      name: "Precision-Guided Munitions (Land)",
+      description:
+        "Develop laser and GPS-guided artillery shells and missiles for pinpoint accuracy.",
+    },
+  },
+  [RESEARCH_TECH_IDS.C3I_SYSTEMS]: {
+    meta: {
+      name: "C3I Systems",
+      description:
+        "Command, Control, Communications, and Intelligence systems for integrated battlefield awareness.",
     },
   },
   [RESEARCH_TECH_IDS.ANTI_AIR_GUNS]: {

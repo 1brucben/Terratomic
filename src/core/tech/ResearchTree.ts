@@ -26,8 +26,8 @@ const mkId = (cat: Category, lvl: number) => `${cat}-${lvl}`;
 const baseLevels: TechNode[] = (() => {
   const nodes: TechNode[] = [];
   for (let lvl = 1; lvl <= 5; lvl++) {
-    // Nuclear, Air, and Sea techs are defined separately as explicit nodes
-    for (const cat of ["Land", "Economy"] as const) {
+    // Nuclear, Air, Sea, and Land techs are defined separately as explicit nodes
+    for (const cat of ["Economy"] as const) {
       const id = mkId(cat, lvl);
       const meta = getTechMeta(id, { strict: false });
       const node: TechNode = {
@@ -229,6 +229,139 @@ const seaTechs: TechNode[] = [
   },
 ];
 
+// Land branch techs (explicit definitions)
+const landTechs: TechNode[] = [
+  // Level 1
+  {
+    id: "Land-1",
+    name:
+      getTechMeta("Land-1", { strict: false })?.name ?? "WWII Lessons Learned",
+    category: "Land",
+    level: 1,
+    description:
+      getTechMeta("Land-1", { strict: false })?.description ??
+      "Enables Military Academy. Defensive combat bonuses.",
+    cost: costForLevel(1),
+  },
+  // Level 2 - Three parallel techs, all require Land-1
+  {
+    id: "Land-2A",
+    name:
+      getTechMeta("Land-2A", { strict: false })?.name ?? "Early Mechanization",
+    category: "Land",
+    level: 2,
+    requiresAllOf: ["Land-1"],
+    description:
+      getTechMeta("Land-2A", { strict: false })?.description ??
+      "Introduce mechanized infantry and motorized transport.",
+    cost: costForLevel(2),
+  },
+  {
+    id: "Land-2B",
+    name:
+      getTechMeta("Land-2B", { strict: false })?.name ??
+      "Improved Artillery Systems",
+    category: "Land",
+    level: 2,
+    requiresAllOf: ["Land-1"],
+    description:
+      getTechMeta("Land-2B", { strict: false })?.description ??
+      "More accurate and powerful artillery with improved range.",
+    cost: costForLevel(2),
+  },
+  {
+    id: "Land-2C",
+    name:
+      getTechMeta("Land-2C", { strict: false })?.name ??
+      "Integrated Logistics Corps",
+    category: "Land",
+    level: 2,
+    requiresAllOf: ["Land-1"],
+    description:
+      getTechMeta("Land-2C", { strict: false })?.description ??
+      "Unified supply chains for efficient resource distribution.",
+    cost: costForLevel(2),
+  },
+  // Level 3 - Three techs, each requires any one of the Level 2 techs
+  {
+    id: "Land-3A",
+    name:
+      getTechMeta("Land-3A", { strict: false })?.name ??
+      "Main Battle Tank Standardization",
+    category: "Land",
+    level: 3,
+    requiresOneOf: ["Land-2A", "Land-2B", "Land-2C"],
+    description:
+      getTechMeta("Land-3A", { strict: false })?.description ??
+      "Standardized tank designs for improved coordination.",
+    cost: costForLevel(3),
+  },
+  {
+    id: "Land-3B",
+    name:
+      getTechMeta("Land-3B", { strict: false })?.name ??
+      "Composite Armor & HEAT Munitions",
+    category: "Land",
+    level: 3,
+    requiresOneOf: ["Land-2A", "Land-2B", "Land-2C"],
+    description:
+      getTechMeta("Land-3B", { strict: false })?.description ??
+      "Advanced armor materials and anti-tank warheads.",
+    cost: costForLevel(3),
+  },
+  {
+    id: "Land-3C",
+    name:
+      getTechMeta("Land-3C", { strict: false })?.name ??
+      "Self-Propelled Artillery",
+    category: "Land",
+    level: 3,
+    requiresOneOf: ["Land-2A", "Land-2B", "Land-2C"],
+    description:
+      getTechMeta("Land-3C", { strict: false })?.description ??
+      "Mobile artillery platforms for rapid deployment.",
+    cost: costForLevel(3),
+  },
+  // Level 4 - Three techs, each requires any one of the Level 3 techs
+  {
+    id: "Land-4A",
+    name:
+      getTechMeta("Land-4A", { strict: false })?.name ??
+      "Night Vision & Battlefield Sensors",
+    category: "Land",
+    level: 4,
+    requiresOneOf: ["Land-3A", "Land-3B", "Land-3C"],
+    description:
+      getTechMeta("Land-4A", { strict: false })?.description ??
+      "Infrared and thermal imaging for 24-hour combat.",
+    cost: costForLevel(4),
+  },
+  {
+    id: "Land-4B",
+    name:
+      getTechMeta("Land-4B", { strict: false })?.name ??
+      "Precision-Guided Munitions (Land)",
+    category: "Land",
+    level: 4,
+    requiresOneOf: ["Land-3A", "Land-3B", "Land-3C"],
+    description:
+      getTechMeta("Land-4B", { strict: false })?.description ??
+      "Laser and GPS-guided munitions for pinpoint accuracy.",
+    cost: costForLevel(4),
+  },
+  {
+    id: "Land-4C",
+    name: getTechMeta("Land-4C", { strict: false })?.name ?? "C3I Systems",
+    category: "Land",
+    level: 4,
+    requiresOneOf: ["Land-3A", "Land-3B", "Land-3C"],
+    description:
+      getTechMeta("Land-4C", { strict: false })?.description ??
+      "Command, Control, Communications, and Intelligence systems.",
+    cost: costForLevel(4),
+  },
+];
+
 // Parallel/branching techs as per current UI
 const extras: TechNode[] = [
   // Air tech tree - Level 1 (two parallel starting techs)
@@ -387,26 +520,29 @@ const extras: TechNode[] = [
       "Long-range surface-to-air missile systems for area denial and strategic defense.",
     cost: costForLevel(4),
   },
-  // Land branch tech
+  // Economy branch techs
   {
-    id: "Land-2B",
-    name: getTechMeta("Land-2B", { strict: false })?.name ?? "Scorched Earth",
-    category: "Land",
+    id: "Economy-2B",
+    name:
+      getTechMeta("Economy-2B", { strict: false })?.name ?? "Urban Planning",
+    category: "Economy",
     level: 2,
-    requiresAllOf: ["Land-1"],
+    requiresAllOf: ["Economy-1"],
     description:
-      getTechMeta("Land-2B", { strict: false })?.description ??
-      "Unlocks the Scorched Earth decision, letting you raze roads and reset economic techs.",
+      getTechMeta("Economy-2B", { strict: false })?.description ??
+      "Increases maximum population capacity by 25%.",
     cost: costForLevel(2),
   },
   {
     id: "Economy-3B",
     name:
-      getTechMeta("Economy-3B", { strict: false })?.name ?? "Economy Tech 3B",
+      getTechMeta("Economy-3B", { strict: false })?.name ?? "Scorched Earth",
     category: "Economy",
     level: 3,
     requiresAllOf: ["Economy-2"],
-    description: getTechMeta("Economy-3B", { strict: false })?.description,
+    description:
+      getTechMeta("Economy-3B", { strict: false })?.description ??
+      "Unlocks the Scorched Earth decision.",
     cost: costForLevel(3),
   },
 ];
@@ -416,6 +552,7 @@ const tree: TechNode[] = [
   ...baseLevels,
   ...nuclearTechs,
   ...seaTechs,
+  ...landTechs,
   ...extras,
 ];
 
