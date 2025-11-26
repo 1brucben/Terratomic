@@ -194,7 +194,7 @@ export class BuildMenu extends LitElement {
   private hotkeyMap: Map<UnitType, string> = new Map();
 
   @state()
-  private _lastSubmarineUpgradeState: boolean = false;
+  private _lastUpgradeCount: number = 0;
 
   // Per-unit icon scale for build menu thumbnails
   private static readonly ICON_SCALE: Partial<Record<UnitType, number>> = {
@@ -234,12 +234,18 @@ export class BuildMenu extends LitElement {
   }
 
   protected willUpdate(changed: Map<string, unknown>): void {
-    // Check if submarine upgrade state changed - lightweight check before render
+    // Check if any upgrade state changed by counting total upgrades
     const player = this.game?.myPlayer();
     if (player) {
-      const hasSubUpgrade = player.hasUpgrade(UpgradeType.SubmarineResearch);
-      if (hasSubUpgrade !== this._lastSubmarineUpgradeState) {
-        this._lastSubmarineUpgradeState = hasSubUpgrade;
+      // Count all upgrades that affect buildability
+      let upgradeCount = 0;
+      for (const upgrade of Object.values(UpgradeType)) {
+        if (player.hasUpgrade(upgrade)) {
+          upgradeCount++;
+        }
+      }
+      if (upgradeCount !== this._lastUpgradeCount) {
+        this._lastUpgradeCount = upgradeCount;
         this.recomputeFilteredTable();
       }
     }
@@ -315,6 +321,9 @@ export class BuildMenu extends LitElement {
             return player.hasUpgrade(UpgradeType.SubmarineResearch);
           }
           if (item.unitType === UnitType.AtomBomb) {
+            return player.hasUpgrade(UpgradeType.NuclearFission);
+          }
+          if (item.unitType === UnitType.MissileSilo) {
             return player.hasUpgrade(UpgradeType.NuclearFission);
           }
           if (item.unitType === UnitType.HydrogenBomb) {

@@ -1258,6 +1258,11 @@ export class PlayerImpl implements Player {
         return false;
       }
     }
+    if (unitType === UnitType.MissileSilo) {
+      if (!this.hasUpgrade(UpgradeType.NuclearFission)) {
+        return false;
+      }
+    }
     if (unitType === UnitType.HydrogenBomb) {
       if (!this.hasUpgrade(UpgradeType.ThermonuclearStaging)) {
         return false;
