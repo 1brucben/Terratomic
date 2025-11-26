@@ -208,6 +208,10 @@ export enum UpgradeType {
   FighterLevel2 = "FighterLevel2",
   FighterLevel3 = "FighterLevel3",
   FighterLevel4 = "FighterLevel4",
+  // SAM level upgrades (Surface-to-Air Missiles gives level 1)
+  SAMLevel1 = "SAMLevel1",
+  SAMLevel2 = "SAMLevel2",
+  SAMLevel3 = "SAMLevel3",
 
   // Nuclear Upgrades
   NuclearFission = "NuclearFission",

@@ -1297,6 +1297,13 @@ export class PlayerImpl implements Player {
       }
     }
 
+    // SAM Launcher tech requirement (Surface-to-Air Missiles)
+    if (unitType === UnitType.SAMLauncher) {
+      if (!this.hasUpgrade(UpgradeType.SAMLevel1)) {
+        return false;
+      }
+    }
+
     // Test-specific override: Force canBuild for bombers if enabled in TestConfig
     if (
       this.mg.config().forceCanBuildBomberInTests?.() &&

@@ -16,7 +16,7 @@ import {
 import { TileRef } from "../game/GameMap";
 import {
   isUpgradeableUnit,
-  maxStructureLevel,
+  playerMaxStructureLevel,
   playerMaxUnitLevel,
 } from "../game/Upgradeables";
 import { AirfieldExecution } from "./AirfieldExecution";
@@ -325,9 +325,10 @@ export class ConstructionExecution implements Execution {
   private computeDesiredLevel(type: UnitType, target?: number): number {
     if (target === undefined || target < 1) return 1;
     // For units, use player-specific max level based on researched techs
+    // For structures, use player-specific max (e.g., SAM launchers depend on SAM tech level)
     const cap = isUpgradeableUnit(type)
       ? playerMaxUnitLevel(this.player, type)
-      : maxStructureLevel(type);
+      : playerMaxStructureLevel(this.player, type);
     return Math.max(1, Math.min(cap, target));
   }
 

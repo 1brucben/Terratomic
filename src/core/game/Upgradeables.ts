@@ -76,6 +76,27 @@ export function playerMaxUnitLevel(player: HasUpgrade, type: UnitType): number {
   return globalMax;
 }
 
+// Return maximum upgrade level for a structure based on player's researched techs.
+// For SAMLauncher: Surface-to-Air Missiles = level 1, Radar-Guided SAMs = level 2,
+// Strategic SAM Systems = level 3.
+export function playerMaxStructureLevel(
+  player: HasUpgrade,
+  type: UnitType,
+): number {
+  const globalMax = maxStructureLevel(type);
+
+  if (type === UnitType.SAMLauncher) {
+    if (player.hasUpgrade(UpgradeType.SAMLevel3)) return Math.min(3, globalMax);
+    if (player.hasUpgrade(UpgradeType.SAMLevel2)) return Math.min(2, globalMax);
+    if (player.hasUpgrade(UpgradeType.SAMLevel1)) return Math.min(1, globalMax);
+    // No SAM tech researched - can't build SAM launchers
+    return 0;
+  }
+
+  // For other structures, return global max
+  return globalMax;
+}
+
 // Resolve a UnitType value from a stored string value (String(UnitType.X))
 export function tryParseUnitType(value: string): UnitType | null {
   for (const v of Object.values(UnitType) as UnitType[]) {
@@ -84,7 +105,7 @@ export function tryParseUnitType(value: string): UnitType | null {
   return null;
 }
 
-// Check if a unit/structure type is available to the player based on researched techs.
+// Check if a unit type is available to the player based on researched techs.
 // Returns true if the player has the required upgrade to build/use this unit type.
 export function isUnitAvailable(player: HasUpgrade, type: UnitType): boolean {
   switch (type) {
@@ -103,6 +124,24 @@ export function isUnitAvailable(player: HasUpgrade, type: UnitType): boolean {
       return player.hasUpgrade(UpgradeType.MIRVTechnology);
     case UnitType.DoomsdayDevice:
       return player.hasUpgrade(UpgradeType.DoomsdayDeviceResearch);
+    default:
+      return true;
+  }
+}
+
+// Check if a structure type is available to the player based on researched techs.
+// Returns true if the player has the required upgrade to build this structure type.
+export function isStructureAvailable(
+  player: HasUpgrade,
+  type: UnitType,
+): boolean {
+  switch (type) {
+    case UnitType.SAMLauncher:
+      return player.hasUpgrade(UpgradeType.SAMLevel1);
+    case UnitType.MissileSilo:
+      return player.hasUpgrade(UpgradeType.NuclearFission);
+    case UnitType.Airfield:
+      return player.hasUpgrade(UpgradeType.JetEngines);
     default:
       return true;
   }

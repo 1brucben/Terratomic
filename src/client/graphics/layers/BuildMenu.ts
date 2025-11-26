@@ -29,8 +29,8 @@ import { GameView } from "../../../core/game/GameView";
 import {
   isUpgradeableStructure,
   isUpgradeableUnit,
-  maxStructureLevel,
   maxUnitLevel,
+  playerMaxStructureLevel,
   playerMaxUnitLevel,
 } from "../../../core/game/Upgradeables";
 import { ToggleBomberUpgradeModeEvent } from "../../events/ToggleBomberUpgradeModeEvent";
@@ -328,6 +328,9 @@ export class BuildMenu extends LitElement {
           ) {
             return player.hasUpgrade(UpgradeType.JetEngines);
           }
+          if (item.unitType === UnitType.SAMLauncher) {
+            return player.hasUpgrade(UpgradeType.SAMLevel1);
+          }
           if (item.unitType === UnitType.AtomBomb) {
             return player.hasUpgrade(UpgradeType.NuclearFission);
           }
@@ -619,7 +622,10 @@ export class BuildMenu extends LitElement {
       const key = String(type);
       const val = obj?.[key];
       if (typeof val !== "number" || val < 1) return 1;
-      return Math.min(maxStructureLevel(type), val);
+      // Use player-specific max level based on researched techs
+      const player = this.game?.myPlayer();
+      const maxLevel = player ? playerMaxStructureLevel(player, type) : 1;
+      return Math.min(maxLevel, val);
     } catch (_) {
       return 1;
     }

@@ -336,10 +336,19 @@ export const TECHS: Readonly<Record<string, TechDefinition>> = Object.freeze({
     meta: {
       name: "Surface-to-Air Missiles",
       description:
-        "Advanced SAM technology for enhanced air defense capabilities.",
+        "Enables Level 1 SAM Launchers. Advanced SAM technology for enhanced air defense capabilities.",
     },
     effects: {
-      // Placeholder - add specific upgrade when needed
+      onComplete: (player) => {
+        if (!player.hasUpgrade?.(UpgradeType.SAMLevel1)) {
+          player.addUpgrade?.(UpgradeType.SAMLevel1);
+        }
+      },
+      onRevoke: (player) => {
+        if (player.hasUpgrade?.(UpgradeType.SAMLevel1)) {
+          player.removeUpgrade?.(UpgradeType.SAMLevel1);
+        }
+      },
     },
   },
   // Air techs - Level 3
@@ -385,10 +394,19 @@ export const TECHS: Readonly<Record<string, TechDefinition>> = Object.freeze({
     meta: {
       name: "Radar-Guided SAMs",
       description:
-        "Advanced radar-guided surface-to-air missiles with improved accuracy.",
+        "Enables Level 2 SAM Launchers. Advanced radar-guided surface-to-air missiles with improved accuracy.",
     },
     effects: {
-      // Placeholder - add specific upgrade when needed
+      onComplete: (player) => {
+        if (!player.hasUpgrade?.(UpgradeType.SAMLevel2)) {
+          player.addUpgrade?.(UpgradeType.SAMLevel2);
+        }
+      },
+      onRevoke: (player) => {
+        if (player.hasUpgrade?.(UpgradeType.SAMLevel2)) {
+          player.removeUpgrade?.(UpgradeType.SAMLevel2);
+        }
+      },
     },
   },
   // Air techs - Level 4
@@ -425,10 +443,19 @@ export const TECHS: Readonly<Record<string, TechDefinition>> = Object.freeze({
     meta: {
       name: "Strategic SAM Systems",
       description:
-        "Long-range surface-to-air missile systems for area denial and strategic defense.",
+        "Enables Level 3 SAM Launchers. Long-range surface-to-air missile systems for area denial and strategic defense.",
     },
     effects: {
-      // Placeholder - add specific upgrade when needed
+      onComplete: (player) => {
+        if (!player.hasUpgrade?.(UpgradeType.SAMLevel3)) {
+          player.addUpgrade?.(UpgradeType.SAMLevel3);
+        }
+      },
+      onRevoke: (player) => {
+        if (player.hasUpgrade?.(UpgradeType.SAMLevel3)) {
+          player.removeUpgrade?.(UpgradeType.SAMLevel3);
+        }
+      },
     },
   },
   [RESEARCH_TECH_IDS.SUBMARINE_WARFARE]: {

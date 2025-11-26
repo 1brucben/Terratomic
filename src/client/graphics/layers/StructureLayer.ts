@@ -23,7 +23,7 @@ import { GameUpdateType } from "../../../core/game/GameUpdates";
 import { GameView, UnitView } from "../../../core/game/GameView";
 import {
   isUpgradeableStructure,
-  maxStructureLevel,
+  playerMaxStructureLevel,
 } from "../../../core/game/Upgradeables";
 import { ToggleBomberUpgradeModeEvent } from "../../events/ToggleBomberUpgradeModeEvent";
 import { ToggleUpgradeModeEvent } from "../../events/ToggleUpgradeModeEvent";
@@ -371,8 +371,10 @@ export class StructureLayer implements Layer {
 
   private isUpgradeableStructure(unit: UnitView): boolean {
     if (!isUpgradeableStructure(unit.type())) return false;
-    // Check if at max level
-    const maxLevel = maxStructureLevel(unit.type());
+    // Check if at max level for this player (based on researched techs)
+    const me = this.game.myPlayer();
+    if (!me) return false;
+    const maxLevel = playerMaxStructureLevel(me, unit.type());
     if (unit.level() >= maxLevel) return false;
     return true;
   }

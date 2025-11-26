@@ -12,7 +12,9 @@ import {
 } from "../../../core/game/Game";
 import { GameView, PlayerView, UnitView } from "../../../core/game/GameView";
 import {
+  isStructureAvailable,
   isUnitAvailable,
+  playerMaxStructureLevel,
   playerMaxUnitLevel,
 } from "../../../core/game/Upgradeables";
 import { getTechMeta, RESEARCH_TECH_IDS } from "../../../core/tech/TechEffects";
@@ -976,10 +978,13 @@ export class ControlPanel2 extends LitElement implements Layer {
       return;
     }
     const openFn = modal.open;
-    // Get player-specific availability filter
+    // Get player-specific max level and availability functions for structures
     const player = this.game?.myPlayer();
+    const maxLevelFn = player
+      ? (type: UnitType) => playerMaxStructureLevel(player, type)
+      : undefined;
     const isAvailableFn = player
-      ? (type: UnitType) => isUnitAvailable(player, type)
+      ? (type: UnitType) => isStructureAvailable(player, type)
       : undefined;
     if (typeof openFn !== "function") {
       // Fallback if element existed before registration; re-import then retry
@@ -990,7 +995,7 @@ export class ControlPanel2 extends LitElement implements Layer {
             modal,
             this.StructureTypes,
             this.unitIconMap,
-            undefined,
+            maxLevelFn,
             isAvailableFn,
           );
         } else {
@@ -1003,7 +1008,7 @@ export class ControlPanel2 extends LitElement implements Layer {
       modal,
       this.StructureTypes,
       this.unitIconMap,
-      undefined,
+      maxLevelFn,
       isAvailableFn,
     );
   }
