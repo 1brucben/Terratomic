@@ -49,13 +49,24 @@ export const RESEARCH_TECH_IDS = {
   NIGHT_VISION_BATTLEFIELD_SENSORS: "Land-4A",
   PRECISION_GUIDED_MUNITIONS_LAND: "Land-4B",
   C3I_SYSTEMS: "Land-4C",
-  // Economy techs
+  // Economy techs - Level 1
   POST_WAR_RECONSTRUCTION: "Economy-1",
-  INTERNATIONAL_TRADE: "Economy-2",
-  URBAN_PLANNING: "Economy-2B",
-  STRUCTURE_INSURANCE: "Economy-3",
-  SCORCHED_EARTH: "Economy-3B",
-  AUTOMATION: "Economy-4",
+  // Economy techs - Level 2
+  NATIONAL_HIGHWAY_EXPANSION: "Economy-2A",
+  PORT_TRANSPORT_MODERNIZATION: "Economy-2B",
+  CIVIL_DEFENSE_MEASURES: "Economy-2C",
+  INFRASTRUCTURE_RECOVERY_FUND: "Economy-2D",
+  // Economy techs - Level 3
+  SCIENTIFIC_RESEARCH_NETWORK: "Economy-3A",
+  ADVANCED_MACHINE_TOOLS_AUTOMATION: "Economy-3B",
+  ENERGY_INFRASTRUCTURE_EXPANSION: "Economy-3C",
+  NATIONAL_HEALTH_SYSTEM: "Economy-3D",
+  // Economy techs - Level 4
+  COMPUTING_DATA_SYSTEMS: "Economy-4A",
+  TELECOMMUNICATIONS_INTEGRATION: "Economy-4B",
+  ECONOMIC_COORDINATION_SYSTEMS: "Economy-4C",
+  // Special Economy actions (not research nodes)
+  SCORCHED_EARTH: "Economy-Action-ScorchedEarth",
   // Nuclear techs
   NUCLEAR_FISSION: "Nuclear-1",
   THERMONUCLEAR_STAGING: "Nuclear-2",
@@ -318,44 +329,132 @@ export const TECHS: Readonly<Record<string, TechDefinition>> = Object.freeze({
       },
     },
   },
-  [RESEARCH_TECH_IDS.INTERNATIONAL_TRADE]: {
+  // Economy Level 2 techs
+  [RESEARCH_TECH_IDS.NATIONAL_HIGHWAY_EXPANSION]: {
     meta: {
-      name: "International Trade",
+      name: "National Highway Expansion",
       description:
-        "Establish formal trade agreements and routes with allied nations, enabling shared economic prosperity and strategic interdependence. Effects: Unlocks International Trade, allowing road connections to allied territories.",
+        "Expand national highway networks for improved logistics and troop movement.",
+    },
+  },
+  [RESEARCH_TECH_IDS.PORT_TRANSPORT_MODERNIZATION]: {
+    meta: {
+      name: "Port & Transport Modernization",
+      description:
+        "Modernize ports and transport infrastructure. Effects: Unlocks International Trade income from cargo trucks.",
     },
     effects: {
-      onComplete: (player, game) => {
+      onComplete: (player) => {
         if (!player.hasUpgrade?.(UpgradeType.InternationalTrade)) {
           player.addUpgrade?.(UpgradeType.InternationalTrade);
-          game.markPlayerNodesForReconnection?.(player);
         }
       },
-      onRevoke: (player, game) => {
+      onRevoke: (player) => {
         if (player.hasUpgrade?.(UpgradeType.InternationalTrade)) {
           player.removeUpgrade?.(UpgradeType.InternationalTrade);
-          game.markPlayerNodesForReconnection?.(player);
         }
       },
     },
   },
-  [RESEARCH_TECH_IDS.URBAN_PLANNING]: {
+  [RESEARCH_TECH_IDS.CIVIL_DEFENSE_MEASURES]: {
     meta: {
-      name: "Urban Planning",
+      name: "Civil Defense Measures",
       description:
-        "Revise zoning, utilities, and transport grids to support denser population hubs. Effects: Unlocks Urban Planning, increasing maximum population capacity by 25%.",
+        "Establish civil defense protocols. Enables the Scorched Earth decision.",
+    },
+  },
+  [RESEARCH_TECH_IDS.INFRASTRUCTURE_RECOVERY_FUND]: {
+    meta: {
+      name: "Infrastructure Recovery Fund",
+      description:
+        "Establish state-backed recovery funds. Effects: Unlocks Structure Insurance, refunding 33% of construction costs when self-constructed buildings are lost.",
     },
     effects: {
       onComplete: (player) => {
-        if (!player.hasUpgrade?.(UpgradeType.UrbanPlanning)) {
-          player.addUpgrade?.(UpgradeType.UrbanPlanning);
+        if (!player.hasUpgrade?.(UpgradeType.StructureInsurance)) {
+          player.addUpgrade?.(UpgradeType.StructureInsurance);
+        }
+        try {
+          const units = player.units?.() ?? [];
+          for (const unit of units) {
+            (unit as any).insure?.(player);
+          }
+        } catch {
+          // Some player implementations may not expose units(); ignore.
         }
       },
       onRevoke: (player) => {
-        if (player.hasUpgrade?.(UpgradeType.UrbanPlanning)) {
-          player.removeUpgrade?.(UpgradeType.UrbanPlanning);
+        try {
+          const units = player.units?.() ?? [];
+          for (const unit of units) {
+            (unit as any).insure?.(null);
+          }
+        } catch {
+          // ignore
+        }
+        if (player.hasUpgrade?.(UpgradeType.StructureInsurance)) {
+          player.removeUpgrade?.(UpgradeType.StructureInsurance);
         }
       },
+    },
+  },
+  // Economy Level 3 techs
+  [RESEARCH_TECH_IDS.SCIENTIFIC_RESEARCH_NETWORK]: {
+    meta: {
+      name: "Scientific Research Network",
+      description:
+        "Establish national research networks for scientific advancement.",
+    },
+  },
+  [RESEARCH_TECH_IDS.ADVANCED_MACHINE_TOOLS_AUTOMATION]: {
+    meta: {
+      name: "Advanced Machine Tools & Automation",
+      description: "Develop advanced manufacturing and automation systems.",
+    },
+  },
+  [RESEARCH_TECH_IDS.ENERGY_INFRASTRUCTURE_EXPANSION]: {
+    meta: {
+      name: "Energy Infrastructure Expansion",
+      description: "Expand power generation and distribution networks.",
+    },
+  },
+  [RESEARCH_TECH_IDS.NATIONAL_HEALTH_SYSTEM]: {
+    meta: {
+      name: "National Health System",
+      description:
+        "Establish a comprehensive national health system. Enables Hospital construction.",
+    },
+    effects: {
+      onComplete: (player) => {
+        if (!player.hasUpgrade?.(UpgradeType.HospitalResearch)) {
+          player.addUpgrade?.(UpgradeType.HospitalResearch);
+        }
+      },
+      onRevoke: (player) => {
+        if (player.hasUpgrade?.(UpgradeType.HospitalResearch)) {
+          player.removeUpgrade?.(UpgradeType.HospitalResearch);
+        }
+      },
+    },
+  },
+  // Economy Level 4 techs
+  [RESEARCH_TECH_IDS.COMPUTING_DATA_SYSTEMS]: {
+    meta: {
+      name: "Computing & Data Systems",
+      description:
+        "Develop computing infrastructure and data processing systems.",
+    },
+  },
+  [RESEARCH_TECH_IDS.TELECOMMUNICATIONS_INTEGRATION]: {
+    meta: {
+      name: "Telecommunications Integration",
+      description: "Integrate telecommunications networks nationally.",
+    },
+  },
+  [RESEARCH_TECH_IDS.ECONOMIC_COORDINATION_SYSTEMS]: {
+    meta: {
+      name: "Economic Coordination Systems",
+      description: "National systems for economic planning and coordination.",
     },
   },
   [RESEARCH_TECH_IDS.SCORCHED_EARTH]: {
@@ -449,60 +548,6 @@ export const TECHS: Readonly<Record<string, TechDefinition>> = Object.freeze({
         if (player.hasUpgrade?.(UpgradeType.CityAntiAir)) {
           player.removeUpgrade?.(UpgradeType.CityAntiAir);
           // Note: CityAAExecution will deactivate itself when upgrade is removed
-        }
-      },
-    },
-  },
-  [RESEARCH_TECH_IDS.STRUCTURE_INSURANCE]: {
-    meta: {
-      name: "Structure Insurance",
-      description:
-        "Establish state-backed insurers to protect strategic structures. Effects: Unlocks Structure Insurance, refunding 33% of construction costs when self constructed buildings are lost.",
-    },
-    effects: {
-      onComplete: (player) => {
-        if (!player.hasUpgrade?.(UpgradeType.StructureInsurance)) {
-          player.addUpgrade?.(UpgradeType.StructureInsurance);
-        }
-        try {
-          const units = player.units?.() ?? [];
-          for (const unit of units) {
-            (unit as any).insure?.(player);
-          }
-        } catch {
-          // Some player implementations may not expose units(); ignore.
-        }
-      },
-      onRevoke: (player) => {
-        try {
-          const units = player.units?.() ?? [];
-          for (const unit of units) {
-            (unit as any).insure?.(null);
-          }
-        } catch {
-          // ignore
-        }
-        if (player.hasUpgrade?.(UpgradeType.StructureInsurance)) {
-          player.removeUpgrade?.(UpgradeType.StructureInsurance);
-        }
-      },
-    },
-  },
-  [RESEARCH_TECH_IDS.AUTOMATION]: {
-    meta: {
-      name: "Automation",
-      description:
-        "Deploy advanced automation across industry to streamline logistics. Effects: Unlocks Automation, doubling domestic trade income while reducing troop regeneration by 20%.",
-    },
-    effects: {
-      onComplete: (player) => {
-        if (!player.hasUpgrade?.(UpgradeType.Automation)) {
-          player.addUpgrade?.(UpgradeType.Automation);
-        }
-      },
-      onRevoke: (player) => {
-        if (player.hasUpgrade?.(UpgradeType.Automation)) {
-          player.removeUpgrade?.(UpgradeType.Automation);
         }
       },
     },

@@ -19,7 +19,6 @@ import {
   Trios,
   UnitInfo,
   UnitType,
-  UpgradeType,
 } from "../game/Game";
 import { TileRef } from "../game/GameMap";
 import { PlayerView } from "../game/GameView";
@@ -1160,17 +1159,11 @@ export class DefaultConfig implements Config {
   }
 
   maxPopulation(player: Player | PlayerView): number {
-    let maxPop =
+    const maxPop =
       player.type() === PlayerType.Human && this.infiniteTroops()
         ? 1_000_000_000
         : 1 * (player.numTilesOwned() * 30 + 50000) +
           player.effectiveUnits(UnitType.City) * this.cityPopulationIncrease();
-
-    if (player.hasUpgrade(UpgradeType.UrbanPlanning)) {
-      const num = this.urbanPlanningPopulationBonusNum();
-      const den = this.urbanPlanningPopulationBonusDen();
-      maxPop = Math.floor((maxPop * num) / den);
-    }
 
     if (player.type() === PlayerType.Bot) {
       return maxPop / 2;
@@ -1208,12 +1201,6 @@ export class DefaultConfig implements Config {
     const totalPop = player.totalPopulation();
     const ratio = Math.max(1 - totalPop / max, 0);
     toAdd *= ratio ** 1.222;
-
-    if (player.hasUpgrade(UpgradeType.Automation)) {
-      const num = this.automationTroopRegenMultiplierNum();
-      const den = this.automationTroopRegenMultiplierDen();
-      toAdd = (toAdd * num) / den;
-    }
 
     if (player.type() === PlayerType.Bot) {
       toAdd *= 0.7;

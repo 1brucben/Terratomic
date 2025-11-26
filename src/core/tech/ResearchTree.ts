@@ -25,23 +25,7 @@ const mkId = (cat: Category, lvl: number) => `${cat}-${lvl}`;
 
 const baseLevels: TechNode[] = (() => {
   const nodes: TechNode[] = [];
-  for (let lvl = 1; lvl <= 5; lvl++) {
-    // Nuclear, Air, Sea, and Land techs are defined separately as explicit nodes
-    for (const cat of ["Economy"] as const) {
-      const id = mkId(cat, lvl);
-      const meta = getTechMeta(id, { strict: false });
-      const node: TechNode = {
-        id,
-        name: meta?.name ?? `${cat} Tech ${lvl}`,
-        category: cat,
-        level: lvl,
-        description: meta?.description,
-        requiresAllOf: lvl > 1 ? [mkId(cat, lvl - 1)] : undefined,
-        cost: costForLevel(lvl),
-      };
-      nodes.push(node);
-    }
-  }
+  // All categories now have explicit definitions
   return nodes;
 })();
 
@@ -520,30 +504,168 @@ const extras: TechNode[] = [
       "Long-range surface-to-air missile systems for area denial and strategic defense.",
     cost: costForLevel(4),
   },
-  // Economy branch techs
+];
+
+// Economy branch techs (explicit definitions)
+const economyTechs: TechNode[] = [
+  // Level 1
+  {
+    id: "Economy-1",
+    name:
+      getTechMeta("Economy-1", { strict: false })?.name ??
+      "Post-War Reconstruction",
+    category: "Economy",
+    level: 1,
+    description:
+      getTechMeta("Economy-1", { strict: false })?.description ??
+      "Unlocks Roads investment and enables construction of road networks.",
+    cost: costForLevel(1),
+  },
+  // Level 2 - Four parallel techs, all require Economy-1
+  {
+    id: "Economy-2A",
+    name:
+      getTechMeta("Economy-2A", { strict: false })?.name ??
+      "National Highway Expansion",
+    category: "Economy",
+    level: 2,
+    requiresAllOf: ["Economy-1"],
+    description:
+      getTechMeta("Economy-2A", { strict: false })?.description ??
+      "Expand national highway networks for improved logistics.",
+    cost: costForLevel(2),
+  },
   {
     id: "Economy-2B",
     name:
-      getTechMeta("Economy-2B", { strict: false })?.name ?? "Urban Planning",
+      getTechMeta("Economy-2B", { strict: false })?.name ??
+      "Port & Transport Modernization",
     category: "Economy",
     level: 2,
     requiresAllOf: ["Economy-1"],
     description:
       getTechMeta("Economy-2B", { strict: false })?.description ??
-      "Increases maximum population capacity by 25%.",
+      "Modernize ports and transport infrastructure.",
     cost: costForLevel(2),
+  },
+  {
+    id: "Economy-2C",
+    name:
+      getTechMeta("Economy-2C", { strict: false })?.name ??
+      "Civil Defense Measures",
+    category: "Economy",
+    level: 2,
+    requiresAllOf: ["Economy-1"],
+    description:
+      getTechMeta("Economy-2C", { strict: false })?.description ??
+      "Enables the Scorched Earth decision.",
+    cost: costForLevel(2),
+  },
+  {
+    id: "Economy-2D",
+    name:
+      getTechMeta("Economy-2D", { strict: false })?.name ??
+      "Infrastructure Recovery Fund",
+    category: "Economy",
+    level: 2,
+    requiresAllOf: ["Economy-1"],
+    description:
+      getTechMeta("Economy-2D", { strict: false })?.description ??
+      "Establish funds for rapid infrastructure recovery.",
+    cost: costForLevel(2),
+  },
+  // Level 3 - Four techs, each requires any one of the Level 2 techs
+  {
+    id: "Economy-3A",
+    name:
+      getTechMeta("Economy-3A", { strict: false })?.name ??
+      "Scientific Research Network",
+    category: "Economy",
+    level: 3,
+    requiresOneOf: ["Economy-2A", "Economy-2B", "Economy-2C", "Economy-2D"],
+    description:
+      getTechMeta("Economy-3A", { strict: false })?.description ??
+      "Establish national research networks for scientific advancement.",
+    cost: costForLevel(3),
   },
   {
     id: "Economy-3B",
     name:
-      getTechMeta("Economy-3B", { strict: false })?.name ?? "Scorched Earth",
+      getTechMeta("Economy-3B", { strict: false })?.name ??
+      "Advanced Machine Tools & Automation",
     category: "Economy",
     level: 3,
-    requiresAllOf: ["Economy-2"],
+    requiresOneOf: ["Economy-2A", "Economy-2B", "Economy-2C", "Economy-2D"],
     description:
       getTechMeta("Economy-3B", { strict: false })?.description ??
-      "Unlocks the Scorched Earth decision.",
+      "Develop advanced manufacturing and automation systems.",
     cost: costForLevel(3),
+  },
+  {
+    id: "Economy-3C",
+    name:
+      getTechMeta("Economy-3C", { strict: false })?.name ??
+      "Energy Infrastructure Expansion",
+    category: "Economy",
+    level: 3,
+    requiresOneOf: ["Economy-2A", "Economy-2B", "Economy-2C", "Economy-2D"],
+    description:
+      getTechMeta("Economy-3C", { strict: false })?.description ??
+      "Expand power generation and distribution networks.",
+    cost: costForLevel(3),
+  },
+  {
+    id: "Economy-3D",
+    name:
+      getTechMeta("Economy-3D", { strict: false })?.name ??
+      "National Health System",
+    category: "Economy",
+    level: 3,
+    requiresOneOf: ["Economy-2A", "Economy-2B", "Economy-2C", "Economy-2D"],
+    description:
+      getTechMeta("Economy-3D", { strict: false })?.description ??
+      "Enables Hospital construction.",
+    cost: costForLevel(3),
+  },
+  // Level 4 - Three techs, each requires any one of the Level 3 techs
+  {
+    id: "Economy-4A",
+    name:
+      getTechMeta("Economy-4A", { strict: false })?.name ??
+      "Computing & Data Systems",
+    category: "Economy",
+    level: 4,
+    requiresOneOf: ["Economy-3A", "Economy-3B", "Economy-3C", "Economy-3D"],
+    description:
+      getTechMeta("Economy-4A", { strict: false })?.description ??
+      "Develop computing infrastructure and data processing systems.",
+    cost: costForLevel(4),
+  },
+  {
+    id: "Economy-4B",
+    name:
+      getTechMeta("Economy-4B", { strict: false })?.name ??
+      "Telecommunications Integration",
+    category: "Economy",
+    level: 4,
+    requiresOneOf: ["Economy-3A", "Economy-3B", "Economy-3C", "Economy-3D"],
+    description:
+      getTechMeta("Economy-4B", { strict: false })?.description ??
+      "Integrate telecommunications networks nationally.",
+    cost: costForLevel(4),
+  },
+  {
+    id: "Economy-4C",
+    name:
+      getTechMeta("Economy-4C", { strict: false })?.name ??
+      "Economic Coordination Systems",
+    category: "Economy",
+    level: 4,
+    requiresOneOf: ["Economy-3A", "Economy-3B", "Economy-3C", "Economy-3D"],
+    description:
+      getTechMeta("Economy-4C", { strict: false })?.description ??
+      "National systems for economic planning and coordination.",
+    cost: costForLevel(4),
   },
 ];
 
@@ -553,6 +675,7 @@ const tree: TechNode[] = [
   ...nuclearTechs,
   ...seaTechs,
   ...landTechs,
+  ...economyTechs,
   ...extras,
 ];
 

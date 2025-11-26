@@ -182,13 +182,12 @@ export enum UpgradeType {
   Roads = "Roads",
 
   // Land Upgrades
-  InternationalTrade = "InternationalTrade",
-  UrbanPlanning = "UrbanPlanning",
   ScorchedEarth = "ScorchedEarth",
 
   // Economy Upgrades
+  InternationalTrade = "InternationalTrade",
   StructureInsurance = "StructureInsurance",
-  Automation = "Automation",
+  HospitalResearch = "HospitalResearch",
 
   // Water Upgrades
   SubmarineResearch = "SubmarineResearch",
