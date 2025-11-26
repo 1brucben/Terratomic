@@ -1,4 +1,4 @@
-import { LitElement, html, type PropertyValues } from "lit";
+import { html, LitElement, type PropertyValues } from "lit";
 import { customElement, property, query, state } from "lit/decorators.js";
 import flaskIcon from "../../proprietary/images/flask.png";
 import { EventBus } from "../core/EventBus";
@@ -10,7 +10,7 @@ import {
   type Category,
   type TechNode,
 } from "../core/tech/ResearchTree";
-import { RESEARCH_TECH_IDS } from "../core/tech/TechEffects";
+import { getTechMeta, RESEARCH_TECH_IDS } from "../core/tech/TechEffects";
 import "./components/baseComponents/Modal";
 import {
   INVESTMENT_REQUEST_EVENT,
@@ -27,6 +27,15 @@ import {
 import { renderNumber, translateText } from "./Utils";
 
 type ResearchTab = Category | "Overview";
+
+/** Helper to get display name/description from TechEffects */
+function getTechDisplay(tech: TechNode): {
+  name: string;
+  description?: string;
+} {
+  const meta = getTechMeta(tech.id, { strict: false });
+  return { name: meta?.name ?? tech.id, description: meta?.description };
+}
 
 // Category and TechNode are imported from core so client stays in sync
 
@@ -505,13 +514,14 @@ export class ResearchTreeModal extends LitElement {
                     ? techs.map((tech) => {
                         const isResearched = researched.has(tech.id);
                         const pct = percentages.get(tech.id) ?? 0;
+                        const display = getTechDisplay(tech);
                         return html`<div
                           class=${`compact-tech ${isResearched ? "researched" : ""}`}
-                          title=${tech.description ?? tech.name}
-                          aria-label=${tech.description ?? tech.name}
+                          title=${display.description ?? display.name}
+                          aria-label=${display.description ?? display.name}
                         >
                           <span class="compact-name"
-                            >${tech.name} (${pct}%)</span
+                            >${display.name} (${pct}%)</span
                           >
                           ${isResearched
                             ? html`<span class="compact-check">✔</span>`
@@ -1593,137 +1603,144 @@ export class ResearchTreeModal extends LitElement {
                                     isResearched,
                                   );
                                   return html`<div class="tech-wrapper">
-                                    <button
-                                      class=${classes}
-                                      data-id=${tech.id}
-                                      @click=${() => this.onTechClick(tech.id)}
-                                      @mouseenter=${(ev: Event) =>
-                                        this.adjustTooltipPosition(
-                                          ev.currentTarget as HTMLElement,
-                                        )}
-                                      @focus=${(ev: Event) =>
-                                        this.adjustTooltipPosition(
-                                          ev.currentTarget as HTMLElement,
-                                        )}
-                                      title=${""}
-                                      ?disabled=${!clickable}
-                                    >
-                                      <div class="tooltip">
-                                        <div
-                                          style="font-weight:600;margin-bottom:4px;"
-                                        >
-                                          ${tech.name}
-                                        </div>
-                                        ${tech.description
-                                          ? html`<div
-                                              style="opacity:.9;margin-bottom:6px;"
-                                            >
-                                              ${tech.description}
-                                            </div>`
-                                          : ""}
-                                        ${(() => {
-                                          const meLocal =
-                                            this.game?.myPlayer?.();
-                                          const b =
-                                            meLocal?.researchBeakers?.(
-                                              tech.id,
-                                            ) ?? 0;
-                                          const pct = Math.min(
-                                            100,
-                                            Math.floor(
-                                              (b / (tech.cost || 1)) * 100,
-                                            ),
-                                          );
-                                          return html`<div
-                                            style="font-size:11px;opacity:.9;"
-                                          >
-                                            <div
-                                              class="cost-inline"
-                                              translate="no"
-                                            >
-                                              <span
-                                                >Cost:
-                                                ${tech.cost.toLocaleString()}</span
-                                              >
-                                              <img
-                                                src=${flaskIcon}
-                                                alt="research cost"
-                                              />
-                                            </div>
-                                            ${isResearched
-                                              ? html`<div>
-                                                  Status: Completed
-                                                </div>`
-                                              : html`<div>
-                                                  Progress:
-                                                  ${b.toLocaleString()} /
-                                                  ${tech.cost.toLocaleString()}
-                                                  (${pct}%)
-                                                </div>`}
-                                          </div>`;
-                                        })()}
-                                      </div>
-                                      <div
-                                        style="font-weight:600; margin-bottom:6px;"
+                                    ${(() => {
+                                      const display = getTechDisplay(tech);
+                                      return html`<button
+                                        class=${classes}
+                                        data-id=${tech.id}
+                                        @click=${() =>
+                                          this.onTechClick(tech.id)}
+                                        @mouseenter=${(ev: Event) =>
+                                          this.adjustTooltipPosition(
+                                            ev.currentTarget as HTMLElement,
+                                          )}
+                                        @focus=${(ev: Event) =>
+                                          this.adjustTooltipPosition(
+                                            ev.currentTarget as HTMLElement,
+                                          )}
+                                        title=${""}
+                                        ?disabled=${!clickable}
                                       >
-                                        ${tech.name}
-                                      </div>
-                                      <div class="cost-inline" translate="no">
-                                        <span
-                                          >${tech.cost.toLocaleString()}</span
-                                        >
-                                        <img
-                                          src=${flaskIcon}
-                                          alt="research cost"
-                                        />
-                                      </div>
-                                      ${!isResearched && me
-                                        ? (() => {
+                                        <div class="tooltip">
+                                          <div
+                                            style="font-weight:600;margin-bottom:4px;"
+                                          >
+                                            ${display.name}
+                                          </div>
+                                          ${display.description
+                                            ? html`<div
+                                                style="opacity:.9;margin-bottom:6px;"
+                                              >
+                                                ${display.description}
+                                              </div>`
+                                            : ""}
+                                          ${(() => {
+                                            const meLocal =
+                                              this.game?.myPlayer?.();
                                             const b =
-                                              me.researchBeakers?.(tech.id) ??
-                                              0;
+                                              meLocal?.researchBeakers?.(
+                                                tech.id,
+                                              ) ?? 0;
                                             const pct = Math.min(
                                               100,
                                               Math.floor(
                                                 (b / (tech.cost || 1)) * 100,
                                               ),
                                             );
-                                            return b > 0
-                                              ? html`<div
-                                                  class="progress-track"
+                                            return html`<div
+                                              style="font-size:11px;opacity:.9;"
+                                            >
+                                              <div
+                                                class="cost-inline"
+                                                translate="no"
+                                              >
+                                                <span
+                                                  >Cost:
+                                                  ${tech.cost.toLocaleString()}</span
                                                 >
-                                                  <div
-                                                    class="progress-fill ${priority ===
-                                                    tech.id
-                                                      ? "priority"
-                                                      : ""}"
-                                                    style="width:${pct}%"
-                                                  ></div>
-                                                </div>`
-                                              : "";
-                                          })()
-                                        : ""}
-                                      <div>
-                                        ${tech.requiresAllOf?.length
-                                          ? html`<span class="pill pill-req"
-                                              >Requires:
-                                              ${tech.requiresAllOf.length}</span
-                                            >`
+                                                <img
+                                                  src=${flaskIcon}
+                                                  alt="research cost"
+                                                />
+                                              </div>
+                                              ${isResearched
+                                                ? html`<div>
+                                                    Status: Completed
+                                                  </div>`
+                                                : html`<div>
+                                                    Progress:
+                                                    ${b.toLocaleString()} /
+                                                    ${tech.cost.toLocaleString()}
+                                                    (${pct}%)
+                                                  </div>`}
+                                            </div>`;
+                                          })()}
+                                        </div>
+                                        <div
+                                          style="font-weight:600; margin-bottom:6px;"
+                                        >
+                                          ${display.name}
+                                        </div>
+                                        <div class="cost-inline" translate="no">
+                                          <span
+                                            >${tech.cost.toLocaleString()}</span
+                                          >
+                                          <img
+                                            src=${flaskIcon}
+                                            alt="research cost"
+                                          />
+                                        </div>
+                                        ${!isResearched && me
+                                          ? (() => {
+                                              const b =
+                                                me.researchBeakers?.(tech.id) ??
+                                                0;
+                                              const pct = Math.min(
+                                                100,
+                                                Math.floor(
+                                                  (b / (tech.cost || 1)) * 100,
+                                                ),
+                                              );
+                                              return b > 0
+                                                ? html`<div
+                                                    class="progress-track"
+                                                  >
+                                                    <div
+                                                      class="progress-fill ${priority ===
+                                                      tech.id
+                                                        ? "priority"
+                                                        : ""}"
+                                                      style="width:${pct}%"
+                                                    ></div>
+                                                  </div>`
+                                                : "";
+                                            })()
                                           : ""}
-                                        ${tech.requiresOneOf?.length
-                                          ? html`<span class="pill pill-oneof"
-                                              >One of:
-                                              ${tech.requiresOneOf.length}</span
-                                            >`
-                                          : ""}
-                                        ${priority === tech.id && !isResearched
-                                          ? html`<span
-                                              class="pill pill-priority"
-                                              >Priority</span
-                                            >`
-                                          : ""}
-                                      </div>
-                                    </button>
+                                        <div>
+                                          ${tech.requiresAllOf?.length
+                                            ? html`<span class="pill pill-req"
+                                                >Requires:
+                                                ${tech.requiresAllOf
+                                                  .length}</span
+                                              >`
+                                            : ""}
+                                          ${tech.requiresOneOf?.length
+                                            ? html`<span class="pill pill-oneof"
+                                                >One of:
+                                                ${tech.requiresOneOf
+                                                  .length}</span
+                                              >`
+                                            : ""}
+                                          ${priority === tech.id &&
+                                          !isResearched
+                                            ? html`<span
+                                                class="pill pill-priority"
+                                                >Priority</span
+                                              >`
+                                            : ""}
+                                        </div>
+                                      </button>`;
+                                    })()}
                                     ${action}
                                   </div>`;
                                 })
