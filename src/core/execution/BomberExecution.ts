@@ -55,9 +55,6 @@ export class BomberExecution implements Execution {
     const baseHealth = this.mg.unitInfo(UnitType.Bomber).maxHealth ?? 500;
     const levelHealth = this.getMaxHealth();
     const bonus = levelHealth - baseHealth;
-    console.log(
-      `applyBomberLevelStats: baseHealth=${baseHealth}, levelHealth=${levelHealth}, bonus=${bonus}, bomberLevel=${this.getBomberLevel()}`,
-    );
     if (bonus > 0) {
       (this.bomber as any)._bonusMaxHealth = bonus;
     }
@@ -94,9 +91,6 @@ export class BomberExecution implements Execution {
       ticks - this.lastHealthLogTick >= 50
     ) {
       const bonusHealth = (this.bomber as any)._bonusMaxHealth ?? 0;
-      console.log(
-        `[tick ${ticks}] Bomber id=${this.bomber.id()} health: ${this.bomber.health()}/${this.bomber.effectiveMaxHealth()} (bonusHealth=${bonusHealth}, level=${this.getBomberLevel()}, airfield bomberLevel=${this.sourceAirfield.bomberLevel?.()})`,
-      );
       this.lastHealthLogTick = ticks;
     }
 

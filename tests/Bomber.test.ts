@@ -6,6 +6,7 @@ import {
   PlayerType,
   Relation,
   UnitType,
+  UpgradeType,
 } from "../src/core/game/Game";
 import { setup } from "./util/Setup";
 import { executeTicks } from "./util/utils";
@@ -34,6 +35,9 @@ describe("Bomber", () => {
 
     player1 = game.player("p1");
     player2 = game.player("p2");
+
+    // Grant air tech upgrades so player1 can build airfields and bombers
+    player1.addUpgrade(UpgradeType.JetEngines);
 
     // Declare war for targeting
     player1.setWarWith(player2);
