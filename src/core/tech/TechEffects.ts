@@ -262,9 +262,19 @@ export const TECHS: Readonly<Record<string, TechDefinition>> = Object.freeze({
     meta: {
       name: "WWII Lessons Learned",
       description:
-        "Doctrine refined by hard-won experience improves defensive readiness, logistics, and counter-attack planning. Effects: While defending, your troop losses are reduced by 10% and the attacker's troop losses are increased by 10%.",
+        "Doctrine refined by hard-won experience improves defensive readiness, logistics, and counter-attack planning. Effects: Enables Military Academy. While defending, your troop losses are reduced by 10% and the attacker's troop losses are increased by 10%.",
     },
     effects: {
+      onComplete: (player) => {
+        if (!player.hasUpgrade?.(UpgradeType.MilitaryAcademy)) {
+          player.addUpgrade?.(UpgradeType.MilitaryAcademy);
+        }
+      },
+      onRevoke: (player) => {
+        if (player.hasUpgrade?.(UpgradeType.MilitaryAcademy)) {
+          player.removeUpgrade?.(UpgradeType.MilitaryAcademy);
+        }
+      },
       defense: (mods) => {
         mods.attackerLossMul *= 1.1; // enemy (attacker) takes more losses
         mods.defenderLossMul *= 0.9; // defender takes fewer losses

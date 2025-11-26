@@ -1311,6 +1311,13 @@ export class PlayerImpl implements Player {
       }
     }
 
+    // Military Academy tech requirement (WWII Lessons Learned)
+    if (unitType === UnitType.Academy) {
+      if (!this.hasUpgrade(UpgradeType.MilitaryAcademy)) {
+        return false;
+      }
+    }
+
     // Test-specific override: Force canBuild for bombers if enabled in TestConfig
     if (
       this.mg.config().forceCanBuildBomberInTests?.() &&

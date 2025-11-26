@@ -90,7 +90,6 @@ export class BomberExecution implements Execution {
       this.bomber.isActive() &&
       ticks - this.lastHealthLogTick >= 50
     ) {
-      const bonusHealth = (this.bomber as any)._bonusMaxHealth ?? 0;
       this.lastHealthLogTick = ticks;
     }
 

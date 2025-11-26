@@ -334,6 +334,9 @@ export class BuildMenu extends LitElement {
           if (item.unitType === UnitType.SAMLauncher) {
             return player.hasUpgrade(UpgradeType.SAMLevel1);
           }
+          if (item.unitType === UnitType.Academy) {
+            return player.hasUpgrade(UpgradeType.MilitaryAcademy);
+          }
           if (item.unitType === UnitType.AtomBomb) {
             return player.hasUpgrade(UpgradeType.NuclearFission);
           }

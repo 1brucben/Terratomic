@@ -224,6 +224,9 @@ export enum UpgradeType {
   BomberLevel2 = "BomberLevel2",
   BomberLevel3 = "BomberLevel3",
 
+  // Land Upgrades
+  MilitaryAcademy = "MilitaryAcademy",
+
   // Nuclear Upgrades
   NuclearFission = "NuclearFission",
   ThermonuclearStaging = "ThermonuclearStaging",
