@@ -1279,9 +1279,16 @@ export class PlayerImpl implements Player {
       }
     }
 
-    // Submarine tech requirement
+    // Warship tech requirement (Early Cold War Cruisers)
+    if (unitType === UnitType.Warship) {
+      if (!this.hasUpgrade(UpgradeType.WarshipLevel1)) {
+        return false;
+      }
+    }
+
+    // Submarine tech requirement (Diesel-Electric Subs)
     if (unitType === UnitType.Submarine) {
-      if (!this.hasUpgrade(UpgradeType.SubmarineResearch)) {
+      if (!this.hasUpgrade(UpgradeType.SubmarineLevel1)) {
         return false;
       }
     }

@@ -197,6 +197,14 @@ export enum UpgradeType {
   WaterUpgrade2 = "WaterUpgrade2",
   WarshipAntiAir = "WarshipAntiAir",
   WaterUpgrade3 = "WaterUpgrade3",
+  // Warship level upgrades (Early Cold War Cruisers gives level 1)
+  WarshipLevel1 = "WarshipLevel1",
+  WarshipLevel2 = "WarshipLevel2",
+  WarshipLevel3 = "WarshipLevel3",
+  // Submarine level upgrades (Diesel-Electric Subs gives level 1)
+  SubmarineLevel1 = "SubmarineLevel1",
+  SubmarineLevel2 = "SubmarineLevel2",
+  SubmarineLevel3 = "SubmarineLevel3",
 
   // Air Upgrades
   JetEngines = "JetEngines",

@@ -60,6 +60,10 @@ export function maxUnitLevel(type: UnitType): number {
 // Pulse-Doppler Radar = level 3, Fly-By-Wire Systems = level 4.
 // For Bomber: Jet Engines = level 1, Turbojet Bombers = level 2,
 // Supersonic Bombers = level 3.
+// For Warship: Early Cold War Cruisers = level 1, First-Missile Cruisers = level 2,
+// Advanced Missile Cruisers = level 3.
+// For Submarine: Diesel-Electric Subs = level 1, Nuclear Attack Submarines = level 2,
+// Advanced Nuclear Attack Subs = level 3.
 export function playerMaxUnitLevel(player: HasUpgrade, type: UnitType): number {
   const globalMax = maxUnitLevel(type);
 
@@ -81,6 +85,28 @@ export function playerMaxUnitLevel(player: HasUpgrade, type: UnitType): number {
       return Math.min(2, globalMax);
     // Jet Engines (required to build bombers) gives level 1
     return 1;
+  }
+
+  if (type === UnitType.Warship) {
+    if (player.hasUpgrade(UpgradeType.WarshipLevel3))
+      return Math.min(3, globalMax);
+    if (player.hasUpgrade(UpgradeType.WarshipLevel2))
+      return Math.min(2, globalMax);
+    if (player.hasUpgrade(UpgradeType.WarshipLevel1))
+      return Math.min(1, globalMax);
+    // No warship tech - can't build warships
+    return 0;
+  }
+
+  if (type === UnitType.Submarine) {
+    if (player.hasUpgrade(UpgradeType.SubmarineLevel3))
+      return Math.min(3, globalMax);
+    if (player.hasUpgrade(UpgradeType.SubmarineLevel2))
+      return Math.min(2, globalMax);
+    if (player.hasUpgrade(UpgradeType.SubmarineLevel1))
+      return Math.min(1, globalMax);
+    // No submarine tech - can't build submarines
+    return 0;
   }
 
   // For other unit types, return global max
@@ -120,8 +146,10 @@ export function tryParseUnitType(value: string): UnitType | null {
 // Returns true if the player has the required upgrade to build/use this unit type.
 export function isUnitAvailable(player: HasUpgrade, type: UnitType): boolean {
   switch (type) {
+    case UnitType.Warship:
+      return player.hasUpgrade(UpgradeType.WarshipLevel1);
     case UnitType.Submarine:
-      return player.hasUpgrade(UpgradeType.SubmarineResearch);
+      return player.hasUpgrade(UpgradeType.SubmarineLevel1);
     case UnitType.Airfield:
     case UnitType.FighterJet:
     case UnitType.Bomber:

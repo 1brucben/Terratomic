@@ -318,8 +318,11 @@ export class BuildMenu extends LitElement {
       const player = this.game.myPlayer()!;
       this.filteredBuildTable = current.map((row) =>
         row.filter((item) => {
+          if (item.unitType === UnitType.Warship) {
+            return player.hasUpgrade(UpgradeType.WarshipLevel1);
+          }
           if (item.unitType === UnitType.Submarine) {
-            return player.hasUpgrade(UpgradeType.SubmarineResearch);
+            return player.hasUpgrade(UpgradeType.SubmarineLevel1);
           }
           if (
             item.unitType === UnitType.Airfield ||

@@ -26,8 +26,8 @@ const mkId = (cat: Category, lvl: number) => `${cat}-${lvl}`;
 const baseLevels: TechNode[] = (() => {
   const nodes: TechNode[] = [];
   for (let lvl = 1; lvl <= 5; lvl++) {
-    // Nuclear and Air techs are defined separately as explicit nodes
-    for (const cat of ["Land", "Sea", "Economy"] as const) {
+    // Nuclear, Air, and Sea techs are defined separately as explicit nodes
+    for (const cat of ["Land", "Economy"] as const) {
       const id = mkId(cat, lvl);
       const meta = getTechMeta(id, { strict: false });
       const node: TechNode = {
@@ -93,6 +93,138 @@ const nuclearTechs: TechNode[] = [
     description:
       getTechMeta("Nuclear-4", { strict: false })?.description ??
       "Enables: Doomsday Device",
+    cost: costForLevel(4),
+  },
+];
+
+// Sea branch techs (explicit definitions)
+const seaTechs: TechNode[] = [
+  // Level 1 - Two parallel starting techs
+  {
+    id: "Sea-0",
+    name:
+      getTechMeta("Sea-0", { strict: false })?.name ??
+      "Early Cold War Cruisers",
+    category: "Sea",
+    level: 1,
+    description:
+      getTechMeta("Sea-0", { strict: false })?.description ??
+      "Enables Level 1 Warships.",
+    cost: costForLevel(1),
+  },
+  {
+    id: "Sea-1",
+    name:
+      getTechMeta("Sea-1", { strict: false })?.name ?? "Diesel-Electric Subs",
+    category: "Sea",
+    level: 1,
+    description:
+      getTechMeta("Sea-1", { strict: false })?.description ??
+      "Enables Level 1 Submarines.",
+    cost: costForLevel(1),
+  },
+  // Level 2
+  {
+    id: "Sea-2A",
+    name:
+      getTechMeta("Sea-2A", { strict: false })?.name ??
+      "First-Missile Cruisers",
+    category: "Sea",
+    level: 2,
+    requiresAllOf: ["Sea-0"],
+    description:
+      getTechMeta("Sea-2A", { strict: false })?.description ??
+      "Enables Level 2 Warships.",
+    cost: costForLevel(2),
+  },
+  {
+    id: "Sea-2B",
+    name:
+      getTechMeta("Sea-2B", { strict: false })?.name ??
+      "Nuclear Attack Submarines",
+    category: "Sea",
+    level: 2,
+    requiresAllOf: ["Sea-1"],
+    description:
+      getTechMeta("Sea-2B", { strict: false })?.description ??
+      "Enables Level 2 Submarines.",
+    cost: costForLevel(2),
+  },
+  {
+    id: "Sea-2C",
+    name:
+      getTechMeta("Sea-2C", { strict: false })?.name ??
+      "Ballistic Missile Submarines",
+    category: "Sea",
+    level: 2,
+    requiresAllOf: ["Sea-1"],
+    description:
+      getTechMeta("Sea-2C", { strict: false })?.description ??
+      "Allows Submarines to launch Atomic Bombs.",
+    cost: costForLevel(2),
+  },
+  // Level 3
+  {
+    id: "Sea-3A",
+    name:
+      getTechMeta("Sea-3A", { strict: false })?.name ??
+      "Advanced Missile Cruisers",
+    category: "Sea",
+    level: 3,
+    requiresAllOf: ["Sea-2A"],
+    description:
+      getTechMeta("Sea-3A", { strict: false })?.description ??
+      "Enables Level 3 Warships.",
+    cost: costForLevel(3),
+  },
+  {
+    id: "Sea-3B",
+    name:
+      getTechMeta("Sea-3B", { strict: false })?.name ??
+      "Advanced Nuclear Attack Subs",
+    category: "Sea",
+    level: 3,
+    requiresAllOf: ["Sea-2B"],
+    description:
+      getTechMeta("Sea-3B", { strict: false })?.description ??
+      "Enables Level 3 Submarines.",
+    cost: costForLevel(3),
+  },
+  {
+    id: "Sea-3C",
+    name: getTechMeta("Sea-3C", { strict: false })?.name ?? "Naval SAM Systems",
+    category: "Sea",
+    level: 3,
+    requiresAllOf: ["Sea-2A"],
+    description:
+      getTechMeta("Sea-3C", { strict: false })?.description ??
+      "Equips Warships with anti-air missile systems.",
+    cost: costForLevel(3),
+  },
+  // Level 4
+  {
+    id: "Sea-4A",
+    name:
+      getTechMeta("Sea-4A", { strict: false })?.name ?? "Aegis Warship Systems",
+    category: "Sea",
+    level: 4,
+    requiresAllOf: ["Sea-3A"],
+    description:
+      getTechMeta("Sea-4A", { strict: false })?.description ??
+      "Advanced integrated naval weapons systems.",
+    cost: costForLevel(4),
+  },
+  {
+    id: "Sea-4B",
+    name:
+      getTechMeta("Sea-4B", { strict: false })?.name ??
+      "Quieting and Acoustic Stealth",
+    category: "Sea",
+    level: 4,
+    requiresAllOf: ["Sea-3B"],
+    description:
+      getTechMeta("Sea-4B", { strict: false })?.description ??
+      "Advanced submarine stealth technology.",
     cost: costForLevel(4),
   },
 ];
@@ -268,15 +400,6 @@ const extras: TechNode[] = [
     cost: costForLevel(2),
   },
   {
-    id: "Sea-4B",
-    name: getTechMeta("Sea-4B", { strict: false })?.name ?? "Sea Tech 4B",
-    category: "Sea",
-    level: 4,
-    requiresAllOf: ["Sea-3"],
-    description: getTechMeta("Sea-4B", { strict: false })?.description,
-    cost: costForLevel(4),
-  },
-  {
     id: "Economy-3B",
     name:
       getTechMeta("Economy-3B", { strict: false })?.name ?? "Economy Tech 3B",
@@ -288,17 +411,13 @@ const extras: TechNode[] = [
   },
 ];
 
-// Compose full tree and tweak special prerequisites
-const tree: TechNode[] = (() => {
-  const t = [...baseLevels, ...nuclearTechs, ...extras];
-  // Sea-5 can require one of Sea-4 or Sea-4B
-  const sea5 = t.find((x) => x.id === "Sea-5");
-  if (sea5) {
-    sea5.requiresAllOf = undefined;
-    sea5.requiresOneOf = ["Sea-4", "Sea-4B"];
-  }
-  return t;
-})();
+// Compose full tree
+const tree: TechNode[] = [
+  ...baseLevels,
+  ...nuclearTechs,
+  ...seaTechs,
+  ...extras,
+];
 
 export function getTechNodes(): ReadonlyArray<TechNode> {
   return tree;
