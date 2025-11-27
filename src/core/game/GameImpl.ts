@@ -41,6 +41,7 @@ import { PlayerImpl } from "./PlayerImpl";
 import { Road, RoadManager } from "./RoadManager";
 import { Stats } from "./Stats";
 import { StatsImpl } from "./StatsImpl";
+import { assignTeams } from "./TeamAssignment";
 import { TerraNulliusImpl } from "./TerraNulliusImpl";
 import { UnitGrid, UnitPredicate } from "./UnitGrid";
 
@@ -197,31 +198,51 @@ export class GameImpl implements Game {
 
     // Second pass: assign teams to the unassigned players
     if (unassignedPlayers.size > 0) {
-      const teamCounts = new Map<Team, number>();
-      this.playerTeams.forEach((team) => teamCounts.set(team, 0));
+      // Try clan-based assignment first for unassigned players
+      const unassignedArray = Array.from(unassignedPlayers);
+      const clanAssignments = assignTeams(unassignedArray, this.playerTeams);
 
-      // Count players already assigned to teams
-      for (const team of finalPlayerAssignments.values()) {
-        teamCounts.set(team, (teamCounts.get(team) ?? 0) + 1);
+      // Process clan assignments
+      for (const [playerInfo, teamOrKicked] of clanAssignments.entries()) {
+        if (teamOrKicked === "kicked") {
+          // Player was kicked due to team size limits, remove from unassigned
+          unassignedPlayers.delete(playerInfo);
+        } else {
+          // Player assigned by clan system
+          finalPlayerAssignments.set(playerInfo, teamOrKicked);
+          unassignedPlayers.delete(playerInfo);
+        }
       }
 
-      const selectTeamWithFewest = (): Team => {
-        let chosenTeam = this.playerTeams[0];
-        let smallest = teamCounts.get(chosenTeam) ?? Infinity;
-        for (const team of this.playerTeams) {
-          const count = teamCounts.get(team) ?? 0;
-          if (count < smallest) {
-            smallest = count;
-            chosenTeam = team;
-          }
-        }
-        return chosenTeam;
-      };
+      // For any remaining unassigned players (no clan or clan assignment failed),
+      // fall back to random assignment to balance teams
+      if (unassignedPlayers.size > 0) {
+        const teamCounts = new Map<Team, number>();
+        this.playerTeams.forEach((team) => teamCounts.set(team, 0));
 
-      for (const playerInfo of unassignedPlayers) {
-        const team = selectTeamWithFewest();
-        finalPlayerAssignments.set(playerInfo, team);
-        teamCounts.set(team, (teamCounts.get(team) ?? 0) + 1);
+        // Count players already assigned to teams
+        for (const team of finalPlayerAssignments.values()) {
+          teamCounts.set(team, (teamCounts.get(team) ?? 0) + 1);
+        }
+
+        const selectTeamWithFewest = (): Team => {
+          let chosenTeam = this.playerTeams[0];
+          let smallest = teamCounts.get(chosenTeam) ?? Infinity;
+          for (const team of this.playerTeams) {
+            const count = teamCounts.get(team) ?? 0;
+            if (count < smallest) {
+              smallest = count;
+              chosenTeam = team;
+            }
+          }
+          return chosenTeam;
+        };
+
+        for (const playerInfo of unassignedPlayers) {
+          const team = selectTeamWithFewest();
+          finalPlayerAssignments.set(playerInfo, team);
+          teamCounts.set(team, (teamCounts.get(team) ?? 0) + 1);
+        }
       }
     }
 
