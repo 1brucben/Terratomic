@@ -281,3 +281,21 @@ export const flattenedEmojiTable: string[] = emojiTable.flat();
 export function replacer(_key: string, value: any): any {
   return typeof value === "bigint" ? value.toString() : value;
 }
+
+// Compute clan from name
+export function getClanTag(name: string): string | null {
+  const clanTag = clanMatch(name);
+  return clanTag ? clanTag[1].toUpperCase() : null;
+}
+
+export function getClanTagOriginalCase(name: string): string | null {
+  const clanTag = clanMatch(name);
+  return clanTag ? clanTag[1] : null;
+}
+
+function clanMatch(name: string): RegExpMatchArray | null {
+  if (!name.includes("[") || !name.includes("]")) {
+    return null;
+  }
+  return name.match(/\[([a-zA-Z0-9]{2,5})\]/);
+}
