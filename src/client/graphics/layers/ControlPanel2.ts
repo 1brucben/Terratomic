@@ -2195,16 +2195,16 @@ export class ControlPanel2 extends LitElement implements Layer {
         100,
         Math.max(0, Math.round(((delay - remaining) / delay) * 100)),
       );
-      return html`< div
-class="py-1 px-2 border-b"
-style = "border-color: var(--ui-panel-border)"
-  >
-  <div class="mb-1 text-gray-300" >
-    Cargo Ship #${idx + 1} (Port #${port.id()}) constructing…
-</div>
-  < div class="progress-track" style = "height:6px;" >
-    <div class="progress-fill" style = "width:${pct}%;" > </div>
-      </div>
+      return html`<div
+        class="py-1 px-2 border-b"
+        style="border-color: var(--ui-panel-border)"
+      >
+        <div class="mb-1 text-gray-300">
+          Cargo Ship #${idx + 1} (Port #${port.id()}) constructing…
+        </div>
+        <div class="progress-track" style="height:6px;">
+          <div class="progress-fill" style="width:${pct}%;"></div>
+        </div>
       </div>`;
     });
 
