@@ -1104,12 +1104,21 @@ export class AssignedTradeRouteExecution implements Execution {
     const third = baseTotal / 3n;
     const remainder = baseTotal - third * 3n;
 
-    // Each player gets their share multiplied by their trade income modifier
-    const aShare = BigInt(Math.floor(Number(third) * aMods.incomeMul));
-    const bShare = BigInt(Math.floor(Number(third) * bMods.incomeMul));
-    const ownerShare = BigInt(
+    // Calculate base shares with tech modifiers
+    const aBaseTechShare = BigInt(Math.floor(Number(third) * aMods.incomeMul));
+    const bBaseTechShare = BigInt(Math.floor(Number(third) * bMods.incomeMul));
+    const ownerBaseTechShare = BigInt(
       Math.floor(Number(third + remainder) * ownerMods.incomeMul),
     );
+
+    // Apply road connection bonus to port owners' shares
+    const aShare = this.applyRoadConnectionBonus(
+      this.startPort,
+      aBaseTechShare,
+    );
+    const bShare = this.applyRoadConnectionBonus(this.endPort, bBaseTechShare);
+    // Ship owner gets no road bonus (the ship itself isn't road-connected)
+    const ownerShare = ownerBaseTechShare;
 
     a.addGold(aShare);
     b.addGold(bShare);
@@ -1136,6 +1145,29 @@ export class AssignedTradeRouteExecution implements Execution {
     this.ship.setTradePhase(phase);
     const owner = this.ship.owner();
     // Trade phase transition logging removed
+  }
+
+  /**
+   * Calculate port gold with road connection bonus.
+   * If the port is connected to the road network, add up to +20% bonus scaled by road quality.
+   */
+  private applyRoadConnectionBonus(port: Unit, baseGold: bigint): bigint {
+    if (!this.mg.isStructureConnectedToRoadNetwork(port)) {
+      return baseGold;
+    }
+
+    const owner = port.owner();
+    if (!owner.isPlayer()) {
+      return baseGold;
+    }
+
+    // Get road quality (0-150, with 100 being baseline)
+    const roadQuality = (owner as Player).roadNetworkQuality();
+    // Road bonus: at 100% quality = 20% increase, at 50% = 10%, at 150% = 30%
+    const bonusFactor = 0.2 * (roadQuality / 100);
+    const bonusGold = BigInt(Math.floor(Number(baseGold) * bonusFactor));
+
+    return baseGold + bonusGold;
   }
 
   // Pick an ocean tile adjacent to the port (targetTile) as navigation target
