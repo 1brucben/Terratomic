@@ -5,6 +5,11 @@ import { EventBus } from "../core/EventBus";
 import { UpgradeType } from "../core/game/Game";
 import { GameView, PlayerView } from "../core/game/GameView";
 import {
+  getAllPolicyDirectives,
+  getUnlockedDirectives,
+  type PolicyDirective,
+} from "../core/tech/PolicyDirectives";
+import {
   getTechNodes,
   isTechAvailable as serverIsTechAvailable,
   type Category,
@@ -21,6 +26,8 @@ import {
 } from "./events/InvestmentEvents";
 import { CloseViewEvent } from "./InputHandler";
 import {
+  SendMarkPolicyDirectivesSeenIntentEvent,
+  SendPolicyDirectiveSelectIntentEvent,
   SendResearchTreeSelectIntentEvent,
   SendScorchedEarthIntentEvent,
 } from "./Transport";
@@ -234,6 +241,14 @@ export class ResearchTreeModal extends LitElement {
   private onTabClick(cat: ResearchTab) {
     if (cat === this.activeTab) return;
     this.activeTab = cat;
+
+    // Mark policy directives as seen when viewing the tab
+    if (cat === "Policy Directives" && this.eventBus) {
+      const me = this.game?.myPlayer?.();
+      if (me?.hasUnseenPolicyDirectives?.()) {
+        this.eventBus.emit(new SendMarkPolicyDirectivesSeenIntentEvent());
+      }
+    }
   }
 
   private handleInvestmentSync = (event: Event) => {
@@ -540,11 +555,116 @@ export class ResearchTreeModal extends LitElement {
   }
 
   private renderPolicyDirectivesView() {
+    const me = this.game?.myPlayer?.();
+    if (!me) {
+      return html`
+        <div class="policy-directives-view">
+          <div class="empty-state">Loading...</div>
+        </div>
+      `;
+    }
+
+    // Get all policy directives and filter to those unlocked
+    const allDirectives = getAllPolicyDirectives();
+    const unlockedDirectives = getUnlockedDirectives((techId) =>
+      me.hasResearchedTech(techId),
+    );
+
+    if (allDirectives.length === 0) {
+      return html`
+        <div class="policy-directives-view">
+          <div class="empty-state">No policy directives available.</div>
+        </div>
+      `;
+    }
+
     return html`
       <div class="policy-directives-view">
-        <div class="empty-state">Policy Directives coming soon.</div>
+        <div class="policy-directives-intro">
+          <p>
+            Policy Directives become available when you research certain
+            technologies. Choose a policy to receive additional bonuses.
+          </p>
+        </div>
+        <div class="policy-directives-list">
+          ${allDirectives.map((directive) => {
+            const isUnlocked = unlockedDirectives.some(
+              (d) => d.id === directive.id,
+            );
+            const currentChoice = me.getPolicyChoice?.(directive.id) ?? null;
+            return this.renderPolicyDirective(
+              directive,
+              isUnlocked,
+              currentChoice,
+            );
+          })}
+        </div>
       </div>
     `;
+  }
+
+  private renderPolicyDirective(
+    directive: PolicyDirective,
+    isUnlocked: boolean,
+    currentChoice: string | null,
+  ) {
+    return html`
+      <div class="policy-directive ${isUnlocked ? "" : "locked"}">
+        <div class="policy-directive-header">
+          <h3 class="policy-directive-name">${directive.name}</h3>
+          ${!isUnlocked
+            ? html`<span class="policy-directive-locked-badge">
+                🔒 Requires:
+                ${getTechMeta(directive.unlockedByTech, { strict: false })
+                  ?.name ?? directive.unlockedByTech}
+              </span>`
+            : ""}
+        </div>
+        <p class="policy-directive-description">${directive.description}</p>
+        <div class="policy-options">
+          ${directive.options.map((option) => {
+            const isSelected = currentChoice === option.id;
+            const isDisabled = !isUnlocked;
+            return html`
+              <button
+                class="policy-option ${isSelected
+                  ? "selected"
+                  : ""} ${isDisabled ? "disabled" : ""}"
+                ?disabled=${isDisabled}
+                @click=${() =>
+                  this.onPolicyOptionClick(directive.id, option.id)}
+              >
+                <div class="policy-option-name">${option.name}</div>
+                <div class="policy-option-description">
+                  ${option.description}
+                </div>
+                ${isSelected
+                  ? html`<span class="policy-option-selected-badge"
+                      >✓ Active</span
+                    >`
+                  : ""}
+              </button>
+            `;
+          })}
+        </div>
+      </div>
+    `;
+  }
+
+  private onPolicyOptionClick(directiveId: string, optionId: string) {
+    if (!this.game || !this.eventBus) return;
+    const me = this.game.myPlayer?.();
+    if (!me) return;
+
+    // Don't allow selection if already selected
+    const currentChoice = me.getPolicyChoice?.(directiveId);
+    if (currentChoice === optionId) return;
+
+    // Emit the intent to select this policy
+    this.eventBus.emit(
+      new SendPolicyDirectiveSelectIntentEvent(directiveId, optionId),
+    );
+    this.requestUpdate();
   }
 
   private drawEdges() {
@@ -1537,6 +1657,145 @@ export class ResearchTreeModal extends LitElement {
               0 0 4px color-mix(in srgb, var(--ui-info) 45%, transparent)
             );
           }
+          /* Policy Directives styles */
+          .policy-directives-view {
+            padding: 16px;
+          }
+          .policy-directives-intro {
+            margin-bottom: 20px;
+            color: var(--ui-text-accent);
+            font-size: 13px;
+            line-height: 1.5;
+          }
+          .policy-directives-list {
+            display: flex;
+            flex-direction: column;
+            gap: 24px;
+          }
+          .policy-directive {
+            background: color-mix(
+              in srgb,
+              var(--ui-panel-shell-bottom) 95%,
+              transparent
+            );
+            border: 1px solid
+              color-mix(in srgb, var(--ui-panel-border) 85%, transparent);
+            border-radius: 12px;
+            padding: 16px;
+            transition: opacity 0.2s;
+          }
+          .policy-directive.locked {
+            opacity: 0.6;
+          }
+          .policy-directive-header {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 8px;
+          }
+          .policy-directive-name {
+            font-size: 16px;
+            font-weight: 600;
+            color: var(--ui-text-light);
+            margin: 0;
+          }
+          .policy-directive-locked-badge {
+            font-size: 11px;
+            padding: 3px 8px;
+            border-radius: 999px;
+            background: color-mix(in srgb, var(--ui-warning) 20%, transparent);
+            color: var(--ui-warning);
+            border: 1px solid
+              color-mix(in srgb, var(--ui-warning) 40%, transparent);
+          }
+          .policy-directive-description {
+            font-size: 13px;
+            color: var(--ui-text-accent);
+            margin: 0 0 16px 0;
+            line-height: 1.4;
+          }
+          .policy-options {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 12px;
+          }
+          .policy-option {
+            flex: 1;
+            min-width: 200px;
+            max-width: 350px;
+            background: color-mix(
+              in srgb,
+              var(--ui-panel-shell-top) 90%,
+              transparent
+            );
+            border: 2px solid
+              color-mix(in srgb, var(--ui-border-muted) 50%, transparent);
+            border-radius: 10px;
+            padding: 14px;
+            cursor: pointer;
+            text-align: left;
+            transition: all 0.15s ease;
+            position: relative;
+          }
+          .policy-option:hover:not(.disabled) {
+            border-color: color-mix(in srgb, var(--ui-info) 60%, transparent);
+            background: color-mix(in srgb, var(--ui-info) 8%, transparent);
+          }
+          .policy-option.selected {
+            border-color: var(--ui-success);
+            background: color-mix(in srgb, var(--ui-success) 15%, transparent);
+            box-shadow: 0 0 12px
+              color-mix(in srgb, var(--ui-success) 25%, transparent);
+          }
+          .policy-option.disabled {
+            cursor: not-allowed;
+            opacity: 0.5;
+          }
+          .policy-option-name {
+            font-size: 14px;
+            font-weight: 600;
+            color: var(--ui-text-light);
+            margin-bottom: 6px;
+          }
+          .policy-option-description {
+            font-size: 12px;
+            color: var(--ui-text-accent);
+            line-height: 1.4;
+          }
+          .policy-option-selected-badge {
+            position: absolute;
+            top: 8px;
+            right: 10px;
+            font-size: 11px;
+            font-weight: 600;
+            color: var(--ui-success);
+          }
+          .tab-notification-badge {
+            position: absolute;
+            top: -2px;
+            right: -2px;
+            width: 14px;
+            height: 14px;
+            background: #ffc107;
+            border: 1px solid #000;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 10px;
+            font-weight: bold;
+            color: #000;
+            animation: pulse-tab-badge 1.5s ease-in-out infinite;
+          }
+          @keyframes pulse-tab-badge {
+            0%,
+            100% {
+              transform: scale(1);
+            }
+            50% {
+              transform: scale(1.1);
+            }
+          }
         </style>
         ${this.renderLegend()}
         <div class="tab-shell">
@@ -1544,10 +1803,17 @@ export class ResearchTreeModal extends LitElement {
             <div class="tab-buttons" role="tablist">
               ${tabs.map((cat) => {
                 const isAllTab = cat === "Overview";
-                const isActive = isAllTab ? isAllView : cat === activeCategory;
+                const isPolicyTab = cat === "Policy Directives";
+                const isActive = isAllTab
+                  ? isAllView
+                  : isPolicyTab
+                    ? isPolicyDirectivesView
+                    : cat === activeCategory;
                 const tabTooltip = translateText(
-                  `research_tree.tab_tooltip.${cat.toLowerCase()}`,
+                  `research_tree.tab_tooltip.${cat.toLowerCase().replace(" ", "_")}`,
                 );
+                const showPolicyBadge =
+                  isPolicyTab && me?.hasUnseenPolicyDirectives?.();
                 return html`<button
                   type="button"
                   class="tab-button ${isActive ? "active" : ""}"
@@ -1555,12 +1821,17 @@ export class ResearchTreeModal extends LitElement {
                   aria-selected=${String(isActive)}
                   aria-label=${tabTooltip}
                   title=${tabTooltip}
-                  style=${isActive
-                    ? `--tab-accent:${isAllTab ? "color-mix(in srgb, var(--ui-border-muted) 25%, transparent)" : (categoryColors[cat as Category] ?? "transparent")}`
-                    : ""}
+                  style=${`position: relative; ${
+                    isActive
+                      ? `--tab-accent:${isAllTab ? "color-mix(in srgb, var(--ui-border-muted) 25%, transparent)" : (categoryColors[cat as Category] ?? "transparent")}`
+                      : ""
+                  }`}
                   @click=${() => this.onTabClick(cat)}
                 >
                   ${cat}
+                  ${showPolicyBadge
+                    ? html`<span class="tab-notification-badge">!</span>`
+                    : ""}
                 </button>`;
               })}
             </div>

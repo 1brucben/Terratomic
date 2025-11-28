@@ -694,6 +694,13 @@ export interface Player {
   addResearchedTech(techId: string): void;
   removeResearchedTechsByCategory(category: Category): void;
 
+  // Policy Directives (player choices linked to research)
+  getPolicyChoice(directiveId: string): string | null;
+  setPolicyChoice(directiveId: string, optionId: string): void;
+  getAllPolicyChoices(): ReadonlyMap<string, string>;
+  hasUnseenPolicyDirectives(): boolean;
+  markPolicyDirectivesSeen(): void;
+
   captureUnit(unit: Unit): void;
 
   // Relations & Diplomacy

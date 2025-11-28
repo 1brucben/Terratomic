@@ -234,6 +234,10 @@ export interface PlayerUpdate {
   researchTreeBeakers?: Record<string, number>;
   // Currently selected research priority tech id (optional)
   researchPriorityTech?: string | null;
+  // Policy directive choices: directiveId -> optionId (optional; omitted if none)
+  policyChoices?: Record<string, string>;
+  // Whether the player has unseen policy directives to review
+  hasUnseenPolicyDirectives?: boolean;
 }
 
 export interface AllianceRequestUpdate {

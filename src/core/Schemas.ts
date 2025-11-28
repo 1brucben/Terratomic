@@ -61,7 +61,9 @@ export type Intent =
   | SetAutoBombingIntent
   | KickPlayerIntent
   | UpgradeStructureIntent
-  | UpgradeBomberIntent;
+  | UpgradeBomberIntent
+  | PolicyDirectiveSelectIntent
+  | MarkPolicyDirectivesSeenIntent;
 
 export type AttackIntent = z.infer<typeof AttackIntentSchema>;
 export type CancelAttackIntent = z.infer<typeof CancelAttackIntentSchema>;
@@ -115,6 +117,12 @@ export type UpgradeStructureIntent = z.infer<
   typeof UpgradeStructureIntentSchema
 >;
 export type UpgradeBomberIntent = z.infer<typeof UpgradeBomberIntentSchema>;
+export type PolicyDirectiveSelectIntent = z.infer<
+  typeof PolicyDirectiveSelectIntentSchema
+>;
+export type MarkPolicyDirectivesSeenIntent = z.infer<
+  typeof MarkPolicyDirectivesSeenIntentSchema
+>;
 
 export type Turn = z.infer<typeof TurnSchema>;
 export enum PeaceTimerDuration {
@@ -443,6 +451,16 @@ export const ResearchTreeSelectIntentSchema = BaseIntentSchema.extend({
   techId: z.string().max(128),
 });
 
+export const PolicyDirectiveSelectIntentSchema = BaseIntentSchema.extend({
+  type: z.literal("policy_directive_select"),
+  directiveId: z.string().max(128),
+  optionId: z.string().max(128),
+});
+
+export const MarkPolicyDirectivesSeenIntentSchema = BaseIntentSchema.extend({
+  type: z.literal("mark_policy_directives_seen"),
+});
+
 export const CancelAttackIntentSchema = BaseIntentSchema.extend({
   type: z.literal("cancel_attack"),
   attackID: z.string(),
@@ -537,6 +555,8 @@ const IntentSchema = z.discriminatedUnion("type", [
   UpgradeStructureIntentSchema,
   UpgradeBomberIntentSchema,
   ResearchTreeSelectIntentSchema,
+  PolicyDirectiveSelectIntentSchema,
+  MarkPolicyDirectivesSeenIntentSchema,
   EmbargoIntentSchema,
   MoveWarshipIntentSchema,
   MoveSubmarineIntentSchema,

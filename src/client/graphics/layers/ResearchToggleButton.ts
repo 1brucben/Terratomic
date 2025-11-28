@@ -18,6 +18,9 @@ export class ResearchToggleButton extends LitElement implements Layer {
   @state()
   private _isModalOpen = false;
 
+  @state()
+  private _hasUnseenPolicyDirectives = false;
+
   private modalRef: ResearchTreeModal | null = null;
 
   createRenderRoot() {
@@ -36,6 +39,12 @@ export class ResearchToggleButton extends LitElement implements Layer {
     );
     if (shouldShow !== this._isVisible) {
       this._isVisible = shouldShow;
+      this.requestUpdate();
+    }
+    // Check for unseen policy directives
+    const hasUnseen = player?.hasUnseenPolicyDirectives?.() ?? false;
+    if (hasUnseen !== this._hasUnseenPolicyDirectives) {
+      this._hasUnseenPolicyDirectives = hasUnseen;
       this.requestUpdate();
     }
     this.updateModalState();
@@ -139,6 +148,32 @@ export class ResearchToggleButton extends LitElement implements Layer {
           );
           border-color: var(--ui-secondary);
         }
+        .policy-notification-badge {
+          position: absolute;
+          top: -4px;
+          right: -4px;
+          width: 18px;
+          height: 18px;
+          background: #ffc107;
+          border: 2px solid #000;
+          border-radius: 50%;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          font-size: 12px;
+          font-weight: bold;
+          color: #000;
+          animation: pulse-badge 1.5s ease-in-out infinite;
+        }
+        @keyframes pulse-badge {
+          0%,
+          100% {
+            transform: scale(1);
+          }
+          50% {
+            transform: scale(1.15);
+          }
+        }
       </style>
       <div
         class="ui-scale-surface"
@@ -150,7 +185,11 @@ export class ResearchToggleButton extends LitElement implements Layer {
           aria-label=${translateText("research_tree.toggle_tooltip")}
           title=${translateText("research_tree.toggle_tooltip")}
           @click=${this.toggleModal}
+          style="position: relative;"
         >
+          ${this._hasUnseenPolicyDirectives
+            ? html`<span class="policy-notification-badge">!</span>`
+            : ""}
           ${["R", "E", "S", "E", "A", "R", "C", "H"].map(
             (letter) => html`<span>${letter}</span>`,
           )}

@@ -1,6 +1,7 @@
 import { renderNumber, renderTroops } from "../../client/Utils";
 import { PseudoRandom } from "../PseudoRandom";
 import { ClientID } from "../Schemas";
+import { getDirectivesUnlockedByTech } from "../tech/PolicyDirectives";
 import { Category, findTech } from "../tech/ResearchTree";
 import {
   applyTechCompletionEffects,
@@ -101,6 +102,10 @@ export class PlayerImpl implements Player {
   private _researchBeakers: Map<string, number> = new Map();
   // Currently selected research priority tech id
   private _researchPriority: string | null = null;
+  // Policy directive choices: directiveId -> optionId
+  private _policyChoices: Map<string, string> = new Map();
+  // Track unseen policy directives (based on newly unlocked techs)
+  private _unseenPolicyDirectives: Set<string> = new Set();
 
   private _flag: string | undefined;
   private _name: string;
@@ -249,6 +254,11 @@ export class PlayerImpl implements Player {
           ? Object.fromEntries(this._researchBeakers)
           : undefined,
       researchPriorityTech: this._researchPriority,
+      policyChoices:
+        this._policyChoices.size > 0
+          ? Object.fromEntries(this._policyChoices)
+          : undefined,
+      hasUnseenPolicyDirectives: this._unseenPolicyDirectives.size > 0,
     };
   }
 
@@ -393,6 +403,12 @@ export class PlayerImpl implements Player {
 
     // Apply centralized side-effects upon research completion
     applyTechCompletionEffects(this, this.mg, techId);
+
+    // Check if this tech unlocks any policy directives
+    const unlockedDirectives = getDirectivesUnlockedByTech(techId);
+    for (const directive of unlockedDirectives) {
+      this._markPolicyDirectiveUnseen(directive.id);
+    }
   }
   removeResearchedTechsByCategory(category: Category): void {
     const toRemove: string[] = [];
@@ -464,6 +480,32 @@ export class PlayerImpl implements Player {
   }
   researchPriority(): string | null {
     return this._researchPriority;
+  }
+
+  // Policy Directive methods
+  getPolicyChoice(directiveId: string): string | null {
+    return this._policyChoices.get(directiveId) ?? null;
+  }
+  setPolicyChoice(directiveId: string, optionId: string): void {
+    this._policyChoices.set(directiveId, optionId);
+    // Mark as seen once a choice is made
+    this._unseenPolicyDirectives.delete(directiveId);
+  }
+  getAllPolicyChoices(): ReadonlyMap<string, string> {
+    return this._policyChoices;
+  }
+  hasUnseenPolicyDirectives(): boolean {
+    return this._unseenPolicyDirectives.size > 0;
+  }
+  markPolicyDirectivesSeen(): void {
+    this._unseenPolicyDirectives.clear();
+  }
+  // Internal: mark a directive as unseen (called when tech unlocks it)
+  _markPolicyDirectiveUnseen(directiveId: string): void {
+    // Only mark as unseen if no choice has been made yet
+    if (!this._policyChoices.has(directiveId)) {
+      this._unseenPolicyDirectives.add(directiveId);
+    }
   }
 
   invalidateEffectiveUnitsCache(type: UnitType): void {
