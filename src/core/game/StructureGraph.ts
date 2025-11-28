@@ -120,4 +120,14 @@ export class StructureGraph {
     }
     return undefined;
   }
+
+  /**
+   * Check if a unit has at least one road connection to another structure.
+   * This means the unit is part of the road network.
+   */
+  public isConnected(unit: Unit): boolean {
+    const node = this.nodes.get(unit.id());
+    if (!node) return false;
+    return node.connections.size > 0;
+  }
 }

@@ -861,6 +861,8 @@ export interface Game extends GameMap {
     queued: number;
     inProgress: number;
   };
+  // Check if a structure is connected to the road network (has at least one road)
+  isStructureConnectedToRoadNetwork(unit: Unit): boolean;
 
   // Game State
   ticks(): Tick;

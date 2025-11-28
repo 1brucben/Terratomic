@@ -1663,6 +1663,14 @@ export class RoadManager {
     return this.nodesByOwner.get(player.id()) ?? [];
   }
 
+  /**
+   * Check if a structure is actually connected to the road network
+   * (i.e., has at least one completed road to another structure).
+   */
+  public isStructureConnectedToRoadNetwork(unit: Unit): boolean {
+    return this.structureGraph.isConnected(unit);
+  }
+
   public destroyPlayerRoads(player: Player): void {
     const roadIdsToDestroy = this.roadsByOwner.get(player.id());
     if (!roadIdsToDestroy) {

@@ -133,33 +133,95 @@ export class TradeShipExecution implements Execution {
   private complete() {
     this.active = false;
     this.tradeShip!.delete(false);
-    const gold = this.mg.config().tradeShipGold(this.tilesTraveled);
+    const baseGold = this.mg.config().tradeShipGold(this.tilesTraveled);
 
     if (this.wasCaptured) {
-      this.tradeShip!.owner().addGold(gold);
+      this.tradeShip!.owner().addGold(baseGold);
       this.mg.displayMessage(
-        `Received ${renderNumber(gold)} gold from ship captured from ${this.origOwner.displayName()}`,
+        `Received ${renderNumber(baseGold)} gold from ship captured from ${this.origOwner.displayName()}`,
         MessageType.CAPTURED_ENEMY_UNIT,
         this.tradeShip!.owner().id(),
-        gold,
+        baseGold,
       );
     } else {
-      this.srcPort.owner().addGold(gold);
-      this._dstPort.owner().addGold(gold);
-      this.mg.displayMessage(
-        `Received ${renderNumber(gold)} gold from trade with ${this.srcPort.owner().displayName()}`,
-        MessageType.RECEIVED_GOLD_FROM_TRADE,
-        this._dstPort.owner().id(),
-        gold,
+      // Three shares of gold are paid out:
+      // 1. Ship owner gets base gold
+      // 2. Source port owner gets port gold (with road bonus)
+      // 3. Destination port owner gets port gold (with road bonus)
+      // A player can receive multiple shares if they own multiple roles
+      const shipOwner = this.origOwner;
+      const srcPortOwner = this.srcPort.owner();
+      const dstPortOwner = this._dstPort.owner();
+
+      // Calculate gold with road connection bonus for each port
+      const srcPortGold = this.calculatePortGoldWithRoadBonus(
+        this.srcPort,
+        baseGold,
       );
-      this.mg.displayMessage(
-        `Received ${renderNumber(gold)} gold from trade with ${this._dstPort.owner().displayName()}`,
-        MessageType.RECEIVED_GOLD_FROM_TRADE,
-        this.srcPort.owner().id(),
-        gold,
+      const dstPortGold = this.calculatePortGoldWithRoadBonus(
+        this._dstPort,
+        baseGold,
       );
+      // Ship owner gets base gold (no road bonus - the ship itself isn't road-connected)
+      const shipOwnerGold = baseGold;
+
+      // Pay ship owner their share
+      if (shipOwner.isPlayer() && shipOwner.isAlive()) {
+        shipOwner.addGold(shipOwnerGold);
+        this.mg.displayMessage(
+          `Received ${renderNumber(shipOwnerGold)} gold from trade ship voyage`,
+          MessageType.RECEIVED_GOLD_FROM_TRADE,
+          shipOwner.id(),
+          shipOwnerGold,
+        );
+      }
+
+      // Pay source port owner their share
+      if (srcPortOwner.isPlayer() && srcPortOwner.isAlive()) {
+        srcPortOwner.addGold(srcPortGold);
+        this.mg.displayMessage(
+          `Received ${renderNumber(srcPortGold)} gold from trade with ${dstPortOwner.isPlayer() ? dstPortOwner.displayName() : "unknown"}`,
+          MessageType.RECEIVED_GOLD_FROM_TRADE,
+          srcPortOwner.id(),
+          srcPortGold,
+        );
+      }
+
+      // Pay destination port owner their share
+      if (dstPortOwner.isPlayer() && dstPortOwner.isAlive()) {
+        dstPortOwner.addGold(dstPortGold);
+        this.mg.displayMessage(
+          `Received ${renderNumber(dstPortGold)} gold from trade with ${srcPortOwner.isPlayer() ? srcPortOwner.displayName() : "unknown"}`,
+          MessageType.RECEIVED_GOLD_FROM_TRADE,
+          dstPortOwner.id(),
+          dstPortGold,
+        );
+      }
     }
     return;
+  }
+
+  /**
+   * Calculate port gold with road connection bonus.
+   * If the port is connected to the road network, add up to +20% bonus scaled by road quality.
+   */
+  private calculatePortGoldWithRoadBonus(port: Unit, baseGold: bigint): bigint {
+    if (!this.mg.isStructureConnectedToRoadNetwork(port)) {
+      return baseGold;
+    }
+
+    const owner = port.owner();
+    if (!owner.isPlayer()) {
+      return baseGold;
+    }
+
+    // Get road quality (0-150, with 100 being baseline)
+    const roadQuality = (owner as Player).roadNetworkQuality();
+    // Road bonus: at 100% quality = 20% increase, at 50% = 10%, at 150% = 30%
+    const bonusFactor = 0.2 * (roadQuality / 100);
+    const bonusGold = BigInt(Math.floor(Number(baseGold) * bonusFactor));
+
+    return baseGold + bonusGold;
   }
 
   isActive(): boolean {

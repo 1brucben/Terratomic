@@ -29,6 +29,28 @@ export class BomberExecution implements Execution {
     return this.sourceAirfield.bomberLevel?.() ?? 1;
   }
 
+  /**
+   * Get the effective bomber cooldown ticks, reduced by road connection bonus.
+   * If the source airfield is connected to the road network, cooldown is reduced
+   * by up to 20%, scaled by road quality.
+   */
+  private getEffectiveCooldownTicks(): number {
+    const baseCooldown = this.mg.config().bomberCooldownTicks();
+
+    // Check if the source airfield is connected to the road network
+    if (!this.mg.isStructureConnectedToRoadNetwork(this.sourceAirfield)) {
+      return baseCooldown;
+    }
+
+    // Get road quality (0-150, with 100 being baseline)
+    const roadQuality = this.origOwner.roadNetworkQuality();
+    // Road bonus: at 100% quality = 20% reduction, at 50% = 10%, at 150% = 30%
+    const reductionFactor = 0.2 * (roadQuality / 100);
+    const effectiveCooldown = baseCooldown * (1 - reductionFactor);
+
+    return Math.max(1, Math.floor(effectiveCooldown));
+  }
+
   /** Get the minimum bomber damage across all of this player's airfields */
   private getMinBomberDamage(): number {
     const airfields = this.origOwner.units(UnitType.Airfield);
@@ -129,7 +151,7 @@ export class BomberExecution implements Execution {
       // Apply level-based bonus health before setting respawn health
       this.applyBomberLevelStats();
       this.bomber.setHealth(1n);
-      this.resetMissionState(this.mg.config().bomberCooldownTicks());
+      this.resetMissionState(this.getEffectiveCooldownTicks());
       return;
     }
 
@@ -322,7 +344,7 @@ export class BomberExecution implements Execution {
             this.decrementBomberCount(this.currentTargetUnit);
           }
 
-          this.resetMissionState(this.mg.config().bomberCooldownTicks());
+          this.resetMissionState(this.getEffectiveCooldownTicks());
         }
         return;
       }

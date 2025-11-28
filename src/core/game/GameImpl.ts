@@ -630,6 +630,11 @@ export class GameImpl implements Game {
     return this.roadManager.getRoadNetworkQualityForPlayer(playerId);
   }
 
+  // Check if a structure is connected to the road network
+  public isStructureConnectedToRoadNetwork(unit: Unit): boolean {
+    return this.roadManager.isStructureConnectedToRoadNetwork(unit);
+  }
+
   private maybeAssignTeam(player: PlayerInfo): Team | null {
     if (this._config.gameConfig().gameMode !== GameMode.Team) {
       return null;

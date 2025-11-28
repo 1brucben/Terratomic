@@ -470,10 +470,32 @@ export class PlayerImpl implements Player {
     this._effectiveUnitsCache.delete(type);
   }
 
+  /**
+   * Returns the effective unit count for a given type, factoring in health, level,
+   * and road connection bonuses (for eligible structure types).
+   *
+   * Road-connected structures receive up to +20% effectiveness, scaled by road quality.
+   * At 100% road quality = +20% bonus, at 50% = +10%, at 150% = +30%.
+   */
   effectiveUnits(type: UnitType): number {
     if (this._effectiveUnitsCache.has(type)) {
       return this._effectiveUnitsCache.get(type)!;
     }
+
+    // Structure types eligible for road connection bonus
+    const roadEligibleTypes: UnitType[] = [
+      UnitType.City,
+      UnitType.Port,
+      UnitType.Hospital,
+      UnitType.Academy,
+      UnitType.Airfield,
+      UnitType.Factory,
+      UnitType.ResearchLab,
+    ];
+
+    const isRoadEligible = roadEligibleTypes.includes(type);
+    // Get road quality once for all units of this type (quality is per-player, not per-unit)
+    const roadQuality = isRoadEligible ? this.roadNetworkQuality() : 100;
 
     const calculatedValue = this._units
       .filter((u) => u.type() === type && u.isActive())
@@ -484,7 +506,17 @@ export class PlayerImpl implements Player {
           ? Math.min(1, Number(u.health()) / Math.max(1, effectiveMax))
           : 1;
         const level = (u as any).level?.() ?? 1;
-        return sum + healthRatio * level;
+        let baseEffect = healthRatio * level;
+
+        // Apply road connection bonus for eligible types
+        if (isRoadEligible && this.mg.isStructureConnectedToRoadNetwork(u)) {
+          // Bonus scales with road quality: at 100% quality, +20% bonus
+          // roadQuality is typically 0-150, so roadQuality/100 gives 0-1.5
+          const roadBonus = 0.2 * (roadQuality / 100);
+          baseEffect *= 1 + roadBonus;
+        }
+
+        return sum + baseEffect;
       }, 0);
     this._effectiveUnitsCache.set(type, calculatedValue);
     return calculatedValue;
