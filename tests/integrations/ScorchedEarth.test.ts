@@ -31,9 +31,10 @@ describe("Scorched Earth Full Cycle Integration Test", () => {
 
     // Research core economy techs to unlock and test revocation behavior
     player.addResearchedTech(RESEARCH_TECH_IDS.POST_WW2_MODERNIZATION);
-    player.addResearchedTech(RESEARCH_TECH_IDS.POST_WAR_RECONSTRUCTION);
-    player.addResearchedTech(RESEARCH_TECH_IDS.NATIONAL_HIGHWAY_EXPANSION);
-    player.addResearchedTech(RESEARCH_TECH_IDS.NATIONAL_HEALTH_SYSTEM);
+    player.addResearchedTech(RESEARCH_TECH_IDS.NATIONAL_RECONSTRUCTION_PROGRAM);
+    player.addResearchedTech(RESEARCH_TECH_IDS.INDUSTRIAL_DEVELOPMENT_STRATEGY);
+    player.addResearchedTech(RESEARCH_TECH_IDS.TRADE_POLICY_FRAMEWORK);
+    player.addResearchedTech(RESEARCH_TECH_IDS.INFRASTRUCTURE_PRIORITIZATION);
 
     // Allow the automatic road upgrade to build out the network
     for (let i = 0; i < 200; i++) {
@@ -53,14 +54,18 @@ describe("Scorched Earth Full Cycle Integration Test", () => {
     expect(player.hasUpgrade(UpgradeType.ScorchedEarth)).toBe(true);
     expect(player.roadInvestmentRate()).toBe(0);
     expect(
-      player.hasResearchedTech(RESEARCH_TECH_IDS.POST_WAR_RECONSTRUCTION),
+      player.hasResearchedTech(
+        RESEARCH_TECH_IDS.NATIONAL_RECONSTRUCTION_PROGRAM,
+      ),
     ).toBe(false);
     expect(
-      player.hasResearchedTech(RESEARCH_TECH_IDS.NATIONAL_HIGHWAY_EXPANSION),
+      player.hasResearchedTech(
+        RESEARCH_TECH_IDS.INDUSTRIAL_DEVELOPMENT_STRATEGY,
+      ),
     ).toBe(false);
 
     // Step 3: Re-unlock roads and verify Scorched Earth deactivates
-    player.addResearchedTech(RESEARCH_TECH_IDS.POST_WAR_RECONSTRUCTION);
+    player.addResearchedTech(RESEARCH_TECH_IDS.NATIONAL_RECONSTRUCTION_PROGRAM);
     expect(player.hasUpgrade(UpgradeType.ScorchedEarth)).toBe(false);
     player.setRoadInvestmentRate(1);
     for (let i = 0; i < 200; i++) {

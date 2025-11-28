@@ -186,7 +186,7 @@ export enum UpgradeType {
 
   // Economy Upgrades
   InternationalTrade = "InternationalTrade",
-  StructureInsurance = "StructureInsurance",
+  // TEMPORARILY DISABLED: StructureInsurance = "StructureInsurance",
   HospitalResearch = "HospitalResearch",
   ResearchLabResearch = "ResearchLabResearch",
 

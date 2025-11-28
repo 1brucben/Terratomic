@@ -12,9 +12,10 @@ describe("PlayerImpl.removeResearchedTechsByCategory", () => {
     const player = game.player(info.id) as PlayerImpl;
 
     player.addResearchedTech(RESEARCH_TECH_IDS.POST_WW2_MODERNIZATION);
-    player.addResearchedTech(RESEARCH_TECH_IDS.POST_WAR_RECONSTRUCTION);
-    player.addResearchedTech(RESEARCH_TECH_IDS.NATIONAL_HIGHWAY_EXPANSION);
-    player.addResearchedTech(RESEARCH_TECH_IDS.NATIONAL_HEALTH_SYSTEM);
+    player.addResearchedTech(RESEARCH_TECH_IDS.NATIONAL_RECONSTRUCTION_PROGRAM);
+    player.addResearchedTech(RESEARCH_TECH_IDS.INDUSTRIAL_DEVELOPMENT_STRATEGY);
+    player.addResearchedTech(RESEARCH_TECH_IDS.TRADE_POLICY_FRAMEWORK);
+    player.addResearchedTech(RESEARCH_TECH_IDS.INFRASTRUCTURE_PRIORITIZATION);
     player.addResearchBeakers("Economy-3A", 500, 1_000);
     player.setResearchPriority("Economy-3A");
 
@@ -28,10 +29,14 @@ describe("PlayerImpl.removeResearchedTechsByCategory", () => {
       player.hasResearchedTech(RESEARCH_TECH_IDS.POST_WW2_MODERNIZATION),
     ).toBe(true);
     expect(
-      player.hasResearchedTech(RESEARCH_TECH_IDS.POST_WAR_RECONSTRUCTION),
+      player.hasResearchedTech(
+        RESEARCH_TECH_IDS.NATIONAL_RECONSTRUCTION_PROGRAM,
+      ),
     ).toBe(false);
     expect(
-      player.hasResearchedTech(RESEARCH_TECH_IDS.NATIONAL_HIGHWAY_EXPANSION),
+      player.hasResearchedTech(
+        RESEARCH_TECH_IDS.INDUSTRIAL_DEVELOPMENT_STRATEGY,
+      ),
     ).toBe(false);
     expect(player.hasUpgrade(UpgradeType.Roads)).toBe(false);
     expect(player.hasUpgrade(UpgradeType.HospitalResearch)).toBe(false);

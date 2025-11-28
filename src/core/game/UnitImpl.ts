@@ -10,7 +10,6 @@ import {
   Unit,
   UnitInfo,
   UnitType,
-  UpgradeType,
   isStructureType,
 } from "./Game";
 import { GameImpl } from "./GameImpl";
@@ -101,12 +100,13 @@ export class UnitImpl implements Unit {
       "sourceAirfield" in params
         ? (params.sourceAirfield ?? undefined)
         : undefined;
-    if (
-      isStructureType(this._type) &&
-      this._owner.hasUpgrade(UpgradeType.StructureInsurance)
-    ) {
-      this._insuredBy = this._owner;
-    }
+    // TEMPORARILY DISABLED: Structure insurance
+    // if (
+    //   isStructureType(this._type) &&
+    //   this._owner.hasUpgrade(UpgradeType.StructureInsurance)
+    // ) {
+    //   this._insuredBy = this._owner;
+    // }
 
     switch (this._type) {
       case UnitType.Warship:
@@ -474,12 +474,13 @@ export class UnitImpl implements Unit {
     this._owner = newOwner;
     this._owner.invalidateEffectiveUnitsCache(this.type());
     this._owner._units.push(this);
-    if (
-      isStructureType(this._type) &&
-      this._owner.hasUpgrade(UpgradeType.StructureInsurance)
-    ) {
-      this._insuredBy = this._owner;
-    }
+    // TEMPORARILY DISABLED: Structure insurance
+    // if (
+    //   isStructureType(this._type) &&
+    //   this._owner.hasUpgrade(UpgradeType.StructureInsurance)
+    // ) {
+    //   this._insuredBy = this._owner;
+    // }
     this.mg.addUpdate(this.toUpdate());
     this.mg.displayMessage(
       `Your ${this.type()} was captured by ${newOwner.displayName()}`,

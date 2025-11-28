@@ -1919,7 +1919,7 @@ export class ControlPanel2 extends LitElement implements Layer {
                           ${!hasRoads
                             ? html`<span
                                 class="lock-badge"
-                                title=${`Research '${getTechMeta(RESEARCH_TECH_IDS.POST_WAR_RECONSTRUCTION, { strict: false }).name}' to enable road investment`}
+                                title=${`Research '${getTechMeta(RESEARCH_TECH_IDS.NATIONAL_RECONSTRUCTION_PROGRAM, { strict: false }).name}' to enable road investment`}
                               >
                                 <svg
                                   class="lock-icon"
@@ -2011,7 +2011,7 @@ export class ControlPanel2 extends LitElement implements Layer {
                         .value=${(this._roadInvestmentRate * 100).toString()}
                         ?disabled=${!hasRoads}
                         title=${!hasRoads
-                          ? `Research '${getTechMeta(RESEARCH_TECH_IDS.POST_WAR_RECONSTRUCTION, { strict: false }).name}' to enable road investment`
+                          ? `Research '${getTechMeta(RESEARCH_TECH_IDS.NATIONAL_RECONSTRUCTION_PROGRAM, { strict: false }).name}' to enable road investment`
                           : ""}
                         data-i18n-title="control_panel2.road_investment_tooltip"
                         @input=${(e: Event) => {

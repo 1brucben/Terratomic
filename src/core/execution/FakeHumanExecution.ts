@@ -201,7 +201,7 @@ export class FakeHumanExecution implements Execution {
         !this.player.hasUpgrade(UpgradeType.Roads)
       ) {
         this.player.addResearchedTech(
-          RESEARCH_TECH_IDS.POST_WAR_RECONSTRUCTION,
+          RESEARCH_TECH_IDS.NATIONAL_RECONSTRUCTION_PROGRAM,
         );
       }
       this.unitCreationHelper.handleUnits();
