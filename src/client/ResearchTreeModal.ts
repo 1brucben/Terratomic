@@ -26,7 +26,7 @@ import {
 } from "./Transport";
 import { renderNumber, translateText } from "./Utils";
 
-type ResearchTab = Category | "Overview";
+type ResearchTab = Category | "Overview" | "Policy Directives";
 
 /** Helper to get display name/description from TechEffects */
 function getTechDisplay(tech: TechNode): {
@@ -64,6 +64,7 @@ export class ResearchTreeModal extends LitElement {
     "Air",
     "Nuclear",
     "Economy",
+    "Policy Directives",
     "Overview",
   ];
 
@@ -213,7 +214,7 @@ export class ResearchTreeModal extends LitElement {
   private getOrderedTabs(): ResearchTab[] {
     const available = new Set(this.categories);
     const ordered = this.tabOrder.filter((cat) => {
-      if (cat === "Overview") return true;
+      if (cat === "Overview" || cat === "Policy Directives") return true;
       return available.has(cat);
     });
     if (!ordered.includes("Overview") && available.size > 0)
@@ -538,6 +539,14 @@ export class ResearchTreeModal extends LitElement {
     `;
   }
 
+  private renderPolicyDirectivesView() {
+    return html`
+      <div class="policy-directives-view">
+        <div class="empty-state">Policy Directives coming soon.</div>
+      </div>
+    `;
+  }
+
   private drawEdges() {
     const container = this.renderRoot.querySelector(
       ".line-layer",
@@ -697,6 +706,7 @@ export class ResearchTreeModal extends LitElement {
     const priority = me?.researchPriorityTech?.() ?? null;
     const tabs = this.getOrderedTabs();
     const isAllView = this.activeTab === "Overview";
+    const isPolicyDirectivesView = this.activeTab === "Policy Directives";
     const activeCategory = this.getActiveCategory();
     const activeTechs = activeCategory
       ? this.techs.filter((t) => t.category === activeCategory)
@@ -1557,204 +1567,219 @@ export class ResearchTreeModal extends LitElement {
             <div class="investment-cluster">${this.renderResearchSlider()}</div>
           </div>
           <div class="tab-panel" role="tabpanel">
-            <div class="tree-container ${isAllView ? "all-view" : ""}">
-              ${isAllView
-                ? this.renderAllView(
-                    levels,
-                    researched,
-                    categoryColors,
-                    percentByTechId,
-                  )
-                : activeCategory
-                  ? html`<div
-                      class="level-strip"
-                      style=${`--level-accent:${categoryColors[activeCategory] ?? "transparent"}`}
-                    >
-                      ${levels.map((lvl) => {
-                        const techsForLevel = this.techs.filter(
-                          (t) =>
-                            t.level === lvl && t.category === activeCategory,
-                        );
-                        return html`<div class="level-column">
-                          <div class="level-label">Tech Level ${lvl}</div>
-                          <div class="tech-stack">
-                            ${techsForLevel.length
-                              ? techsForLevel.map((tech) => {
-                                  const available = this.isAvailable(
-                                    tech.id,
-                                    researched,
-                                  );
-                                  const isResearched = researched.has(tech.id);
-                                  const clickable = !isResearched;
-                                  const inHighlight = highlightTrail.has(
-                                    tech.id,
-                                  );
-                                  const classes = [
-                                    "tech",
-                                    available ? "" : "locked",
-                                    isResearched ? "researched" : "",
-                                    inHighlight ? "priority" : "",
-                                  ]
-                                    .filter(Boolean)
-                                    .join(" ");
-                                  const action = this.renderScorchedEarthAction(
-                                    tech,
-                                    me ?? null,
-                                    isResearched,
-                                  );
-                                  return html`<div class="tech-wrapper">
-                                    ${(() => {
-                                      const display = getTechDisplay(tech);
-                                      return html`<button
-                                        class=${classes}
-                                        data-id=${tech.id}
-                                        @click=${() =>
-                                          this.onTechClick(tech.id)}
-                                        @mouseenter=${(ev: Event) =>
-                                          this.adjustTooltipPosition(
-                                            ev.currentTarget as HTMLElement,
-                                          )}
-                                        @focus=${(ev: Event) =>
-                                          this.adjustTooltipPosition(
-                                            ev.currentTarget as HTMLElement,
-                                          )}
-                                        title=${""}
-                                        ?disabled=${!clickable}
-                                      >
-                                        <div class="tooltip">
-                                          <div
-                                            style="font-weight:600;margin-bottom:4px;"
-                                          >
-                                            ${display.name}
-                                          </div>
-                                          ${display.description
-                                            ? html`<div
-                                                style="opacity:.9;margin-bottom:6px;"
-                                              >
-                                                ${display.description}
-                                              </div>`
-                                            : ""}
-                                          ${(() => {
-                                            const meLocal =
-                                              this.game?.myPlayer?.();
-                                            const b =
-                                              meLocal?.researchBeakers?.(
-                                                tech.id,
-                                              ) ?? 0;
-                                            const pct = Math.min(
-                                              100,
-                                              Math.floor(
-                                                (b / (tech.cost || 1)) * 100,
-                                              ),
-                                            );
-                                            return html`<div
-                                              style="font-size:11px;opacity:.9;"
-                                            >
-                                              <div
-                                                class="cost-inline"
-                                                translate="no"
-                                              >
-                                                <span
-                                                  >Cost:
-                                                  ${tech.cost.toLocaleString()}</span
-                                                >
-                                                <img
-                                                  src=${flaskIcon}
-                                                  alt="research cost"
-                                                />
-                                              </div>
-                                              ${isResearched
-                                                ? html`<div>
-                                                    Status: Completed
-                                                  </div>`
-                                                : html`<div>
-                                                    Progress:
-                                                    ${b.toLocaleString()} /
-                                                    ${tech.cost.toLocaleString()}
-                                                    (${pct}%)
-                                                  </div>`}
-                                            </div>`;
-                                          })()}
-                                        </div>
-                                        <div
-                                          style="font-weight:600; margin-bottom:6px;"
+            <div
+              class="tree-container ${isAllView || isPolicyDirectivesView
+                ? "all-view"
+                : ""}"
+            >
+              ${isPolicyDirectivesView
+                ? this.renderPolicyDirectivesView()
+                : isAllView
+                  ? this.renderAllView(
+                      levels,
+                      researched,
+                      categoryColors,
+                      percentByTechId,
+                    )
+                  : activeCategory
+                    ? html`<div
+                        class="level-strip"
+                        style=${`--level-accent:${categoryColors[activeCategory] ?? "transparent"}`}
+                      >
+                        ${levels.map((lvl) => {
+                          const techsForLevel = this.techs.filter(
+                            (t) =>
+                              t.level === lvl && t.category === activeCategory,
+                          );
+                          return html`<div class="level-column">
+                            <div class="level-label">Tech Level ${lvl}</div>
+                            <div class="tech-stack">
+                              ${techsForLevel.length
+                                ? techsForLevel.map((tech) => {
+                                    const available = this.isAvailable(
+                                      tech.id,
+                                      researched,
+                                    );
+                                    const isResearched = researched.has(
+                                      tech.id,
+                                    );
+                                    const clickable = !isResearched;
+                                    const inHighlight = highlightTrail.has(
+                                      tech.id,
+                                    );
+                                    const classes = [
+                                      "tech",
+                                      available ? "" : "locked",
+                                      isResearched ? "researched" : "",
+                                      inHighlight ? "priority" : "",
+                                    ]
+                                      .filter(Boolean)
+                                      .join(" ");
+                                    const action =
+                                      this.renderScorchedEarthAction(
+                                        tech,
+                                        me ?? null,
+                                        isResearched,
+                                      );
+                                    return html`<div class="tech-wrapper">
+                                      ${(() => {
+                                        const display = getTechDisplay(tech);
+                                        return html`<button
+                                          class=${classes}
+                                          data-id=${tech.id}
+                                          @click=${() =>
+                                            this.onTechClick(tech.id)}
+                                          @mouseenter=${(ev: Event) =>
+                                            this.adjustTooltipPosition(
+                                              ev.currentTarget as HTMLElement,
+                                            )}
+                                          @focus=${(ev: Event) =>
+                                            this.adjustTooltipPosition(
+                                              ev.currentTarget as HTMLElement,
+                                            )}
+                                          title=${""}
+                                          ?disabled=${!clickable}
                                         >
-                                          ${display.name}
-                                        </div>
-                                        <div class="cost-inline" translate="no">
-                                          <span
-                                            >${tech.cost.toLocaleString()}</span
-                                          >
-                                          <img
-                                            src=${flaskIcon}
-                                            alt="research cost"
-                                          />
-                                        </div>
-                                        ${!isResearched && me
-                                          ? (() => {
+                                          <div class="tooltip">
+                                            <div
+                                              style="font-weight:600;margin-bottom:4px;"
+                                            >
+                                              ${display.name}
+                                            </div>
+                                            ${display.description
+                                              ? html`<div
+                                                  style="opacity:.9;margin-bottom:6px;"
+                                                >
+                                                  ${display.description}
+                                                </div>`
+                                              : ""}
+                                            ${(() => {
+                                              const meLocal =
+                                                this.game?.myPlayer?.();
                                               const b =
-                                                me.researchBeakers?.(tech.id) ??
-                                                0;
+                                                meLocal?.researchBeakers?.(
+                                                  tech.id,
+                                                ) ?? 0;
                                               const pct = Math.min(
                                                 100,
                                                 Math.floor(
                                                   (b / (tech.cost || 1)) * 100,
                                                 ),
                                               );
-                                              return b > 0
-                                                ? html`<div
-                                                    class="progress-track"
+                                              return html`<div
+                                                style="font-size:11px;opacity:.9;"
+                                              >
+                                                <div
+                                                  class="cost-inline"
+                                                  translate="no"
+                                                >
+                                                  <span
+                                                    >Cost:
+                                                    ${tech.cost.toLocaleString()}</span
                                                   >
-                                                    <div
-                                                      class="progress-fill ${priority ===
-                                                      tech.id
-                                                        ? "priority"
-                                                        : ""}"
-                                                      style="width:${pct}%"
-                                                    ></div>
-                                                  </div>`
-                                                : "";
-                                            })()
-                                          : ""}
-                                        <div>
-                                          ${tech.requiresAllOf?.length
-                                            ? html`<span class="pill pill-req"
-                                                >Requires:
-                                                ${tech.requiresAllOf
-                                                  .length}</span
-                                              >`
+                                                  <img
+                                                    src=${flaskIcon}
+                                                    alt="research cost"
+                                                  />
+                                                </div>
+                                                ${isResearched
+                                                  ? html`<div>
+                                                      Status: Completed
+                                                    </div>`
+                                                  : html`<div>
+                                                      Progress:
+                                                      ${b.toLocaleString()} /
+                                                      ${tech.cost.toLocaleString()}
+                                                      (${pct}%)
+                                                    </div>`}
+                                              </div>`;
+                                            })()}
+                                          </div>
+                                          <div
+                                            style="font-weight:600; margin-bottom:6px;"
+                                          >
+                                            ${display.name}
+                                          </div>
+                                          <div
+                                            class="cost-inline"
+                                            translate="no"
+                                          >
+                                            <span
+                                              >${tech.cost.toLocaleString()}</span
+                                            >
+                                            <img
+                                              src=${flaskIcon}
+                                              alt="research cost"
+                                            />
+                                          </div>
+                                          ${!isResearched && me
+                                            ? (() => {
+                                                const b =
+                                                  me.researchBeakers?.(
+                                                    tech.id,
+                                                  ) ?? 0;
+                                                const pct = Math.min(
+                                                  100,
+                                                  Math.floor(
+                                                    (b / (tech.cost || 1)) *
+                                                      100,
+                                                  ),
+                                                );
+                                                return b > 0
+                                                  ? html`<div
+                                                      class="progress-track"
+                                                    >
+                                                      <div
+                                                        class="progress-fill ${priority ===
+                                                        tech.id
+                                                          ? "priority"
+                                                          : ""}"
+                                                        style="width:${pct}%"
+                                                      ></div>
+                                                    </div>`
+                                                  : "";
+                                              })()
                                             : ""}
-                                          ${tech.requiresOneOf?.length
-                                            ? html`<span class="pill pill-oneof"
-                                                >One of:
-                                                ${tech.requiresOneOf
-                                                  .length}</span
-                                              >`
-                                            : ""}
-                                          ${priority === tech.id &&
-                                          !isResearched
-                                            ? html`<span
-                                                class="pill pill-priority"
-                                                >Priority</span
-                                              >`
-                                            : ""}
-                                        </div>
-                                      </button>`;
-                                    })()}
-                                    ${action}
-                                  </div>`;
-                                })
-                              : html`<div class="empty-level">
-                                  No techs at this level
-                                </div>`}
-                          </div>
-                        </div>`;
-                      })}
-                    </div>`
-                  : html`<div class="empty-state">
-                      No research categories found.
-                    </div>`}
-              ${!isAllView
+                                          <div>
+                                            ${tech.requiresAllOf?.length
+                                              ? html`<span class="pill pill-req"
+                                                  >Requires:
+                                                  ${tech.requiresAllOf
+                                                    .length}</span
+                                                >`
+                                              : ""}
+                                            ${tech.requiresOneOf?.length
+                                              ? html`<span
+                                                  class="pill pill-oneof"
+                                                  >One of:
+                                                  ${tech.requiresOneOf
+                                                    .length}</span
+                                                >`
+                                              : ""}
+                                            ${priority === tech.id &&
+                                            !isResearched
+                                              ? html`<span
+                                                  class="pill pill-priority"
+                                                  >Priority</span
+                                                >`
+                                              : ""}
+                                          </div>
+                                        </button>`;
+                                      })()}
+                                      ${action}
+                                    </div>`;
+                                  })
+                                : html`<div class="empty-level">
+                                    No techs at this level
+                                  </div>`}
+                            </div>
+                          </div>`;
+                        })}
+                      </div>`
+                    : html`<div class="empty-state">
+                        No research categories found.
+                      </div>`}
+              ${!isAllView && !isPolicyDirectivesView
                 ? html`<div class="line-layer"><svg></svg></div>`
                 : ""}
             </div>
