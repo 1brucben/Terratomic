@@ -122,9 +122,9 @@ const seaTechs: TechNode[] = [
 
 // Land branch techs (explicit definitions)
 const landTechs: TechNode[] = [
-  // Level 1
+  // Level 1 - Post-WW2 Modernization (unlocks Military Academy)
   { id: "Land-1", category: "Land", level: 1, cost: costForLevel(1) },
-  // Level 2 - Three parallel techs, all require Land-1
+  // Level 2 - Two parallel paths
   {
     id: "Land-2A",
     category: "Land",
@@ -139,55 +139,34 @@ const landTechs: TechNode[] = [
     requiresAllOf: ["Land-1"],
     cost: costForLevel(2),
   },
-  {
-    id: "Land-2C",
-    category: "Land",
-    level: 2,
-    requiresAllOf: ["Land-1"],
-    cost: costForLevel(2),
-  },
-  // Level 3 - Three techs, each requires any one of the Level 2 techs
+  // Level 3 - Each follows its own path
   {
     id: "Land-3A",
     category: "Land",
     level: 3,
-    requiresOneOf: ["Land-2A", "Land-2B", "Land-2C"],
+    requiresAllOf: ["Land-2A"],
     cost: costForLevel(3),
   },
   {
     id: "Land-3B",
     category: "Land",
     level: 3,
-    requiresOneOf: ["Land-2A", "Land-2B", "Land-2C"],
+    requiresAllOf: ["Land-2B"],
     cost: costForLevel(3),
   },
-  {
-    id: "Land-3C",
-    category: "Land",
-    level: 3,
-    requiresOneOf: ["Land-2A", "Land-2B", "Land-2C"],
-    cost: costForLevel(3),
-  },
-  // Level 4 - Three techs, each requires any one of the Level 3 techs
+  // Level 4 - Each follows its own path
   {
     id: "Land-4A",
     category: "Land",
     level: 4,
-    requiresOneOf: ["Land-3A", "Land-3B", "Land-3C"],
+    requiresAllOf: ["Land-3A"],
     cost: costForLevel(4),
   },
   {
     id: "Land-4B",
     category: "Land",
     level: 4,
-    requiresOneOf: ["Land-3A", "Land-3B", "Land-3C"],
-    cost: costForLevel(4),
-  },
-  {
-    id: "Land-4C",
-    category: "Land",
-    level: 4,
-    requiresOneOf: ["Land-3A", "Land-3B", "Land-3C"],
+    requiresAllOf: ["Land-3B"],
     cost: costForLevel(4),
   },
 ];
@@ -281,9 +260,9 @@ const extras: TechNode[] = [
 
 // Economy branch techs (explicit definitions)
 const economyTechs: TechNode[] = [
-  // Level 1
+  // Level 1 - National Reconstruction Program (enables roads)
   { id: "Economy-1", category: "Economy", level: 1, cost: costForLevel(1) },
-  // Level 2 - Four parallel techs, all require Economy-1
+  // Level 2 - Two parallel paths
   {
     id: "Economy-2A",
     category: "Economy",
@@ -298,69 +277,34 @@ const economyTechs: TechNode[] = [
     requiresAllOf: ["Economy-1"],
     cost: costForLevel(2),
   },
-  {
-    id: "Economy-2C",
-    category: "Economy",
-    level: 2,
-    requiresAllOf: ["Economy-1"],
-    cost: costForLevel(2),
-  },
-  {
-    id: "Economy-2D",
-    category: "Economy",
-    level: 2,
-    requiresAllOf: ["Economy-1"],
-    cost: costForLevel(2),
-  },
-  // Level 3 - Four techs, each requires any one of the Level 2 techs
+  // Level 3 - Each follows its own path
   {
     id: "Economy-3A",
     category: "Economy",
     level: 3,
-    requiresOneOf: ["Economy-2A", "Economy-2B", "Economy-2C", "Economy-2D"],
+    requiresAllOf: ["Economy-2A"],
     cost: costForLevel(3),
   },
   {
     id: "Economy-3B",
     category: "Economy",
     level: 3,
-    requiresOneOf: ["Economy-2A", "Economy-2B", "Economy-2C", "Economy-2D"],
+    requiresAllOf: ["Economy-2B"],
     cost: costForLevel(3),
   },
-  {
-    id: "Economy-3C",
-    category: "Economy",
-    level: 3,
-    requiresOneOf: ["Economy-2A", "Economy-2B", "Economy-2C", "Economy-2D"],
-    cost: costForLevel(3),
-  },
-  {
-    id: "Economy-3D",
-    category: "Economy",
-    level: 3,
-    requiresOneOf: ["Economy-2A", "Economy-2B", "Economy-2C", "Economy-2D"],
-    cost: costForLevel(3),
-  },
-  // Level 4 - Three techs, each requires any one of the Level 3 techs
+  // Level 4 - Each follows its own path
   {
     id: "Economy-4A",
     category: "Economy",
     level: 4,
-    requiresOneOf: ["Economy-3A", "Economy-3B", "Economy-3C", "Economy-3D"],
+    requiresAllOf: ["Economy-3A"],
     cost: costForLevel(4),
   },
   {
     id: "Economy-4B",
     category: "Economy",
     level: 4,
-    requiresOneOf: ["Economy-3A", "Economy-3B", "Economy-3C", "Economy-3D"],
-    cost: costForLevel(4),
-  },
-  {
-    id: "Economy-4C",
-    category: "Economy",
-    level: 4,
-    requiresOneOf: ["Economy-3A", "Economy-3B", "Economy-3C", "Economy-3D"],
+    requiresAllOf: ["Economy-3B"],
     cost: costForLevel(4),
   },
 ];

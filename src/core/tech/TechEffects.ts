@@ -38,33 +38,25 @@ export const RESEARCH_TECH_IDS = {
   // Land techs - Level 1
   POST_WW2_MODERNIZATION: "Land-1",
   // Land techs - Level 2
-  EARLY_MECHANIZATION: "Land-2A",
-  IMPROVED_ARTILLERY_SYSTEMS: "Land-2B",
-  INTEGRATED_LOGISTICS_CORPS: "Land-2C",
+  MECHANIZED_WARFARE_DOCTRINE: "Land-2A",
+  FIELD_ARTILLERY_MODERNIZATION: "Land-2B",
   // Land techs - Level 3
   MAIN_BATTLE_TANK_STANDARDIZATION: "Land-3A",
-  COMPOSITE_ARMOR_HEAT_MUNITIONS: "Land-3B",
-  SELF_PROPELLED_ARTILLERY: "Land-3C",
+  SELF_PROPELLED_FIRE_SUPPORT: "Land-3B",
   // Land techs - Level 4
   NIGHT_VISION_BATTLEFIELD_SENSORS: "Land-4A",
-  PRECISION_GUIDED_MUNITIONS_LAND: "Land-4B",
-  C3I_SYSTEMS: "Land-4C",
+  C3I_PRECISION_STRIKE: "Land-4B",
   // Economy techs - Level 1
-  POST_WAR_RECONSTRUCTION: "Economy-1",
+  NATIONAL_RECONSTRUCTION_PROGRAM: "Economy-1",
   // Economy techs - Level 2
-  NATIONAL_HIGHWAY_EXPANSION: "Economy-2A",
-  PORT_TRANSPORT_MODERNIZATION: "Economy-2B",
-  CIVIL_DEFENSE_MEASURES: "Economy-2C",
-  INFRASTRUCTURE_RECOVERY_FUND: "Economy-2D",
+  INDUSTRIAL_DEVELOPMENT_STRATEGY: "Economy-2A",
+  TRADE_POLICY_FRAMEWORK: "Economy-2B",
   // Economy techs - Level 3
   SCIENTIFIC_RESEARCH_NETWORK: "Economy-3A",
-  ADVANCED_MACHINE_TOOLS_AUTOMATION: "Economy-3B",
-  ENERGY_INFRASTRUCTURE_EXPANSION: "Economy-3C",
-  NATIONAL_HEALTH_SYSTEM: "Economy-3D",
+  INFRASTRUCTURE_PRIORITIZATION: "Economy-3B",
   // Economy techs - Level 4
   COMPUTING_DATA_SYSTEMS: "Economy-4A",
-  TELECOMMUNICATIONS_INTEGRATION: "Economy-4B",
-  ECONOMIC_COORDINATION_SYSTEMS: "Economy-4C",
+  NATIONAL_ECONOMIC_COORDINATION: "Economy-4B",
   // Special Economy actions (not research nodes)
   SCORCHED_EARTH: "Economy-Action-ScorchedEarth",
   // Nuclear techs
@@ -350,11 +342,11 @@ export const TECHS: Readonly<Record<string, TechDefinition>> = Object.freeze({
       },
     },
   },
-  [RESEARCH_TECH_IDS.POST_WAR_RECONSTRUCTION]: {
+  [RESEARCH_TECH_IDS.NATIONAL_RECONSTRUCTION_PROGRAM]: {
     meta: {
-      name: "Post-War Reconstruction",
+      name: "National Reconstruction Program",
       description:
-        "Revitalize infrastructure and industry by mobilizing civilian labor and resources to rebuild the national economy. Effects: Unlocks Roads investment and enables construction/expansion of your road network.",
+        "Revitalize infrastructure and industry by mobilizing civilian labor and resources to rebuild the national economy. Effects: Enables Roads.",
     },
     effects: {
       onComplete: (player, game) => {
@@ -376,81 +368,24 @@ export const TECHS: Readonly<Record<string, TechDefinition>> = Object.freeze({
     },
   },
   // Economy Level 2 techs
-  [RESEARCH_TECH_IDS.NATIONAL_HIGHWAY_EXPANSION]: {
+  [RESEARCH_TECH_IDS.INDUSTRIAL_DEVELOPMENT_STRATEGY]: {
     meta: {
-      name: "National Highway Expansion",
+      name: "Industrial Development Strategy",
       description:
-        "Expand national highway networks for improved logistics and troop movement. Effects: Construction speed +10%.",
+        "Prioritize industrial capacity and manufacturing output to strengthen the national economy.",
     },
     effects: {
-      constructionSpeed: (mods) => {
-        mods.speedMul *= 1.1; // 10% faster construction
-      },
-      // TODO: Stronger road effects +5% (roads boost structure output more effectively)
+      // Effects to be added later
     },
   },
-  [RESEARCH_TECH_IDS.PORT_TRANSPORT_MODERNIZATION]: {
+  [RESEARCH_TECH_IDS.TRADE_POLICY_FRAMEWORK]: {
     meta: {
-      name: "Port & Transport Modernization",
+      name: "Trade Policy Framework",
       description:
-        "Modernize ports and transport infrastructure. Effects: Unlocks International Trade income from cargo trucks.",
+        "Establish trade agreements and commercial policies to boost economic growth.",
     },
     effects: {
-      onComplete: (player) => {
-        if (!player.hasUpgrade?.(UpgradeType.InternationalTrade)) {
-          player.addUpgrade?.(UpgradeType.InternationalTrade);
-        }
-      },
-      onRevoke: (player) => {
-        if (player.hasUpgrade?.(UpgradeType.InternationalTrade)) {
-          player.removeUpgrade?.(UpgradeType.InternationalTrade);
-        }
-      },
-    },
-  },
-  [RESEARCH_TECH_IDS.CIVIL_DEFENSE_MEASURES]: {
-    meta: {
-      name: "Civil Defense Measures",
-      description:
-        "Establish civil defense protocols. Effects: Enables the Scorched Earth decision.",
-    },
-    effects: {
-      // TODO: Maintenance cost reduction +5%
-    },
-  },
-  [RESEARCH_TECH_IDS.INFRASTRUCTURE_RECOVERY_FUND]: {
-    meta: {
-      name: "Infrastructure Recovery Fund",
-      description:
-        "Establish state-backed recovery funds. Effects: Unlocks Structure Insurance, refunding 33% of construction costs when self-constructed buildings are lost.",
-    },
-    effects: {
-      onComplete: (player) => {
-        if (!player.hasUpgrade?.(UpgradeType.StructureInsurance)) {
-          player.addUpgrade?.(UpgradeType.StructureInsurance);
-        }
-        try {
-          const units = player.units?.() ?? [];
-          for (const unit of units) {
-            (unit as any).insure?.(player);
-          }
-        } catch {
-          // Some player implementations may not expose units(); ignore.
-        }
-      },
-      onRevoke: (player) => {
-        try {
-          const units = player.units?.() ?? [];
-          for (const unit of units) {
-            (unit as any).insure?.(null);
-          }
-        } catch {
-          // ignore
-        }
-        if (player.hasUpgrade?.(UpgradeType.StructureInsurance)) {
-          player.removeUpgrade?.(UpgradeType.StructureInsurance);
-        }
-      },
+      // Effects to be added later
     },
   },
   // Economy Level 3 techs
@@ -458,7 +393,7 @@ export const TECHS: Readonly<Record<string, TechDefinition>> = Object.freeze({
     meta: {
       name: "Scientific Research Network",
       description:
-        "Establish national research networks for scientific advancement. Effects: Unlocks Research Lab structures.",
+        "Establish national research networks for scientific advancement. Effects: Enables Research Labs.",
     },
     effects: {
       onComplete: (player) => {
@@ -469,37 +404,11 @@ export const TECHS: Readonly<Record<string, TechDefinition>> = Object.freeze({
       },
     },
   },
-  [RESEARCH_TECH_IDS.ADVANCED_MACHINE_TOOLS_AUTOMATION]: {
+  [RESEARCH_TECH_IDS.INFRASTRUCTURE_PRIORITIZATION]: {
     meta: {
-      name: "Advanced Machine Tools & Automation",
+      name: "Infrastructure Prioritization",
       description:
-        "Develop advanced manufacturing and automation systems. Effects: Construction speed +10%.",
-    },
-    effects: {
-      constructionSpeed: (mods) => {
-        mods.speedMul *= 1.1; // 10% faster construction
-      },
-      // TODO: Infrastructure spending effectiveness +30%
-    },
-  },
-  [RESEARCH_TECH_IDS.ENERGY_INFRASTRUCTURE_EXPANSION]: {
-    meta: {
-      name: "Energy Infrastructure Expansion",
-      description:
-        "Expand power generation and distribution networks. Effects: Income +10%.",
-    },
-    effects: {
-      income: (mods) => {
-        mods.incomeMul *= 1.1; // 10% more income
-      },
-      // TODO: Maintenance cost reduction +5%
-    },
-  },
-  [RESEARCH_TECH_IDS.NATIONAL_HEALTH_SYSTEM]: {
-    meta: {
-      name: "National Health System",
-      description:
-        "Establish a comprehensive national health system. Effects: Enables Hospital construction. Income +5%.",
+        "Focus national resources on critical infrastructure development. Effects: Enables Hospitals.",
     },
     effects: {
       onComplete: (player) => {
@@ -512,9 +421,6 @@ export const TECHS: Readonly<Record<string, TechDefinition>> = Object.freeze({
           player.removeUpgrade?.(UpgradeType.HospitalResearch);
         }
       },
-      income: (mods) => {
-        mods.incomeMul *= 1.05; // 5% more income
-      },
     },
   },
   // Economy Level 4 techs
@@ -522,40 +428,19 @@ export const TECHS: Readonly<Record<string, TechDefinition>> = Object.freeze({
     meta: {
       name: "Computing & Data Systems",
       description:
-        "Develop computing infrastructure and data processing systems. Effects: Research spending effectiveness +20%. Infrastructure spending effectiveness +20%.",
+        "Develop computing infrastructure and data processing systems.",
     },
     effects: {
-      researchEffectiveness: (mods) => {
-        mods.effectivenessMul *= 1.2; // 20% more effective research
-      },
-      infrastructureEffectiveness: (mods) => {
-        mods.effectivenessMul *= 1.2; // 20% more effective infrastructure spending
-      },
+      // Effects to be added later
     },
   },
-  [RESEARCH_TECH_IDS.TELECOMMUNICATIONS_INTEGRATION]: {
+  [RESEARCH_TECH_IDS.NATIONAL_ECONOMIC_COORDINATION]: {
     meta: {
-      name: "Telecommunications Integration",
-      description:
-        "Integrate telecommunications networks nationally. Effects: Trade income +20%.",
+      name: "National Economic Coordination Systems",
+      description: "National systems for economic planning and coordination.",
     },
     effects: {
-      tradeIncome: (mods) => {
-        mods.incomeMul *= 1.2; // 20% more trade income
-      },
-    },
-  },
-  [RESEARCH_TECH_IDS.ECONOMIC_COORDINATION_SYSTEMS]: {
-    meta: {
-      name: "Economic Coordination Systems",
-      description:
-        "National systems for economic planning and coordination. Better allocation of resources reduces waste. Effects: Income +10%.",
-    },
-    effects: {
-      income: (mods) => {
-        mods.incomeMul *= 1.1; // 10% more income
-      },
-      // TODO: Maintenance cost reduction +10%
+      // Effects to be added later
     },
   },
   [RESEARCH_TECH_IDS.SCORCHED_EARTH]: {
@@ -566,50 +451,24 @@ export const TECHS: Readonly<Record<string, TechDefinition>> = Object.freeze({
     },
   },
   // Land Level 2 techs
-  [RESEARCH_TECH_IDS.EARLY_MECHANIZATION]: {
+  [RESEARCH_TECH_IDS.MECHANIZED_WARFARE_DOCTRINE]: {
     meta: {
-      name: "Early Mechanization",
+      name: "Mechanized Warfare Doctrine",
       description:
-        "Introduce mechanized infantry and motorized transport to increase battlefield mobility. Effects: Your offensive speed +10%. Your army takes 10% fewer losses when you attack.",
+        "Develop doctrine for mechanized infantry and armored operations. Effects: Unlocks Scorched Earth.",
     },
     effects: {
-      attack: (mods) => {
-        mods.attackerLossMul *= 0.9; // our army takes 10% fewer losses when attacking
-      },
-      attackSpeed: (mods) => {
-        mods.speedMul *= 1.1; // 10% faster offensive speed
-      },
+      // Effects to be added later
     },
   },
-  [RESEARCH_TECH_IDS.IMPROVED_ARTILLERY_SYSTEMS]: {
+  [RESEARCH_TECH_IDS.FIELD_ARTILLERY_MODERNIZATION]: {
     meta: {
-      name: "Improved Artillery Systems",
+      name: "Field Artillery Modernization",
       description:
-        "Develop more accurate and powerful artillery pieces with improved range and fire rates. Effects: Enemy takes +10% more losses when they attack you. Your army takes 10% fewer losses when defending.",
+        "Modernize field artillery with improved range, accuracy, and fire control systems.",
     },
     effects: {
-      defense: (mods) => {
-        mods.attackerLossMul *= 1.1; // enemy (attacker) takes 10% more losses
-        mods.defenderLossMul *= 0.9; // our army takes 10% fewer losses when defending
-      },
-    },
-  },
-  [RESEARCH_TECH_IDS.INTEGRATED_LOGISTICS_CORPS]: {
-    meta: {
-      name: "Integrated Logistics Corps",
-      description:
-        "Establish unified supply chains and logistics networks for efficient resource distribution. Effects: Your offensive speed +10%. Your army takes 5% fewer losses when you attack. Your army takes 5% fewer losses when defending.",
-    },
-    effects: {
-      attack: (mods) => {
-        mods.attackerLossMul *= 0.95; // our army takes 5% fewer losses when attacking
-      },
-      defense: (mods) => {
-        mods.defenderLossMul *= 0.95; // our army takes 5% fewer losses when defending
-      },
-      attackSpeed: (mods) => {
-        mods.speedMul *= 1.1; // 10% faster offensive speed
-      },
+      // Effects to be added later
     },
   },
   // Land Level 3 techs
@@ -617,43 +476,20 @@ export const TECHS: Readonly<Record<string, TechDefinition>> = Object.freeze({
     meta: {
       name: "Main Battle Tank Standardization",
       description:
-        "Adopt standardized tank designs for improved maintenance and battlefield coordination. Effects: Your army takes 10% fewer losses when you attack. Your army takes 10% fewer losses when defending.",
+        "Adopt standardized tank designs for improved maintenance and battlefield coordination.",
     },
     effects: {
-      attack: (mods) => {
-        mods.attackerLossMul *= 0.9; // our army takes 10% fewer losses when attacking
-      },
-      defense: (mods) => {
-        mods.defenderLossMul *= 0.9; // our army takes 10% fewer losses when defending
-      },
+      // Effects to be added later
     },
   },
-  [RESEARCH_TECH_IDS.COMPOSITE_ARMOR_HEAT_MUNITIONS]: {
+  [RESEARCH_TECH_IDS.SELF_PROPELLED_FIRE_SUPPORT]: {
     meta: {
-      name: "Composite Armor & HEAT Munitions",
+      name: "Self-Propelled Fire Support",
       description:
-        "Develop advanced armor materials and high-explosive anti-tank warheads. Effects: Enemy takes +10% more losses when you attack them. Your army takes 5% fewer losses when you attack.",
+        "Mount artillery on mobile platforms for rapid deployment and shoot-and-scoot tactics.",
     },
     effects: {
-      attack: (mods) => {
-        mods.defenderLossMul *= 1.1; // enemy (defender) takes 10% more losses when we attack
-        mods.attackerLossMul *= 0.95; // our army takes 5% fewer losses when attacking
-      },
-    },
-  },
-  [RESEARCH_TECH_IDS.SELF_PROPELLED_ARTILLERY]: {
-    meta: {
-      name: "Self-Propelled Artillery",
-      description:
-        "Mount artillery on mobile platforms for rapid deployment and shoot-and-scoot tactics. Effects: Enemy takes +10% more losses when you attack them. Your offensive speed +10%.",
-    },
-    effects: {
-      attack: (mods) => {
-        mods.defenderLossMul *= 1.1; // enemy (defender) takes 10% more losses when we attack
-      },
-      attackSpeed: (mods) => {
-        mods.speedMul *= 1.1; // 10% faster offensive speed
-      },
+      // Effects to be added later
     },
   },
   // Land Level 4 techs
@@ -661,45 +497,20 @@ export const TECHS: Readonly<Record<string, TechDefinition>> = Object.freeze({
     meta: {
       name: "Night Vision & Battlefield Sensors",
       description:
-        "Equip forces with infrared and thermal imaging for 24-hour combat capability. Effects: Your offensive speed +10%. Enemy takes +10% more losses when you attack them.",
+        "Equip forces with infrared and thermal imaging for 24-hour combat capability.",
     },
     effects: {
-      attack: (mods) => {
-        mods.defenderLossMul *= 1.1; // enemy (defender) takes 10% more losses when we attack
-      },
-      attackSpeed: (mods) => {
-        mods.speedMul *= 1.1; // 10% faster offensive speed
-      },
+      // Effects to be added later
     },
   },
-  [RESEARCH_TECH_IDS.PRECISION_GUIDED_MUNITIONS_LAND]: {
+  [RESEARCH_TECH_IDS.C3I_PRECISION_STRIKE]: {
     meta: {
-      name: "Precision-Guided Munitions (Land)",
+      name: "C3I & Precision Strike Systems",
       description:
-        "Develop laser and GPS-guided artillery shells and missiles for pinpoint accuracy. Effects: Enemy takes +15% more losses when they attack you. Enemy takes +15% more losses when you attack them.",
+        "Command, Control, Communications, Intelligence and precision-guided munitions for integrated battlefield awareness.",
     },
     effects: {
-      attack: (mods) => {
-        mods.defenderLossMul *= 1.15; // enemy (defender) takes 15% more losses when we attack
-      },
-      defense: (mods) => {
-        mods.attackerLossMul *= 1.15; // enemy (attacker) takes 15% more losses when they attack us
-      },
-    },
-  },
-  [RESEARCH_TECH_IDS.C3I_SYSTEMS]: {
-    meta: {
-      name: "C3I Systems",
-      description:
-        "Command, Control, Communications, and Intelligence systems for integrated battlefield awareness. Effects: Your army takes 10% fewer losses when you attack. Your army takes 10% fewer losses when defending.",
-    },
-    effects: {
-      attack: (mods) => {
-        mods.attackerLossMul *= 0.9; // our army takes 10% fewer losses when attacking
-      },
-      defense: (mods) => {
-        mods.defenderLossMul *= 0.9; // our army takes 10% fewer losses when defending
-      },
+      // Effects to be added later
     },
   },
   [RESEARCH_TECH_IDS.ANTI_AIR_GUNS]: {
