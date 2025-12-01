@@ -532,7 +532,12 @@
     "other_won": "{player} has won!",
     "exit": "Exit Game",
     "keep": "Keep Playing",
-    "wishlist": "Wishlist on Steam!"
+    "wishlist": "Wishlist on Steam!",
+    "save_replay": "Save Replay",
+    "encoding_replay": "Encoding replay...",
+    "copy_to_clipboard": "Copy to Clipboard",
+    "copied": "✓ Copied!",
+    "download_file": "Download File"
   },
   "leaderboard": {
     "title": "Leaderboard",

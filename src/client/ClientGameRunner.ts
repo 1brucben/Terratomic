@@ -30,7 +30,6 @@ import { GameView, PlayerView, UnitView } from "../core/game/GameView";
 import { loadTerrainMap, TerrainMapData } from "../core/game/TerrainMapLoader";
 import { UserSettings } from "../core/game/UserSettings";
 import { WorkerClient } from "../core/worker/WorkerClient";
-import { CopyReplayModal } from "./CopyReplayModal";
 import {
   DoBoatAttackEvent,
   DoGroundAttackEvent,
@@ -53,6 +52,7 @@ import {
 } from "./Transport";
 import { createCanvas } from "./Utils";
 import { createRenderer, GameRenderer } from "./graphics/GameRenderer";
+import { WinModal } from "./graphics/layers/WinModal";
 import { AVAILABLE_STATS, computeStatValue } from "./stats/StatDefinitions";
 import statsStore from "./stats/StatsStore";
 
@@ -266,10 +266,11 @@ export class ClientGameRunner {
     );
     endGame(record);
 
-    // Show copy replay modal
-    const modal = new CopyReplayModal();
-    modal.record = record;
-    document.body.appendChild(modal);
+    // Pass record to WinModal
+    const winModal = document.querySelector("win-modal") as WinModal;
+    if (winModal) {
+      winModal.setGameRecord(record);
+    }
   }
 
   public start() {
