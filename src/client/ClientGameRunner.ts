@@ -244,18 +244,20 @@ export class ClientGameRunner {
     if (this.myPlayer === null) {
       return;
     }
-    const players: PlayerRecord[] = [
-      {
-        persistentID: getPersistentID(),
-        username: this.lobby.playerName,
-        clientID: this.lobby.clientID,
-        stats: update.allPlayersStats[this.lobby.clientID],
-      },
-    ];
-
     if (this.lobby.gameStartInfo === undefined) {
       throw new Error("missing gameStartInfo");
     }
+
+    // Include all players from the game, not just the local player
+    const players: PlayerRecord[] = this.lobby.gameStartInfo.players.map(
+      (p) => ({
+        persistentID:
+          p.clientID === this.lobby.clientID ? getPersistentID() : "unknown",
+        username: p.username,
+        clientID: p.clientID,
+        stats: update.allPlayersStats[p.clientID] ?? {},
+      }),
+    );
     const record = createGameRecord(
       this.lobby.gameStartInfo.gameID,
       this.lobby.gameStartInfo.config,
@@ -283,14 +285,16 @@ export class ClientGameRunner {
       return;
     }
 
-    const players: PlayerRecord[] = [
-      {
-        persistentID: getPersistentID(),
-        username: this.lobby.playerName,
-        clientID: this.lobby.clientID,
+    // Include all players from the game, not just the local player
+    const players: PlayerRecord[] = this.lobby.gameStartInfo.players.map(
+      (p) => ({
+        persistentID:
+          p.clientID === this.lobby.clientID ? getPersistentID() : "unknown",
+        username: p.username,
+        clientID: p.clientID,
         stats: {},
-      },
-    ];
+      }),
+    );
 
     const record = createGameRecord(
       this.lobby.gameStartInfo.gameID,
