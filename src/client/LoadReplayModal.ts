@@ -1,4 +1,4 @@
-import { LitElement, css, html } from "lit";
+import { LitElement, html } from "lit";
 import { customElement, state } from "lit/decorators.js";
 import { GameEndInfo, GameRecord } from "../core/Schemas";
 import { decodeReplay } from "./ReplayCodec";
@@ -11,96 +11,10 @@ export class LoadReplayModal extends LitElement {
   @state() private error = "";
   @state() private loading = false;
 
-  static styles = css`
-    :host {
-      display: block;
-      width: 100%;
-      height: 100%;
-    }
-
-    .modal {
-      background: transparent;
-      border: none;
-      padding: 0;
-      width: 100%;
-      color: #fff;
-      height: 100%;
-      display: flex;
-      flex-direction: column;
-    }
-
-    h2 {
-      margin: 0 0 16px 0;
-      color: #fff;
-    }
-
-    textarea {
-      width: 100%;
-      min-height: 120px;
-      background: #2a2a2a;
-      border: 1px solid #555;
-      border-radius: 4px;
-      color: #fff;
-      padding: 12px;
-      font-family: monospace;
-      font-size: 12px;
-      resize: vertical;
-      box-sizing: border-box;
-    }
-
-    .error {
-      color: #f44336;
-      margin: 12px 0;
-      padding: 12px;
-      background: rgba(244, 67, 54, 0.1);
-      border-left: 3px solid #f44336;
-    }
-
-    .preview {
-      margin: 16px 0;
-      padding: 16px;
-      background: #2a2a2a;
-      border-radius: 4px;
-    }
-
-    .preview h3 {
-      margin: 0 0 12px 0;
-      color: #4caf50;
-    }
-
-    .preview p {
-      margin: 6px 0;
-      color: #ccc;
-    }
-
-    .buttons {
-      display: flex;
-      gap: 12px;
-      margin-top: 16px;
-    }
-
-    button {
-      padding: 10px 20px;
-      border: none;
-      border-radius: 4px;
-      cursor: pointer;
-      font-size: 14px;
-    }
-
-    button.primary {
-      background: #4caf50;
-      color: white;
-    }
-
-    button.close {
-      background: #666;
-      color: white;
-    }
-
-    button:disabled {
-      opacity: 0.5;
-    }
-  `;
+  // Disable Shadow DOM so we inherit parent styles and sizing
+  createRenderRoot() {
+    return this;
+  }
 
   async validateReplay() {
     if (!this.replayCode.trim()) {
@@ -161,9 +75,10 @@ export class LoadReplayModal extends LitElement {
 
   render() {
     return html`
-      <div class="modal">
-        <h2>Load Replay</h2>
+      <div class="w-full flex flex-col text-white">
+        <h2 class="mb-4 text-lg font-semibold">Load Replay</h2>
         <textarea
+          class="w-full min-h-[120px] bg-zinc-800 border border-zinc-600 rounded p-3 text-white font-mono text-xs resize-y box-border"
           .value=${this.replayCode}
           @input=${(e: Event) => {
             this.replayCode = (e.target as HTMLTextAreaElement).value;
@@ -172,25 +87,37 @@ export class LoadReplayModal extends LitElement {
           placeholder="Paste replay code (TRv1:)..."
         ></textarea>
 
-        ${this.loading ? html`<div>Validating...</div>` : ""}
-        ${this.error ? html`<div class="error">${this.error}</div>` : ""}
+        ${this.loading
+          ? html`<div class="mt-3 text-gray-400">Validating...</div>`
+          : ""}
+        ${this.error
+          ? html`<div
+              class="mt-3 p-3 text-red-400 bg-red-500/10 border-l-4 border-red-500 rounded"
+            >
+              ${this.error}
+            </div>`
+          : ""}
         ${this.preview
           ? html`
-              <div class="preview">
-                <h3>Valid Replay</h3>
-                <p>Map: ${this.preview.config.gameMap}</p>
-                <p>
+              <div class="mt-4 p-4 bg-zinc-800 rounded">
+                <h3 class="mb-3 text-green-400 font-semibold">Valid Replay</h3>
+                <p class="my-1 text-gray-300">
+                  Map: ${this.preview.config.gameMap}
+                </p>
+                <p class="my-1 text-gray-300">
                   Players:
                   ${this.preview.players.map((p) => p.username).join(", ")}
                 </p>
-                <p>Turns: ${this.preview.num_turns}</p>
+                <p class="my-1 text-gray-300">
+                  Turns: ${this.preview.num_turns}
+                </p>
               </div>
             `
           : ""}
 
-        <div class="buttons">
+        <div class="flex gap-3 mt-4">
           <button
-            class="primary"
+            class="px-5 py-2.5 rounded cursor-pointer text-sm bg-green-600 text-white hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed"
             @click=${this.loadReplay}
             ?disabled=${!this.preview}
           >

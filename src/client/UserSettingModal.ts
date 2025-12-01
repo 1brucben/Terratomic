@@ -268,7 +268,7 @@ export class UserSettingModal extends LitElement {
 
   private renderReplaySettings() {
     return html`
-      <div class="h-full">
+      <div class="min-w-[400px]">
         <load-replay-modal
           @close-modal=${() => this.close()}
         ></load-replay-modal>
