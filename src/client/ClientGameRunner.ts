@@ -237,6 +237,9 @@ export class ClientGameRunner {
   }
 
   private saveGame(update: WinUpdate) {
+    if (this.lobby.gameRecord) {
+      return;
+    }
     if (this.myPlayer === null) {
       return;
     }
