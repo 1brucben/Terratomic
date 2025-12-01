@@ -231,7 +231,7 @@ export class UserSettingModal extends LitElement {
                 ${translateText("user_setting.tab_basic")}
               </button>
               <button
-                class="w-1/3 text-center px-3 py-1 rounded-r 
+                class="w-1/3 text-center px-3 py-1 
       ${this.settingsMode === "keybinds"
                   ? "bg-white/10 text-white"
                   : "bg-transparent text-gray-400"}"
@@ -279,408 +279,413 @@ export class UserSettingModal extends LitElement {
   private renderBasicSettings() {
     return html`
       <!-- 🌙 Dark Mode -->
-        <setting-toggle
-    label = "${translateText("user_setting.dark_mode_label")}"
-    description = "${translateText("user_setting.dark_mode_desc")}"
-    id = "dark-mode-toggle"
-      .checked = ${this.userSettings.darkMode()}
-    @change=${(e: CustomEvent<{ checked: boolean }>) => this.toggleDarkMode(e)}
-      > </setting-toggle>
+      <setting-toggle
+        label="${translateText("user_setting.dark_mode_label")}"
+        description="${translateText("user_setting.dark_mode_desc")}"
+        id="dark-mode-toggle"
+        .checked=${this.userSettings.darkMode()}
+        @change=${(e: CustomEvent<{ checked: boolean }>) =>
+          this.toggleDarkMode(e)}
+      ></setting-toggle>
 
       <!-- 😊 Emojis -->
-        <setting-toggle
-    label = "${translateText("user_setting.emojis_label")}"
-    description = "${translateText("user_setting.emojis_desc")}"
-    id = "emoji-toggle"
-      .checked = ${this.userSettings.emojis()}
-    @change=${this.toggleEmojis}
-      > </setting-toggle>
+      <setting-toggle
+        label="${translateText("user_setting.emojis_label")}"
+        description="${translateText("user_setting.emojis_desc")}"
+        id="emoji-toggle"
+        .checked=${this.userSettings.emojis()}
+        @change=${this.toggleEmojis}
+      ></setting-toggle>
 
       <!-- 🚨 Alert frame -->
-        <setting-toggle
-    label = "${translateText("user_setting.alert_frame_label")}"
-    description = "${translateText("user_setting.alert_frame_desc")}"
-    id = "alert-frame-toggle"
-      .checked = ${this.userSettings.alertFrame()}
-    @change=${this.toggleAlertFrame}
-      > </setting-toggle>
+      <setting-toggle
+        label="${translateText("user_setting.alert_frame_label")}"
+        description="${translateText("user_setting.alert_frame_desc")}"
+        id="alert-frame-toggle"
+        .checked=${this.userSettings.alertFrame()}
+        @change=${this.toggleAlertFrame}
+      ></setting-toggle>
 
       <!-- 💥 Special effects -->
-        <setting-toggle
-    label = "${translateText("user_setting.special_effects_label")}"
-    description = "${translateText("user_setting.special_effects_desc")}"
-    id = "special-effect-toggle"
-      .checked = ${this.userSettings.fxLayer()}
-    @change=${this.toggleFxLayer}
-      > </setting-toggle>
+      <setting-toggle
+        label="${translateText("user_setting.special_effects_label")}"
+        description="${translateText("user_setting.special_effects_desc")}"
+        id="special-effect-toggle"
+        .checked=${this.userSettings.fxLayer()}
+        @change=${this.toggleFxLayer}
+      ></setting-toggle>
 
       <!-- 🖱️ Left Click Menu -->
-        <setting-toggle
-    label = "${translateText("user_setting.left_click_label")}"
-    description = "${translateText("user_setting.left_click_desc")}"
-    id = "left-click-toggle"
-      .checked = ${this.userSettings.leftClickOpensMenu()}
-    @change=${this.toggleLeftClickOpensMenu}
-      > </setting-toggle>
+      <setting-toggle
+        label="${translateText("user_setting.left_click_label")}"
+        description="${translateText("user_setting.left_click_desc")}"
+        id="left-click-toggle"
+        .checked=${this.userSettings.leftClickOpensMenu()}
+        @change=${this.toggleLeftClickOpensMenu}
+      ></setting-toggle>
 
       <!-- 🙈 Anonymous Names -->
-        <setting-toggle
-    label = "${translateText("user_setting.anonymous_names_label")}"
-    description = "${translateText("user_setting.anonymous_names_desc")}"
-    id = "anonymous-names-toggle"
-      .checked = ${this.userSettings.anonymousNames()}
-    @change=${this.toggleAnonymousNames}
-      > </setting-toggle>
+      <setting-toggle
+        label="${translateText("user_setting.anonymous_names_label")}"
+        description="${translateText("user_setting.anonymous_names_desc")}"
+        id="anonymous-names-toggle"
+        .checked=${this.userSettings.anonymousNames()}
+        @change=${this.toggleAnonymousNames}
+      ></setting-toggle>
 
       <!-- 👁️ Hidden Lobby IDs -->
-        <setting-toggle
-    label = "${translateText("user_setting.lobby_id_visibility_label")}"
-    description = "${translateText("user_setting.lobby_id_visibility_desc")}"
-    id = "lobby-id-visibility-toggle"
-      .checked = ${!this.userSettings.get("settings.lobbyIdVisibility", true)}
-    @change=${this.toggleLobbyIdVisibility}
-      > </setting-toggle>
+      <setting-toggle
+        label="${translateText("user_setting.lobby_id_visibility_label")}"
+        description="${translateText("user_setting.lobby_id_visibility_desc")}"
+        id="lobby-id-visibility-toggle"
+        .checked=${!this.userSettings.get("settings.lobbyIdVisibility", true)}
+        @change=${this.toggleLobbyIdVisibility}
+      ></setting-toggle>
 
-      <div class="setting-item vertical" >
-        <div class="setting-label-group" >
+      <div class="setting-item vertical">
+        <div class="setting-label-group">
           <label class="setting-label"
-            > ${translateText("user_setting.ui_scale_label")} </label
-              >
-              <div class="setting-description" >
-                ${translateText("user_setting.ui_scale_desc")}
-    </div>
-      </div>
-      <div class="flex items-center gap-3 flex-wrap" >
-        <button
+            >${translateText("user_setting.ui_scale_label")}</label
+          >
+          <div class="setting-description">
+            ${translateText("user_setting.ui_scale_desc")}
+          </div>
+        </div>
+        <div class="flex items-center gap-3 flex-wrap">
+          <button
             class="w-10 h-10 rounded bg-white/10 text-white text-xl font-bold hover:bg-white/20 transition"
-    @click=${() => this.nudgeUiScale(-UI_SCALE_STEP_PERCENT)}
-    type = "button"
-      >
-      -
-      </button>
-      <div class="text-lg font-semibold min-w-[60px] text-center" >
-        ${this.uiScalePercent}%
+            @click=${() => this.nudgeUiScale(-UI_SCALE_STEP_PERCENT)}
+            type="button"
+          >
+            -
+          </button>
+          <div class="text-lg font-semibold min-w-[60px] text-center">
+            ${this.uiScalePercent}%
           </div>
           <button
-    class="w-10 h-10 rounded bg-white/10 text-white text-xl font-bold hover:bg-white/20 transition"
-    @click=${() => this.nudgeUiScale(UI_SCALE_STEP_PERCENT)}
-    type = "button"
-      >
-      +
-      </button>
-      <button
-    class="px-3 py-1 rounded bg-white/5 text-sm uppercase tracking-wide hover:bg-white/15 transition"
-    @click=${this.resetUiScale}
-    type = "button"
-      >
-      ${translateText("user_setting.ui_scale_reset")}
-    </button>
-      </div>
-      <div class="text-xs text-gray-400 mt-1" >
-        ${UI_SCALE_MIN_PERCENT}% - ${UI_SCALE_MAX_PERCENT}%
+            class="w-10 h-10 rounded bg-white/10 text-white text-xl font-bold hover:bg-white/20 transition"
+            @click=${() => this.nudgeUiScale(UI_SCALE_STEP_PERCENT)}
+            type="button"
+          >
+            +
+          </button>
+          <button
+            class="px-3 py-1 rounded bg-white/5 text-sm uppercase tracking-wide hover:bg-white/15 transition"
+            @click=${this.resetUiScale}
+            type="button"
+          >
+            ${translateText("user_setting.ui_scale_reset")}
+          </button>
+        </div>
+        <div class="text-xs text-gray-400 mt-1">
+          ${UI_SCALE_MIN_PERCENT}% - ${UI_SCALE_MAX_PERCENT}%
           (${UI_SCALE_STEP_PERCENT}% steps)
-    </div>
+        </div>
       </div>
 
       <!-- ⚔️ Attack Ratio -->
-        <setting-slider
-    label = "${translateText("user_setting.attack_ratio_label")}"
-    description = "${translateText("user_setting.attack_ratio_desc")}"
-    min = "1"
-    max = "100"
-      .value = ${Number(localStorage.getItem("settings.attackRatio") ?? "0.2") * 100}
-    @change=${this.sliderAttackRatio}
-      > </setting-slider>
+      <setting-slider
+        label="${translateText("user_setting.attack_ratio_label")}"
+        description="${translateText("user_setting.attack_ratio_desc")}"
+        min="1"
+        max="100"
+        .value=${
+          Number(localStorage.getItem("settings.attackRatio") ?? "0.2") * 100
+        }
+        @change=${this.sliderAttackRatio}
+      ></setting-slider>
 
       <!-- 🪖🛠️ Troop Ratio -->
-        <setting-slider
-    label = "${translateText("user_setting.troop_ratio_label")}"
-    description = "${translateText("user_setting.troop_ratio_desc")}"
-    min = "1"
-    max = "100"
-      .value = ${Number(localStorage.getItem("settings.troopRatio") ?? "0.95") * 100}
-    @change=${this.sliderTroopRatio}
-    </setting-slider>
-      `;
+      <setting-slider
+        label="${translateText("user_setting.troop_ratio_label")}"
+        description="${translateText("user_setting.troop_ratio_desc")}"
+        min="1"
+        max="100"
+        .value=${
+          Number(localStorage.getItem("settings.troopRatio") ?? "0.95") * 100
+        }
+        @change=${this.sliderTroopRatio}
+      </setting-slider>
+    `;
   }
 
   private renderKeybindSettings() {
     return html`
-      < div class="text-center text-white text-base font-semibold mt-5 mb-2" >
+      <div class="text-center text-white text-base font-semibold mt-5 mb-2">
         ${translateText("user_setting.view_options")}
-    </div>
+      </div>
 
-      < setting - keybind
-    action = "toggleView"
-    label = ${translateText("user_setting.toggle_view")}
-    description = ${translateText("user_setting.toggle_view_desc")}
-    defaultKey = "Space"
-      .value = ${this.keybinds["toggleView"] ?? ""}
-    @change=${this.handleKeybindChange}
-      > </setting-keybind>
+      <setting-keybind
+        action="toggleView"
+        label=${translateText("user_setting.toggle_view")}
+        description=${translateText("user_setting.toggle_view_desc")}
+        defaultKey="Space"
+        .value=${this.keybinds["toggleView"] ?? ""}
+        @change=${this.handleKeybindChange}
+      ></setting-keybind>
 
-      < div class="text-center text-white text-base font-semibold mt-5 mb-2" >
+      <div class="text-center text-white text-base font-semibold mt-5 mb-2">
         ${translateText("user_setting.attack_ratio_controls")}
-    </div>
+      </div>
 
-      < setting - keybind
-    action = "attackRatioDown"
-    label = ${translateText("user_setting.attack_ratio_down")}
-    description = ${translateText("user_setting.attack_ratio_down_desc")}
-    defaultKey = "Digit1"
-      .value = ${this.keybinds["attackRatioDown"] ?? ""}
-    @change=${this.handleKeybindChange}
-      > </setting-keybind>
+      <setting-keybind
+        action="attackRatioDown"
+        label=${translateText("user_setting.attack_ratio_down")}
+        description=${translateText("user_setting.attack_ratio_down_desc")}
+        defaultKey="Digit1"
+        .value=${this.keybinds["attackRatioDown"] ?? ""}
+        @change=${this.handleKeybindChange}
+      ></setting-keybind>
 
-      < setting - keybind
-    action = "attackRatioUp"
-    label = ${translateText("user_setting.attack_ratio_up")}
-    description = ${translateText("user_setting.attack_ratio_up_desc")}
-    defaultKey = "Digit2"
-      .value = ${this.keybinds["attackRatioUp"] ?? ""}
-    @change=${this.handleKeybindChange}
-      > </setting-keybind>
+      <setting-keybind
+        action="attackRatioUp"
+        label=${translateText("user_setting.attack_ratio_up")}
+        description=${translateText("user_setting.attack_ratio_up_desc")}
+        defaultKey="Digit2"
+        .value=${this.keybinds["attackRatioUp"] ?? ""}
+        @change=${this.handleKeybindChange}
+      ></setting-keybind>
 
-      < div class="text-center text-white text-base font-semibold mt-5 mb-2" >
+      <div class="text-center text-white text-base font-semibold mt-5 mb-2">
         ${translateText("user_setting.attack_keybinds")}
-    </div>
+      </div>
 
-      < setting - keybind
-    action = "boatAttack"
-    label = ${translateText("user_setting.boat_attack")}
-    description = ${translateText("user_setting.boat_attack_desc")}
-    defaultKey = "KeyB"
-      .value = ${this.keybinds["boatAttack"] ?? ""}
-    @change=${this.handleKeybindChange}
-      > </setting-keybind>
+      <setting-keybind
+        action="boatAttack"
+        label=${translateText("user_setting.boat_attack")}
+        description=${translateText("user_setting.boat_attack_desc")}
+        defaultKey="KeyB"
+        .value=${this.keybinds["boatAttack"] ?? ""}
+        @change=${this.handleKeybindChange}
+      ></setting-keybind>
 
-      < setting - keybind
-    action = "groundAttack"
-    label = ${translateText("user_setting.ground_attack")}
-    description = ${translateText("user_setting.ground_attack_desc")}
-    defaultKey = "KeyG"
-      .value = ${this.keybinds["groundAttack"] ?? ""}
-    @change=${this.handleKeybindChange}
-      > </setting-keybind>
+      <setting-keybind
+        action="groundAttack"
+        label=${translateText("user_setting.ground_attack")}
+        description=${translateText("user_setting.ground_attack_desc")}
+        defaultKey="KeyG"
+        .value=${this.keybinds["groundAttack"] ?? ""}
+        @change=${this.handleKeybindChange}
+      ></setting-keybind>
 
-      < div class="text-center text-white text-base font-semibold mt-5 mb-2" >
+      <div class="text-center text-white text-base font-semibold mt-5 mb-2">
         ${translateText("user_setting.zoom_controls")}
-    </div>
+      </div>
 
-      < setting - keybind
-    action = "zoomOut"
-    label = ${translateText("user_setting.zoom_out")}
-    description = ${translateText("user_setting.zoom_out_desc")}
-    defaultKey = "KeyQ"
-      .value = ${this.keybinds["zoomOut"] ?? ""}
-    @change=${this.handleKeybindChange}
-      > </setting-keybind>
+      <setting-keybind
+        action="zoomOut"
+        label=${translateText("user_setting.zoom_out")}
+        description=${translateText("user_setting.zoom_out_desc")}
+        defaultKey="KeyQ"
+        .value=${this.keybinds["zoomOut"] ?? ""}
+        @change=${this.handleKeybindChange}
+      ></setting-keybind>
 
-      < setting - keybind
-    action = "zoomIn"
-    label = ${translateText("user_setting.zoom_in")}
-    description = ${translateText("user_setting.zoom_in_desc")}
-    defaultKey = "KeyE"
-      .value = ${this.keybinds["zoomIn"] ?? ""}
-    @change=${this.handleKeybindChange}
-      > </setting-keybind>
+      <setting-keybind
+        action="zoomIn"
+        label=${translateText("user_setting.zoom_in")}
+        description=${translateText("user_setting.zoom_in_desc")}
+        defaultKey="KeyE"
+        .value=${this.keybinds["zoomIn"] ?? ""}
+        @change=${this.handleKeybindChange}
+      ></setting-keybind>
 
-      < div class="text-center text-white text-base font-semibold mt-5 mb-2" >
+      <div class="text-center text-white text-base font-semibold mt-5 mb-2">
         ${translateText("user_setting.camera_movement")}
-    </div>
+      </div>
 
-      < setting - keybind
-    action = "centerCamera"
-    label = ${translateText("user_setting.center_camera")}
-    description = ${translateText("user_setting.center_camera_desc")}
-    defaultKey = "KeyC"
-      .value = ${this.keybinds["centerCamera"] ?? ""}
-    @change=${this.handleKeybindChange}
-      > </setting-keybind>
+      <setting-keybind
+        action="centerCamera"
+        label=${translateText("user_setting.center_camera")}
+        description=${translateText("user_setting.center_camera_desc")}
+        defaultKey="KeyC"
+        .value=${this.keybinds["centerCamera"] ?? ""}
+        @change=${this.handleKeybindChange}
+      ></setting-keybind>
 
-      < setting - keybind
-    action = "moveUp"
-    label = ${translateText("user_setting.move_up")}
-    description = ${translateText("user_setting.move_up_desc")}
-    defaultKey = "KeyW"
-      .value = ${this.keybinds["moveUp"] ?? ""}
-    @change=${this.handleKeybindChange}
-      > </setting-keybind>
+      <setting-keybind
+        action="moveUp"
+        label=${translateText("user_setting.move_up")}
+        description=${translateText("user_setting.move_up_desc")}
+        defaultKey="KeyW"
+        .value=${this.keybinds["moveUp"] ?? ""}
+        @change=${this.handleKeybindChange}
+      ></setting-keybind>
 
-      < setting - keybind
-    action = "moveLeft"
-    label = ${translateText("user_setting.move_left")}
-    description = ${translateText("user_setting.move_left_desc")}
-    defaultKey = "KeyA"
-      .value = ${this.keybinds["moveLeft"] ?? ""}
-    @change=${this.handleKeybindChange}
-      > </setting-keybind>
+      <setting-keybind
+        action="moveLeft"
+        label=${translateText("user_setting.move_left")}
+        description=${translateText("user_setting.move_left_desc")}
+        defaultKey="KeyA"
+        .value=${this.keybinds["moveLeft"] ?? ""}
+        @change=${this.handleKeybindChange}
+      ></setting-keybind>
 
-      < setting - keybind
-    action = "moveDown"
-    label = ${translateText("user_setting.move_down")}
-    description = ${translateText("user_setting.move_down_desc")}
-    defaultKey = "KeyS"
-      .value = ${this.keybinds["moveDown"] ?? ""}
-    @change=${this.handleKeybindChange}
-      > </setting-keybind>
+      <setting-keybind
+        action="moveDown"
+        label=${translateText("user_setting.move_down")}
+        description=${translateText("user_setting.move_down_desc")}
+        defaultKey="KeyS"
+        .value=${this.keybinds["moveDown"] ?? ""}
+        @change=${this.handleKeybindChange}
+      ></setting-keybind>
 
-      < setting - keybind
-    action = "moveRight"
-    label = ${translateText("user_setting.move_right")}
-    description = ${translateText("user_setting.move_right_desc")}
-    defaultKey = "KeyD"
-      .value = ${this.keybinds["moveRight"] ?? ""}
-    @change=${this.handleKeybindChange}
-      > </setting-keybind>
+      <setting-keybind
+        action="moveRight"
+        label=${translateText("user_setting.move_right")}
+        description=${translateText("user_setting.move_right_desc")}
+        defaultKey="KeyD"
+        .value=${this.keybinds["moveRight"] ?? ""}
+        @change=${this.handleKeybindChange}
+      ></setting-keybind>
 
-      < div class="text-center text-white text-base font-semibold mt-5 mb-2" >
+      <div class="text-center text-white text-base font-semibold mt-5 mb-2">
         ${translateText("user_setting.structures")}
-    </div>
+      </div>
 
-      < setting - keybind
-    action = "buildCity"
-    label = ${translateText("user_setting.build_city")}
-    description = ${translateText("user_setting.build_city_desc")}
-    defaultKey = "KeyY"
-      .value = ${this.keybinds["buildCity"] ?? ""}
-    @change=${this.handleKeybindChange}
-      > </setting-keybind>
+      <setting-keybind
+        action="buildCity"
+        label=${translateText("user_setting.build_city")}
+        description=${translateText("user_setting.build_city_desc")}
+        defaultKey="KeyY"
+        .value=${this.keybinds["buildCity"] ?? ""}
+        @change=${this.handleKeybindChange}
+      ></setting-keybind>
 
-      < setting - keybind
-    action = "buildPort"
-    label = ${translateText("user_setting.build_port")}
-    description = ${translateText("user_setting.build_port_desc")}
-    defaultKey = "KeyU"
-      .value = ${this.keybinds["buildPort"] ?? ""}
-    @change=${this.handleKeybindChange}
-      > </setting-keybind>
+      <setting-keybind
+        action="buildPort"
+        label=${translateText("user_setting.build_port")}
+        description=${translateText("user_setting.build_port_desc")}
+        defaultKey="KeyU"
+        .value=${this.keybinds["buildPort"] ?? ""}
+        @change=${this.handleKeybindChange}
+      ></setting-keybind>
 
-      < setting - keybind
-    action = "buildAirfield"
-    label = ${translateText("user_setting.build_airfield")}
-    description = ${translateText("user_setting.build_airfield_desc")}
-    defaultKey = "KeyI"
-      .value = ${this.keybinds["buildAirfield"] ?? ""}
-    @change=${this.handleKeybindChange}
-      > </setting-keybind>
+      <setting-keybind
+        action="buildAirfield"
+        label=${translateText("user_setting.build_airfield")}
+        description=${translateText("user_setting.build_airfield_desc")}
+        defaultKey="KeyI"
+        .value=${this.keybinds["buildAirfield"] ?? ""}
+        @change=${this.handleKeybindChange}
+      ></setting-keybind>
 
-      < setting - keybind
-    action = "buildHospital"
-    label = ${translateText("user_setting.build_hospital")}
-    description = ${translateText("user_setting.build_hospital_desc")}
-    defaultKey = "KeyO"
-      .value = ${this.keybinds["buildHospital"] ?? ""}
-    @change=${this.handleKeybindChange}
-      > </setting-keybind>
+      <setting-keybind
+        action="buildHospital"
+        label=${translateText("user_setting.build_hospital")}
+        description=${translateText("user_setting.build_hospital_desc")}
+        defaultKey="KeyO"
+        .value=${this.keybinds["buildHospital"] ?? ""}
+        @change=${this.handleKeybindChange}
+      ></setting-keybind>
 
-      < setting - keybind
-    action = "buildAcademy"
-    label = ${translateText("user_setting.build_academy")}
-    description = ${translateText("user_setting.build_academy_desc")}
-    defaultKey = "KeyP"
-      .value = ${this.keybinds["buildAcademy"] ?? ""}
-    @change=${this.handleKeybindChange}
-      > </setting-keybind>
+      <setting-keybind
+        action="buildAcademy"
+        label=${translateText("user_setting.build_academy")}
+        description=${translateText("user_setting.build_academy_desc")}
+        defaultKey="KeyP"
+        .value=${this.keybinds["buildAcademy"] ?? ""}
+        @change=${this.handleKeybindChange}
+      ></setting-keybind>
 
-      < setting - keybind
-    action = "buildResearchLab"
-    label = ${translateText("user_setting.build_research_lab")}
-    description = ${translateText("user_setting.build_research_lab_desc")}
-    defaultKey = "KeyL"
-      .value = ${this.keybinds["buildResearchLab"] ?? ""}
-    @change=${this.handleKeybindChange}
-      > </setting-keybind>
+      <setting-keybind
+        action="buildResearchLab"
+        label=${translateText("user_setting.build_research_lab")}
+        description=${translateText("user_setting.build_research_lab_desc")}
+        defaultKey="KeyL"
+        .value=${this.keybinds["buildResearchLab"] ?? ""}
+        @change=${this.handleKeybindChange}
+      ></setting-keybind>
 
-      < setting - keybind
-    action = "buildFactory"
-    label = ${translateText("user_setting.build_factory")}
-    description = ${translateText("user_setting.build_factory_desc")}
-    defaultKey = "KeyF"
-      .value = ${this.keybinds["buildFactory"] ?? ""}
-    @change=${this.handleKeybindChange}
-      > </setting-keybind>
+      <setting-keybind
+        action="buildFactory"
+        label=${translateText("user_setting.build_factory")}
+        description=${translateText("user_setting.build_factory_desc")}
+        defaultKey="KeyF"
+        .value=${this.keybinds["buildFactory"] ?? ""}
+        @change=${this.handleKeybindChange}
+      ></setting-keybind>
 
-      < setting - keybind
-    action = "buildMissileSilo"
-    label = ${translateText("user_setting.build_missile_silo")}
-    description = ${translateText("user_setting.build_missile_silo_desc")}
-    defaultKey = "KeyH"
-      .value = ${this.keybinds["buildMissileSilo"] ?? ""}
-    @change=${this.handleKeybindChange}
-      > </setting-keybind>
+      <setting-keybind
+        action="buildMissileSilo"
+        label=${translateText("user_setting.build_missile_silo")}
+        description=${translateText("user_setting.build_missile_silo_desc")}
+        defaultKey="KeyH"
+        .value=${this.keybinds["buildMissileSilo"] ?? ""}
+        @change=${this.handleKeybindChange}
+      ></setting-keybind>
 
-      < setting - keybind
-    action = "buildSAMLauncher"
-    label = ${translateText("user_setting.build_sam_launcher")}
-    description = ${translateText("user_setting.build_sam_launcher_desc")}
-    defaultKey = "KeyJ"
-      .value = ${this.keybinds["buildSAMLauncher"] ?? ""}
-    @change=${this.handleKeybindChange}
-      > </setting-keybind>
+      <setting-keybind
+        action="buildSAMLauncher"
+        label=${translateText("user_setting.build_sam_launcher")}
+        description=${translateText("user_setting.build_sam_launcher_desc")}
+        defaultKey="KeyJ"
+        .value=${this.keybinds["buildSAMLauncher"] ?? ""}
+        @change=${this.handleKeybindChange}
+      ></setting-keybind>
 
-      < setting - keybind
-    action = "buildDefensePost"
-    label = ${translateText("user_setting.build_defense_post")}
-    description = ${translateText("user_setting.build_defense_post_desc")}
-    defaultKey = "KeyK"
-      .value = ${this.keybinds["buildDefensePost"] ?? ""}
-    @change=${this.handleKeybindChange}
-      > </setting-keybind>
+      <setting-keybind
+        action="buildDefensePost"
+        label=${translateText("user_setting.build_defense_post")}
+        description=${translateText("user_setting.build_defense_post_desc")}
+        defaultKey="KeyK"
+        .value=${this.keybinds["buildDefensePost"] ?? ""}
+        @change=${this.handleKeybindChange}
+      ></setting-keybind>
 
-      < div class="text-center text-white text-base font-semibold mt-5 mb-2" >
+      <div class="text-center text-white text-base font-semibold mt-5 mb-2">
         ${translateText("user_setting.units")}
-    </div>
+      </div>
 
-      < setting - keybind
-    action = "buildFighterJet"
-    label = ${translateText("user_setting.build_fighter_jet")}
-    description = ${translateText("user_setting.build_fighter_jet_desc")}
-    defaultKey = "Digit8"
-      .value = ${this.keybinds["buildFighterJet"] ?? ""}
-    @change=${this.handleKeybindChange}
-      > </setting-keybind>
+      <setting-keybind
+        action="buildFighterJet"
+        label=${translateText("user_setting.build_fighter_jet")}
+        description=${translateText("user_setting.build_fighter_jet_desc")}
+        defaultKey="Digit8"
+        .value=${this.keybinds["buildFighterJet"] ?? ""}
+        @change=${this.handleKeybindChange}
+      ></setting-keybind>
 
-      < setting - keybind
-    action = "buildWarship"
-    label = ${translateText("user_setting.build_warship")}
-    description = ${translateText("user_setting.build_warship_desc")}
-    defaultKey = "Digit9"
-      .value = ${this.keybinds["buildWarship"] ?? ""}
-    @change=${this.handleKeybindChange}
-      > </setting-keybind>
+      <setting-keybind
+        action="buildWarship"
+        label=${translateText("user_setting.build_warship")}
+        description=${translateText("user_setting.build_warship_desc")}
+        defaultKey="Digit9"
+        .value=${this.keybinds["buildWarship"] ?? ""}
+        @change=${this.handleKeybindChange}
+      ></setting-keybind>
 
-      < div class="text-center text-white text-base font-semibold mt-5 mb-2" >
+      <div class="text-center text-white text-base font-semibold mt-5 mb-2">
         ${translateText("user_setting.nukes")}
-    </div>
+      </div>
 
-      < setting - keybind
-    action = "buildAtomBomb"
-    label = ${translateText("user_setting.build_atom_bomb")}
-    description = ${translateText("user_setting.build_atom_bomb_desc")}
-    defaultKey = "Digit5"
-      .value = ${this.keybinds["buildAtomBomb"] ?? ""}
-    @change=${this.handleKeybindChange}
-      > </setting-keybind>
+      <setting-keybind
+        action="buildAtomBomb"
+        label=${translateText("user_setting.build_atom_bomb")}
+        description=${translateText("user_setting.build_atom_bomb_desc")}
+        defaultKey="Digit5"
+        .value=${this.keybinds["buildAtomBomb"] ?? ""}
+        @change=${this.handleKeybindChange}
+      ></setting-keybind>
 
-      < setting - keybind
-    action = "buildHydrogenBomb"
-    label = ${translateText("user_setting.build_hydrogen_bomb")}
-    description = ${translateText("user_setting.build_hydrogen_bomb_desc")}
-    defaultKey = "Digit6"
-      .value = ${this.keybinds["buildHydrogenBomb"] ?? ""}
-    @change=${this.handleKeybindChange}
-      > </setting-keybind>
+      <setting-keybind
+        action="buildHydrogenBomb"
+        label=${translateText("user_setting.build_hydrogen_bomb")}
+        description=${translateText("user_setting.build_hydrogen_bomb_desc")}
+        defaultKey="Digit6"
+        .value=${this.keybinds["buildHydrogenBomb"] ?? ""}
+        @change=${this.handleKeybindChange}
+      ></setting-keybind>
 
-      < setting - keybind
-    action = "buildMIRV"
-    label = ${translateText("user_setting.build_mirv")}
-    description = ${translateText("user_setting.build_mirv_desc")}
-    defaultKey = "Digit7"
-      .value = ${this.keybinds["buildMIRV"] ?? ""}
-    @change=${this.handleKeybindChange}
-      > </setting-keybind>
-      `;
+      <setting-keybind
+        action="buildMIRV"
+        label=${translateText("user_setting.build_mirv")}
+        description=${translateText("user_setting.build_mirv_desc")}
+        defaultKey="Digit7"
+        .value=${this.keybinds["buildMIRV"] ?? ""}
+        @change=${this.handleKeybindChange}
+      ></setting-keybind>
+    `;
   }
 
   public open() {
