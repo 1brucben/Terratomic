@@ -219,7 +219,7 @@ export class UserSettingModal extends LitElement {
     return html`
       <o-modal title="${translateText("user_setting.title")}">
         <div class="modal-overlay">
-          <div class="modal-content user-setting-modal">
+          <div class="modal-content user-setting-modal min-w-[400px]">
             <div class="flex mb-4 w-full justify-center">
               <button
                 class="w-1/3 text-center px-3 py-1 rounded-l 
@@ -250,10 +250,7 @@ export class UserSettingModal extends LitElement {
               </button>
             </div>
 
-            <div
-              class="settings-content custom-scroll"
-              style="max-height: 60vh; overflow-y: auto;"
-            >
+            <div class="settings-list">
               ${this.settingsMode === "basic"
                 ? this.renderBasicSettings()
                 : this.settingsMode === "keybinds"
@@ -268,7 +265,7 @@ export class UserSettingModal extends LitElement {
 
   private renderReplaySettings() {
     return html`
-      <div class="min-w-[400px]">
+      <div>
         <load-replay-modal
           @close-modal=${() => this.close()}
         ></load-replay-modal>

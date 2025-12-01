@@ -75,10 +75,10 @@ export class LoadReplayModal extends LitElement {
 
   render() {
     return html`
-      <div class="w-full flex flex-col text-white">
-        <h2 class="mb-4 text-lg font-semibold">Load Replay</h2>
+      <div class="w-[360px] flex flex-col text-white">
+        <h2 class="mb-4 text-lg font-semibold text-center">Load Replay</h2>
         <textarea
-          class="w-full min-h-[120px] bg-zinc-800 border border-zinc-600 rounded p-3 text-white font-mono text-xs resize-y box-border"
+          class="w-full min-h-[240px] bg-zinc-800 border border-zinc-600 rounded p-3 text-white font-mono text-xs resize-y box-border"
           .value=${this.replayCode}
           @input=${(e: Event) => {
             this.replayCode = (e.target as HTMLTextAreaElement).value;
