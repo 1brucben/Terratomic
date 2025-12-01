@@ -488,6 +488,8 @@ export class ClientGameRunner {
     if (this.lobbyWatcher) {
       this.lobbyWatcher.stop();
     }
+    // Clear turn buffer to free memory
+    this.turnBuffer = [];
   }
 
   private inputEvent(event: MouseUpEvent) {

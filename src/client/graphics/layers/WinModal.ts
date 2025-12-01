@@ -5,7 +5,7 @@ import { EventBus } from "../../../core/EventBus";
 import { GameUpdateType } from "../../../core/game/GameUpdates";
 import { GameView } from "../../../core/game/GameView";
 import { GameRecord } from "../../../core/Schemas";
-import { encodeReplay } from "../../ReplayCodec";
+import { encodeReplay, isCompressionSupported } from "../../ReplayCodec";
 import { SendWinnerEvent } from "../../Transport";
 import { Layer } from "./Layer";
 
@@ -34,6 +34,9 @@ export class WinModal extends LitElement implements Layer {
 
   @state()
   private showReplayOptions: boolean = false;
+
+  @state()
+  private encodeError: string = "";
 
   private _title: string;
 
@@ -183,6 +186,7 @@ export class WinModal extends LitElement implements Layer {
   setGameRecord(record: GameRecord) {
     this.gameRecord = record;
     this.replayCode = "";
+    this.encodeError = "";
     this.showReplayOptions = false;
     this.requestUpdate();
   }
@@ -191,13 +195,21 @@ export class WinModal extends LitElement implements Layer {
     if (!this.gameRecord) return;
 
     this.showReplayOptions = true;
+    this.encodeError = "";
     if (this.replayCode) return;
+
+    if (!isCompressionSupported()) {
+      this.encodeError =
+        "Your browser does not support replay encoding. Please use a modern browser.";
+      return;
+    }
 
     this.encoding = true;
     try {
       this.replayCode = await encodeReplay(this.gameRecord);
     } catch (err) {
       console.error("Failed to encode replay:", err);
+      this.encodeError = "Failed to encode replay. Please try again.";
     }
     this.encoding = false;
   }
@@ -249,20 +261,22 @@ export class WinModal extends LitElement implements Layer {
         ${this.showReplayOptions
           ? html`
               <div class="replay-options">
-                ${this.encoding
-                  ? html`<p>${translateText("win_modal.encoding_replay")}</p>`
-                  : html`
-                      <div class="button-container">
-                        <button @click=${this.copyToClipboard}>
-                          ${this.copied
-                            ? translateText("win_modal.copied")
-                            : translateText("win_modal.copy_to_clipboard")}
-                        </button>
-                        <button @click=${this.downloadAsFile}>
-                          ${translateText("win_modal.download_file")}
-                        </button>
-                      </div>
-                    `}
+                ${this.encodeError
+                  ? html`<p style="color: #f87171;">${this.encodeError}</p>`
+                  : this.encoding
+                    ? html`<p>${translateText("win_modal.encoding_replay")}</p>`
+                    : html`
+                        <div class="button-container">
+                          <button @click=${this.copyToClipboard}>
+                            ${this.copied
+                              ? translateText("win_modal.copied")
+                              : translateText("win_modal.copy_to_clipboard")}
+                          </button>
+                          <button @click=${this.downloadAsFile}>
+                            ${translateText("win_modal.download_file")}
+                          </button>
+                        </div>
+                      `}
               </div>
             `
           : ""}
