@@ -129,10 +129,15 @@ export class LoadReplayModal extends LitElement {
   async loadReplay() {
     if (!this.preview || !this.fullRecord) return;
 
+    // Use the first player's clientID from the replay so usernames are preserved
+    const clientID =
+      this.preview.players[0]?.clientID ??
+      "replay-viewer-" + Math.floor(Math.random() * 10000);
+
     // Dispatch join-lobby event with the game record
     const event = new CustomEvent("join-lobby", {
       detail: {
-        clientID: "replay-viewer-" + Math.floor(Math.random() * 10000),
+        clientID: clientID,
         gameID: this.preview.gameID,
         gameRecord: this.fullRecord,
       },
@@ -174,7 +179,10 @@ export class LoadReplayModal extends LitElement {
               <div class="preview">
                 <h3>Valid Replay</h3>
                 <p>Map: ${this.preview.config.gameMap}</p>
-                <p>Players: ${this.preview.players.length}</p>
+                <p>
+                  Players:
+                  ${this.preview.players.map((p) => p.username).join(", ")}
+                </p>
                 <p>Turns: ${this.preview.num_turns}</p>
               </div>
             `
