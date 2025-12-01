@@ -43,6 +43,7 @@ import { LobbyWatcher } from "./LobbyWatcher";
 import { endGame, startGame, startTime } from "./LocalPersistantStats";
 import { getPersistentID } from "./Main";
 import {
+  SaveReplayRequestEvent,
   SendAttackIntentEvent,
   SendBoatAttackIntentEvent,
   SendHashEvent,
@@ -273,6 +274,40 @@ export class ClientGameRunner {
     }
   }
 
+  private handleSaveReplayRequest() {
+    if (this.lobby.gameRecord) {
+      // Already watching a replay, don't save
+      return;
+    }
+    if (this.lobby.gameStartInfo === undefined) {
+      return;
+    }
+
+    const players: PlayerRecord[] = [
+      {
+        persistentID: getPersistentID(),
+        username: this.lobby.playerName,
+        clientID: this.lobby.clientID,
+        stats: {},
+      },
+    ];
+
+    const record = createGameRecord(
+      this.lobby.gameStartInfo.gameID,
+      this.lobby.gameStartInfo.config,
+      players,
+      this.turnBuffer,
+      startTime(),
+      Date.now(),
+      undefined, // No winner yet
+    );
+
+    const winModal = document.querySelector("win-modal") as WinModal;
+    if (winModal) {
+      winModal.showSaveReplay(record);
+    }
+  }
+
   public start() {
     console.log("starting client game");
 
@@ -322,6 +357,10 @@ export class ClientGameRunner {
       } else if (this.selectedUnit === e.unit) {
         this.selectedUnit = null;
       }
+    });
+
+    this.eventBus.on(SaveReplayRequestEvent, () => {
+      this.handleSaveReplayRequest();
     });
 
     this.renderer.initialize();

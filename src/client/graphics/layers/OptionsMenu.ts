@@ -6,7 +6,7 @@ import { GameUpdateType } from "../../../core/game/GameUpdates";
 import { GameView } from "../../../core/game/GameView";
 import { UserSettings } from "../../../core/game/UserSettings";
 import { AlternateViewEvent, RefreshGraphicsEvent } from "../../InputHandler";
-import { PauseGameEvent } from "../../Transport";
+import { PauseGameEvent, SaveReplayRequestEvent } from "../../Transport";
 import { translateText } from "../../Utils";
 import {
   adjustUiScalePercent,
@@ -172,6 +172,10 @@ export class OptionsMenu extends LitElement implements Layer {
     this.requestUpdate();
   }
 
+  private onSaveReplayClick() {
+    this.eventBus.emit(new SaveReplayRequestEvent());
+  }
+
   private changeUiScale(delta: number) {
     const next = adjustUiScalePercent(this.uiScalePercent, delta);
     if (next === this.uiScalePercent) return;
@@ -330,6 +334,11 @@ export class OptionsMenu extends LitElement implements Layer {
               (this.userSettings.leftClickOpensMenu()
                 ? "Opens menu"
                 : "Attack"),
+          })}
+          ${button({
+            onClick: this.onSaveReplayClick,
+            title: translateText("win_modal.save_replay"),
+            children: "💾 " + translateText("win_modal.save_replay"),
           })}
           <div class="flex flex-col gap-1 px-1 text-white">
             <span class="text-sm text-center">

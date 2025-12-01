@@ -285,6 +285,15 @@ export class WinModal extends LitElement implements Layer {
     this.requestUpdate();
   }
 
+  showSaveReplay(record: GameRecord) {
+    this.gameRecord = record;
+    this.replayCode = "";
+    this.showReplayOptions = false;
+    this._title = translateText("win_modal.save_replay");
+    this.show();
+    this.prepareReplay();
+  }
+
   hide() {
     this.isVisible = false;
     this.requestUpdate();

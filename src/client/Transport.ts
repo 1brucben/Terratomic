@@ -204,6 +204,9 @@ export class SendWinnerEvent implements GameEvent {
     public readonly allPlayersStats: AllPlayersStats,
   ) {}
 }
+
+export class SaveReplayRequestEvent implements GameEvent {}
+
 export class SendHashEvent implements GameEvent {
   constructor(
     public readonly tick: Tick,
