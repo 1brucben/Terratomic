@@ -1,40 +1,32 @@
 import { LitElement, css, html } from "lit";
 import { customElement, state } from "lit/decorators.js";
-import { GameEndInfo } from "../core/Schemas";
+import { GameEndInfo, GameRecord } from "../core/Schemas";
 import { decodeReplay } from "./ReplayCodec";
 
 @customElement("load-replay-modal")
 export class LoadReplayModal extends LitElement {
   @state() private replayCode = "";
   @state() private preview: GameEndInfo | null = null;
+  @state() private fullRecord: GameRecord | null = null;
   @state() private error = "";
   @state() private loading = false;
 
   static styles = css`
     :host {
       display: block;
-      position: fixed;
-      top: 0;
-      left: 0;
       width: 100%;
       height: 100%;
-      background: rgba(0, 0, 0, 0.8);
-      z-index: 10000;
-      display: flex;
-      align-items: center;
-      justify-content: center;
     }
 
     .modal {
-      background: #1a1a1a;
-      border: 2px solid #444;
-      border-radius: 8px;
-      padding: 24px;
-      max-width: 600px;
-      width: 90%;
+      background: transparent;
+      border: none;
+      padding: 0;
+      width: 100%;
       color: #fff;
-      max-height: 80vh;
-      overflow-y: auto;
+      height: 100%;
+      display: flex;
+      flex-direction: column;
     }
 
     h2 {
@@ -113,6 +105,7 @@ export class LoadReplayModal extends LitElement {
   async validateReplay() {
     if (!this.replayCode.trim()) {
       this.preview = null;
+      this.fullRecord = null;
       this.error = "";
       return;
     }
@@ -123,18 +116,38 @@ export class LoadReplayModal extends LitElement {
     try {
       const record = await decodeReplay(this.replayCode);
       this.preview = record.info;
+      this.fullRecord = record;
     } catch (err) {
       this.error = (err as Error).message;
       this.preview = null;
+      this.fullRecord = null;
     }
 
     this.loading = false;
   }
 
   async loadReplay() {
-    if (!this.preview) return;
-    console.log("Replay loading not yet implemented");
-    this.close();
+    if (!this.preview || !this.fullRecord) return;
+
+    // Dispatch join-lobby event with the game record
+    const event = new CustomEvent("join-lobby", {
+      detail: {
+        clientID: "replay-viewer-" + Math.floor(Math.random() * 10000),
+        gameID: this.preview.gameID,
+        gameRecord: this.fullRecord,
+      },
+      bubbles: true,
+      composed: true,
+    });
+    document.dispatchEvent(event);
+
+    // Close the modal (which is now embedded, so we might need to close the parent settings modal)
+    // Since this component is inside UserSettingModal, calling close() here just removes this component from DOM if it was standalone.
+    // But in UserSettingModal it's rendered.
+    // We should probably dispatch an event to close the settings modal too.
+    this.dispatchEvent(
+      new CustomEvent("close-modal", { bubbles: true, composed: true }),
+    );
   }
 
   close() {
@@ -175,7 +188,6 @@ export class LoadReplayModal extends LitElement {
           >
             Load Replay
           </button>
-          <button class="close" @click=${this.close}>Close</button>
         </div>
       </div>
     `;
