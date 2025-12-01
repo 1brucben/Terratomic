@@ -21,7 +21,10 @@ export async function encodeReplay(record: GameRecord): Promise<string> {
     gitCommit: record.gitCommit,
   };
 
-  const json = JSON.stringify(compact);
+  // 2. Serialize to JSON (handle BigInt values)
+  const json = JSON.stringify(compact, (key, value) =>
+    typeof value === "bigint" ? value.toString() : value,
+  );
   const stream = new Blob([json]).stream();
   const compressedStream = stream.pipeThrough(new CompressionStream("gzip"));
   const compressed = await new Response(compressedStream).arrayBuffer();
