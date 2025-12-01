@@ -7,6 +7,7 @@ import {
   GameStartInfo,
   PlayerRecord,
   ServerMessage,
+  Turn,
 } from "../core/Schemas";
 import { createGameRecord } from "../core/Util";
 import { ServerConfig } from "../core/configuration/Config";
@@ -29,6 +30,7 @@ import { GameView, PlayerView, UnitView } from "../core/game/GameView";
 import { loadTerrainMap, TerrainMapData } from "../core/game/TerrainMapLoader";
 import { UserSettings } from "../core/game/UserSettings";
 import { WorkerClient } from "../core/worker/WorkerClient";
+import { CopyReplayModal } from "./CopyReplayModal";
 import {
   DoBoatAttackEvent,
   DoGroundAttackEvent,
@@ -196,6 +198,7 @@ export class ClientGameRunner {
 
   private turnsSeen = 0;
   private hasJoined = false;
+  private turnBuffer: Turn[] = [];
 
   private lastMousePosition: { x: number; y: number } | null = null;
 
@@ -253,13 +256,17 @@ export class ClientGameRunner {
       this.lobby.gameStartInfo.gameID,
       this.lobby.gameStartInfo.config,
       players,
-      // Not saving turns locally
-      [],
+      this.turnBuffer,
       startTime(),
       Date.now(),
       update.winner,
     );
     endGame(record);
+
+    // Show copy replay modal
+    const modal = new CopyReplayModal();
+    modal.record = record;
+    document.body.appendChild(modal);
   }
 
   public start() {
@@ -411,6 +418,7 @@ export class ClientGameRunner {
             `got wrong turn have turns ${this.turnsSeen}, received turn ${message.turn.turnNumber}`,
           );
         } else {
+          this.turnBuffer.push(message.turn);
           this.worker.sendTurn(message.turn);
           this.turnsSeen++;
         }
