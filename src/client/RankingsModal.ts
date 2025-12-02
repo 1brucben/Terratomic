@@ -78,7 +78,7 @@ export class RankingsModal extends LitElement {
 
     try {
       if (this.activeTab === "players") {
-        const response = await fetch("/w0/api/rankings?limit=100");
+        const response = await fetch("/api/rankings?limit=100");
         if (!response.ok) {
           throw new Error(`Failed to fetch rankings: ${response.status}`);
         }
@@ -86,7 +86,7 @@ export class RankingsModal extends LitElement {
         this.playerLeaderboard = data.leaderboard;
         this.totalPlayers = data.totalPlayers;
       } else if (this.activeTab === "clans") {
-        const response = await fetch("/w0/api/rankings/clans?limit=100");
+        const response = await fetch("/api/rankings/clans?limit=100");
         if (!response.ok) {
           throw new Error(`Failed to fetch clan rankings: ${response.status}`);
         }
@@ -94,7 +94,7 @@ export class RankingsModal extends LitElement {
         this.clanLeaderboard = data.leaderboard;
         this.totalClans = data.totalClans;
       } else {
-        const response = await fetch("/w0/api/rankings/hall-of-fame");
+        const response = await fetch("/api/rankings/hall-of-fame");
         if (!response.ok) {
           throw new Error(`Failed to fetch hall of fame: ${response.status}`);
         }
