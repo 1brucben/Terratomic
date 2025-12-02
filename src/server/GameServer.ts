@@ -25,6 +25,7 @@ import { GameType } from "../core/game/Game";
 import { archive } from "./Archive";
 import { Client } from "./Client";
 import { gatekeeper } from "./Gatekeeper";
+import { rankingService } from "./RankingService";
 export enum GamePhase {
   Lobby = "LOBBY",
   Active = "ACTIVE",
@@ -792,6 +793,12 @@ export class GameServer {
         this.winner?.winner,
       ),
     );
+
+    // Update player rankings
+    // Winner format: ["player", clientID, ...] or ["team", teamName, ...]
+    const winnerClientID =
+      this.winner?.winner?.[0] === "player" ? this.winner.winner[1] : null;
+    rankingService.updateGameResults(playerRecords, winnerClientID);
   }
 
   private handleSynchronization() {

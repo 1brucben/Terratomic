@@ -733,5 +733,24 @@
     "join_game": "Join Game",
     "mute_30m": "Mute for 30 minutes",
     "disable": "Disable Notifications"
+  },
+  "rankings": {
+    "title": "Rankings",
+    "leaderboard": "Leaderboard",
+    "players_tab": "Players",
+    "clans_tab": "Clans",
+    "player": "Player",
+    "clan": "Clan",
+    "members": "Members",
+    "games": "Games",
+    "wins": "Wins",
+    "win_rate": "Win %",
+    "score": "Score",
+    "total_players": "Total players",
+    "total_clans": "Total clans",
+    "no_rankings": "No rankings yet. Play some games to get on the leaderboard!",
+    "no_clans": "No clan rankings yet. Use [TAG] in your name to join a clan!",
+    "loading": "Loading...",
+    "retry": "Retry"
   }
 }
