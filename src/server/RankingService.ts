@@ -132,12 +132,21 @@ class RankingService {
 
   /**
    * Update rankings for players after a game ends
-   * Saves to R2 immediately so other workers can see the update
+   * Uses read-modify-write pattern to avoid overwriting other workers' updates
    */
   async updateGameResults(
     players: PlayerRecord[],
     winnerClientID: string | null,
   ): Promise<void> {
+    // Read fresh data from R2 before modifying to avoid overwriting other workers' updates
+    try {
+      await this.loadFromR2();
+    } catch (error) {
+      log.warn("Could not load fresh rankings from R2, using local state", {
+        error,
+      });
+    }
+
     // Check if we need to roll over to a new month
     this.checkMonthRollover();
 
