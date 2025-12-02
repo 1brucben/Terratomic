@@ -21,7 +21,7 @@ const bucket = config.r2Bucket();
 const RANKINGS_KEY = "rankings/player-rankings.json";
 const SAVE_INTERVAL_MS = 5 * 60 * 1000; // Save to R2 every 5 minutes
 const RELOAD_INTERVAL_MS = 30 * 1000; // Reload from R2 every 30 seconds
-const RANKING_EXPIRY_DAYS = 30; // Remove players inactive for 30 days
+const HALL_OF_FAME_SIZE = 10; // Top N players/clans saved to hall of fame
 
 export interface PlayerRanking {
   persistentID: string;
@@ -41,9 +41,17 @@ export interface ClanRanking {
   lastGameAt: number; // Timestamp of last game by any member
 }
 
+export interface MonthlyWinner {
+  month: string; // Format: "YYYY-MM"
+  players: PlayerRanking[];
+  clans: ClanRanking[];
+}
+
 export interface RankingData {
   players: Record<string, PlayerRanking>; // keyed by persistentID
   clans: Record<string, ClanRanking>; // keyed by clanTag (uppercase)
+  currentMonth: string; // Format: "YYYY-MM"
+  hallOfFame: MonthlyWinner[]; // Past monthly winners
   lastUpdated: number;
   version: number;
 }
@@ -52,6 +60,8 @@ class RankingService {
   private data: RankingData = {
     players: {},
     clans: {},
+    currentMonth: this.getCurrentMonth(),
+    hallOfFame: [],
     lastUpdated: Date.now(),
     version: 1,
   };
@@ -75,24 +85,34 @@ class RankingService {
       log.info("Rankings loaded from R2", {
         playerCount: Object.keys(this.data.players).length,
         clanCount: Object.keys(this.data.clans).length,
+        currentMonth: this.data.currentMonth,
+        hallOfFameMonths: this.data.hallOfFame?.length ?? 0,
       });
     } catch (error) {
       log.warn("Could not load rankings from R2, starting fresh", { error });
       this.data = {
         players: {},
         clans: {},
+        currentMonth: this.getCurrentMonth(),
+        hallOfFame: [],
         lastUpdated: Date.now(),
         version: 1,
       };
     }
 
-    // Ensure clans object exists (for backwards compatibility)
+    // Ensure fields exist (for backwards compatibility)
     if (!this.data.clans) {
       this.data.clans = {};
     }
+    if (!this.data.currentMonth) {
+      this.data.currentMonth = this.getCurrentMonth();
+    }
+    if (!this.data.hallOfFame) {
+      this.data.hallOfFame = [];
+    }
 
-    // Clean expired entries
-    this.cleanExpiredEntries();
+    // Check if we need to start a new month
+    this.checkMonthRollover();
 
     // Start periodic save (backup, in case immediate save fails)
     this.saveIntervalId = setInterval(() => {
@@ -118,6 +138,9 @@ class RankingService {
     players: PlayerRecord[],
     winnerClientID: string | null,
   ): Promise<void> {
+    // Check if we need to roll over to a new month
+    this.checkMonthRollover();
+
     const now = Date.now();
     const clanUpdates: Map<
       string,
@@ -325,34 +348,64 @@ class RankingService {
   }
 
   /**
-   * Remove players and clans who haven't played in RANKING_EXPIRY_DAYS
+   * Get current month in YYYY-MM format
    */
-  private cleanExpiredEntries(): void {
-    const expiryThreshold =
-      Date.now() - RANKING_EXPIRY_DAYS * 24 * 60 * 60 * 1000;
-    let removedPlayers = 0;
-    let removedClans = 0;
+  private getCurrentMonth(): string {
+    const now = new Date();
+    return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
+  }
 
-    for (const [id, player] of Object.entries(this.data.players)) {
-      if (player.lastGameAt < expiryThreshold) {
-        delete this.data.players[id];
-        removedPlayers++;
+  /**
+   * Check if we've entered a new month and need to archive + reset rankings
+   */
+  private checkMonthRollover(): void {
+    const currentMonth = this.getCurrentMonth();
+
+    if (this.data.currentMonth && this.data.currentMonth !== currentMonth) {
+      log.info("New month detected, archiving rankings", {
+        oldMonth: this.data.currentMonth,
+        newMonth: currentMonth,
+      });
+
+      // Archive current top players and clans to hall of fame
+      const topPlayers = Object.values(this.data.players)
+        .sort((a, b) => b.score - a.score)
+        .slice(0, HALL_OF_FAME_SIZE);
+
+      const topClans = Object.values(this.data.clans)
+        .sort((a, b) => b.score - a.score)
+        .slice(0, HALL_OF_FAME_SIZE);
+
+      // Only add to hall of fame if there were players
+      if (topPlayers.length > 0) {
+        this.data.hallOfFame.push({
+          month: this.data.currentMonth,
+          players: topPlayers,
+          clans: topClans,
+        });
+
+        log.info("Archived monthly winners", {
+          month: this.data.currentMonth,
+          playerCount: topPlayers.length,
+          clanCount: topClans.length,
+          topPlayer: topPlayers[0]?.username,
+          topClan: topClans[0]?.clanTag,
+        });
       }
-    }
 
-    for (const [tag, clan] of Object.entries(this.data.clans)) {
-      if (clan.lastGameAt < expiryThreshold) {
-        delete this.data.clans[tag];
-        removedClans++;
-      }
-    }
-
-    if (removedPlayers > 0 || removedClans > 0) {
-      log.info(
-        `Cleaned ${removedPlayers} expired players, ${removedClans} expired clans`,
-      );
+      // Reset current rankings
+      this.data.players = {};
+      this.data.clans = {};
+      this.data.currentMonth = currentMonth;
       this.isDirty = true;
     }
+  }
+
+  /**
+   * Get hall of fame (past monthly winners)
+   */
+  getHallOfFame(): MonthlyWinner[] {
+    return this.data.hallOfFame ?? [];
   }
 
   /**

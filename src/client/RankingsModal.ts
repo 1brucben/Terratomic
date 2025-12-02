@@ -31,7 +31,17 @@ interface ClanRankingsResponse {
   totalClans: number;
 }
 
-type TabType = "players" | "clans";
+interface MonthlyWinner {
+  month: string;
+  players: PlayerRanking[];
+  clans: ClanRanking[];
+}
+
+interface HallOfFameResponse {
+  hallOfFame: MonthlyWinner[];
+}
+
+type TabType = "players" | "clans" | "hallOfFame";
 
 @customElement("rankings-modal")
 export class RankingsModal extends LitElement {
@@ -43,6 +53,7 @@ export class RankingsModal extends LitElement {
   @state() private activeTab: TabType = "players";
   @state() private playerLeaderboard: PlayerRanking[] = [];
   @state() private clanLeaderboard: ClanRanking[] = [];
+  @state() private hallOfFame: MonthlyWinner[] = [];
   @state() private totalPlayers: number = 0;
   @state() private totalClans: number = 0;
   @state() private loading: boolean = false;
@@ -74,7 +85,7 @@ export class RankingsModal extends LitElement {
         const data: PlayerRankingsResponse = await response.json();
         this.playerLeaderboard = data.leaderboard;
         this.totalPlayers = data.totalPlayers;
-      } else {
+      } else if (this.activeTab === "clans") {
         const response = await fetch("/w0/api/rankings/clans?limit=100");
         if (!response.ok) {
           throw new Error(`Failed to fetch clan rankings: ${response.status}`);
@@ -82,6 +93,13 @@ export class RankingsModal extends LitElement {
         const data: ClanRankingsResponse = await response.json();
         this.clanLeaderboard = data.leaderboard;
         this.totalClans = data.totalClans;
+      } else {
+        const response = await fetch("/w0/api/rankings/hall-of-fame");
+        if (!response.ok) {
+          throw new Error(`Failed to fetch hall of fame: ${response.status}`);
+        }
+        const data: HallOfFameResponse = await response.json();
+        this.hallOfFame = data.hallOfFame;
       }
     } catch (err) {
       this.error =
@@ -123,6 +141,15 @@ export class RankingsModal extends LitElement {
           @click=${() => this.switchTab("clans")}
         >
           🏰 ${translateText("rankings.clans_tab")}
+        </button>
+        <button
+          class="flex-1 py-2 px-4 text-center font-medium transition-colors ${this
+            .activeTab === "hallOfFame"
+            ? "border-b-2 border-blue-500 text-blue-500"
+            : "text-gray-400 hover:text-gray-200"}"
+          @click=${() => this.switchTab("hallOfFame")}
+        >
+          🏆 ${translateText("rankings.hall_of_fame_tab")}
         </button>
       </div>
     `;
@@ -274,6 +301,99 @@ export class RankingsModal extends LitElement {
     `;
   }
 
+  private formatMonthName(month: string): string {
+    const [year, monthNum] = month.split("-");
+    const date = new Date(parseInt(year), parseInt(monthNum) - 1, 1);
+    return date.toLocaleDateString(undefined, {
+      year: "numeric",
+      month: "long",
+    });
+  }
+
+  private renderHallOfFame() {
+    if (this.hallOfFame.length === 0) {
+      return html`
+        <div class="text-center py-8 text-gray-500">
+          ${translateText("rankings.no_hall_of_fame")}
+        </div>
+      `;
+    }
+
+    // Show most recent months first
+    const sortedHallOfFame = [...this.hallOfFame].reverse();
+
+    return html`
+      <div class="w-full overflow-y-auto space-y-6">
+        ${sortedHallOfFame.map(
+          (entry) => html`
+            <div class="border border-gray-600 rounded-lg p-4">
+              <h3 class="text-lg font-bold mb-3 text-center">
+                📅 ${this.formatMonthName(entry.month)}
+              </h3>
+
+              ${entry.players.length > 0
+                ? html`
+                    <div class="mb-4">
+                      <h4 class="text-sm font-medium text-gray-400 mb-2">
+                        ${translateText("rankings.top_players")}
+                      </h4>
+                      <div class="space-y-1">
+                        ${entry.players.slice(0, 3).map(
+                          (player, index) => html`
+                            <div class="flex justify-between items-center py-1">
+                              <span>
+                                ${index === 0
+                                  ? "🥇"
+                                  : index === 1
+                                    ? "🥈"
+                                    : "🥉"}
+                                ${player.username}
+                              </span>
+                              <span class="text-gray-400">
+                                ${player.wins}W / ${player.games}G
+                              </span>
+                            </div>
+                          `,
+                        )}
+                      </div>
+                    </div>
+                  `
+                : ""}
+              ${entry.clans.length > 0
+                ? html`
+                    <div>
+                      <h4 class="text-sm font-medium text-gray-400 mb-2">
+                        ${translateText("rankings.top_clans")}
+                      </h4>
+                      <div class="space-y-1">
+                        ${entry.clans.slice(0, 3).map(
+                          (clan, index) => html`
+                            <div class="flex justify-between items-center py-1">
+                              <span>
+                                ${index === 0
+                                  ? "🥇"
+                                  : index === 1
+                                    ? "🥈"
+                                    : "🥉"}
+                                [${clan.clanTag}]
+                              </span>
+                              <span class="text-gray-400">
+                                ${clan.wins}W / ${clan.games}G
+                              </span>
+                            </div>
+                          `,
+                        )}
+                      </div>
+                    </div>
+                  `
+                : ""}
+            </div>
+          `,
+        )}
+      </div>
+    `;
+  }
+
   render() {
     return html`
       <o-modal
@@ -309,7 +429,9 @@ export class RankingsModal extends LitElement {
                 `
               : this.activeTab === "players"
                 ? this.renderPlayerLeaderboard()
-                : this.renderClanLeaderboard()}
+                : this.activeTab === "clans"
+                  ? this.renderClanLeaderboard()
+                  : this.renderHallOfFame()}
         </div>
       </o-modal>
     `;

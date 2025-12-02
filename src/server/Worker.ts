@@ -362,6 +362,14 @@ export async function startWorker() {
     }),
   );
 
+  app.get(
+    "/api/rankings/hall-of-fame",
+    gatekeeper.httpHandler(LimiterType.Get, async (req, res) => {
+      const hallOfFame = rankingService.getHallOfFame();
+      res.json({ hallOfFame });
+    }),
+  );
+
   // WebSocket handling
   wss.on("connection", (ws: WebSocket, req) => {
     ws.on(
