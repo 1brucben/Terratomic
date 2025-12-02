@@ -39,6 +39,14 @@ export class ParabolaPathFinder {
     this.curve = new DistanceBasedBezierCurve(p0, p1, p2, p3, increment);
   }
 
+  /** Clamp coordinates to valid map bounds */
+  private clampToMap(x: number, y: number): { x: number; y: number } {
+    return {
+      x: Math.max(0, Math.min(this.mg.width() - 1, x)),
+      y: Math.max(0, Math.min(this.mg.height() - 1, y)),
+    };
+  }
+
   nextTile(speed: number): TileRef | true {
     if (!this.curve) {
       throw new Error("ParabolaPathFinder not initialized");
@@ -47,7 +55,11 @@ export class ParabolaPathFinder {
     if (!nextPoint) {
       return true;
     }
-    return this.mg.ref(Math.floor(nextPoint.x), Math.floor(nextPoint.y));
+    const clamped = this.clampToMap(
+      Math.floor(nextPoint.x),
+      Math.floor(nextPoint.y),
+    );
+    return this.mg.ref(clamped.x, clamped.y);
   }
 
   currentIndex(): number {
@@ -61,9 +73,10 @@ export class ParabolaPathFinder {
     if (!this.curve) {
       return [];
     }
-    return this.curve
-      .getAllPoints()
-      .map((point) => this.mg.ref(Math.floor(point.x), Math.floor(point.y)));
+    return this.curve.getAllPoints().map((point) => {
+      const clamped = this.clampToMap(Math.floor(point.x), Math.floor(point.y));
+      return this.mg.ref(clamped.x, clamped.y);
+    });
   }
 }
 
@@ -127,8 +140,12 @@ export class StraightPathFinder {
     const dirX = dx / dist;
     const dirY = dy / dist;
 
-    const nextX = Math.round(currX + dirX * speed);
-    const nextY = Math.round(currY + dirY * speed);
+    let nextX = Math.round(currX + dirX * speed);
+    let nextY = Math.round(currY + dirY * speed);
+
+    // Clamp to map bounds to prevent invalid coordinates
+    nextX = Math.max(0, Math.min(this.mg.width() - 1, nextX));
+    nextY = Math.max(0, Math.min(this.mg.height() - 1, nextY));
 
     const remainingDx = dstX - nextX;
     const remainingDy = dstY - nextY;
