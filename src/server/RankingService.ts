@@ -20,6 +20,7 @@ const r2 = new S3({
 const bucket = config.r2Bucket();
 const RANKINGS_KEY = "rankings/player-rankings.json";
 const SAVE_INTERVAL_MS = 5 * 60 * 1000; // Save to R2 every 5 minutes
+const RELOAD_INTERVAL_MS = 30 * 1000; // Reload from R2 every 30 seconds
 const RANKING_EXPIRY_DAYS = 30; // Remove players inactive for 30 days
 
 export interface PlayerRanking {
@@ -56,13 +57,18 @@ class RankingService {
   };
   private isDirty = false;
   private saveIntervalId: ReturnType<typeof setInterval> | null = null;
+  private reloadIntervalId: ReturnType<typeof setInterval> | null = null;
   private isInitialized = false;
+  private isWorker0 = false;
 
   /**
    * Initialize the ranking service - load from R2 and start periodic saves
+   * @param isWorker0 - If true, this worker will serve API requests and reload periodically
    */
-  async initialize(): Promise<void> {
+  async initialize(isWorker0: boolean = false): Promise<void> {
     if (this.isInitialized) return;
+
+    this.isWorker0 = isWorker0;
 
     try {
       await this.loadFromR2();
@@ -88,22 +94,30 @@ class RankingService {
     // Clean expired entries
     this.cleanExpiredEntries();
 
-    // Start periodic save
+    // Start periodic save (backup, in case immediate save fails)
     this.saveIntervalId = setInterval(() => {
       this.saveToR2IfDirty();
     }, SAVE_INTERVAL_MS);
 
+    // Worker 0 reloads from R2 periodically to get updates from other workers
+    if (isWorker0) {
+      this.reloadIntervalId = setInterval(() => {
+        this.reloadFromR2();
+      }, RELOAD_INTERVAL_MS);
+    }
+
     this.isInitialized = true;
-    log.info("RankingService initialized");
+    log.info("RankingService initialized", { isWorker0 });
   }
 
   /**
    * Update rankings for players after a game ends
+   * Saves to R2 immediately so other workers can see the update
    */
-  updateGameResults(
+  async updateGameResults(
     players: PlayerRecord[],
     winnerClientID: string | null,
-  ): void {
+  ): Promise<void> {
     const now = Date.now();
     const clanUpdates: Map<
       string,
@@ -157,8 +171,6 @@ class RankingService {
         existing.wins += update.wins;
         existing.lastGameAt = now;
         // Count unique members across all time
-        const allMembers = new Set<string>();
-        // We need to track members - for now use a simple approximation
         existing.members = Math.max(existing.members, update.members.size);
         existing.score = this.calculateClanScore(
           existing.games,
@@ -183,6 +195,15 @@ class RankingService {
 
     this.data.lastUpdated = now;
     this.isDirty = true;
+
+    // Save immediately so other workers can see the update
+    try {
+      await this.saveToR2();
+    } catch (error) {
+      log.error("Failed to save rankings immediately, will retry later", {
+        error,
+      });
+    }
   }
 
   /**
@@ -227,8 +248,13 @@ class RankingService {
 
   /**
    * Get top N players by score
+   * If worker 0 has no data, try to reload from R2 first
    */
-  getLeaderboard(limit: number = 100): PlayerRanking[] {
+  async getLeaderboard(limit: number = 100): Promise<PlayerRanking[]> {
+    // If we're worker 0 and have no data, try to reload from R2
+    if (this.isWorker0 && Object.keys(this.data.players).length === 0) {
+      await this.reloadFromR2();
+    }
     return Object.values(this.data.players)
       .sort((a, b) => b.score - a.score)
       .slice(0, limit);
@@ -261,8 +287,13 @@ class RankingService {
 
   /**
    * Get top N clans by score
+   * If worker 0 has no data, try to reload from R2 first
    */
-  getClanLeaderboard(limit: number = 100): ClanRanking[] {
+  async getClanLeaderboard(limit: number = 100): Promise<ClanRanking[]> {
+    // If we're worker 0 and have no data, try to reload from R2
+    if (this.isWorker0 && Object.keys(this.data.players).length === 0) {
+      await this.reloadFromR2();
+    }
     return Object.values(this.data.clans)
       .sort((a, b) => b.score - a.score)
       .slice(0, limit);
@@ -340,6 +371,22 @@ class RankingService {
   }
 
   /**
+   * Reload rankings from R2 (for worker 0 to get updates from other workers)
+   */
+  private async reloadFromR2(): Promise<void> {
+    try {
+      await this.loadFromR2();
+      // Ensure clans object exists
+      if (!this.data.clans) {
+        this.data.clans = {};
+      }
+      this.isDirty = false;
+    } catch (error) {
+      // Silent failure - will retry on next interval
+    }
+  }
+
+  /**
    * Save rankings to R2 if there are pending changes
    */
   private async saveToR2IfDirty(): Promise<void> {
@@ -375,6 +422,11 @@ class RankingService {
     if (this.saveIntervalId) {
       clearInterval(this.saveIntervalId);
       this.saveIntervalId = null;
+    }
+
+    if (this.reloadIntervalId) {
+      clearInterval(this.reloadIntervalId);
+      this.reloadIntervalId = null;
     }
 
     if (this.isDirty) {

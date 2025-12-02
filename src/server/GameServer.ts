@@ -361,7 +361,9 @@ export class GameServer {
                 return;
               }
               this.winner = clientMsg;
-              this.archiveGame();
+              this.archiveGame().catch((err) =>
+                this.log.error("Failed to archive game", { error: err }),
+              );
               break;
             }
             default: {
@@ -554,7 +556,9 @@ export class GameServer {
           gameID: this.id,
         });
       } else {
-        this.archiveGame();
+        this.archiveGame().catch((err) =>
+          this.log.error("Failed to archive game on end", { error: err }),
+        );
       }
     } catch (error) {
       let errorDetails;
@@ -760,7 +764,7 @@ export class GameServer {
     return sanitized;
   }
 
-  private archiveGame() {
+  private async archiveGame() {
     this.log.info("archiving game", {
       gameID: this.id,
       winner: this.winner?.winner,
@@ -798,7 +802,7 @@ export class GameServer {
     // Winner format: ["player", clientID, ...] or ["team", teamName, ...]
     const winnerClientID =
       this.winner?.winner?.[0] === "player" ? this.winner.winner[1] : null;
-    rankingService.updateGameResults(playerRecords, winnerClientID);
+    await rankingService.updateGameResults(playerRecords, winnerClientID);
   }
 
   private handleSynchronization() {

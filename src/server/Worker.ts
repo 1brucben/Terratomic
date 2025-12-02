@@ -35,10 +35,10 @@ const log = logger.child({ comp: `w_${workerId}` });
 export async function startWorker() {
   log.info(`Worker starting...`);
 
-  // Initialize ranking service (only on worker 0 to avoid conflicts)
-  if (workerId === 0) {
-    await rankingService.initialize();
-  }
+  // Initialize ranking service on all workers
+  // - All workers can update rankings after games
+  // - Worker 0 serves API requests and reloads from R2 periodically
+  await rankingService.initialize(workerId === 0);
 
   const __filename = fileURLToPath(import.meta.url);
   const __dirname = path.dirname(__filename);
@@ -308,7 +308,7 @@ export async function startWorker() {
     "/api/rankings",
     gatekeeper.httpHandler(LimiterType.Get, async (req, res) => {
       const limit = Math.min(parseInt(req.query.limit as string) || 100, 500);
-      const leaderboard = rankingService.getLeaderboard(limit);
+      const leaderboard = await rankingService.getLeaderboard(limit);
       res.json({
         leaderboard,
         totalPlayers: rankingService.getTotalPlayers(),
@@ -337,7 +337,7 @@ export async function startWorker() {
     "/api/rankings/clans",
     gatekeeper.httpHandler(LimiterType.Get, async (req, res) => {
       const limit = Math.min(parseInt(req.query.limit as string) || 100, 500);
-      const leaderboard = rankingService.getClanLeaderboard(limit);
+      const leaderboard = await rankingService.getClanLeaderboard(limit);
       res.json({
         leaderboard,
         totalClans: rankingService.getTotalClans(),
