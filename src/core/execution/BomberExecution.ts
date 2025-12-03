@@ -598,15 +598,31 @@ export class BomberExecution implements Execution {
     const maxSamRange = Math.max(...hostileSAMs.map((s) => s.range));
     const offsetDistance = maxSamRange * 1.5;
 
+    const mapWidth = this.mg.width();
+    const mapHeight = this.mg.height();
+
     for (const direction of [-1, 1]) {
       const offsetX = perpX * offsetDistance * direction;
       const offsetY = perpY * offsetDistance * direction;
 
       // Create waypoint at 1/3 and 2/3 along the path, offset perpendicular
-      const waypoint1X = Math.round(startX + dx * 0.33 + offsetX);
-      const waypoint1Y = Math.round(startY + dy * 0.33 + offsetY);
-      const waypoint2X = Math.round(startX + dx * 0.67 + offsetX);
-      const waypoint2Y = Math.round(startY + dy * 0.67 + offsetY);
+      // Clamp to map bounds to prevent invalid coordinates
+      const waypoint1X = Math.max(
+        0,
+        Math.min(mapWidth - 1, Math.round(startX + dx * 0.33 + offsetX)),
+      );
+      const waypoint1Y = Math.max(
+        0,
+        Math.min(mapHeight - 1, Math.round(startY + dy * 0.33 + offsetY)),
+      );
+      const waypoint2X = Math.max(
+        0,
+        Math.min(mapWidth - 1, Math.round(startX + dx * 0.67 + offsetX)),
+      );
+      const waypoint2Y = Math.max(
+        0,
+        Math.min(mapHeight - 1, Math.round(startY + dy * 0.67 + offsetY)),
+      );
 
       const wp1 = this.mg.ref(waypoint1X, waypoint1Y);
       const wp2 = this.mg.ref(waypoint2X, waypoint2Y);
@@ -631,6 +647,8 @@ export class BomberExecution implements Execution {
     waypoints: TileRef[],
     sams: { sam: Unit; range: number }[],
   ): boolean {
+    const mapWidth = this.mg.width();
+    const mapHeight = this.mg.height();
     let current = start;
     for (const waypoint of waypoints) {
       // Sample points along the segment
@@ -643,8 +661,15 @@ export class BomberExecution implements Execution {
 
       for (let i = 0; i <= samples; i++) {
         const t = i / samples;
-        const px = Math.round(x1 + (x2 - x1) * t);
-        const py = Math.round(y1 + (y2 - y1) * t);
+        // Clamp sampled points to map bounds
+        const px = Math.max(
+          0,
+          Math.min(mapWidth - 1, Math.round(x1 + (x2 - x1) * t)),
+        );
+        const py = Math.max(
+          0,
+          Math.min(mapHeight - 1, Math.round(y1 + (y2 - y1) * t)),
+        );
         const point = this.mg.ref(px, py);
 
         // Check if any SAM can reach this point
