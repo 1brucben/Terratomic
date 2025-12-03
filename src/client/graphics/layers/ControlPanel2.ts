@@ -33,6 +33,7 @@ import { AttackRatioEvent } from "../../InputHandler";
 import "../../StatisticsModal"; // ensure statistics modal is registered
 import {
   SendBomberIntentEvent,
+  SendDeclareWarIntentEvent,
   SendEmbargoIntentEvent,
   SendSetAutoBombingEvent,
   SendSetInvestmentRateEvent,
@@ -888,6 +889,13 @@ export class ControlPanel2 extends LitElement implements Layer {
     const targetID = String(playerSelect.value);
     // Use the state variable instead of querying the DOM
     const structures = [...this._uiSelectedStructures];
+
+    // Declare war on the target if not already at war
+    const myPlayer = this.game.myPlayer();
+    const targetPlayer = this.game.players().find((p) => p.id() === targetID);
+    if (myPlayer && targetPlayer && !myPlayer.isAtWarWith(targetPlayer)) {
+      this.eventBus.emit(new SendDeclareWarIntentEvent(myPlayer, targetPlayer));
+    }
 
     this.sendBomberIntent(targetID, structures, this._bomberPreferClosest);
   }
