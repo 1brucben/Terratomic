@@ -127,6 +127,20 @@ export class PublicLobby extends LitElement {
               ${translateText("public_lobby.join")}
             </div>
             <div class="text-md font-medium text-[var(--secondaryColor)]">
+              ${
+                lobby.gameConfig.researchAllTechs
+                  ? html`<span
+                      class="text-sm
+                    text-yellow-900
+                    bg-yellow-400 rounded-sm px-1 mr-1 font-bold"
+                      title="${translateText(
+                        "public_lobby.tech_unlocked_tooltip",
+                      )}"
+                    >
+                      🔓 ${translateText("public_lobby.tech_unlocked")}
+                    </span>`
+                  : ""
+              }
               <span
                 class="text-sm
                 text-[var(--ui-primary)]

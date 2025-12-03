@@ -67,12 +67,17 @@ const TEAM_COUNTS = [
 
 export class MapPlaylist {
   private mapsPlaylist: MapWithMode[] = [];
+  private fastModeCounter: number = 0;
 
   public gameConfig(): GameConfig {
     const { map, mode } = this.getNextMap();
 
     const playerTeams =
       mode === GameMode.Team ? this.getTeamCount() : undefined;
+
+    // Alternate between normal and fast mode (50/50)
+    const isFastMode = this.fastModeCounter % 2 === 1;
+    this.fastModeCounter++;
 
     // Create the default public game config (from your GameManager)
     return {
@@ -90,6 +95,7 @@ export class MapPlaylist {
       peaceTimerDurationMinutes: PeaceTimerDuration.None,
       startingGold: 0,
       goldMultiplier: 1,
+      researchAllTechs: isFastMode,
     } satisfies GameConfig;
   }
 
