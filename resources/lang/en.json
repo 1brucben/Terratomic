@@ -638,7 +638,10 @@
     "diplomacy_declare_war_tooltip": "Declare war on this player",
     "diplomacy_request_peace_tooltip": "Request peace with this player",
     "diplomacy_request_alliance_tooltip": "Send an alliance request",
-    "diplomacy_betray_tooltip": "Break alliance (you will be marked a traitor)"
+    "diplomacy_betray_tooltip": "Break alliance (you will be marked a traitor)",
+    "diplomacy_war_all_tooltip": "Declare war on all players you are not at war with",
+    "diplomacy_ally_all_tooltip": "Send alliance requests to all non-allied players",
+    "diplomacy_peace_all_tooltip": "Request peace with all players you are at war with"
   },
   "player_panel": {
     "gold": "Gold",

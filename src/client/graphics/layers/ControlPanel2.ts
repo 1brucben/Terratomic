@@ -2497,18 +2497,82 @@ export class ControlPanel2 extends LitElement implements Layer {
       `;
     });
 
+    // Bulk action handlers
+    const declareWarOnAll = () => {
+      players.forEach((p) => {
+        if (me.isAlliedWith(p)) {
+          // Break alliance first (betray), then declare war
+          this.eventBus.emit(new SendBreakAllianceIntentEvent(me, p));
+        }
+        if (!me.isAtWarWith(p)) {
+          this.eventBus.emit(new SendDeclareWarIntentEvent(me, p));
+        }
+      });
+    };
+
+    const requestAllianceWithAll = () => {
+      players.forEach((p) => {
+        if (!me.isAlliedWith(p)) {
+          this.eventBus.emit(new SendAllianceRequestIntentEvent(me, p));
+        }
+      });
+    };
+
+    const requestPeaceWithAll = () => {
+      players.forEach((p) => {
+        if (me.isAtWarWith(p)) {
+          this.eventBus.emit(new SendPeaceRequestIntentEvent(me, p));
+        }
+      });
+    };
+
+    // Small icon button for header bulk actions
+    const headerBtn = (
+      icon: string,
+      bgColor: string,
+      titleKey: string,
+      onClick: () => void,
+    ) => html`
+      <button
+        class="ml-1 inline-flex items-center justify-center w-5 h-5 rounded hover:opacity-80 hover:scale-105 transition-all"
+        style="background-color: ${bgColor};"
+        data-i18n-title=${titleKey}
+        @click=${onClick}
+      >
+        <img src=${icon} style="width:12px;height:12px;object-fit:contain;" />
+      </button>
+    `;
+
     return html`
       <div class="flex flex-col w-full h-full">
         <!-- Header row -->
-        <div class="flex w-full mb-2">
-          <div class="w-1/3 px-1 text-center font-bold text-gray-300">
-            At War
+        <div class="flex w-full mb-2 border-b border-gray-600/50 pb-2">
+          <div class="w-1/3 px-1 flex items-center justify-center">
+            <span class="font-bold text-gray-300">At War</span>
+            ${headerBtn(
+              warIcon,
+              warColor,
+              "control_panel2.diplomacy_war_all_tooltip",
+              declareWarOnAll,
+            )}
           </div>
-          <div class="w-1/3 px-1 text-center font-bold text-gray-300">
-            Allied
+          <div class="w-1/3 px-1 flex items-center justify-center">
+            <span class="font-bold text-gray-300">Allied</span>
+            ${headerBtn(
+              allianceIcon,
+              allianceColor,
+              "control_panel2.diplomacy_ally_all_tooltip",
+              requestAllianceWithAll,
+            )}
           </div>
-          <div class="w-1/3 px-1 text-center font-bold text-gray-300">
-            Neutral
+          <div class="w-1/3 px-1 flex items-center justify-center">
+            <span class="font-bold text-gray-300">Neutral</span>
+            ${headerBtn(
+              peaceIcon,
+              peaceColor,
+              "control_panel2.diplomacy_peace_all_tooltip",
+              requestPeaceWithAll,
+            )}
           </div>
         </div>
         <!-- Player rows -->
