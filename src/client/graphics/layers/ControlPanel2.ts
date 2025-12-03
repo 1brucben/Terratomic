@@ -32,8 +32,12 @@ import { ToggleUpgradeModeEvent } from "../../events/ToggleUpgradeModeEvent";
 import { AttackRatioEvent } from "../../InputHandler";
 import "../../StatisticsModal"; // ensure statistics modal is registered
 import {
+  SendAllianceRequestIntentEvent,
   SendBomberIntentEvent,
+  SendBreakAllianceIntentEvent,
+  SendDeclareWarIntentEvent,
   SendEmbargoIntentEvent,
+  SendPeaceRequestIntentEvent,
   SendSetAutoBombingEvent,
   SendSetInvestmentRateEvent,
   SendSetResearchInvestmentEvent,
@@ -2373,40 +2377,142 @@ export class ControlPanel2 extends LitElement implements Layer {
           (p.type() === PlayerType.Human || p.type() === PlayerType.FakeHuman),
       );
 
-    const atWar = players.filter((p) => me.isAtWarWith(p));
-    const allied = players.filter((p) => me.isAlliedWith(p));
-    const neutral = players.filter(
-      (p) => !me.isAtWarWith(p) && !me.isAlliedWith(p),
-    );
+    // Icons and colors reused from radial menu
+    const warIcon = "/images/waricon.png";
+    const peaceIcon = "/images/dove.png";
+    const allianceIcon = "/images/AllianceIconWhite.svg";
+    const traitorIcon = "/images/TraitorIconWhite.svg";
 
-    const renderPlayerList = (list: PlayerView[], title: string) => html`
-      <div class="flex flex-col w-1/3 px-1">
-        <h3 class="text-center font-bold mb-2 text-gray-300">${title}</h3>
-        <div class="flex flex-col">
-          ${list.map(
-            (p) => html`
-              <div
-                class="py-1 text-sm text-gray-300 truncate"
-                title="${p.name()}"
-              >
-                ${p.name()}
-              </div>
-            `,
-          )}
-          ${list.length === 0
-            ? html`<div class="text-center text-gray-500 italic text-xs">
-                None
-              </div>`
-            : ""}
-        </div>
+    // Colors matching radial menu
+    const warColor = "#8B0000"; // dark red for declare war
+    const peaceColor = "#e5e7eb"; // light gray for peace
+    const allianceColor = "#53ac75"; // green for alliance
+    const betrayColor = "#c74848"; // red for betray
+
+    const iconBtn = (
+      src: string,
+      bgColor: string,
+      titleKey: string,
+      onClick: () => void,
+    ) => html`
+      <button
+        class="inline-flex items-center justify-center border-2 border-[var(--ui-panel-border)] rounded px-1 py-1 hover:opacity-80 hover:scale-105 transition-all"
+        style="background-color: ${bgColor};"
+        data-i18n-title=${titleKey}
+        @click=${onClick}
+      >
+        <img src=${src} style="width:16px;height:16px;object-fit:contain;" />
+      </button>
+    `;
+
+    const renderName = (p: PlayerView) => html`
+      <div class="text-sm text-gray-300 truncate" title="${p.name()}">
+        ${p.name()}
       </div>
     `;
 
+    const renderBtn = (btn: ReturnType<typeof html>) => html`
+      <div class="flex justify-center">${btn}</div>
+    `;
+
+    const renderEmpty = () => html`<div>&nbsp;</div>`;
+
+    // Build rows for each player
+    const rows = players.map((p) => {
+      const atWar = me.isAtWarWith(p);
+      const allied = me.isAlliedWith(p);
+      const neutral = !atWar && !allied;
+
+      // At War column cell
+      let atWarCell;
+      if (atWar) {
+        atWarCell = renderName(p);
+      } else if (neutral) {
+        atWarCell = renderBtn(
+          iconBtn(
+            warIcon,
+            warColor,
+            "control_panel2.diplomacy_declare_war_tooltip",
+            () => this.eventBus.emit(new SendDeclareWarIntentEvent(me, p)),
+          ),
+        );
+      } else if (allied) {
+        atWarCell = renderBtn(
+          iconBtn(
+            traitorIcon,
+            betrayColor,
+            "control_panel2.diplomacy_betray_tooltip",
+            () => this.eventBus.emit(new SendBreakAllianceIntentEvent(me, p)),
+          ),
+        );
+      } else {
+        atWarCell = renderEmpty();
+      }
+
+      // Allied column cell
+      let alliedCell;
+      if (allied) {
+        alliedCell = renderName(p);
+      } else {
+        // Can request alliance from both neutral and at-war players
+        alliedCell = renderBtn(
+          iconBtn(
+            allianceIcon,
+            allianceColor,
+            "control_panel2.diplomacy_request_alliance_tooltip",
+            () => this.eventBus.emit(new SendAllianceRequestIntentEvent(me, p)),
+          ),
+        );
+      }
+
+      // Neutral column cell
+      let neutralCell;
+      if (neutral) {
+        neutralCell = renderName(p);
+      } else if (atWar) {
+        neutralCell = renderBtn(
+          iconBtn(
+            peaceIcon,
+            peaceColor,
+            "control_panel2.diplomacy_request_peace_tooltip",
+            () => this.eventBus.emit(new SendPeaceRequestIntentEvent(me, p)),
+          ),
+        );
+      } else {
+        neutralCell = renderEmpty();
+      }
+
+      return html`
+        <div class="flex w-full py-1 border-b border-gray-600/50">
+          <div class="w-1/3 px-1 flex items-center justify-center">
+            ${atWarCell}
+          </div>
+          <div class="w-1/3 px-1 flex items-center justify-center">
+            ${alliedCell}
+          </div>
+          <div class="w-1/3 px-1 flex items-center justify-center">
+            ${neutralCell}
+          </div>
+        </div>
+      `;
+    });
+
     return html`
-      <div class="flex w-full h-full">
-        ${renderPlayerList(atWar, "At War")}
-        ${renderPlayerList(allied, "Allied")}
-        ${renderPlayerList(neutral, "Neutral")}
+      <div class="flex flex-col w-full h-full">
+        <!-- Header row -->
+        <div class="flex w-full mb-2">
+          <div class="w-1/3 px-1 text-center font-bold text-gray-300">
+            At War
+          </div>
+          <div class="w-1/3 px-1 text-center font-bold text-gray-300">
+            Allied
+          </div>
+          <div class="w-1/3 px-1 text-center font-bold text-gray-300">
+            Neutral
+          </div>
+        </div>
+        <!-- Player rows -->
+        ${rows}
       </div>
     `;
   }
