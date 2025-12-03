@@ -4,6 +4,8 @@ import { translateText } from "../../../client/Utils";
 import { EventBus } from "../../../core/EventBus";
 import { GameUpdateType } from "../../../core/game/GameUpdates";
 import { GameView } from "../../../core/game/GameView";
+import { GameRecord } from "../../../core/Schemas";
+import { encodeReplay, isCompressionSupported } from "../../ReplayCodec";
 import { SendWinnerEvent } from "../../Transport";
 import { Layer } from "./Layer";
 
@@ -17,6 +19,24 @@ export class WinModal extends LitElement implements Layer {
 
   @state()
   isVisible = false;
+
+  @state()
+  private gameRecord: GameRecord | null = null;
+
+  @state()
+  private replayCode: string = "";
+
+  @state()
+  private encoding: boolean = false;
+
+  @state()
+  private copied: boolean = false;
+
+  @state()
+  private showReplayOptions: boolean = false;
+
+  @state()
+  private encodeError: string = "";
 
   private _title: string;
 
@@ -105,6 +125,23 @@ export class WinModal extends LitElement implements Layer {
       transform: translateY(1px);
     }
 
+    .win-modal button.secondary {
+      background: var(--ui-secondary);
+    }
+
+    .win-modal button.secondary:hover {
+      background: var(--ui-secondary-hover);
+    }
+
+    .replay-options {
+      margin-top: 15px;
+      padding-top: 15px;
+      border-top: 1px solid var(--ui-border);
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
     @media (max-width: 768px) {
       .win-modal {
         width: 90%;
@@ -146,6 +183,59 @@ export class WinModal extends LitElement implements Layer {
     }
   }
 
+  setGameRecord(record: GameRecord) {
+    this.gameRecord = record;
+    this.replayCode = "";
+    this.encodeError = "";
+    this.showReplayOptions = false;
+    this.requestUpdate();
+  }
+
+  async prepareReplay() {
+    if (!this.gameRecord) return;
+
+    this.showReplayOptions = true;
+    this.encodeError = "";
+    if (this.replayCode) return;
+
+    if (!isCompressionSupported()) {
+      this.encodeError =
+        "Your browser does not support replay encoding. Please use a modern browser.";
+      return;
+    }
+
+    this.encoding = true;
+    try {
+      this.replayCode = await encodeReplay(this.gameRecord);
+    } catch (err) {
+      console.error("Failed to encode replay:", err);
+      this.encodeError = "Failed to encode replay. Please try again.";
+    }
+    this.encoding = false;
+  }
+
+  async copyToClipboard() {
+    if (!this.replayCode) return;
+    try {
+      await navigator.clipboard.writeText(this.replayCode);
+      this.copied = true;
+      setTimeout(() => (this.copied = false), 2000);
+    } catch (err) {
+      console.error("Failed to copy:", err);
+    }
+  }
+
+  downloadAsFile() {
+    if (!this.replayCode) return;
+    const blob = new Blob([this.replayCode], { type: "text/plain" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `terratomic-replay-${Date.now()}.txt`;
+    a.click();
+    URL.revokeObjectURL(url);
+  }
+
   render() {
     return html`
       <div class="win-modal ${this.isVisible ? "visible" : ""}">
@@ -158,6 +248,39 @@ export class WinModal extends LitElement implements Layer {
             ${translateText("win_modal.keep")}
           </button>
         </div>
+
+        ${this.gameRecord
+          ? html`
+              <div class="button-container" style="margin-top: 10px;">
+                <button class="secondary" @click=${this.prepareReplay}>
+                  ${translateText("win_modal.save_replay")}
+                </button>
+              </div>
+            `
+          : ""}
+        ${this.showReplayOptions
+          ? html`
+              <div class="replay-options">
+                ${this.encodeError
+                  ? html`<p style="color: #f87171;">${this.encodeError}</p>`
+                  : this.encoding
+                    ? html`<p>${translateText("win_modal.encoding_replay")}</p>`
+                    : html`
+                        <div class="button-container">
+                          <button @click=${this.copyToClipboard}>
+                            ${this.copied
+                              ? translateText("win_modal.copied")
+                              : translateText("win_modal.copy_to_clipboard")}
+                          </button>
+                          <button @click=${this.downloadAsFile}>
+                            ${translateText("win_modal.download_file")}
+                          </button>
+                        </div>
+                      `}
+              </div>
+            `
+          : ""}
+
         <div class="button-container" style="margin-top: 10px;">
           <button
             @click=${() =>
@@ -174,6 +297,15 @@ export class WinModal extends LitElement implements Layer {
   show() {
     this.isVisible = true;
     this.requestUpdate();
+  }
+
+  showSaveReplay(record: GameRecord) {
+    this.gameRecord = record;
+    this.replayCode = "";
+    this.showReplayOptions = false;
+    this._title = translateText("win_modal.save_replay");
+    this.show();
+    this.prepareReplay();
   }
 
   hide() {

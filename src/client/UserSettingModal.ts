@@ -7,6 +7,7 @@ import { SettingKeybind } from "./components/baseComponents/setting/SettingKeybi
 import "./components/baseComponents/setting/SettingNumber";
 import "./components/baseComponents/setting/SettingSlider";
 import "./components/baseComponents/setting/SettingToggle";
+import "./LoadReplayModal";
 import {
   adjustUiScalePercent,
   applyUiScalePercent,
@@ -23,7 +24,7 @@ import {
 export class UserSettingModal extends LitElement {
   private userSettings: UserSettings = new UserSettings();
 
-  @state() private settingsMode: "basic" | "keybinds" = "basic";
+  @state() private settingsMode: "basic" | "keybinds" | "replays" = "basic";
   @state() private keybinds: Record<string, string> = {};
   @state() private uiScalePercent = UI_SCALE_DEFAULT_PERCENT;
 
@@ -218,10 +219,10 @@ export class UserSettingModal extends LitElement {
     return html`
       <o-modal title="${translateText("user_setting.title")}">
         <div class="modal-overlay">
-          <div class="modal-content user-setting-modal">
+          <div class="modal-content user-setting-modal min-w-[400px]">
             <div class="flex mb-4 w-full justify-center">
               <button
-                class="w-1/2 text-center px-3 py-1 rounded-l 
+                class="w-1/3 text-center px-3 py-1 rounded-l 
       ${this.settingsMode === "basic"
                   ? "bg-white/10 text-white"
                   : "bg-transparent text-gray-400"}"
@@ -230,7 +231,7 @@ export class UserSettingModal extends LitElement {
                 ${translateText("user_setting.tab_basic")}
               </button>
               <button
-                class="w-1/2 text-center px-3 py-1 rounded-r 
+                class="w-1/3 text-center px-3 py-1 
       ${this.settingsMode === "keybinds"
                   ? "bg-white/10 text-white"
                   : "bg-transparent text-gray-400"}"
@@ -238,16 +239,37 @@ export class UserSettingModal extends LitElement {
               >
                 ${translateText("user_setting.tab_keybinds")}
               </button>
+              <button
+                class="w-1/3 text-center px-3 py-1 rounded-r 
+      ${this.settingsMode === "replays"
+                  ? "bg-white/10 text-white"
+                  : "bg-transparent text-gray-400"}"
+                @click=${() => (this.settingsMode = "replays")}
+              >
+                Replays
+              </button>
             </div>
 
             <div class="settings-list">
               ${this.settingsMode === "basic"
                 ? this.renderBasicSettings()
-                : this.renderKeybindSettings()}
+                : this.settingsMode === "keybinds"
+                  ? this.renderKeybindSettings()
+                  : this.renderReplaySettings()}
             </div>
           </div>
         </div>
       </o-modal>
+    `;
+  }
+
+  private renderReplaySettings() {
+    return html`
+      <div>
+        <load-replay-modal
+          @close-modal=${() => this.close()}
+        ></load-replay-modal>
+      </div>
     `;
   }
 

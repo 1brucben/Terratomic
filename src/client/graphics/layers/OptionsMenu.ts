@@ -6,7 +6,7 @@ import { GameUpdateType } from "../../../core/game/GameUpdates";
 import { GameView } from "../../../core/game/GameView";
 import { UserSettings } from "../../../core/game/UserSettings";
 import { AlternateViewEvent, RefreshGraphicsEvent } from "../../InputHandler";
-import { PauseGameEvent } from "../../Transport";
+import { PauseGameEvent, SaveReplayRequestEvent } from "../../Transport";
 import { translateText } from "../../Utils";
 import {
   adjustUiScalePercent,
@@ -77,6 +77,9 @@ export class OptionsMenu extends LitElement implements Layer {
 
   @state()
   private alternateView: boolean = false;
+
+  @state()
+  private isReplay: boolean = false;
 
   private onTerrainButtonClick() {
     this.alternateView = !this.alternateView;
@@ -172,6 +175,10 @@ export class OptionsMenu extends LitElement implements Layer {
     this.requestUpdate();
   }
 
+  private onSaveReplayClick() {
+    this.eventBus.emit(new SaveReplayRequestEvent());
+  }
+
   private changeUiScale(delta: number) {
     const next = adjustUiScalePercent(this.uiScalePercent, delta);
     if (next === this.uiScalePercent) return;
@@ -188,9 +195,10 @@ export class OptionsMenu extends LitElement implements Layer {
 
   init() {
     console.log("init called from OptionsMenu");
+    this.isReplay = this.game.config().isReplay();
     this.showPauseButton =
       this.game.config().gameConfig().gameType === GameType.Singleplayer ||
-      this.game.config().isReplay();
+      this.isReplay;
     this.isVisible = true;
     this.requestUpdate();
   }
@@ -331,6 +339,15 @@ export class OptionsMenu extends LitElement implements Layer {
                 ? "Opens menu"
                 : "Attack"),
           })}
+          ${
+            !this.isReplay
+              ? button({
+                  onClick: this.onSaveReplayClick,
+                  title: translateText("win_modal.save_replay"),
+                  children: "💾 " + translateText("win_modal.save_replay"),
+                })
+              : ""
+          }
           <div class="flex flex-col gap-1 px-1 text-white">
             <span class="text-sm text-center">
               ${translateText("user_setting.ui_scale_label")}
