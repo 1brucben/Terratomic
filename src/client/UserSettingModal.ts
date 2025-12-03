@@ -652,6 +652,15 @@ export class UserSettingModal extends LitElement {
         @change=${this.handleKeybindChange}
       ></setting-keybind>
 
+      <setting-keybind
+        action="buildSubmarine"
+        label=${translateText("user_setting.build_submarine")}
+        description=${translateText("user_setting.build_submarine_desc")}
+        defaultKey="Digit0"
+        .value=${this.keybinds["buildSubmarine"] ?? ""}
+        @change=${this.handleKeybindChange}
+      ></setting-keybind>
+
       <div class="text-center text-white text-base font-semibold mt-5 mb-2">
         ${translateText("user_setting.nukes")}
       </div>

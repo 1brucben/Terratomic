@@ -426,6 +426,8 @@
     "build_fighter_jet_desc": "Set the hotkey to build a Fighter Jet.",
     "build_warship": "Build Cruiser",
     "build_warship_desc": "Set the hotkey to build a Cruiser.",
+    "build_submarine": "Build Submarine",
+    "build_submarine_desc": "Set the hotkey to build a Submarine.",
     "reset": "Reset",
     "unbind": "Unbind",
     "on": "On",
