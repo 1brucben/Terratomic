@@ -1167,5 +1167,28 @@
       "map_large": "<strong>Large Maps:</strong> Airfields become crucial for projecting power across vast distances.",
       "map_small": "<strong>Small Maps:</strong> Expect early conflict. Build Defense Posts and Military Academies quickly."
     }
+  },
+  "rankings": {
+    "title": "Rankings",
+    "leaderboard": "Leaderboard",
+    "players_tab": "Players",
+    "clans_tab": "Clans",
+    "hall_of_fame_tab": "Hall of Fame",
+    "player": "Player",
+    "clan": "Clan",
+    "members": "Members",
+    "games": "Games",
+    "wins": "Wins",
+    "win_rate": "Win %",
+    "score": "Score",
+    "total_players": "Total players",
+    "total_clans": "Total clans",
+    "no_rankings": "No rankings yet. Play some games to get on the leaderboard!",
+    "no_clans": "No clan rankings yet. Use [TAG] in your name to join a clan!",
+    "no_hall_of_fame": "No past winners yet. Check back after the first month!",
+    "top_players": "Top Players",
+    "top_clans": "Top Clans",
+    "loading": "Loading...",
+    "retry": "Retry"
   }
 }

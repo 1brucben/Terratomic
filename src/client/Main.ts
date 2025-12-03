@@ -21,6 +21,7 @@ import "./LobbyNotificationPopup";
 import { NewsModal } from "./NewsModal";
 import "./PublicLobby";
 import { PublicLobby } from "./PublicLobby";
+import { RankingsModal } from "./RankingsModal";
 import { SinglePlayerModal } from "./SinglePlayerModal";
 import "./SoundButton";
 import { SendKickPlayerIntentEvent } from "./Transport";
@@ -241,6 +242,16 @@ class Client {
     if (helpButton === null) throw new Error("Missing help-button");
     helpButton.addEventListener("click", () => {
       hlpModal.open();
+    });
+
+    const rankingsModal = document.querySelector(
+      "rankings-modal",
+    ) as RankingsModal;
+    rankingsModal instanceof RankingsModal;
+    const rankingsButton = document.getElementById("rankings-button");
+    if (rankingsButton === null) throw new Error("Missing rankings-button");
+    rankingsButton.addEventListener("click", () => {
+      rankingsModal.open();
     });
 
     // if (isLoggedIn() === false) {
