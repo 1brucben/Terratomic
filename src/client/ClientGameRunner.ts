@@ -7,6 +7,7 @@ import {
   GameStartInfo,
   PlayerRecord,
   ServerMessage,
+  Turn,
 } from "../core/Schemas";
 import { createGameRecord } from "../core/Util";
 import { ServerConfig } from "../core/configuration/Config";
@@ -42,6 +43,7 @@ import { LobbyWatcher } from "./LobbyWatcher";
 import { endGame, startGame, startTime } from "./LocalPersistantStats";
 import { getPersistentID } from "./Main";
 import {
+  SaveReplayRequestEvent,
   SendAttackIntentEvent,
   SendBoatAttackIntentEvent,
   SendHashEvent,
@@ -51,6 +53,7 @@ import {
 } from "./Transport";
 import { createCanvas } from "./Utils";
 import { createRenderer, GameRenderer } from "./graphics/GameRenderer";
+import { WinModal } from "./graphics/layers/WinModal";
 import { AVAILABLE_STATS, computeStatValue } from "./stats/StatDefinitions";
 import statsStore from "./stats/StatsStore";
 
@@ -196,6 +199,7 @@ export class ClientGameRunner {
 
   private turnsSeen = 0;
   private hasJoined = false;
+  private turnBuffer: Turn[] = [];
 
   private lastMousePosition: { x: number; y: number } | null = null;
 
@@ -234,32 +238,78 @@ export class ClientGameRunner {
   }
 
   private saveGame(update: WinUpdate) {
+    if (this.lobby.gameRecord) {
+      return;
+    }
     if (this.myPlayer === null) {
       return;
     }
-    const players: PlayerRecord[] = [
-      {
-        persistentID: getPersistentID(),
-        username: this.lobby.playerName,
-        clientID: this.lobby.clientID,
-        stats: update.allPlayersStats[this.lobby.clientID],
-      },
-    ];
-
     if (this.lobby.gameStartInfo === undefined) {
       throw new Error("missing gameStartInfo");
     }
+
+    // Include all players from the game, not just the local player
+    const players: PlayerRecord[] = this.lobby.gameStartInfo.players.map(
+      (p) => ({
+        persistentID:
+          p.clientID === this.lobby.clientID ? getPersistentID() : "unknown",
+        username: p.username,
+        clientID: p.clientID,
+        stats: update.allPlayersStats[p.clientID] ?? {},
+      }),
+    );
     const record = createGameRecord(
       this.lobby.gameStartInfo.gameID,
       this.lobby.gameStartInfo.config,
       players,
-      // Not saving turns locally
-      [],
+      this.turnBuffer,
       startTime(),
       Date.now(),
       update.winner,
     );
     endGame(record);
+
+    // Pass record to WinModal
+    const winModal = document.querySelector("win-modal") as WinModal;
+    if (winModal) {
+      winModal.setGameRecord(record);
+    }
+  }
+
+  private handleSaveReplayRequest() {
+    if (this.lobby.gameRecord) {
+      // Already watching a replay, don't save
+      return;
+    }
+    if (this.lobby.gameStartInfo === undefined) {
+      return;
+    }
+
+    // Include all players from the game, not just the local player
+    const players: PlayerRecord[] = this.lobby.gameStartInfo.players.map(
+      (p) => ({
+        persistentID:
+          p.clientID === this.lobby.clientID ? getPersistentID() : "unknown",
+        username: p.username,
+        clientID: p.clientID,
+        stats: {},
+      }),
+    );
+
+    const record = createGameRecord(
+      this.lobby.gameStartInfo.gameID,
+      this.lobby.gameStartInfo.config,
+      players,
+      this.turnBuffer,
+      startTime(),
+      Date.now(),
+      undefined, // No winner yet
+    );
+
+    const winModal = document.querySelector("win-modal") as WinModal;
+    if (winModal) {
+      winModal.showSaveReplay(record);
+    }
   }
 
   public start() {
@@ -311,6 +361,10 @@ export class ClientGameRunner {
       } else if (this.selectedUnit === e.unit) {
         this.selectedUnit = null;
       }
+    });
+
+    this.eventBus.on(SaveReplayRequestEvent, () => {
+      this.handleSaveReplayRequest();
     });
 
     this.renderer.initialize();
@@ -411,6 +465,7 @@ export class ClientGameRunner {
             `got wrong turn have turns ${this.turnsSeen}, received turn ${message.turn.turnNumber}`,
           );
         } else {
+          this.turnBuffer.push(message.turn);
           this.worker.sendTurn(message.turn);
           this.turnsSeen++;
         }
@@ -433,6 +488,8 @@ export class ClientGameRunner {
     if (this.lobbyWatcher) {
       this.lobbyWatcher.stop();
     }
+    // Clear turn buffer to free memory
+    this.turnBuffer = [];
   }
 
   private inputEvent(event: MouseUpEvent) {
