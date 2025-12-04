@@ -1,31 +1,41 @@
 import { PlayerExecution } from "../../../src/core/execution/PlayerExecution";
-import { PlayerType, UnitType } from "../../../src/core/game/Game";
+import { PlayerType, UnitType, UpgradeType } from "../../../src/core/game/Game";
 import { GameImpl } from "../../../src/core/game/GameImpl";
 import { PlayerImpl } from "../../../src/core/game/PlayerImpl";
 import { RESEARCH_TECH_IDS } from "../../../src/core/tech/TechEffects";
 import { playerInfo, setup } from "../../util/Setup";
 
 describe("Economy tech integrations", () => {
-  it("boosts max population after researching Urban Planning", async () => {
-    const info = playerInfo("planner", PlayerType.Human);
+  it("enables Roads after researching Post-War Reconstruction", async () => {
+    const info = playerInfo("builder", PlayerType.Human);
     const game = (await setup("ocean_and_land", {}, [info])) as GameImpl;
     const player = game.player(info.id) as PlayerImpl;
 
-    const baseMax = game.config().maxPopulation(player);
-    player.addResearchedTech(RESEARCH_TECH_IDS.URBAN_PLANNING);
-    const boostedMax = game.config().maxPopulation(player);
-
-    expect(boostedMax).toBe(Math.floor((baseMax * 5) / 4));
+    expect(player.hasUpgrade(UpgradeType.Roads)).toBe(false);
+    player.addResearchedTech(RESEARCH_TECH_IDS.POST_WAR_RECONSTRUCTION);
+    expect(player.hasUpgrade(UpgradeType.Roads)).toBe(true);
   });
 
-  it("refunds 33% of a structure's cost on destruction with Structure Insurance", async () => {
+  it("enables InternationalTrade after researching Port & Transport Modernization", async () => {
+    const info = playerInfo("trader", PlayerType.Human);
+    const game = (await setup("ocean_and_land", {}, [info])) as GameImpl;
+    const player = game.player(info.id) as PlayerImpl;
+
+    expect(player.hasUpgrade(UpgradeType.InternationalTrade)).toBe(false);
+    player.addResearchedTech(RESEARCH_TECH_IDS.POST_WAR_RECONSTRUCTION);
+    player.addResearchedTech(RESEARCH_TECH_IDS.PORT_TRANSPORT_MODERNIZATION);
+    expect(player.hasUpgrade(UpgradeType.InternationalTrade)).toBe(true);
+  });
+
+  it("refunds 33% of a structure's cost on destruction with Infrastructure Recovery Fund", async () => {
     const info = playerInfo("insured", PlayerType.Human);
     const game = (await setup("ocean_and_land", { infiniteGold: true }, [
       info,
     ])) as GameImpl;
     const player = game.player(info.id) as PlayerImpl;
 
-    player.addResearchedTech(RESEARCH_TECH_IDS.STRUCTURE_INSURANCE);
+    player.addResearchedTech(RESEARCH_TECH_IDS.POST_WAR_RECONSTRUCTION);
+    player.addResearchedTech(RESEARCH_TECH_IDS.INFRASTRUCTURE_RECOVERY_FUND);
 
     const cityCost = game.config().unitInfo(UnitType.City).cost(player);
     const city = player.buildUnit(UnitType.City, game.ref(1, 1), {});
@@ -53,7 +63,8 @@ describe("Economy tech integrations", () => {
     const tile = game.ref(0, 15);
     game.conquer(defender, tile);
 
-    defender.addResearchedTech(RESEARCH_TECH_IDS.STRUCTURE_INSURANCE);
+    defender.addResearchedTech(RESEARCH_TECH_IDS.POST_WAR_RECONSTRUCTION);
+    defender.addResearchedTech(RESEARCH_TECH_IDS.INFRASTRUCTURE_RECOVERY_FUND);
     const cityCost = game.config().unitInfo(UnitType.City).cost(defender);
     const city = defender.buildUnit(UnitType.City, tile, {});
     const initialGold = defender.gold();
@@ -66,46 +77,29 @@ describe("Economy tech integrations", () => {
     expect(city.owner()).toBe(attacker);
   });
 
-  it("reduces troop regeneration after researching Automation", async () => {
-    const info = playerInfo("auto", PlayerType.Human);
+  it("enables HospitalResearch after researching National Health System", async () => {
+    const info = playerInfo("health", PlayerType.Human);
     const game = (await setup("ocean_and_land", {}, [info])) as GameImpl;
     const player = game.player(info.id) as PlayerImpl;
 
-    const baseRate = game.config().populationIncreaseRate(player);
-    player.addResearchedTech(RESEARCH_TECH_IDS.AUTOMATION);
-    const adjustedRate = game.config().populationIncreaseRate(player);
+    // Need to research level 2 first (prerequisite)
+    player.addResearchedTech(RESEARCH_TECH_IDS.POST_WAR_RECONSTRUCTION);
+    player.addResearchedTech(RESEARCH_TECH_IDS.NATIONAL_HIGHWAY_EXPANSION);
 
-    expect(adjustedRate).toBeCloseTo((baseRate * 4) / 5);
+    expect(player.hasUpgrade(UpgradeType.HospitalResearch)).toBe(false);
+    player.addResearchedTech(RESEARCH_TECH_IDS.NATIONAL_HEALTH_SYSTEM);
+    expect(player.hasUpgrade(UpgradeType.HospitalResearch)).toBe(true);
   });
 
-  it("doubles domestic cargo truck gold with Automation", async () => {
-    const info = playerInfo("hauler", PlayerType.Human);
-    const game = (await setup("ocean_and_land", { infiniteGold: true }, [
-      info,
-    ])) as GameImpl;
+  it("revokes Roads when Post-War Reconstruction is revoked", async () => {
+    const info = playerInfo("revoker", PlayerType.Human);
+    const game = (await setup("ocean_and_land", {}, [info])) as GameImpl;
     const player = game.player(info.id) as PlayerImpl;
 
-    player.addResearchedTech(RESEARCH_TECH_IDS.AUTOMATION);
+    player.addResearchedTech(RESEARCH_TECH_IDS.POST_WAR_RECONSTRUCTION);
+    expect(player.hasUpgrade(UpgradeType.Roads)).toBe(true);
 
-    const cargoManager = (game as any).cargoManager;
-    const path = [game.ref(0, 0), game.ref(0, 1)];
-    game.conquer(player, path[0]);
-    game.conquer(player, path[1]);
-
-    const truck = {
-      id: 0,
-      owner: player,
-      path,
-      progress: path.length - 1,
-      position: [0, 0] as [number, number],
-    };
-
-    (cargoManager as any).trucks.set(truck.id, truck);
-    const initialGold = player.gold();
-    cargoManager.tick([]);
-    const finalGold = player.gold();
-
-    const baseGold = game.config().cargoTruckGold(path.length);
-    expect(finalGold).toBe(initialGold + baseGold * 2n);
+    player.removeResearchedTechsByCategory("Economy");
+    expect(player.hasUpgrade(UpgradeType.Roads)).toBe(false);
   });
 });

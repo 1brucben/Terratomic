@@ -330,7 +330,10 @@ export class ControlPanel extends LitElement implements Layer {
                     class="hidden lg:block mb-4 p-2 rounded-sm"
                     style="background-color: var(--ui-table-row-bg)"
                   >
-                    <div class="flex justify-between mb-1">
+                    <div
+                      class="flex justify-between mb-1"
+                      data-i18n-title="control_panel.pop_tooltip"
+                    >
                       <span class="font-bold military-heading">
                         ${translateText("control_panel.pop")}:
                       </span>
@@ -347,7 +350,10 @@ export class ControlPanel extends LitElement implements Layer {
                         </span>
                       </span>
                     </div>
-                    <div class="flex justify-between">
+                    <div
+                      class="flex justify-between"
+                      data-i18n-title="control_panel.gold_tooltip"
+                    >
                       <span class="font-bold military-heading">
                         ${translateText("control_panel.gold")}:
                       </span>
@@ -366,7 +372,11 @@ export class ControlPanel extends LitElement implements Layer {
 
                   <!-- Troops/Workers ratio -->
                   <div class="relative">
-                    <label class="block military-label mb-1" translate="no">
+                    <label
+                      class="block military-label mb-1"
+                      translate="no"
+                      data-i18n-title="control_panel.troops_workers_tooltip"
+                    >
                       ${translateText("control_panel.troops")}:
                       <span translate="no" class="normal-case"
                         >${renderTroops(this._troops)}</span
@@ -401,13 +411,18 @@ export class ControlPanel extends LitElement implements Layer {
                           this.onTroopChange(this.targetTroopRatio);
                         }}
                         class="absolute left-0 right-0 top-2 m-0 h-4 cursor-pointer targetTroopRatio military-slider"
+                        data-i18n-title="control_panel.troops_workers_tooltip"
                       />
                     </div>
                   </div>
 
                   <!-- Attack ratio -->
                   <div class="relative">
-                    <label class="block military-label mb-1" translate="no">
+                    <label
+                      class="block military-label mb-1"
+                      translate="no"
+                      data-i18n-title="control_panel.attack_ratio_tooltip"
+                    >
                       ${translateText("control_panel.attack_ratio")}:
                       ${(this.attackRatio * 100).toFixed(0)}%
                       (${renderTroops(
@@ -441,6 +456,7 @@ export class ControlPanel extends LitElement implements Layer {
                           this.onAttackRatioChange(this.attackRatio);
                         }}
                         class="absolute left-0 right-0 top-2 m-0 h-4 cursor-pointer attackRatio military-slider"
+                        data-i18n-title="control_panel.attack_ratio_tooltip"
                       />
                     </div>
                   </div>
@@ -467,6 +483,16 @@ export class ControlPanel extends LitElement implements Layer {
           `
         : ""}
     `;
+  }
+
+  updated() {
+    // Apply translations to tooltips after rendering
+    this.querySelectorAll("[data-i18n-title]").forEach((el) => {
+      const key = el.getAttribute("data-i18n-title");
+      if (key) {
+        el.setAttribute("title", translateText(key));
+      }
+    });
   }
 
   createRenderRoot() {

@@ -1,15 +1,14 @@
-import { getTechMeta } from "./TechEffects";
-
 export type Category = "Land" | "Sea" | "Air" | "Nuclear" | "Economy";
 
+/**
+ * Core tech node for tree structure - metadata (name, description) is in TechEffects.ts
+ */
 export interface TechNode {
   id: string;
-  name: string;
   category: Category;
   level: number; // 1..5 top to bottom
   requiresAllOf?: string[]; // all these must be researched
   requiresOneOf?: string[]; // at least one of these researched
-  description?: string; // Optional hover description
   cost: number; // beakers to complete
 }
 
@@ -25,88 +24,356 @@ const mkId = (cat: Category, lvl: number) => `${cat}-${lvl}`;
 
 const baseLevels: TechNode[] = (() => {
   const nodes: TechNode[] = [];
-  for (let lvl = 1; lvl <= 5; lvl++) {
-    for (const cat of ["Land", "Sea", "Air", "Nuclear", "Economy"] as const) {
-      const id = mkId(cat, lvl);
-      const meta = getTechMeta(id, { strict: false });
-      const node: TechNode = {
-        id,
-        name: meta?.name ?? `${cat} Tech ${lvl}`,
-        category: cat,
-        level: lvl,
-        description: meta?.description,
-        requiresAllOf: lvl > 1 ? [mkId(cat, lvl - 1)] : undefined,
-        cost: costForLevel(lvl),
-      };
-      nodes.push(node);
-    }
-  }
+  // All categories now have explicit definitions
   return nodes;
 })();
 
-// Parallel/branching techs as per current UI
-const extras: TechNode[] = [
+// Nuclear branch techs (explicit definitions)
+const nuclearTechs: TechNode[] = [
+  { id: "Nuclear-1", category: "Nuclear", level: 1, cost: costForLevel(1) },
   {
-    id: "Land-2B",
-    name: getTechMeta("Land-2B", { strict: false })?.name ?? "Scorched Earth",
+    id: "Nuclear-2",
+    category: "Nuclear",
+    level: 2,
+    requiresAllOf: ["Nuclear-1"],
+    cost: costForLevel(2),
+  },
+  {
+    id: "Nuclear-3",
+    category: "Nuclear",
+    level: 3,
+    requiresAllOf: ["Nuclear-2"],
+    cost: costForLevel(3),
+  },
+  {
+    id: "Nuclear-4",
+    category: "Nuclear",
+    level: 4,
+    requiresAllOf: ["Nuclear-3"],
+    cost: costForLevel(4),
+  },
+];
+
+// Sea branch techs (explicit definitions)
+const seaTechs: TechNode[] = [
+  // Level 1 - Two parallel starting techs
+  { id: "Sea-0", category: "Sea", level: 1, cost: costForLevel(1) },
+  { id: "Sea-1", category: "Sea", level: 1, cost: costForLevel(1) },
+  // Level 2
+  {
+    id: "Sea-2A",
+    category: "Sea",
+    level: 2,
+    requiresAllOf: ["Sea-0"],
+    cost: costForLevel(2),
+  },
+  {
+    id: "Sea-2B",
+    category: "Sea",
+    level: 2,
+    requiresAllOf: ["Sea-1"],
+    cost: costForLevel(2),
+  },
+  {
+    id: "Sea-2C",
+    category: "Sea",
+    level: 2,
+    requiresAllOf: ["Sea-1"],
+    cost: costForLevel(2),
+  },
+  // Level 3
+  {
+    id: "Sea-3A",
+    category: "Sea",
+    level: 3,
+    requiresAllOf: ["Sea-2A"],
+    cost: costForLevel(3),
+  },
+  {
+    id: "Sea-3B",
+    category: "Sea",
+    level: 3,
+    requiresAllOf: ["Sea-2B"],
+    cost: costForLevel(3),
+  },
+  {
+    id: "Sea-3C",
+    category: "Sea",
+    level: 3,
+    requiresAllOf: ["Sea-2A"],
+    cost: costForLevel(3),
+  },
+  // Level 4
+  {
+    id: "Sea-4A",
+    category: "Sea",
+    level: 4,
+    requiresAllOf: ["Sea-3A"],
+    cost: costForLevel(4),
+  },
+  {
+    id: "Sea-4B",
+    category: "Sea",
+    level: 4,
+    requiresAllOf: ["Sea-3B"],
+    cost: costForLevel(4),
+  },
+];
+
+// Land branch techs (explicit definitions)
+const landTechs: TechNode[] = [
+  // Level 1
+  { id: "Land-1", category: "Land", level: 1, cost: costForLevel(1) },
+  // Level 2 - Three parallel techs, all require Land-1
+  {
+    id: "Land-2A",
     category: "Land",
     level: 2,
     requiresAllOf: ["Land-1"],
-    description:
-      getTechMeta("Land-2B", { strict: false })?.description ??
-      "Unlocks the Scorched Earth decision, letting you raze roads and reset economic techs.",
+    cost: costForLevel(2),
+  },
+  {
+    id: "Land-2B",
+    category: "Land",
+    level: 2,
+    requiresAllOf: ["Land-1"],
+    cost: costForLevel(2),
+  },
+  {
+    id: "Land-2C",
+    category: "Land",
+    level: 2,
+    requiresAllOf: ["Land-1"],
+    cost: costForLevel(2),
+  },
+  // Level 3 - Three techs, each requires any one of the Level 2 techs
+  {
+    id: "Land-3A",
+    category: "Land",
+    level: 3,
+    requiresOneOf: ["Land-2A", "Land-2B", "Land-2C"],
+    cost: costForLevel(3),
+  },
+  {
+    id: "Land-3B",
+    category: "Land",
+    level: 3,
+    requiresOneOf: ["Land-2A", "Land-2B", "Land-2C"],
+    cost: costForLevel(3),
+  },
+  {
+    id: "Land-3C",
+    category: "Land",
+    level: 3,
+    requiresOneOf: ["Land-2A", "Land-2B", "Land-2C"],
+    cost: costForLevel(3),
+  },
+  // Level 4 - Three techs, each requires any one of the Level 3 techs
+  {
+    id: "Land-4A",
+    category: "Land",
+    level: 4,
+    requiresOneOf: ["Land-3A", "Land-3B", "Land-3C"],
+    cost: costForLevel(4),
+  },
+  {
+    id: "Land-4B",
+    category: "Land",
+    level: 4,
+    requiresOneOf: ["Land-3A", "Land-3B", "Land-3C"],
+    cost: costForLevel(4),
+  },
+  {
+    id: "Land-4C",
+    category: "Land",
+    level: 4,
+    requiresOneOf: ["Land-3A", "Land-3B", "Land-3C"],
+    cost: costForLevel(4),
+  },
+];
+
+// Parallel/branching techs as per current UI
+const extras: TechNode[] = [
+  // Air tech tree - Level 1 (two parallel starting techs)
+  { id: "Air-0", category: "Air", level: 1, cost: costForLevel(1) },
+  { id: "Air-1", category: "Air", level: 1, cost: costForLevel(1) },
+  // Air tech tree - Level 2 (four techs)
+  {
+    id: "Air-2A",
+    category: "Air",
+    level: 2,
+    requiresAllOf: ["Air-0"],
     cost: costForLevel(2),
   },
   {
     id: "Air-2B",
-    name: "Paratroopers",
     category: "Air",
     level: 2,
-    requiresAllOf: ["Air-1"],
-    description:
-      "Unlocks Paratroopers, allowing you to launch surprise attacks from the sky. Requires an Airfield.",
+    requiresAllOf: ["Air-0"],
     cost: costForLevel(2),
   },
   {
-    id: "Sea-4B",
-    name: getTechMeta("Sea-4B", { strict: false })?.name ?? "Sea Tech 4B",
-    category: "Sea",
+    id: "Air-2C",
+    category: "Air",
+    level: 2,
+    requiresAllOf: ["Air-0"],
+    cost: costForLevel(2),
+  },
+  {
+    id: "Air-2D",
+    category: "Air",
+    level: 2,
+    requiresAllOf: ["Air-1"],
+    cost: costForLevel(2),
+  },
+  // Air tech tree - Level 3 (four techs)
+  {
+    id: "Air-3A",
+    category: "Air",
+    level: 3,
+    requiresAllOf: ["Air-2A"],
+    cost: costForLevel(3),
+  },
+  {
+    id: "Air-3B",
+    category: "Air",
+    level: 3,
+    requiresAllOf: ["Air-2A"],
+    cost: costForLevel(3),
+  },
+  {
+    id: "Air-3C",
+    category: "Air",
+    level: 3,
+    requiresAllOf: ["Air-2B"],
+    cost: costForLevel(3),
+  },
+  {
+    id: "Air-3D",
+    category: "Air",
+    level: 3,
+    requiresAllOf: ["Air-2D"],
+    cost: costForLevel(3),
+  },
+  // Air tech tree - Level 4 (three techs)
+  {
+    id: "Air-4A",
+    category: "Air",
     level: 4,
-    requiresAllOf: ["Sea-3"],
-    description: getTechMeta("Sea-4B", { strict: false })?.description,
+    requiresAllOf: ["Air-3A"],
     cost: costForLevel(4),
   },
   {
-    id: "Economy-3B",
-    name:
-      getTechMeta("Economy-3B", { strict: false })?.name ?? "Economy Tech 3B",
-    category: "Economy",
-    level: 3,
-    requiresAllOf: ["Economy-2"],
-    description: getTechMeta("Economy-3B", { strict: false })?.description,
-    cost: costForLevel(3),
+    id: "Air-4B",
+    category: "Air",
+    level: 4,
+    requiresAllOf: ["Air-3C"],
+    cost: costForLevel(4),
+  },
+  {
+    id: "Air-4C",
+    category: "Air",
+    level: 4,
+    requiresAllOf: ["Air-3D"],
+    cost: costForLevel(4),
   },
 ];
 
-// Compose full tree and tweak special prerequisites
-const tree: TechNode[] = (() => {
-  const t = [...baseLevels, ...extras];
-  // Nuclear-5 requires Nuclear-4 only (remove cross-category remnants)
-  const n5 = t.find((x) => x.id === "Nuclear-5");
-  if (n5) n5.requiresAllOf = ["Nuclear-4"];
-  // Sea-5 can require one of Sea-4 or Sea-4B
-  const sea5 = t.find((x) => x.id === "Sea-5");
-  if (sea5) {
-    sea5.requiresAllOf = undefined;
-    sea5.requiresOneOf = ["Sea-4", "Sea-4B"];
-  }
-  const air3 = t.find((x) => x.id === "Air-3");
-  if (air3) {
-    air3.requiresAllOf = undefined;
-    air3.requiresOneOf = ["Air-2", "Air-2B"];
-  }
-  return t;
-})();
+// Economy branch techs (explicit definitions)
+const economyTechs: TechNode[] = [
+  // Level 1
+  { id: "Economy-1", category: "Economy", level: 1, cost: costForLevel(1) },
+  // Level 2 - Four parallel techs, all require Economy-1
+  {
+    id: "Economy-2A",
+    category: "Economy",
+    level: 2,
+    requiresAllOf: ["Economy-1"],
+    cost: costForLevel(2),
+  },
+  {
+    id: "Economy-2B",
+    category: "Economy",
+    level: 2,
+    requiresAllOf: ["Economy-1"],
+    cost: costForLevel(2),
+  },
+  {
+    id: "Economy-2C",
+    category: "Economy",
+    level: 2,
+    requiresAllOf: ["Economy-1"],
+    cost: costForLevel(2),
+  },
+  {
+    id: "Economy-2D",
+    category: "Economy",
+    level: 2,
+    requiresAllOf: ["Economy-1"],
+    cost: costForLevel(2),
+  },
+  // Level 3 - Four techs, each requires any one of the Level 2 techs
+  {
+    id: "Economy-3A",
+    category: "Economy",
+    level: 3,
+    requiresOneOf: ["Economy-2A", "Economy-2B", "Economy-2C", "Economy-2D"],
+    cost: costForLevel(3),
+  },
+  {
+    id: "Economy-3B",
+    category: "Economy",
+    level: 3,
+    requiresOneOf: ["Economy-2A", "Economy-2B", "Economy-2C", "Economy-2D"],
+    cost: costForLevel(3),
+  },
+  {
+    id: "Economy-3C",
+    category: "Economy",
+    level: 3,
+    requiresOneOf: ["Economy-2A", "Economy-2B", "Economy-2C", "Economy-2D"],
+    cost: costForLevel(3),
+  },
+  {
+    id: "Economy-3D",
+    category: "Economy",
+    level: 3,
+    requiresOneOf: ["Economy-2A", "Economy-2B", "Economy-2C", "Economy-2D"],
+    cost: costForLevel(3),
+  },
+  // Level 4 - Three techs, each requires any one of the Level 3 techs
+  {
+    id: "Economy-4A",
+    category: "Economy",
+    level: 4,
+    requiresOneOf: ["Economy-3A", "Economy-3B", "Economy-3C", "Economy-3D"],
+    cost: costForLevel(4),
+  },
+  {
+    id: "Economy-4B",
+    category: "Economy",
+    level: 4,
+    requiresOneOf: ["Economy-3A", "Economy-3B", "Economy-3C", "Economy-3D"],
+    cost: costForLevel(4),
+  },
+  {
+    id: "Economy-4C",
+    category: "Economy",
+    level: 4,
+    requiresOneOf: ["Economy-3A", "Economy-3B", "Economy-3C", "Economy-3D"],
+    cost: costForLevel(4),
+  },
+];
+
+// Compose full tree
+const tree: TechNode[] = [
+  ...baseLevels,
+  ...nuclearTechs,
+  ...seaTechs,
+  ...landTechs,
+  ...economyTechs,
+  ...extras,
+];
 
 export function getTechNodes(): ReadonlyArray<TechNode> {
   return tree;

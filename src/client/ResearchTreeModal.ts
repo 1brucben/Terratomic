@@ -1,4 +1,4 @@
-import { LitElement, html, type PropertyValues } from "lit";
+import { html, LitElement, type PropertyValues } from "lit";
 import { customElement, property, query, state } from "lit/decorators.js";
 import flaskIcon from "../../proprietary/images/flask.png";
 import { EventBus } from "../core/EventBus";
@@ -10,7 +10,7 @@ import {
   type Category,
   type TechNode,
 } from "../core/tech/ResearchTree";
-import { RESEARCH_TECH_IDS } from "../core/tech/TechEffects";
+import { getTechMeta, RESEARCH_TECH_IDS } from "../core/tech/TechEffects";
 import "./components/baseComponents/Modal";
 import {
   INVESTMENT_REQUEST_EVENT,
@@ -21,12 +21,21 @@ import {
 } from "./events/InvestmentEvents";
 import { CloseViewEvent } from "./InputHandler";
 import {
-  SendPurchaseUpgradeIntentEvent,
   SendResearchTreeSelectIntentEvent,
+  SendScorchedEarthIntentEvent,
 } from "./Transport";
-import { renderNumber } from "./Utils";
+import { renderNumber, translateText } from "./Utils";
 
 type ResearchTab = Category | "Overview";
+
+/** Helper to get display name/description from TechEffects */
+function getTechDisplay(tech: TechNode): {
+  name: string;
+  description?: string;
+} {
+  const meta = getTechMeta(tech.id, { strict: false });
+  return { name: meta?.name ?? tech.id, description: meta?.description };
+}
 
 // Category and TechNode are imported from core so client stays in sync
 
@@ -153,9 +162,7 @@ export class ResearchTreeModal extends LitElement {
     const me = this.game.myPlayer();
     if (!me || this.game.inSpawnPhase()) return;
     if (me.hasUpgrade?.(UpgradeType.ScorchedEarth)) return;
-    this.eventBus.emit(
-      new SendPurchaseUpgradeIntentEvent(UpgradeType.ScorchedEarth),
-    );
+    this.eventBus.emit(new SendScorchedEarthIntentEvent());
   }
 
   private renderScorchedEarthAction(
@@ -168,8 +175,7 @@ export class ResearchTreeModal extends LitElement {
     }
     const config = this.game?.config?.();
     if (!config) return "";
-    const { cost } = config.upgradeInfo(UpgradeType.ScorchedEarth);
-    const activationCost = cost(me);
+    const activationCost = config.scorchedEarthActivationCost(me);
     const gold = me.gold();
     const hasUpgrade = me.hasUpgrade(UpgradeType.ScorchedEarth);
     const disabled =
@@ -285,11 +291,12 @@ export class ResearchTreeModal extends LitElement {
     const percent = Math.round(displayValue * 100);
     const quality = me?.roadNetworkQuality?.() ?? 100;
     const completion = me?.roadNetworkCompletion?.() ?? 100;
-    const tooltip = hasRoads
+    const tooltipKey = hasRoads
       ? this.lockRoad
-        ? "Slider is locked. Double-click to unlock."
-        : "Double-click slider to lock."
-      : "Research Post-War Reconstruction to enable road investment.";
+        ? "research_tree.investment.slider_locked"
+        : "research_tree.investment.slider_unlocked"
+      : "research_tree.investment.road_disabled";
+    const tooltip = translateText(tooltipKey);
     const breakEvenMarker = this.renderRoadBreakEvenMarker(me, hasRoads);
     return html`
       <div
@@ -333,6 +340,7 @@ export class ResearchTreeModal extends LitElement {
             .value=${percent.toString()}
             class="investment-input ${this.lockRoad ? "locked" : ""}"
             ?disabled=${!hasRoads}
+            aria-label=${tooltip}
             @input=${(e: Event) => this.handleInvestmentInput("road", e)}
             @dblclick=${() => hasRoads && this.handleInvestmentToggle("road")}
           />
@@ -370,9 +378,13 @@ export class ResearchTreeModal extends LitElement {
 
   private renderResearchSlider() {
     const percent = Math.round(this.researchInvestmentRate * 100);
-    const tooltip = this.lockResearch
-      ? "Slider is locked. Double-click to unlock."
-      : "Double-click slider to lock.";
+    const lockTooltip = translateText(
+      this.lockResearch
+        ? "research_tree.investment.slider_locked"
+        : "research_tree.investment.slider_unlocked",
+    );
+    const goalTooltip = translateText("research_tree.investment.research_goal");
+    const tooltip = `${goalTooltip} ${lockTooltip}`;
     return html`
       <div class="investment-slider" translate="no">
         <label class="investment-label">
@@ -401,6 +413,7 @@ export class ResearchTreeModal extends LitElement {
             step="1"
             .value=${percent.toString()}
             class="investment-input ${this.lockResearch ? "locked" : ""}"
+            aria-label=${tooltip}
             @input=${(e: Event) => this.handleInvestmentInput("research", e)}
             @dblclick=${() => this.handleInvestmentToggle("research")}
           />
@@ -425,6 +438,49 @@ export class ResearchTreeModal extends LitElement {
   // Orchestrate layout updates and edge redraw
   private updateLayout() {
     requestAnimationFrame(() => this.drawEdges());
+  }
+
+  private adjustTooltipPosition(target: HTMLElement) {
+    const tooltip = target.querySelector(".tooltip") as HTMLElement | null;
+    const container = this.renderRoot.querySelector(
+      ".tree-container",
+    ) as HTMLElement | null;
+    if (!tooltip || !container) return;
+
+    const containerRect = container.getBoundingClientRect();
+    const rect = target.getBoundingClientRect();
+    const tooltipRect = tooltip.getBoundingClientRect();
+    const tooltipHeight =
+      tooltipRect.height || tooltip.offsetHeight || tooltip.scrollHeight || 0;
+    const tooltipWidth =
+      tooltipRect.width || tooltip.offsetWidth || tooltip.scrollWidth || 0;
+    const gap = 12;
+    const spaceAbove = rect.top - containerRect.top;
+    const spaceBelow = containerRect.bottom - rect.bottom;
+
+    let position: "above" | "below" = "above";
+    if (spaceAbove < tooltipHeight + gap && spaceBelow > spaceAbove) {
+      position = "below";
+    }
+
+    tooltip.dataset.position = position;
+
+    // Clamp horizontal position so tooltips stay inside the container
+    const centerX = rect.left + rect.width / 2;
+    const margin = 20;
+    const availableWidth = Math.max(0, containerRect.width - margin * 2);
+    if (availableWidth <= 0) return;
+    const halfWidth = Math.min(tooltipWidth / 2, availableWidth / 2);
+    const minCenter = containerRect.left + margin + halfWidth;
+    const maxCenter = containerRect.right - margin - halfWidth;
+    const clampedCenter = Math.min(maxCenter, Math.max(minCenter, centerX));
+    const shift = clampedCenter - centerX;
+    tooltip.style.setProperty("--tooltip-shift", `${shift}px`);
+
+    // If still overflowing above, flip below as a final safeguard
+    if (position === "above" && spaceAbove < tooltipHeight + gap) {
+      tooltip.dataset.position = "below";
+    }
   }
 
   private renderAllView(
@@ -458,11 +514,14 @@ export class ResearchTreeModal extends LitElement {
                     ? techs.map((tech) => {
                         const isResearched = researched.has(tech.id);
                         const pct = percentages.get(tech.id) ?? 0;
+                        const display = getTechDisplay(tech);
                         return html`<div
                           class=${`compact-tech ${isResearched ? "researched" : ""}`}
+                          title=${display.description ?? display.name}
+                          aria-label=${display.description ?? display.name}
                         >
                           <span class="compact-name"
-                            >${tech.name} (${pct}%)</span
+                            >${display.name} (${pct}%)</span
                           >
                           ${isResearched
                             ? html`<span class="compact-check">✔</span>`
@@ -696,7 +755,7 @@ export class ResearchTreeModal extends LitElement {
 
     return html`
       <o-modal
-        title="Research Tree"
+        title=${translateText("research_tree.title")}
         max-width="90vw"
         max-height="85dvh"
         content-overflow="hidden"
@@ -982,12 +1041,13 @@ export class ResearchTreeModal extends LitElement {
             position: relative;
             overflow: auto;
             max-height: calc(85dvh - 150px);
-            padding: 6px;
+            padding: 32px 8px 40px;
+            scroll-padding: 24px 12px;
             scrollbar-width: thin;
             scrollbar-color: var(--ui-panel-border) var(--ui-panel-border);
           }
           .tree-container.all-view {
-            padding: 12px;
+            padding: 16px 12px 20px;
           }
           .tree-container::-webkit-scrollbar {
             height: 10px;
@@ -1201,6 +1261,7 @@ export class ResearchTreeModal extends LitElement {
             padding: 10px;
             color: var(--ui-text-accent);
             position: relative;
+            z-index: 2;
             cursor: pointer;
             transition:
               transform 0.12s ease,
@@ -1213,6 +1274,11 @@ export class ResearchTreeModal extends LitElement {
               0 6px 16px color-mix(in srgb, var(--ui-overlay) 65%, transparent),
               inset 0 0 0 1px
                 color-mix(in srgb, var(--ui-text-light) 2%, transparent);
+          }
+          .tech:hover,
+          .tech:focus-visible,
+          .tech:focus-within {
+            z-index: 40;
           }
           .tech:hover {
             box-shadow:
@@ -1285,9 +1351,9 @@ export class ResearchTreeModal extends LitElement {
           }
           .tech .tooltip {
             position: absolute;
-            top: 50%;
-            left: calc(100% + 12px);
-            transform: translateY(-50%);
+            bottom: calc(100% + 12px);
+            left: calc(50% + var(--tooltip-shift, 0px));
+            transform: translateX(-50%);
             background: rgba(11, 18, 32, 1);
             color: var(--ui-text-light);
             border: 1px solid
@@ -1302,25 +1368,41 @@ export class ResearchTreeModal extends LitElement {
             line-height: 1.25;
             max-width: 280px;
             width: max-content;
-            z-index: 10;
+            z-index: 20;
             opacity: 0;
             visibility: hidden;
             transition: opacity 120ms ease;
             pointer-events: none;
             white-space: normal;
           }
+          .tech .tooltip[data-position="below"] {
+            top: calc(100% + 12px);
+            bottom: auto;
+            left: calc(50% + var(--tooltip-shift, 0px));
+            transform: translateX(-50%);
+          }
           .tech .tooltip::after {
             content: "";
             position: absolute;
-            left: -6px;
-            top: 50%;
-            transform: translateY(-50%);
+            left: calc(50% + var(--tooltip-shift, 0px));
+            bottom: -6px;
+            transform: translateX(-50%);
             border-width: 6px;
             border-style: solid;
-            border-color: transparent rgba(11, 18, 32, 1) transparent
+            border-color: transparent transparent rgba(11, 18, 32, 1)
               transparent;
             filter: drop-shadow(
-              -1px 0 0
+              0 1px 0
+                color-mix(in srgb, var(--ui-border-muted) 90%, transparent)
+            );
+          }
+          .tech .tooltip[data-position="below"]::after {
+            top: -6px;
+            bottom: auto;
+            border-color: rgba(11, 18, 32, 1) transparent transparent
+              transparent;
+            filter: drop-shadow(
+              0 -1px 0
                 color-mix(in srgb, var(--ui-border-muted) 90%, transparent)
             );
           }
@@ -1453,11 +1535,16 @@ export class ResearchTreeModal extends LitElement {
               ${tabs.map((cat) => {
                 const isAllTab = cat === "Overview";
                 const isActive = isAllTab ? isAllView : cat === activeCategory;
+                const tabTooltip = translateText(
+                  `research_tree.tab_tooltip.${cat.toLowerCase()}`,
+                );
                 return html`<button
                   type="button"
                   class="tab-button ${isActive ? "active" : ""}"
                   role="tab"
                   aria-selected=${String(isActive)}
+                  aria-label=${tabTooltip}
+                  title=${tabTooltip}
                   style=${isActive
                     ? `--tab-accent:${isAllTab ? "color-mix(in srgb, var(--ui-border-muted) 25%, transparent)" : (categoryColors[cat as Category] ?? "transparent")}`
                     : ""}
@@ -1516,129 +1603,144 @@ export class ResearchTreeModal extends LitElement {
                                     isResearched,
                                   );
                                   return html`<div class="tech-wrapper">
-                                    <button
-                                      class=${classes}
-                                      data-id=${tech.id}
-                                      @click=${() => this.onTechClick(tech.id)}
-                                      title=${""}
-                                      ?disabled=${!clickable}
-                                    >
-                                      <div class="tooltip">
-                                        <div
-                                          style="font-weight:600;margin-bottom:4px;"
-                                        >
-                                          ${tech.name}
-                                        </div>
-                                        ${tech.description
-                                          ? html`<div
-                                              style="opacity:.9;margin-bottom:6px;"
-                                            >
-                                              ${tech.description}
-                                            </div>`
-                                          : ""}
-                                        ${(() => {
-                                          const meLocal =
-                                            this.game?.myPlayer?.();
-                                          const b =
-                                            meLocal?.researchBeakers?.(
-                                              tech.id,
-                                            ) ?? 0;
-                                          const pct = Math.min(
-                                            100,
-                                            Math.floor(
-                                              (b / (tech.cost || 1)) * 100,
-                                            ),
-                                          );
-                                          return html`<div
-                                            style="font-size:11px;opacity:.9;"
-                                          >
-                                            <div
-                                              class="cost-inline"
-                                              translate="no"
-                                            >
-                                              <span
-                                                >Cost:
-                                                ${tech.cost.toLocaleString()}</span
-                                              >
-                                              <img
-                                                src=${flaskIcon}
-                                                alt="research cost"
-                                              />
-                                            </div>
-                                            ${isResearched
-                                              ? html`<div>
-                                                  Status: Completed
-                                                </div>`
-                                              : html`<div>
-                                                  Progress:
-                                                  ${b.toLocaleString()} /
-                                                  ${tech.cost.toLocaleString()}
-                                                  (${pct}%)
-                                                </div>`}
-                                          </div>`;
-                                        })()}
-                                      </div>
-                                      <div
-                                        style="font-weight:600; margin-bottom:6px;"
+                                    ${(() => {
+                                      const display = getTechDisplay(tech);
+                                      return html`<button
+                                        class=${classes}
+                                        data-id=${tech.id}
+                                        @click=${() =>
+                                          this.onTechClick(tech.id)}
+                                        @mouseenter=${(ev: Event) =>
+                                          this.adjustTooltipPosition(
+                                            ev.currentTarget as HTMLElement,
+                                          )}
+                                        @focus=${(ev: Event) =>
+                                          this.adjustTooltipPosition(
+                                            ev.currentTarget as HTMLElement,
+                                          )}
+                                        title=${""}
+                                        ?disabled=${!clickable}
                                       >
-                                        ${tech.name}
-                                      </div>
-                                      <div class="cost-inline" translate="no">
-                                        <span
-                                          >${tech.cost.toLocaleString()}</span
-                                        >
-                                        <img
-                                          src=${flaskIcon}
-                                          alt="research cost"
-                                        />
-                                      </div>
-                                      ${!isResearched && me
-                                        ? (() => {
+                                        <div class="tooltip">
+                                          <div
+                                            style="font-weight:600;margin-bottom:4px;"
+                                          >
+                                            ${display.name}
+                                          </div>
+                                          ${display.description
+                                            ? html`<div
+                                                style="opacity:.9;margin-bottom:6px;"
+                                              >
+                                                ${display.description}
+                                              </div>`
+                                            : ""}
+                                          ${(() => {
+                                            const meLocal =
+                                              this.game?.myPlayer?.();
                                             const b =
-                                              me.researchBeakers?.(tech.id) ??
-                                              0;
+                                              meLocal?.researchBeakers?.(
+                                                tech.id,
+                                              ) ?? 0;
                                             const pct = Math.min(
                                               100,
                                               Math.floor(
                                                 (b / (tech.cost || 1)) * 100,
                                               ),
                                             );
-                                            return b > 0
-                                              ? html`<div
-                                                  class="progress-track"
+                                            return html`<div
+                                              style="font-size:11px;opacity:.9;"
+                                            >
+                                              <div
+                                                class="cost-inline"
+                                                translate="no"
+                                              >
+                                                <span
+                                                  >Cost:
+                                                  ${tech.cost.toLocaleString()}</span
                                                 >
-                                                  <div
-                                                    class="progress-fill ${priority ===
-                                                    tech.id
-                                                      ? "priority"
-                                                      : ""}"
-                                                    style="width:${pct}%"
-                                                  ></div>
-                                                </div>`
-                                              : "";
-                                          })()
-                                        : ""}
-                                      <div>
-                                        ${tech.requiresAllOf?.length
-                                          ? html`<span class="pill pill-req"
-                                              >Requires:
-                                              ${tech.requiresAllOf.length}</span
-                                            >`
+                                                <img
+                                                  src=${flaskIcon}
+                                                  alt="research cost"
+                                                />
+                                              </div>
+                                              ${isResearched
+                                                ? html`<div>
+                                                    Status: Completed
+                                                  </div>`
+                                                : html`<div>
+                                                    Progress:
+                                                    ${b.toLocaleString()} /
+                                                    ${tech.cost.toLocaleString()}
+                                                    (${pct}%)
+                                                  </div>`}
+                                            </div>`;
+                                          })()}
+                                        </div>
+                                        <div
+                                          style="font-weight:600; margin-bottom:6px;"
+                                        >
+                                          ${display.name}
+                                        </div>
+                                        <div class="cost-inline" translate="no">
+                                          <span
+                                            >${tech.cost.toLocaleString()}</span
+                                          >
+                                          <img
+                                            src=${flaskIcon}
+                                            alt="research cost"
+                                          />
+                                        </div>
+                                        ${!isResearched && me
+                                          ? (() => {
+                                              const b =
+                                                me.researchBeakers?.(tech.id) ??
+                                                0;
+                                              const pct = Math.min(
+                                                100,
+                                                Math.floor(
+                                                  (b / (tech.cost || 1)) * 100,
+                                                ),
+                                              );
+                                              return b > 0
+                                                ? html`<div
+                                                    class="progress-track"
+                                                  >
+                                                    <div
+                                                      class="progress-fill ${priority ===
+                                                      tech.id
+                                                        ? "priority"
+                                                        : ""}"
+                                                      style="width:${pct}%"
+                                                    ></div>
+                                                  </div>`
+                                                : "";
+                                            })()
                                           : ""}
-                                        ${tech.requiresOneOf?.length
-                                          ? html`<span class="pill pill-oneof"
-                                              >One of:
-                                              ${tech.requiresOneOf.length}</span
-                                            >`
-                                          : ""}
-                                        ${priority === tech.id && !isResearched
-                                          ? html`<span
-                                              class="pill pill-priority"
-                                              >Priority</span
-                                            >`
-                                          : ""}
-                                      </div>
-                                    </button>
+                                        <div>
+                                          ${tech.requiresAllOf?.length
+                                            ? html`<span class="pill pill-req"
+                                                >Requires:
+                                                ${tech.requiresAllOf
+                                                  .length}</span
+                                              >`
+                                            : ""}
+                                          ${tech.requiresOneOf?.length
+                                            ? html`<span class="pill pill-oneof"
+                                                >One of:
+                                                ${tech.requiresOneOf
+                                                  .length}</span
+                                              >`
+                                            : ""}
+                                          ${priority === tech.id &&
+                                          !isResearched
+                                            ? html`<span
+                                                class="pill pill-priority"
+                                                >Priority</span
+                                              >`
+                                            : ""}
+                                        </div>
+                                      </button>`;
+                                    })()}
                                     ${action}
                                   </div>`;
                                 })

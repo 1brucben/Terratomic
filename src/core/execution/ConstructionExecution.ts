@@ -1,4 +1,7 @@
-import { aggregateStructureBuildCost } from "../game/Costs";
+import {
+  aggregateStructureBuildCost,
+  computeBomberUpgradeCost,
+} from "../game/Costs";
 import {
   Execution,
   Game,
@@ -13,9 +16,10 @@ import {
 import { TileRef } from "../game/GameMap";
 import {
   isUpgradeableUnit,
-  maxStructureLevel,
-  maxUnitLevel,
+  playerMaxStructureLevel,
+  playerMaxUnitLevel,
 } from "../game/Upgradeables";
+import { constructionSpeedModifiers } from "../tech/TechEffects";
 import { AirfieldExecution } from "./AirfieldExecution";
 import { DefensePostExecution } from "./DefensePostExecution";
 import { FighterJetExecution } from "./FighterJetExecution";
@@ -43,6 +47,7 @@ export class ConstructionExecution implements Execution {
     private constructionType: UnitType,
     private tile: TileRef,
     private targetLevel?: number,
+    private bomberLevel?: number, // Bomber upgrade level for airfields
   ) {}
 
   init(mg: Game, ticks: number): void {
@@ -86,17 +91,28 @@ export class ConstructionExecution implements Execution {
           this.active = false;
           return;
         }
-        const total = aggregateStructureBuildCost(
-          this.mg,
-          this.player,
-          this.constructionType,
-          this.desiredLevel,
-          isUpgradeableUnit(this.constructionType)
-            ? this.mg.config().unitUpgradeCostMultiplier(this.constructionType)
-            : this.mg
-                .config()
-                .structureUpgradeCostMultiplier(this.constructionType),
-        );
+        const total =
+          aggregateStructureBuildCost(
+            this.mg,
+            this.player,
+            this.constructionType,
+            this.desiredLevel,
+            isUpgradeableUnit(this.constructionType)
+              ? this.mg
+                  .config()
+                  .unitUpgradeCostMultiplier(this.constructionType)
+              : this.mg
+                  .config()
+                  .structureUpgradeCostMultiplier(this.constructionType),
+          ) +
+          (this.constructionType === UnitType.Airfield
+            ? computeBomberUpgradeCost(
+                this.mg,
+                this.player,
+                this.bomberLevel ?? 1,
+                this.desiredLevel,
+              )
+            : 0n);
         if (this.player.gold() < total) {
           console.warn(
             `cannot afford construction ${this.constructionType} at level ${this.desiredLevel}`,
@@ -120,17 +136,26 @@ export class ConstructionExecution implements Execution {
         this.constructionType,
         this.targetLevel,
       );
-      const totalCost = aggregateStructureBuildCost(
-        this.mg,
-        this.player,
-        this.constructionType,
-        this.desiredLevel,
-        isUpgradeableUnit(this.constructionType)
-          ? this.mg.config().unitUpgradeCostMultiplier(this.constructionType)
-          : this.mg
-              .config()
-              .structureUpgradeCostMultiplier(this.constructionType),
-      );
+      const totalCost =
+        aggregateStructureBuildCost(
+          this.mg,
+          this.player,
+          this.constructionType,
+          this.desiredLevel,
+          isUpgradeableUnit(this.constructionType)
+            ? this.mg.config().unitUpgradeCostMultiplier(this.constructionType)
+            : this.mg
+                .config()
+                .structureUpgradeCostMultiplier(this.constructionType),
+        ) +
+        (this.constructionType === UnitType.Airfield
+          ? computeBomberUpgradeCost(
+              this.mg,
+              this.player,
+              this.bomberLevel ?? 1,
+              this.desiredLevel,
+            )
+          : 0n);
       if (this.player.gold() < totalCost) {
         console.warn(
           `cannot afford construction ${this.constructionType} at level ${this.desiredLevel}`,
@@ -153,7 +178,14 @@ export class ConstructionExecution implements Execution {
       // Reserve total aggregated cost upfront so funds are locked during construction
       this.player.removeGold(this.reservedTotalCost);
       this.construction.setConstructionType(this.constructionType);
-      this.ticksUntilComplete = info.constructionDuration!;
+      this.construction.setConstructionTargetLevel(this.desiredLevel);
+      // Apply construction speed modifier from tech effects
+      const speedMods = constructionSpeedModifiers(this.player);
+      this.ticksUntilComplete = Math.ceil(
+        info.constructionDuration! / speedMods.speedMul,
+      );
+      // Set up cooldown on the unit for UI progress bar display
+      this.construction.launch(this.ticksUntilComplete);
       return;
     }
 
@@ -264,7 +296,9 @@ export class ConstructionExecution implements Execution {
         }
         break;
       case UnitType.Airfield:
-        this.mg.addExecution(new AirfieldExecution(player, this.tile));
+        this.mg.addExecution(
+          new AirfieldExecution(player, this.tile, this.bomberLevel),
+        );
         break;
       default:
         {
@@ -297,9 +331,11 @@ export class ConstructionExecution implements Execution {
 
   private computeDesiredLevel(type: UnitType, target?: number): number {
     if (target === undefined || target < 1) return 1;
+    // For units, use player-specific max level based on researched techs
+    // For structures, use player-specific max (e.g., SAM launchers depend on SAM tech level)
     const cap = isUpgradeableUnit(type)
-      ? maxUnitLevel(type)
-      : maxStructureLevel(type);
+      ? playerMaxUnitLevel(this.player, type)
+      : playerMaxStructureLevel(this.player, type);
     return Math.max(1, Math.min(cap, target));
   }
 

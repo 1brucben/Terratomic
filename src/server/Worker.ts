@@ -23,6 +23,7 @@ import { GameManager } from "./GameManager";
 import { gatekeeper, LimiterType } from "./Gatekeeper";
 import { getUserMe, verifyClientToken } from "./jwt";
 import { logger } from "./Logger";
+import { rankingService } from "./RankingService";
 import { initWorkerMetrics } from "./WorkerMetrics";
 
 const config = getServerConfigFromServer();
@@ -31,8 +32,13 @@ const workerId = parseInt(process.env.WORKER_ID ?? "0");
 const log = logger.child({ comp: `w_${workerId}` });
 
 // Worker setup
-export function startWorker() {
+export async function startWorker() {
   log.info(`Worker starting...`);
+
+  // Initialize ranking service on all workers
+  // - All workers can update rankings after games
+  // - Worker 0 serves API requests and reloads from R2 periodically
+  await rankingService.initialize(workerId === 0);
 
   const __filename = fileURLToPath(import.meta.url);
   const __dirname = path.dirname(__filename);
@@ -297,6 +303,73 @@ export function startWorker() {
     }),
   );
 
+  // Rankings API endpoints
+  app.get(
+    "/api/rankings",
+    gatekeeper.httpHandler(LimiterType.Get, async (req, res) => {
+      const limit = Math.min(parseInt(req.query.limit as string) || 100, 500);
+      const leaderboard = await rankingService.getLeaderboard(limit);
+      res.json({
+        leaderboard,
+        totalPlayers: rankingService.getTotalPlayers(),
+      });
+    }),
+  );
+
+  app.get(
+    "/api/rankings/player/:persistentID",
+    gatekeeper.httpHandler(LimiterType.Get, async (req, res) => {
+      const { persistentID } = req.params;
+      const ranking = rankingService.getPlayerRanking(persistentID);
+      if (!ranking) {
+        return res.status(404).json({ error: "Player not found" });
+      }
+      const position = rankingService.getPlayerPosition(persistentID);
+      res.json({
+        ranking,
+        position,
+        totalPlayers: rankingService.getTotalPlayers(),
+      });
+    }),
+  );
+
+  app.get(
+    "/api/rankings/clans",
+    gatekeeper.httpHandler(LimiterType.Get, async (req, res) => {
+      const limit = Math.min(parseInt(req.query.limit as string) || 100, 500);
+      const leaderboard = await rankingService.getClanLeaderboard(limit);
+      res.json({
+        leaderboard,
+        totalClans: rankingService.getTotalClans(),
+      });
+    }),
+  );
+
+  app.get(
+    "/api/rankings/clan/:clanTag",
+    gatekeeper.httpHandler(LimiterType.Get, async (req, res) => {
+      const { clanTag } = req.params;
+      const ranking = rankingService.getClanRanking(clanTag);
+      if (!ranking) {
+        return res.status(404).json({ error: "Clan not found" });
+      }
+      const position = rankingService.getClanPosition(clanTag);
+      res.json({
+        ranking,
+        position,
+        totalClans: rankingService.getTotalClans(),
+      });
+    }),
+  );
+
+  app.get(
+    "/api/rankings/hall-of-fame",
+    gatekeeper.httpHandler(LimiterType.Get, async (req, res) => {
+      const hallOfFame = rankingService.getHallOfFame();
+      res.json({ hallOfFame });
+    }),
+  );
+
   // WebSocket handling
   wss.on("connection", (ws: WebSocket, req) => {
     ws.on(
@@ -444,4 +517,16 @@ export function startWorker() {
   process.on("unhandledRejection", (reason, promise) => {
     log.error(`unhandled rejection at:`, promise, "reason:", reason);
   });
+
+  // Graceful shutdown - save rankings before exit
+  const gracefulShutdown = async (signal: string) => {
+    log.info(`Received ${signal}, shutting down gracefully...`);
+    if (workerId === 0) {
+      await rankingService.shutdown();
+    }
+    process.exit(0);
+  };
+
+  process.on("SIGTERM", () => gracefulShutdown("SIGTERM"));
+  process.on("SIGINT", () => gracefulShutdown("SIGINT"));
 }

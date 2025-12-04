@@ -111,9 +111,7 @@ export class PublicLobby extends LitElement {
            : ""
        }
        ${this.isButtonDebounced ? "opacity-70 cursor-not-allowed" : ""}"
-
-
-
+        title="${translateText("public_lobby.join_tooltip")}"
       >
         <img
           src="${getMapsImage(lobby.gameConfig.gameMap)}"

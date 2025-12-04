@@ -15,6 +15,7 @@ interface Coord {
 enum TerrainType {
   Land,
   Water,
+  Barrier,
 }
 
 class Terrain {
@@ -45,10 +46,16 @@ export async function generateMap(
       const color = img.getPixelRGBA(x, y);
       const alpha = color & 0xff;
       const blue = (color >> 8) & 0xff;
+      const green = (color >> 16) & 0xff;
+      const red = (color >> 24) & 0xff;
 
       if (alpha < 20 || blue === 106) {
         // transparent
         terrain[x][y] = new Terrain(TerrainType.Water);
+      } else if (red === 0 && green === 0 && blue === 0 && alpha === 255) {
+        // Black = Barrier
+        terrain[x][y] = new Terrain(TerrainType.Barrier);
+        terrain[x][y].magnitude = 31; // Use max magnitude for Barrier
       } else {
         terrain[x][y] = new Terrain(TerrainType.Land);
         terrain[x][y].magnitude = 0;
@@ -105,15 +112,18 @@ function processShore(map: Terrain[][]): Coord[] {
       const tile = map[x][y];
       const ns = neighbors(x, y, map);
       if (tile.type === TerrainType.Land) {
+        // Land is shoreline if it has water neighbors (but not barrier)
         if (ns.filter((t) => t.type === TerrainType.Water).length > 0) {
           tile.shoreline = true;
         }
-      } else {
+      } else if (tile.type === TerrainType.Water) {
+        // Water is shoreline if it has land neighbors (but not barrier)
         if (ns.filter((t) => t.type === TerrainType.Land).length > 0) {
           tile.shoreline = true;
           shorelineWaters.push({ x, y });
         }
       }
+      // Barrier tiles are never shoreline and don't affect shoreline status
     }
   }
   return shorelineWaters;
@@ -202,19 +212,28 @@ function processWater(map: Terrain[][], removeSmall: boolean) {
   waterBodies.sort((a, b) => b.size - a.size);
 
   let smallLakes = 0;
+  let oceanCount = 0;
 
   if (waterBodies.length > 0) {
-    // Mark the largest water body as ocean
-    const largestWaterBody = waterBodies[0];
-    for (const coord of largestWaterBody.coords) {
-      map[coord.x][coord.y].ocean = true;
+    // Mark all large water bodies as ocean (not just the largest)
+    // This handles cases where barriers split water into multiple bodies
+    // Also always mark the largest water body as ocean (even if small, for test maps)
+    for (let w = 0; w < waterBodies.length; w++) {
+      if (w === 0 || waterBodies[w].size >= min_lake_size) {
+        oceanCount++;
+        for (const coord of waterBodies[w].coords) {
+          map[coord.x][coord.y].ocean = true;
+        }
+      }
     }
-    console.debug(`Identified ocean with ${largestWaterBody.size} water tiles`);
+    console.debug(
+      `Identified ${oceanCount} ocean bodies with ${waterBodies.slice(0, oceanCount).reduce((sum, wb) => sum + wb.size, 0)} total water tiles`,
+    );
 
     if (removeSmall) {
-      // Assess size of the other water bodies and remove those smaller than min_lake_size
+      // Remove water bodies smaller than min_lake_size
       console.debug("Searching for small water bodies for removal");
-      for (let w = 1; w < waterBodies.length; w++) {
+      for (let w = 0; w < waterBodies.length; w++) {
         if (waterBodies[w].size < min_lake_size) {
           smallLakes++;
           for (const coord of waterBodies[w].coords) {
@@ -267,6 +286,18 @@ function packTerrain(map: Terrain[][]): Uint8Array {
       }
       if (tile.type === TerrainType.Land) {
         packedByte |= Math.min(Math.ceil(tile.magnitude), 31);
+      } else if (tile.type === TerrainType.Barrier) {
+        // Barrier is treated as Land for bitmask but with specific magnitude?
+        // Wait, existing logic uses bit 7 for Land.
+        // If Barrier is impassable land, we can set Land bit and max magnitude (31).
+        // But GameMap.ts uses magnitude < 10 for Plains, < 20 for Highland, else Mountain.
+        // So magnitude 31 will be Mountain.
+        // We need a way to distinguish Barrier from Mountain.
+        // Let's use Land bit = 0 for Barrier? No, then it's Water.
+        // Let's use Land bit = 1, and magnitude = 31.
+        // And update GameMap.ts to check for magnitude 31.
+        packedByte |= 0b10000000; // It is "Land" in the sense it's not Water
+        packedByte |= 31; // Max magnitude
       } else {
         packedByte |= Math.min(Math.ceil(tile.magnitude / 2), 31);
       }
@@ -437,13 +468,18 @@ function getThumbnailColor(t: Terrain): {
       b: 138 + adjRGB,
       a: 255,
     };
-  } else {
-    // Mountains
-    adjRGB = Math.floor(230 + t.magnitude / 2);
     return {
       r: adjRGB,
       g: adjRGB,
       b: adjRGB,
+      a: 255,
+    };
+  } else {
+    // Barrier (Magnitude 31)
+    return {
+      r: 0,
+      g: 0,
+      b: 0,
       a: 255,
     };
   }

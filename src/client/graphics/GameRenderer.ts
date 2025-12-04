@@ -5,6 +5,7 @@ import { RefreshGraphicsEvent as RedrawGraphicsEvent } from "../InputHandler";
 import { TransformHandler } from "./TransformHandler";
 import { UIState } from "./UIState";
 import { AttackWarningOverlay } from "./layers/AttackWarningOverlay";
+import { AABulletLayer } from "./layers/AABulletLayer";
 import { BuildMenu } from "./layers/BuildMenu";
 import { CargoTruckLayer } from "./layers/CargoTruckLayer";
 import { ChatDisplay } from "./layers/ChatDisplay";
@@ -67,6 +68,7 @@ export function createRenderer(
     pendingBuildUnitType: null,
     multibuildEnabled: false,
     upgradeMode: false,
+    bomberUpgradeMode: false,
     unitLevels: {},
   };
 
@@ -262,6 +264,7 @@ export function createRenderer(
     new RangeOverlayLayer(game, eventBus, transformHandler, uiState),
     structureLayer,
     new UnitLayer(game, eventBus, transformHandler, uiState),
+    new AABulletLayer(game, transformHandler),
     new FxLayer(game, transformHandler),
     // Draw name labels in world space along with other transformed layers
     new NameLayer(game, transformHandler, eventBus),

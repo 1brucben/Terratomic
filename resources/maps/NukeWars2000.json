@@ -1,0 +1,31 @@
+{
+  "name": "NukeWars2000",
+  "width": 2000,
+  "height": 1000,
+  "nations": [
+    {
+      "coordinates": [400, 300],
+      "name": "Pafoot",
+      "strength": 2,
+      "flag": "un"
+    },
+    {
+      "coordinates": [400, 700],
+      "name": "Dracolda",
+      "strength": 2,
+      "flag": "un"
+    },
+    {
+      "coordinates": [1600, 300],
+      "name": "Nuatilda",
+      "strength": 2,
+      "flag": "un"
+    },
+    {
+      "coordinates": [1600, 700],
+      "name": "Executionyne",
+      "strength": 2,
+      "flag": "un"
+    }
+  ]
+}

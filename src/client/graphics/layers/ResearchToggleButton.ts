@@ -4,6 +4,7 @@ import { EventBus } from "../../../core/EventBus";
 import { GameView } from "../../../core/game/GameView";
 import "../../ResearchTreeModal";
 import type { ResearchTreeModal } from "../../ResearchTreeModal";
+import { translateText } from "../../Utils";
 import { Layer } from "./Layer";
 
 @customElement("research-toggle-button")
@@ -146,7 +147,8 @@ export class ResearchToggleButton extends LitElement implements Layer {
         <button
           type="button"
           class="research-vertical-button ${this._isModalOpen ? "open" : ""}"
-          aria-label="Toggle Research Tree"
+          aria-label=${translateText("research_tree.toggle_tooltip")}
+          title=${translateText("research_tree.toggle_tooltip")}
           @click=${this.toggleModal}
         >
           ${["R", "E", "S", "E", "A", "R", "C", "H"].map(

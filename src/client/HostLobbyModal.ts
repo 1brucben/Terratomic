@@ -1,10 +1,10 @@
-import { LitElement, html } from "lit";
+import { LitElement, html, nothing } from "lit";
 import { customElement, query, state } from "lit/decorators.js";
 import { repeat } from "lit/directives/repeat.js";
 import randomMap from "../../resources/images/RandomMap.webp";
-import { formatStartingGold, translateText } from "../client/Utils";
 import { getServerConfigFromClient } from "../core/configuration/ConfigLoader";
 import { PastelTheme } from "../core/configuration/PastelTheme";
+import type { UnitType } from "../core/game/Game";
 import {
   ColoredTeams,
   Difficulty,
@@ -13,30 +13,38 @@ import {
   GameMode,
   Quads,
   Trios,
-  UnitType,
   mapCategories,
 } from "../core/game/Game";
 import { UserSettings } from "../core/game/UserSettings";
-import {
+import type {
   ClientInfo,
   GameConfig,
   GameInfo,
+  TeamCountConfig,
+} from "../core/Schemas";
+import {
+  GoldMultiplierValues,
   PeaceTimerDuration,
   StartingGoldValues,
-  TeamCountConfig,
 } from "../core/Schemas";
 import { generateID } from "../core/Util";
 import "./components/baseComponents/Modal";
 import "./components/Difficulties";
 import { DifficultyDescription } from "./components/Difficulties";
 import "./components/Maps";
-import { JoinLobbyEvent } from "./Main";
+import type { JoinLobbyEvent } from "./Main";
 import { renderUnitTypeOptions } from "./utilities/RenderUnitTypeOptions";
+import { formatStartingGold, translateText } from "./Utils";
 
 type StartingGoldOption = (typeof StartingGoldValues)[number];
 const startingGoldList = [...StartingGoldValues] as number[];
 const isStartingGoldOption = (value: number): value is StartingGoldOption =>
   startingGoldList.includes(value);
+
+type GoldMultiplierOption = (typeof GoldMultiplierValues)[number];
+const goldMultiplierList = [...GoldMultiplierValues] as number[];
+const isGoldMultiplierOption = (value: number): value is GoldMultiplierOption =>
+  goldMultiplierList.includes(value);
 
 @customElement("host-lobby-modal")
 export class HostLobbyModal extends LitElement {
@@ -65,6 +73,7 @@ export class HostLobbyModal extends LitElement {
   @state() private selectedPeaceTimerDuration: PeaceTimerDuration =
     PeaceTimerDuration.None;
   @state() private startingGold: StartingGoldOption = StartingGoldValues[0];
+  @state() private goldMultiplier: GoldMultiplierOption = 1;
   @state() private playerTeamAssignments: Record<string, number | null> = {};
   @state() private updatingTeamForClients: Set<string> = new Set();
   @state() private showUnitSettings = false; // Closed by default for Host
@@ -800,7 +809,10 @@ export class HostLobbyModal extends LitElement {
 
                 <!-- Bot Slider -->
                 <div class="mb-4 px-2">
-                  <div class="flex justify-between text-sm text-gray-300 mb-1">
+                  <div
+                    class="flex justify-between text-sm text-gray-300 mb-1"
+                    data-i18n-title="host_modal.bots_tooltip"
+                  >
                     <span>${translateText("host_modal.bots")}</span>
                     <span class="font-bold">${this.bots}</span>
                   </div>
@@ -812,19 +824,45 @@ export class HostLobbyModal extends LitElement {
                     .value=${String(this.bots)}
                     @input=${this.handleBotsChange}
                     style="--slider-progress: ${sliderPercent}%"
+                    data-i18n-title="host_modal.bots_tooltip"
                   />
                 </div>
 
-                <!-- Dropdowns -->
-                <div class="grid grid-cols-2 gap-4 mb-3">
+                <!-- Dropdowns (3 columns) -->
+                <div class="grid grid-cols-3 gap-4 mb-3">
                   <div class="flex flex-col">
-                    <div class="text-sm text-gray-300 mb-1 font-bold">
+                    <div
+                      class="text-sm text-gray-300 mb-1 font-bold"
+                      data-i18n-title="gold_multiplier.tooltip"
+                    >
+                      ${translateText("gold_multiplier.label")}
+                    </div>
+                    <select
+                      class="sp-select"
+                      @change=${this.handleGoldMultiplierChange}
+                      .value=${String(this.goldMultiplier)}
+                      data-i18n-title="gold_multiplier.tooltip"
+                    >
+                      ${GoldMultiplierValues.map(
+                        (v) =>
+                          html`<option value=${v}>
+                            ${v}x${v === 1 ? " (default)" : ""}
+                          </option>`,
+                      )}
+                    </select>
+                  </div>
+                  <div class="flex flex-col">
+                    <div
+                      class="text-sm text-gray-300 mb-1 font-bold"
+                      data-i18n-title="starting_gold.tooltip"
+                    >
                       ${translateText("starting_gold.label")}
                     </div>
                     <select
                       class="sp-select"
                       @change=${this.handleStartingGoldChange}
                       .value=${String(this.startingGold)}
+                      data-i18n-title="starting_gold.tooltip"
                     >
                       ${StartingGoldValues.map(
                         (v) =>
@@ -835,13 +873,17 @@ export class HostLobbyModal extends LitElement {
                     </select>
                   </div>
                   <div class="flex flex-col">
-                    <div class="text-sm text-gray-300 mb-1 font-bold">
+                    <div
+                      class="text-sm text-gray-300 mb-1 font-bold"
+                      data-i18n-title="host_modal.peace_timer_tooltip"
+                    >
                       ${translateText("host_modal.peace_timer")}
                     </div>
                     <select
                       class="sp-select"
                       @change=${this.handlePeaceTimerChange}
                       .value=${String(this.selectedPeaceTimerDuration)}
+                      data-i18n-title="host_modal.peace_timer_tooltip"
                     >
                       ${Object.values(PeaceTimerDuration)
                         .filter((v) => typeof v === "number")
@@ -870,6 +912,7 @@ export class HostLobbyModal extends LitElement {
                     this.disableNPCs,
                     "host_modal.disable_nations",
                     this.handleDisableNPCsChange,
+                    "host_modal.disable_nations_tooltip",
                   )}
                   ${this.renderToggle(
                     this.instantBuild,
@@ -880,6 +923,7 @@ export class HostLobbyModal extends LitElement {
                     this.instantResearchHumanOnly,
                     "host_modal.instant_research",
                     this.handleInstantResearchHumanOnlyChange,
+                    "host_modal.instant_research_tooltip",
                   )}
                   ${this.renderToggle(
                     this.researchAllTechs,
@@ -893,6 +937,7 @@ export class HostLobbyModal extends LitElement {
                     this.infiniteGold,
                     "host_modal.infinite_gold",
                     this.handleInfiniteGoldChange,
+                    "host_modal.infinite_gold_tooltip",
                   )}
                   ${this.renderToggle(
                     this.infiniteTroops,
@@ -999,9 +1044,13 @@ export class HostLobbyModal extends LitElement {
     checked: boolean,
     labelKey: string,
     onChange: (e: any) => void,
+    tooltipKey?: string,
   ) {
     return html`
-      <label class="sp-btn ${checked ? "selected" : ""}">
+      <label
+        class="sp-btn ${checked ? "selected" : ""}"
+        data-i18n-title=${tooltipKey ?? nothing}
+      >
         <div class="sp-check"></div>
         <input
           type="checkbox"
@@ -1015,6 +1064,16 @@ export class HostLobbyModal extends LitElement {
   }
 
   /* --- LOGIC METHODS --- */
+
+  updated() {
+    // Apply translations to tooltips after rendering
+    this.querySelectorAll("[data-i18n-title]").forEach((el) => {
+      const key = el.getAttribute("data-i18n-title");
+      if (key) {
+        el.setAttribute("title", translateText(key));
+      }
+    });
+  }
 
   createRenderRoot() {
     return this;
@@ -1033,6 +1092,9 @@ export class HostLobbyModal extends LitElement {
           this.startingGold = lobby.gameConfig.startingGold;
         } else {
           this.startingGold = 0;
+        }
+        if (lobby.gameConfig?.goldMultiplier !== undefined) {
+          this.goldMultiplier = lobby.gameConfig.goldMultiplier;
         }
       })
       .then(() => {
@@ -1120,6 +1182,15 @@ export class HostLobbyModal extends LitElement {
       return;
     }
     this.startingGold = value;
+    this.putGameConfig();
+  }
+
+  private handleGoldMultiplierChange(e: Event) {
+    const value = parseFloat((e.target as HTMLSelectElement).value);
+    if (isNaN(value) || !isGoldMultiplierOption(value)) {
+      return;
+    }
+    this.goldMultiplier = value;
     this.putGameConfig();
   }
 
@@ -1295,7 +1366,9 @@ export class HostLobbyModal extends LitElement {
                       <button
                         class="remove-player-btn"
                         @click=${() => this.kickPlayer(client.clientID)}
-                        title="Remove ${client.username}"
+                        title=${translateText("host_modal.remove_player", {
+                          username: client.username,
+                        })}
                       >
                         ×
                       </button>
@@ -1398,7 +1471,7 @@ export class HostLobbyModal extends LitElement {
               <button
                 class="remove-player-btn"
                 @click=${() => this.kickPlayer(client.clientID)}
-                title="Remove ${client.username}"
+                title=$\{translateText("host_modal.remove_player", \{ username: client.username \})\}
               >
                 ×
               </button>
@@ -1440,6 +1513,7 @@ export class HostLobbyModal extends LitElement {
           playerTeamAssignments: assignmentsPayload,
           peaceTimerDurationMinutes: this.selectedPeaceTimerDuration,
           startingGold: this.startingGold,
+          goldMultiplier: this.goldMultiplier,
         } satisfies Partial<GameConfig>),
       },
     );
@@ -1547,6 +1621,9 @@ export class HostLobbyModal extends LitElement {
         }
         if (data.gameConfig?.startingGold !== undefined) {
           this.startingGold = data.gameConfig.startingGold;
+        }
+        if (data.gameConfig?.goldMultiplier !== undefined) {
+          this.goldMultiplier = data.gameConfig.goldMultiplier;
         }
         if (data.gameConfig?.researchAllTechs !== undefined) {
           this.researchAllTechs = Boolean(data.gameConfig.researchAllTechs);

@@ -1,4 +1,8 @@
 import { Gold, UnitType } from "./Game";
+import { maxUnitLevel } from "./Upgradeables";
+
+/** Bomber upgrade cost as a percentage of new airfield cost. */
+export const BOMBER_UPGRADE_COST_MULTIPLIER = 0.2;
 
 const SCALE = 100n; // two decimal places of precision
 
@@ -47,4 +51,36 @@ export function aggregateStructureBuildCost(
     total += computeUpgradeStepCost(stepBase, multiplier);
   }
   return total;
+}
+
+type AirfieldCostProvider = {
+  unitInfo: (t: UnitType) => { cost: (player: any) => Gold };
+};
+
+/**
+ * Compute bomber upgrade cost for airfields during construction.
+ * Cost = baseCost * 20% * airfieldLevel * (bomberLevel - 1)
+ * Scales with both airfield level and bomber upgrade levels.
+ */
+export function computeBomberUpgradeCost(
+  provider: AirfieldCostProvider,
+  player: any,
+  bomberLevel: number,
+  airfieldLevel: number = 1,
+): Gold {
+  const bLevel = Math.min(
+    maxUnitLevel(UnitType.Bomber),
+    Math.max(1, bomberLevel),
+  );
+  if (bLevel <= 1) return 0n;
+  const airfieldBaseCost = provider.unitInfo(UnitType.Airfield).cost(player);
+  const upgradeLevels = bLevel - 1;
+  const aLevel = Math.max(1, airfieldLevel);
+  return (
+    (airfieldBaseCost *
+      BigInt(Math.round(BOMBER_UPGRADE_COST_MULTIPLIER * 100)) *
+      BigInt(aLevel) *
+      BigInt(upgradeLevels)) /
+    100n
+  );
 }

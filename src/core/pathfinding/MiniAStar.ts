@@ -1,5 +1,4 @@
-import { Cell } from "../game/Game";
-import { GameMap, TileRef } from "../game/GameMap";
+import { Cell, GameMap, TerrainType, TileRef } from "../game/GameMap";
 import { AStar, PathFindResultType } from "./AStar";
 import { GraphAdapter, SerialAStar } from "./SerialAStar";
 
@@ -23,6 +22,9 @@ export class GameMapAdapter implements GraphAdapter<TileRef> {
 
   isTraversable(from: TileRef, to: TileRef): boolean {
     const isWater = this.gameMap.isWater(to);
+    if (this.gameMap.terrainType(to) === TerrainType.Barrier) {
+      return false;
+    }
     return this.waterPath ? isWater : !isWater;
   }
 }

@@ -7,6 +7,7 @@ import {
   tryParseUnitType,
 } from "../core/game/Upgradeables";
 import "./components/baseComponents/Modal";
+import { translateText } from "./Utils";
 
 interface UpgradeSettingsItem {
   id: string;
@@ -25,12 +26,26 @@ export class UnitUpgradeSettingsModal extends LitElement {
   @state() private items: UpgradeSettingsItem[] = [];
   @state() private levels: Record<string, number> = {};
 
-  /** Populate and open the modal. Loads persisted levels; defaults to 1 */
+  // Optional function to get player-specific max level (falls back to global max)
+  private _maxLevelFn: ((type: UnitType) => number) | null = null;
+
+  /** Populate and open the modal. Loads persisted levels; defaults to 1
+   * @param unitTypes - Array of unit types to show
+   * @param unitIconMap - Map of unit type string to icon URL
+   * @param maxLevelFn - Optional function to get player-specific max level
+   * @param isAvailableFn - Optional function to check if unit is available to player
+   */
   public open(
     unitTypes: UnitType[] = [],
     unitIconMap: Record<string, string | undefined> = {},
+    maxLevelFn?: (type: UnitType) => number,
+    isAvailableFn?: (type: UnitType) => boolean,
   ) {
-    const upgradeables = unitTypes.filter((t) => isUpgradeableUnit(t));
+    this._maxLevelFn = maxLevelFn ?? null;
+    // Filter to upgradeable units that are available to the player
+    const upgradeables = unitTypes.filter(
+      (t) => isUpgradeableUnit(t) && (!isAvailableFn || isAvailableFn(t)),
+    );
     this.items = upgradeables.map((t) => {
       const id = String(t);
       return {
@@ -74,11 +89,12 @@ export class UnitUpgradeSettingsModal extends LitElement {
     }
   }
 
-  // Apply unit-specific level caps via shared rule
+  // Apply unit-specific level caps via shared rule or player-specific function
   private _applyCap(id: string, desired: number): number {
     const t = tryParseUnitType(id);
     if (!t) return Math.max(1, desired);
-    return Math.min(maxUnitLevel(t), Math.max(1, desired));
+    const cap = this._maxLevelFn ? this._maxLevelFn(t) : maxUnitLevel(t);
+    return Math.min(cap, Math.max(1, desired));
   }
 
   private _inc(id: string) {
@@ -96,7 +112,7 @@ export class UnitUpgradeSettingsModal extends LitElement {
   render() {
     return html`
       <o-modal
-        title="Unit Upgrade Settings"
+        title=${translateText("unit_upgrade_settings.title")}
         max-width="520px"
         max-height="65dvh"
       >
@@ -201,7 +217,7 @@ export class UnitUpgradeSettingsModal extends LitElement {
                   <button
                     class="bs-btn"
                     @click=${() => this._dec(i.id)}
-                    title="Decrease"
+                    title=${translateText("unit_upgrade_settings.decrease")}
                   >
                     &#x25BC;
                   </button>
@@ -209,7 +225,7 @@ export class UnitUpgradeSettingsModal extends LitElement {
                   <button
                     class="bs-btn"
                     @click=${() => this._inc(i.id)}
-                    title="Increase"
+                    title=${translateText("unit_upgrade_settings.increase")}
                   >
                     &#x25B2;
                   </button>

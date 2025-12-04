@@ -117,6 +117,9 @@ export class UnitView {
   constructionType(): UnitType | undefined {
     return this.data.constructionType;
   }
+  constructionTargetLevel(): number {
+    return this.data.constructionTargetLevel ?? 1;
+  }
   targetUnitId(): number | undefined {
     return this.data.targetUnitId;
   }
@@ -188,6 +191,11 @@ export class UnitView {
   // Structure upgrade level (>=1). Defaults to 1 when undefined in updates.
   level(): number {
     return (this.data as any).level ?? 1;
+  }
+
+  // Airfield-specific: bomber upgrade level. Defaults to 1.
+  bomberLevel(): number {
+    return (this.data as any).bomberLevel ?? 1;
   }
 
   // Port-specific: pending trade ship construction due tick (or null if none scheduled)

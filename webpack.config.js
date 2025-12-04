@@ -245,6 +245,13 @@ export default async (env, argv) => {
               secure: false,
               changeOrigin: true,
             },
+            // Rankings API endpoints - route to worker 0
+            {
+              context: ["/api/rankings"],
+              target: "http://localhost:3001",
+              secure: false,
+              changeOrigin: true,
+            },
           ],
         },
   };

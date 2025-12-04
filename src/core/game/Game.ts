@@ -1,7 +1,8 @@
 import { Config } from "../configuration/Config";
 import { AllPlayersStats, ClientID } from "../Schemas";
 import { Category } from "../tech/ResearchTree";
-import { GameMap, TileRef } from "./GameMap";
+import { Cell, GameMap, MapPos, TerrainType, TileRef } from "./GameMap";
+
 import {
   GameUpdate,
   GameUpdateType,
@@ -19,6 +20,9 @@ export type Gold = bigint;
 
 export const AllPlayers = "AllPlayers" as const;
 
+// Attack execution subticks per game tick for smoother territory changes
+export const ATTACK_SUBTICKS_PER_TICK = 10;
+
 // export type GameUpdates = Record<GameUpdateType, GameUpdate[]>;
 // Create a type that maps GameUpdateType to its corresponding update type
 type UpdateTypeMap<T extends GameUpdateType> = Extract<GameUpdate, { type: T }>;
@@ -28,10 +32,7 @@ export type GameUpdates = {
   [K in GameUpdateType]: UpdateTypeMap<K>[];
 };
 
-export interface MapPos {
-  x: number;
-  y: number;
-}
+export { Cell, MapPos, TerrainType };
 
 export enum Difficulty {
   Easy = "Easy",
@@ -86,6 +87,8 @@ export enum GameMapType {
   Italia = "Italia",
   Nukewars1024 = "Nukewars 1024",
   NukeWars2 = "NukeWars 2",
+  NukeWars2000 = "NukeWars 2000",
+  NukeWarsQuad = "NukeWars Quad",
 }
 
 export type GameMapName = keyof typeof GameMapType;
@@ -120,8 +123,8 @@ export const mapCategories: Record<string, GameMapType[]> = {
     GameMapType.Pangaea,
     GameMapType.Mars,
     GameMapType.DeglaciatedAntarctica,
-    GameMapType.Nukewars1024,
-    GameMapType.NukeWars2,
+    GameMapType.NukeWars2000,
+    GameMapType.NukeWarsQuad,
   ],
 };
 
@@ -172,19 +175,20 @@ export enum UnitType {
   Paratrooper = "Paratrooper",
   FighterJet = "Fighter Jet", // Represents a Fighter Jet unit.
   DoomsdayDevice = "Doomsday Device",
+  AABullet = "AA Bullet", // City anti-aircraft bullet for targeting planes
 }
 
 export enum UpgradeType {
   Roads = "Roads",
 
   // Land Upgrades
-  InternationalTrade = "InternationalTrade",
-  UrbanPlanning = "UrbanPlanning",
   ScorchedEarth = "ScorchedEarth",
 
   // Economy Upgrades
+  InternationalTrade = "InternationalTrade",
   StructureInsurance = "StructureInsurance",
-  Automation = "Automation",
+  HospitalResearch = "HospitalResearch",
+  ResearchLabResearch = "ResearchLabResearch",
 
   // Water Upgrades
   SubmarineResearch = "SubmarineResearch",
@@ -193,12 +197,41 @@ export enum UpgradeType {
   WaterUpgrade2 = "WaterUpgrade2",
   WarshipAntiAir = "WarshipAntiAir",
   WaterUpgrade3 = "WaterUpgrade3",
+  // Warship level upgrades (Early Cold War Cruisers gives level 1)
+  WarshipLevel1 = "WarshipLevel1",
+  WarshipLevel2 = "WarshipLevel2",
+  WarshipLevel3 = "WarshipLevel3",
+  // Submarine level upgrades (Diesel-Electric Subs gives level 1)
+  SubmarineLevel1 = "SubmarineLevel1",
+  SubmarineLevel2 = "SubmarineLevel2",
+  SubmarineLevel3 = "SubmarineLevel3",
 
   // Air Upgrades
+  JetEngines = "JetEngines",
   AirUpgrade1 = "AirUpgrade1",
   CityAntiAir = "CityAntiAir",
   AirUpgrade3 = "AirUpgrade3",
   FighterJetNavalTargeting = "FighterJetNavalTargeting",
+  // Fighter level upgrades (Jet Engines gives level 1 by default)
+  FighterLevel2 = "FighterLevel2",
+  FighterLevel3 = "FighterLevel3",
+  FighterLevel4 = "FighterLevel4",
+  // SAM level upgrades (Surface-to-Air Missiles gives level 1)
+  SAMLevel1 = "SAMLevel1",
+  SAMLevel2 = "SAMLevel2",
+  SAMLevel3 = "SAMLevel3",
+  // Bomber level upgrades (Jet Engines gives level 1 by default)
+  BomberLevel2 = "BomberLevel2",
+  BomberLevel3 = "BomberLevel3",
+
+  // Land Upgrades
+  MilitaryAcademy = "MilitaryAcademy",
+
+  // Nuclear Upgrades
+  NuclearFission = "NuclearFission",
+  ThermonuclearStaging = "ThermonuclearStaging",
+  MIRVTechnology = "MIRVTechnology",
+  DoomsdayDeviceResearch = "DoomsdayDeviceResearch",
 
   // Dummy Economy Upgrades
   EconomyUpgrade1 = "EconomyUpgrade1",
@@ -248,6 +281,8 @@ export interface UnitParamsMap {
   };
 
   [UnitType.Shell]: Record<string, never>;
+
+  [UnitType.AABullet]: Record<string, never>;
 
   [UnitType.SAMMissile]: Record<string, never>;
 
@@ -300,6 +335,7 @@ export interface UnitParamsMap {
 
   [UnitType.Bomber]: {
     targetTile: TileRef;
+    sourceAirfield?: Unit;
   };
 
   [UnitType.Paratrooper]: {
@@ -339,38 +375,6 @@ export class Nation {
     public readonly strength: number,
     public readonly playerInfo: PlayerInfo,
   ) {}
-}
-
-export class Cell {
-  public index: number;
-
-  private strRepr: string;
-
-  constructor(
-    public readonly x: number,
-    public readonly y: number,
-  ) {
-    this.strRepr = `Cell[${this.x},${this.y}]`;
-  }
-
-  pos(): MapPos {
-    return {
-      x: this.x,
-      y: this.y,
-    };
-  }
-
-  toString(): string {
-    return this.strRepr;
-  }
-}
-
-export enum TerrainType {
-  Plains,
-  Highland,
-  Mountain,
-  Lake,
-  Ocean,
 }
 
 export enum PlayerType {
@@ -506,11 +510,25 @@ export interface Unit {
   retreating(): boolean;
   orderBoatRetreat(): void;
   health(): number;
+  setHealth(health: bigint): void;
   modifyHealth(delta: number, attacker?: Player): void;
 
   // Troops
   setTroops(troops: number): void;
   troops(): number;
+
+  // Bomber-specific
+  sourceAirfield(): Unit | undefined;
+  setSourceAirfield(airfield: Unit | undefined): void;
+  /** Returns true if this bomber is at its source airfield (not targetable by SAMs/fighters) */
+  isAtSourceAirfield(): boolean;
+
+  // Airfield-specific
+  lastBomberTakeoffTick(): number;
+  setLastBomberTakeoffTick(tick: number): void;
+  bomberLevel(): number;
+  setBomberLevel(level: number): void;
+
   // --- UNIT SPECIFIC ---
 
   // SAMs & Missile Silos
@@ -537,6 +555,8 @@ export interface Unit {
   // Construction
   constructionType(): UnitType | null;
   setConstructionType(type: UnitType): void;
+  constructionTargetLevel(): number;
+  setConstructionTargetLevel(level: number): void;
 
   // Warships
   setPatrolTile(tile: TileRef): void;
@@ -750,9 +770,17 @@ export interface Player {
   tradingPorts(port: Unit): Unit[];
   airfields(airfield: Unit): Unit[];
   setBomberIntent(
-    intent: { targetPlayerID: string; structure: UnitType } | null,
+    intent: {
+      targetPlayerID: string;
+      structures: UnitType[];
+      preferClosest: boolean;
+    } | null,
   ): void;
-  getBomberIntent(): { targetPlayerID: string; structure: UnitType } | null;
+  getBomberIntent(): {
+    targetPlayerID: string;
+    structures: UnitType[];
+    preferClosest: boolean;
+  } | null;
   bombersOnTarget: Map<TileRef, number>;
 
   setAutoBombingEnabled(enabled: boolean): void;
@@ -801,6 +829,8 @@ export interface Game extends GameMap {
     queued: number;
     inProgress: number;
   };
+  // Check if a structure is connected to the road network (has at least one road)
+  isStructureConnectedToRoadNetwork(unit: Unit): boolean;
 
   // Game State
   ticks(): Tick;
@@ -856,7 +886,12 @@ export interface Game extends GameMap {
   numTilesWithFallout(): number;
   // Optional as it's not initialized before the end of spawn phase
   stats(): Stats;
-  bomberExplosion(tile: TileRef, radius: number, owner: Player): void;
+  bomberExplosion(
+    tile: TileRef,
+    radius: number,
+    damage: number,
+    owner: Player,
+  ): void;
   doomsdayExplosion(tile: TileRef, radius: number, owner: Player): void;
   conquer(newOwner: Player, tile: TileRef): void;
 }

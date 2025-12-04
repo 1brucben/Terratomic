@@ -3,6 +3,7 @@ import { SAMMissileExecution } from "../SAMMissileExecution";
 
 /**
  * Finds all enemy cities with the CityAntiAir upgrade within the nuke's blast radius.
+ * Used for SAM missile interception of nukes.
  */
 export function findEligibleCitiesForNuke(nuke: Unit, game: Game): Unit[] {
   const nukeOwner = nuke.owner();
@@ -20,36 +21,10 @@ export function findEligibleCitiesForNuke(nuke: Unit, game: Game): Unit[] {
 }
 
 /**
- * Finds all enemy cities with the CityAntiAir upgrade within launch range of a bomber's target.
+ * Attempts to have a single city intercept a nuke using SAM missiles.
+ * Note: Planes are now handled by CityAAExecution with AA bullets instead.
  */
-export function findEligibleCitiesForBomber(bomber: Unit, game: Game): Unit[] {
-  const bomberOwner = bomber.owner();
-  const searchRadius = game.config().citySamLaunchRange();
-
-  if (!bomber.targetTile()) {
-    return [];
-  }
-
-  return game
-    .nearbyUnits(
-      bomber.targetTile()!,
-      searchRadius,
-      UnitType.City,
-      ({ unit }) => {
-        const cityOwner = unit.owner();
-        return (
-          !bomberOwner.isFriendly(cityOwner as Player) &&
-          cityOwner.hasUpgrade(UpgradeType.CityAntiAir)
-        );
-      },
-    )
-    .map((result) => result.unit);
-}
-
-/**
- * Attempts to have a single city intercept an aircraft or nuke.
- */
-export function attemptInterception(target: Unit, game: Game, city: Unit) {
+export function attemptNukeInterception(target: Unit, game: Game, city: Unit) {
   // Use per-unit cooldown state for cities, same as other units
   if (!city.isActive() || (city.ticksLeftInCooldown() ?? 0) > 0) {
     return;

@@ -1,6 +1,7 @@
 import { renderNumber, renderTroops } from "../../client/Utils";
 import {
   Attack,
+  ATTACK_SUBTICKS_PER_TICK,
   Execution,
   Game,
   MessageType,
@@ -16,6 +17,7 @@ import { PseudoRandom } from "../PseudoRandom";
 import { FlatBinaryHeap } from "./utils/FlatBinaryHeap"; // adjust path if needed
 
 const malusForRetreat = 25;
+
 export class AttackExecution implements Execution {
   private breakAlliance = false;
   private wasAlliedAtInit = false; // Store alliance state at initialization
@@ -30,6 +32,7 @@ export class AttackExecution implements Execution {
 
   private attack: Attack | null = null;
   private isDeepStrike: boolean = false;
+  private tilesToProcessAccumulator: number = 0;
 
   constructor(
     private startTroops: number | null = null,
@@ -263,14 +266,19 @@ export class AttackExecution implements Execution {
     // Consolidated: retreats on alliance/peace are now handled centrally via
     // PlayerImpl.setNeutralWith, which orders retreats on hostile actions.
 
-    let numTilesPerTick = this.mg
-      .config()
-      .attackTilesPerTick(
-        troopCount,
-        this._owner,
-        this.target,
-        this.attack.borderSize() + this.random.nextInt(0, 5),
-      );
+    // Calculate tiles to process - divided by ATTACK_SUBTICKS_PER_TICK since this is called multiple times per game tick
+    this.tilesToProcessAccumulator +=
+      this.mg
+        .config()
+        .attackTilesPerTick(
+          troopCount,
+          this._owner,
+          this.target,
+          this.attack.borderSize() + this.random.nextInt(0, 5),
+        ) / ATTACK_SUBTICKS_PER_TICK;
+
+    let numTilesPerTick = Math.floor(this.tilesToProcessAccumulator + 1e-9);
+    this.tilesToProcessAccumulator -= numTilesPerTick;
 
     while (numTilesPerTick > 0) {
       if (troopCount < 1) {
@@ -382,6 +390,8 @@ export class AttackExecution implements Execution {
         case TerrainType.Mountain:
           mag = 2;
           break;
+        case TerrainType.Barrier:
+          return; // Impassable
       }
 
       const priority =

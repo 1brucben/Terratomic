@@ -7,6 +7,7 @@ import {
   PlayerInfo,
   PlayerType,
   UnitType,
+  UpgradeType,
 } from "../../../src/core/game/Game";
 import { setup } from "../../util/Setup";
 import { constructionExecution, executeTicks } from "../../util/utils";
@@ -75,7 +76,15 @@ describe("SAM", () => {
     middle_defender = game.player("middle_defender_id");
     far_defender = game.player("far_defender_id");
 
+    // Grant nuclear upgrade so attacker can build missile silo and nukes
+    attacker.addUpgrade(UpgradeType.NuclearFission);
+
     constructionExecution(game, attacker, 7, 7, UnitType.MissileSilo);
+
+    // Grant SAM tech so defenders can build SAM launchers
+    defender.addUpgrade(UpgradeType.SAMLevel1);
+    middle_defender.addUpgrade(UpgradeType.SAMLevel1);
+    far_defender.addUpgrade(UpgradeType.SAMLevel1);
   });
 
   test("one sam should take down one nuke", async () => {

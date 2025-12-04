@@ -83,7 +83,7 @@ class StatsStore {
         const s = m.get(p.id());
         if (!s) continue;
         if (!config.isAlive(p)) {
-          if (s.aliveUntil === undefined) s.aliveUntil = now;
+          s.aliveUntil ??= now;
           continue;
         }
         const v = config.sampler(metric, p);

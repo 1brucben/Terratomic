@@ -25,6 +25,7 @@ import { GameType } from "../core/game/Game";
 import { archive } from "./Archive";
 import { Client } from "./Client";
 import { gatekeeper } from "./Gatekeeper";
+import { rankingService } from "./RankingService";
 export enum GamePhase {
   Lobby = "LOBBY",
   Active = "ACTIVE",
@@ -128,6 +129,9 @@ export class GameServer {
     }
     if (gameConfig.startingGold !== undefined) {
       this.gameConfig.startingGold = gameConfig.startingGold;
+    }
+    if (gameConfig.goldMultiplier !== undefined) {
+      this.gameConfig.goldMultiplier = gameConfig.goldMultiplier;
     }
   }
 
@@ -330,10 +334,22 @@ export class GameServer {
             case "ping": {
               this.lastPingUpdate = Date.now();
               client.lastPing = Date.now();
+              client.ws.send(JSON.stringify({ type: "ping" }));
               break;
             }
             case "hash": {
               client.hashes.set(clientMsg.turnNumber, clientMsg.hash);
+              break;
+            }
+            case "join": {
+              this.log.info(
+                "Client requested re-join/sync via existing connection",
+                {
+                  clientID: client.clientID,
+                  lastTurn: clientMsg.lastTurn,
+                },
+              );
+              this.sendStartGameMsg(client.ws, clientMsg.lastTurn);
               break;
             }
             case "winner": {
@@ -345,7 +361,9 @@ export class GameServer {
                 return;
               }
               this.winner = clientMsg;
-              this.archiveGame();
+              this.archiveGame().catch((err) =>
+                this.log.error("Failed to archive game", { error: err }),
+              );
               break;
             }
             default: {
@@ -538,7 +556,9 @@ export class GameServer {
           gameID: this.id,
         });
       } else {
-        this.archiveGame();
+        this.archiveGame().catch((err) =>
+          this.log.error("Failed to archive game on end", { error: err }),
+        );
       }
     } catch (error) {
       let errorDetails;
@@ -744,7 +764,7 @@ export class GameServer {
     return sanitized;
   }
 
-  private archiveGame() {
+  private async archiveGame() {
     this.log.info("archiving game", {
       gameID: this.id,
       winner: this.winner?.winner,
@@ -777,6 +797,12 @@ export class GameServer {
         this.winner?.winner,
       ),
     );
+
+    // Update player rankings
+    // Winner format: ["player", clientID, ...] or ["team", teamName, ...]
+    const winnerClientID =
+      this.winner?.winner?.[0] === "player" ? this.winner.winner[1] : null;
+    await rankingService.updateGameResults(playerRecords, winnerClientID);
   }
 
   private handleSynchronization() {

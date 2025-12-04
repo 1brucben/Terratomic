@@ -129,8 +129,11 @@ export class PlayerImpl implements Player {
   private _hasSpawned = false;
   private _isDisconnected = false;
 
-  private bomberIntent: { targetPlayerID: string; structure: UnitType } | null =
-    null;
+  private bomberIntent: {
+    targetPlayerID: string;
+    structures: UnitType[];
+    preferClosest: boolean;
+  } | null = null;
   private _autoBombingEnabled: boolean = false;
   public bombersOnTarget = new Map<TileRef, number>();
 
@@ -340,7 +343,9 @@ export class PlayerImpl implements Player {
           type === UnitType.City ||
           type === UnitType.Port ||
           type === UnitType.Hospital ||
-          type === UnitType.Academy
+          type === UnitType.Academy ||
+          type === UnitType.ResearchLab ||
+          type === UnitType.Factory
         ) {
           // Upgraded cities, ports, hospitals, and academies count toward totals
           // (affects scaling like new build cost and display counts)
@@ -352,7 +357,19 @@ export class PlayerImpl implements Player {
       }
       if (unit.type() !== UnitType.Construction) continue;
       if (unit.constructionType() !== type) continue;
-      total++;
+      // For upgradeable structures, count the target level instead of just 1
+      if (
+        type === UnitType.City ||
+        type === UnitType.Port ||
+        type === UnitType.Hospital ||
+        type === UnitType.Academy ||
+        type === UnitType.ResearchLab ||
+        type === UnitType.Factory
+      ) {
+        total += unit.constructionTargetLevel();
+      } else {
+        total++;
+      }
     }
     return total;
   }
@@ -453,10 +470,32 @@ export class PlayerImpl implements Player {
     this._effectiveUnitsCache.delete(type);
   }
 
+  /**
+   * Returns the effective unit count for a given type, factoring in health, level,
+   * and road connection bonuses (for eligible structure types).
+   *
+   * Road-connected structures receive up to +20% effectiveness, scaled by road quality.
+   * At 100% road quality = +20% bonus, at 50% = +10%, at 150% = +30%.
+   */
   effectiveUnits(type: UnitType): number {
     if (this._effectiveUnitsCache.has(type)) {
       return this._effectiveUnitsCache.get(type)!;
     }
+
+    // Structure types eligible for road connection bonus
+    const roadEligibleTypes: UnitType[] = [
+      UnitType.City,
+      UnitType.Port,
+      UnitType.Hospital,
+      UnitType.Academy,
+      UnitType.Airfield,
+      UnitType.Factory,
+      UnitType.ResearchLab,
+    ];
+
+    const isRoadEligible = roadEligibleTypes.includes(type);
+    // Get road quality once for all units of this type (quality is per-player, not per-unit)
+    const roadQuality = isRoadEligible ? this.roadNetworkQuality() : 100;
 
     const calculatedValue = this._units
       .filter((u) => u.type() === type && u.isActive())
@@ -467,7 +506,17 @@ export class PlayerImpl implements Player {
           ? Math.min(1, Number(u.health()) / Math.max(1, effectiveMax))
           : 1;
         const level = (u as any).level?.() ?? 1;
-        return sum + healthRatio * level;
+        let baseEffect = healthRatio * level;
+
+        // Apply road connection bonus for eligible types
+        if (isRoadEligible && this.mg.isStructureConnectedToRoadNetwork(u)) {
+          // Bonus scales with road quality: at 100% quality, +20% bonus
+          // roadQuality is typically 0-150, so roadQuality/100 gives 0-1.5
+          const roadBonus = 0.2 * (roadQuality / 100);
+          baseEffect *= 1 + roadBonus;
+        }
+
+        return sum + baseEffect;
       }, 0);
     this._effectiveUnitsCache.set(type, calculatedValue);
     return calculatedValue;
@@ -1235,14 +1284,79 @@ export class PlayerImpl implements Player {
       }
     }
 
+    // Nuclear tech requirements
+    if (unitType === UnitType.AtomBomb) {
+      if (!this.hasUpgrade(UpgradeType.NuclearFission)) {
+        return false;
+      }
+    }
+    if (unitType === UnitType.MissileSilo) {
+      if (!this.hasUpgrade(UpgradeType.NuclearFission)) {
+        return false;
+      }
+    }
+    if (unitType === UnitType.HydrogenBomb) {
+      if (!this.hasUpgrade(UpgradeType.ThermonuclearStaging)) {
+        return false;
+      }
+    }
+    if (unitType === UnitType.MIRV) {
+      if (!this.hasUpgrade(UpgradeType.MIRVTechnology)) {
+        return false;
+      }
+    }
+    if (unitType === UnitType.DoomsdayDevice) {
+      if (!this.hasUpgrade(UpgradeType.DoomsdayDeviceResearch)) {
+        return false;
+      }
+    }
+
+    // Warship tech requirement (Early Cold War Cruisers)
+    if (unitType === UnitType.Warship) {
+      if (!this.hasUpgrade(UpgradeType.WarshipLevel1)) {
+        return false;
+      }
+    }
+
+    // Submarine tech requirement (Diesel-Electric Subs)
+    if (unitType === UnitType.Submarine) {
+      if (!this.hasUpgrade(UpgradeType.SubmarineLevel1)) {
+        return false;
+      }
+    }
+
+    // Air tech requirements (Jet Engines)
+    if (
+      unitType === UnitType.Airfield ||
+      unitType === UnitType.FighterJet ||
+      unitType === UnitType.Bomber
+    ) {
+      if (!this.hasUpgrade(UpgradeType.JetEngines)) {
+        return false;
+      }
+    }
+
+    // SAM Launcher tech requirement (Surface-to-Air Missiles)
+    if (unitType === UnitType.SAMLauncher) {
+      if (!this.hasUpgrade(UpgradeType.SAMLevel1)) {
+        return false;
+      }
+    }
+
+    // Military Academy tech requirement (WWII Lessons Learned)
+    if (unitType === UnitType.Academy) {
+      if (!this.hasUpgrade(UpgradeType.MilitaryAcademy)) {
+        return false;
+      }
+    }
+
     // Test-specific override: Force canBuild for bombers if enabled in TestConfig
     if (
       this.mg.config().forceCanBuildBomberInTests?.() &&
       unitType === UnitType.Bomber
     ) {
-      // Assuming game.ref(1,1) is a valid airfield tile for the attacker in tests
-      // This bypasses the normal canBuild checks for bombers in tests
-      return this.mg.ref(1, 1);
+      // Return the target tile (airfield location) for bomber spawn in tests
+      return targetTile;
     }
 
     if (this.mg.config().isUnitDisabled(unitType)) {
@@ -1271,6 +1385,7 @@ export class PlayerImpl implements Player {
         return this.warshipSpawn(targetTile);
       case UnitType.Shell:
       case UnitType.SAMMissile:
+      case UnitType.AABullet:
         return targetTile;
       case UnitType.TransportShip:
         return canBuildTransportShip(this.mg, this, targetTile);
@@ -1661,13 +1776,18 @@ export class PlayerImpl implements Player {
     return airfields;
   }
   public setBomberIntent(
-    intent: { targetPlayerID: string; structure: UnitType } | null,
+    intent: {
+      targetPlayerID: string;
+      structures: UnitType[];
+      preferClosest: boolean;
+    } | null,
   ): void {
     this.bomberIntent = intent;
   }
   public getBomberIntent(): {
     targetPlayerID: string;
-    structure: UnitType;
+    structures: UnitType[];
+    preferClosest: boolean;
   } | null {
     return this.bomberIntent;
   }

@@ -147,7 +147,8 @@ export class FighterJetExecution implements Execution {
         unit.owner() === owner ||
         unit === this.fighterJet ||
         unit.owner().isFriendly(owner) ||
-        !unit.isTargetable()
+        !unit.isTargetable() ||
+        unit.isAtSourceAirfield()
       ) {
         continue;
       }

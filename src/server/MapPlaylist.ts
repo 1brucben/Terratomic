@@ -89,6 +89,7 @@ export class MapPlaylist {
       bots: 400,
       peaceTimerDurationMinutes: PeaceTimerDuration.None,
       startingGold: 0,
+      goldMultiplier: 1,
     } satisfies GameConfig;
   }
 

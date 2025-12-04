@@ -19,7 +19,6 @@ import {
   Trios,
   UnitInfo,
   UnitType,
-  UpgradeType,
 } from "../game/Game";
 import { TileRef } from "../game/GameMap";
 import { PlayerView } from "../game/GameView";
@@ -33,7 +32,9 @@ import {
 } from "../Schemas";
 import {
   attackCasualtyModifiers,
+  attackSpeedModifiers,
   defenseCasualtyModifiers,
+  incomeModifiers,
 } from "../tech/TechEffects";
 import { assertNever, simpleHash, within } from "../Util";
 import { Config, GameEnv, NukeMagnitude, ServerConfig, Theme } from "./Config";
@@ -53,34 +54,36 @@ const JwksSchema = z.object({
 });
 
 const numPlayersConfig = {
-  [GameMapType.GatewayToTheAtlantic]: [80, 60, 40],
-  [GameMapType.SouthAmerica]: [70, 50, 40],
-  [GameMapType.NorthAmerica]: [80, 60, 50],
-  [GameMapType.Africa]: [100, 80, 50],
-  [GameMapType.Europe]: [80, 50, 30],
-  [GameMapType.Australia]: [50, 40, 30],
-  [GameMapType.Iceland]: [50, 40, 30],
-  [GameMapType.Britannia]: [50, 40, 30],
-  [GameMapType.Asia]: [60, 50, 30],
-  [GameMapType.FalklandIslands]: [80, 50, 30],
-  [GameMapType.Baikal]: [60, 50, 40],
-  [GameMapType.Mena]: [60, 50, 30],
-  [GameMapType.Mars]: [50, 40, 30],
-  [GameMapType.Oceania]: [30, 20, 10],
-  [GameMapType.EastAsia]: [50, 40, 30],
-  [GameMapType.FaroeIslands]: [50, 40, 30],
-  [GameMapType.DeglaciatedAntarctica]: [50, 40, 30],
-  [GameMapType.EuropeClassic]: [80, 30, 50],
-  [GameMapType.BetweenTwoSeas]: [40, 50, 30],
-  [GameMapType.BlackSea]: [40, 50, 30],
-  [GameMapType.Pangaea]: [40, 20, 30],
-  [GameMapType.World]: [150, 80, 50],
-  [GameMapType.GiantWorldMap]: [150, 100, 60],
-  [GameMapType.Halkidiki]: [50, 40, 30],
-  [GameMapType.StraitOfGibraltar]: [50, 40, 30],
-  [GameMapType.Italia]: [50, 40, 30],
-  [GameMapType.Nukewars1024]: [50, 40, 30],
-  [GameMapType.NukeWars2]: [50, 40, 30],
+  [GameMapType.GatewayToTheAtlantic]: [40, 30, 20],
+  [GameMapType.SouthAmerica]: [35, 25, 20],
+  [GameMapType.NorthAmerica]: [40, 30, 25],
+  [GameMapType.Africa]: [50, 40, 25],
+  [GameMapType.Europe]: [40, 25, 15],
+  [GameMapType.Australia]: [25, 20, 15],
+  [GameMapType.Iceland]: [25, 20, 15],
+  [GameMapType.Britannia]: [25, 20, 15],
+  [GameMapType.Asia]: [30, 25, 15],
+  [GameMapType.FalklandIslands]: [40, 25, 15],
+  [GameMapType.Baikal]: [30, 25, 20],
+  [GameMapType.Mena]: [30, 25, 15],
+  [GameMapType.Mars]: [25, 20, 15],
+  [GameMapType.Oceania]: [15, 10, 5],
+  [GameMapType.EastAsia]: [25, 20, 15],
+  [GameMapType.FaroeIslands]: [25, 20, 15],
+  [GameMapType.DeglaciatedAntarctica]: [25, 20, 15],
+  [GameMapType.EuropeClassic]: [40, 15, 25],
+  [GameMapType.BetweenTwoSeas]: [20, 25, 15],
+  [GameMapType.BlackSea]: [20, 25, 15],
+  [GameMapType.Pangaea]: [20, 10, 15],
+  [GameMapType.World]: [75, 40, 25],
+  [GameMapType.GiantWorldMap]: [75, 50, 30],
+  [GameMapType.Halkidiki]: [25, 20, 15],
+  [GameMapType.StraitOfGibraltar]: [25, 20, 15],
+  [GameMapType.Italia]: [25, 20, 15],
+  [GameMapType.Nukewars1024]: [25, 20, 15],
+  [GameMapType.NukeWars2]: [25, 20, 15],
+  [GameMapType.NukeWars2000]: [25, 20, 15],
+  [GameMapType.NukeWarsQuad]: [25, 20, 15],
 } as const satisfies Record<GameMapType, [number, number, number]>;
 
 const TERRAIN_EFFECTS = {
@@ -166,7 +169,7 @@ export abstract class DefaultServerConfig implements ServerConfig {
     return 100;
   }
   gameCreationRate(): number {
-    return 60 * 1000;
+    return 180 * 1000;
   }
 
   lobbyMaxPlayers(
@@ -288,11 +291,24 @@ export class DefaultConfig implements Config {
   citySamCooldown(): number {
     return 300;
   }
+  // City AA bullet-based anti-aircraft system for planes
+  cityAARange(): number {
+    return 50; // Same as citySamLaunchRange
+  }
+  cityAAFireRate(): number {
+    return 3; // Fire every 3 ticks
+  }
+  cityAABulletDamage(): number {
+    return 10; // Each bullet causes 10 damage
+  }
+  cityAABulletSpeed(): number {
+    return 15; // Fast moving bullets
+  }
   samNukeHittingChance(): number {
     return 1;
   }
   samPlaneHittingChance(): number {
-    return 0.8;
+    return 1;
   }
   samWarheadHittingChance(): number {
     return 0.5;
@@ -441,20 +457,67 @@ export class DefaultConfig implements Config {
   bomberSpawnInterval(): number {
     return 20;
   }
+  bomberLaunchGapTicks(): number {
+    return 20; // Minimum ticks between bomber takeoffs from same airfield
+  }
+  bomberTakeoffHealthThreshold(): number {
+    return 0.5; // Bomber must reach 50% health before taking off
+  }
   bomberPayload(): number {
     return 1;
   }
   bomberDropCadence(): number {
     return 1;
   }
-  bomberTargetRange(): number {
-    return 250;
+  bomberTargetRange(level: number = 1): number {
+    switch (level) {
+      case 1:
+        return 250;
+      case 2:
+        return 350;
+      case 3:
+      default:
+        return 450;
+    }
   }
   bomberExplosionRadius(): number {
     return 4;
   }
-  bomberSpeed(): number {
-    return 2;
+  bomberSpeed(level: number = 1): number {
+    switch (level) {
+      case 1:
+        return 2;
+      case 2:
+        return 3;
+      case 3:
+      default:
+        return 4;
+    }
+  }
+  bomberMaxHealth(level: number = 1): number {
+    switch (level) {
+      case 1:
+        return 500;
+      case 2:
+        return 600;
+      case 3:
+      default:
+        return 700;
+    }
+  }
+  bomberDamage(level: number = 1): number {
+    switch (level) {
+      case 1:
+        return 250;
+      case 2:
+        return 300;
+      case 3:
+      default:
+        return 350;
+    }
+  }
+  bomberCooldownTicks(): number {
+    return 100; // Ticks before bomber can take off again after landing/respawn
   }
 
   // Fighter Jets
@@ -610,12 +673,7 @@ export class DefaultConfig implements Config {
           cost: (p: Player) =>
             p.type() === PlayerType.Human && this.infiniteGold()
               ? 0n
-              : BigInt(
-                  Math.min(
-                    1_000_000,
-                    (p.unitsOwned(UnitType.Warship) + 1) * 250_000,
-                  ),
-                ),
+              : 500_000n,
           territoryBound: false,
           maxHealth: 1000,
         };
@@ -624,7 +682,7 @@ export class DefaultConfig implements Config {
           cost: (p: Player) =>
             p.type() === PlayerType.Human && this.infiniteGold()
               ? 0n
-              : 1_000_000n,
+              : 500_000n,
           territoryBound: false,
           maxHealth: 1000,
         };
@@ -633,6 +691,12 @@ export class DefaultConfig implements Config {
           cost: () => 0n,
           territoryBound: false,
           damage: 250,
+        };
+      case UnitType.AABullet:
+        return {
+          cost: () => 0n,
+          territoryBound: false,
+          damage: 10,
         };
       case UnitType.SAMMissile:
         return {
@@ -718,12 +782,7 @@ export class DefaultConfig implements Config {
           cost: (p: Player) =>
             p.type() === PlayerType.Human && this.infiniteGold()
               ? 0n
-              : BigInt(
-                  Math.min(
-                    3_000_000,
-                    (p.unitsOwned(UnitType.SAMLauncher) + 1) * 1_500_000,
-                  ),
-                ),
+              : 1_500_000n,
           territoryBound: true,
           constructionDuration: this.instantBuild() ? 0 : 30 * 10,
           maxHealth: 1000,
@@ -753,12 +812,7 @@ export class DefaultConfig implements Config {
           cost: (p: Player) =>
             p.type() === PlayerType.Human && this.infiniteGold()
               ? 0n
-              : BigInt(
-                  Math.min(
-                    3_000_000,
-                    Math.pow(2, p.unitsOwned(UnitType.Hospital)) * 1_500_000,
-                  ),
-                ),
+              : 1_500_000n,
           territoryBound: true,
           constructionDuration: this.instantBuild() ? 0 : 2 * 10,
           maxHealth: 1000,
@@ -768,12 +822,7 @@ export class DefaultConfig implements Config {
           cost: (p: Player) =>
             p.type() === PlayerType.Human && this.infiniteGold()
               ? 0n
-              : BigInt(
-                  Math.min(
-                    3_000_000,
-                    Math.pow(2, p.unitsOwned(UnitType.ResearchLab)) * 1_500_000,
-                  ),
-                ),
+              : 1_500_000n,
           territoryBound: true,
           constructionDuration: this.instantBuild() ? 0 : 2 * 10,
           maxHealth: 1000,
@@ -783,12 +832,7 @@ export class DefaultConfig implements Config {
           cost: (p: Player) =>
             p.type() === PlayerType.Human && this.infiniteGold()
               ? 0n
-              : BigInt(
-                  Math.min(
-                    3_000_000,
-                    Math.pow(2, p.unitsOwned(UnitType.Academy)) * 1_500_000,
-                  ),
-                ),
+              : 1_500_000n,
           territoryBound: true,
           constructionDuration: this.instantBuild() ? 0 : 2 * 10,
           maxHealth: 1000,
@@ -801,7 +845,7 @@ export class DefaultConfig implements Config {
               : BigInt(
                   Math.min(
                     1_000_000,
-                    Math.pow(2, p.unitsOwned(UnitType.Factory)) * 500_000,
+                    Math.pow(2, p.unitsOwned(UnitType.Factory)) * 250_000,
                   ),
                 ),
           territoryBound: true,
@@ -813,12 +857,7 @@ export class DefaultConfig implements Config {
           cost: (p: Player) =>
             p.type() === PlayerType.Human && this.infiniteGold()
               ? 0n
-              : BigInt(
-                  Math.min(
-                    2_000_000,
-                    Math.pow(2, p.unitsOwned(UnitType.Airfield)) * 400_000,
-                  ),
-                ),
+              : 1_000_000n,
           territoryBound: true,
           constructionDuration: this.instantBuild() ? 0 : 10 * 10,
           maxHealth: 1000,
@@ -832,19 +871,14 @@ export class DefaultConfig implements Config {
         return {
           cost: () => 0n,
           territoryBound: false,
-          maxHealth: 500,
+          maxHealth: this.bomberMaxHealth(), // Level 1 default; actual health set at spawn
         };
       case UnitType.FighterJet:
         return {
           cost: (p: Player) =>
             p.type() === PlayerType.Human && this.infiniteGold()
               ? 0n
-              : BigInt(
-                  Math.min(
-                    1_000_000,
-                    (p.unitsOwned(UnitType.FighterJet) + 1) * 250_000,
-                  ),
-                ),
+              : 500_000n,
           territoryBound: false,
           maxHealth: 750,
         };
@@ -867,72 +901,11 @@ export class DefaultConfig implements Config {
         assertNever(type);
     }
   }
-  upgradeInfo(type: UpgradeType): {
-    cost: (player: Player) => Gold;
-    prerequisite?: (player: Player) => boolean;
-  } {
-    const costForPlayer = (cost: bigint) => (p: Player) => {
-      if (p.type() === PlayerType.Human && this.infiniteGold()) {
-        return 0n;
-      }
-      return cost;
-    };
-
-    switch (type) {
-      case UpgradeType.Roads:
-        return { cost: costForPlayer(1_000_000n) };
-
-      // Land
-      case UpgradeType.InternationalTrade:
-        return { cost: costForPlayer(2_000_000n) };
-      case UpgradeType.UrbanPlanning:
-        return { cost: costForPlayer(1_000_000n) };
-      case UpgradeType.ScorchedEarth:
-        return { cost: costForPlayer(3_000_000n) };
-
-      // Water
-      case UpgradeType.SubmarineResearch:
-        return { cost: costForPlayer(1_000_000n) };
-      case UpgradeType.NuclearSubmarineResearch:
-        return {
-          cost: costForPlayer(3_000_000n),
-          prerequisite: (p: Player) =>
-            p.hasUpgrade(UpgradeType.SubmarineResearch),
-        };
-      case UpgradeType.WaterUpgrade1:
-        return { cost: costForPlayer(1_000_000n) };
-      case UpgradeType.WarshipAntiAir:
-        return { cost: costForPlayer(2_000_000n) };
-      case UpgradeType.WaterUpgrade2:
-        return { cost: costForPlayer(2_000_000n) };
-      case UpgradeType.WaterUpgrade3:
-        return { cost: costForPlayer(3_000_000n) };
-
-      // Air
-      case UpgradeType.AirUpgrade1:
-        return { cost: costForPlayer(1_000_000n) };
-      case UpgradeType.CityAntiAir:
-        return { cost: costForPlayer(2_000_000n) };
-      case UpgradeType.FighterJetNavalTargeting:
-        return { cost: costForPlayer(3_000_000n) };
-      case UpgradeType.AirUpgrade3:
-        return { cost: costForPlayer(3_000_000n) };
-
-      // Economy
-      case UpgradeType.EconomyUpgrade1:
-        return { cost: costForPlayer(1_000_000n) };
-      case UpgradeType.EconomyUpgrade2:
-        return { cost: costForPlayer(2_000_000n) };
-      case UpgradeType.StructureInsurance:
-        return { cost: costForPlayer(2_000_000n) };
-      case UpgradeType.Automation:
-        return { cost: costForPlayer(3_000_000n) };
-      case UpgradeType.EconomyUpgrade3:
-        return { cost: costForPlayer(3_000_000n) };
-
-      default:
-        assertNever(type);
+  scorchedEarthActivationCost(player: Player | PlayerView): Gold {
+    if (player.type() === PlayerType.Human && this.infiniteGold()) {
+      return 0n;
     }
+    return 3_000_000n;
   }
   defaultDonationAmount(sender: Player): number {
     return Math.floor(sender.troops() / 3);
@@ -1135,11 +1108,12 @@ export class DefaultConfig implements Config {
     defender: Player | TerraNullius,
     numAdjacentTilesWithEnemy: number,
   ): number {
-    if (defender.isPlayer()) {
-      return 10 * numAdjacentTilesWithEnemy;
-    } else {
-      return 12 * numAdjacentTilesWithEnemy;
-    }
+    // Get tech-based speed modifier
+    const speedMods = attackSpeedModifiers(attacker);
+    const baseTiles = defender.isPlayer()
+      ? 10 * numAdjacentTilesWithEnemy
+      : 12 * numAdjacentTilesWithEnemy;
+    return baseTiles * speedMods.speedMul;
   }
 
   boatAttackAmount(attacker: Player, defender: Player | TerraNullius): number {
@@ -1190,17 +1164,11 @@ export class DefaultConfig implements Config {
   }
 
   maxPopulation(player: Player | PlayerView): number {
-    let maxPop =
+    const maxPop =
       player.type() === PlayerType.Human && this.infiniteTroops()
         ? 1_000_000_000
         : 1 * (player.numTilesOwned() * 30 + 50000) +
           player.effectiveUnits(UnitType.City) * this.cityPopulationIncrease();
-
-    if (player.hasUpgrade(UpgradeType.UrbanPlanning)) {
-      const num = this.urbanPlanningPopulationBonusNum();
-      const den = this.urbanPlanningPopulationBonusDen();
-      maxPop = Math.floor((maxPop * num) / den);
-    }
 
     if (player.type() === PlayerType.Bot) {
       return maxPop / 2;
@@ -1239,12 +1207,6 @@ export class DefaultConfig implements Config {
     const ratio = Math.max(1 - totalPop / max, 0);
     toAdd *= ratio ** 1.222;
 
-    if (player.hasUpgrade(UpgradeType.Automation)) {
-      const num = this.automationTroopRegenMultiplierNum();
-      const den = this.automationTroopRegenMultiplierDen();
-      toAdd = (toAdd * num) / den;
-    }
-
     if (player.type() === PlayerType.Bot) {
       toAdd *= 0.7;
     }
@@ -1275,7 +1237,11 @@ export class DefaultConfig implements Config {
     const productivity = player.productivity();
     const k = player.effectiveUnits(UnitType.Factory);
     const factoryFactor = Math.pow(1 + k, 0.35);
-    const grossGold = base * productivity * factoryFactor;
+    const multiplier = this._gameConfig.goldMultiplier ?? 1;
+    // Apply tech-based income multiplier
+    const incomeMods = incomeModifiers(player);
+    const grossGold =
+      base * productivity * factoryFactor * multiplier * incomeMods.incomeMul;
     return Number.isFinite(grossGold) && grossGold >= 0 ? grossGold : 0;
   }
 
@@ -1470,6 +1436,7 @@ export class DefaultConfig implements Config {
       case UnitType.Academy:
       case UnitType.ResearchLab:
       case UnitType.Factory:
+      case UnitType.Airfield:
         return 0.8; // Default 80%
       case UnitType.MissileSilo:
         return 0.2; // Missile silo: 20%

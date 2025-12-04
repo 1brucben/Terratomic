@@ -1,0 +1,31 @@
+{
+  "name": "NukeWarsQuad",
+  "width": 1500,
+  "height": 1500,
+  "nations": [
+    {
+      "coordinates": [275, 275],
+      "name": "Pafoot",
+      "strength": 2,
+      "flag": "un"
+    },
+    {
+      "coordinates": [1225, 275],
+      "name": "Dracolda",
+      "strength": 2,
+      "flag": "un"
+    },
+    {
+      "coordinates": [275, 1225],
+      "name": "Nuatilda",
+      "strength": 2,
+      "flag": "un"
+    },
+    {
+      "coordinates": [1225, 1225],
+      "name": "Executionyne",
+      "strength": 2,
+      "flag": "un"
+    }
+  ]
+}

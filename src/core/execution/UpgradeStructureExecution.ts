@@ -4,7 +4,7 @@ import { GameImpl } from "../game/GameImpl";
 import { UnitImpl } from "../game/UnitImpl";
 import {
   isUpgradeableStructure,
-  maxStructureLevel,
+  playerMaxStructureLevel,
 } from "../game/Upgradeables";
 import { NoOpExecution } from "./NoOpExecution";
 
@@ -44,7 +44,8 @@ export class UpgradeStructureExecution implements Execution {
       return;
     }
     const currentLevel = this.unit.level?.call(this.unit) ?? 1;
-    if (currentLevel >= maxStructureLevel(unitType)) {
+    // Use player-specific max level (e.g., SAM launchers depend on SAM tech level)
+    if (currentLevel >= playerMaxStructureLevel(this.player, unitType)) {
       this._isActive = false;
       return;
     }

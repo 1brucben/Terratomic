@@ -14,13 +14,25 @@ import SAMMissileIcon from "../../../../resources/images/SamLauncherUnit.png";
 import shieldIcon from "../../../../resources/images/ShieldIcon.png";
 import { Theme } from "../../../core/configuration/Config";
 import { EventBus } from "../../../core/EventBus";
+import {
+  BOMBER_UPGRADE_COST_MULTIPLIER,
+  computeUpgradeStepCost,
+} from "../../../core/game/Costs";
 import { Cell, PlayerID, UnitType } from "../../../core/game/Game";
 import { GameUpdateType } from "../../../core/game/GameUpdates";
 import { GameView, UnitView } from "../../../core/game/GameView";
+import {
+  isUpgradeableStructure,
+  playerMaxStructureLevel,
+} from "../../../core/game/Upgradeables";
+import { ToggleBomberUpgradeModeEvent } from "../../events/ToggleBomberUpgradeModeEvent";
 import { ToggleUpgradeModeEvent } from "../../events/ToggleUpgradeModeEvent";
 import { UnitCooldownEndedEvent } from "../../events/UnitCooldownEndedEvent";
 import { MouseMoveEvent, MouseUpEvent } from "../../InputHandler";
-import { SendUpgradeStructureIntentEvent } from "../../Transport";
+import {
+  SendUpgradeBomberIntentEvent,
+  SendUpgradeStructureIntentEvent,
+} from "../../Transport";
 import { renderNumber } from "../../Utils";
 import { TransformHandler } from "../TransformHandler";
 import { Layer } from "./Layer";
@@ -53,7 +65,7 @@ const ICON_SIZES: Record<BgShape, number> = {
 const ICON_GROW_ZOOM_THRESHOLD = 2;
 const UNDER_CONSTRUCTION_FILL = "rgb(198, 198, 198)";
 const UNDER_CONSTRUCTION_BORDER = "rgb(128, 127, 127)";
-const reloadingColor = "red";
+const reloadingColor = "rgba(155, 16, 16, 1)";
 
 // Background shape per structure type
 type BgShape = "circle" | "square" | "triangle" | "pentagon" | "octagon";
@@ -88,15 +100,9 @@ export class StructureLayer implements Layer {
   private previouslySelected: UnitView | null = null;
   private hoveredStructure: UnitView | null = null;
   private upgradeMode: boolean = false; // When true, clicking own cities/ports sends upgrade intent
+  private bomberUpgradeMode: boolean = false; // When true, clicking own airfields upgrades their bombers
   // Track affordability per structure type to refresh highlights correctly
-  private lastAffordableForUpgradeCity: boolean | null = null;
-  private lastAffordableForUpgradePort: boolean | null = null;
-  private lastAffordableForUpgradeHospital: boolean | null = null;
-  private lastAffordableForUpgradeAcademy: boolean | null = null;
-  private lastAffordableForUpgradeResearchLab: boolean | null = null;
-  private lastAffordableForUpgradeSilo: boolean | null = null;
-  private lastAffordableForUpgradeSAM: boolean | null = null;
-  private lastAffordableForUpgradeFactory: boolean | null = null;
+  private lastAffordableForUpgrade: Map<UnitType, boolean> = new Map();
   // Client-side level tracking for structures (temporary)
   private structureLevels = new Map<
     number,
@@ -187,16 +193,7 @@ export class StructureLayer implements Layer {
       this.upgradeMode = e.enabled;
       // Rebuild textures for existing sprites so border tint updates immediately.
       for (const r of this.renders) {
-        if (
-          r.unit.type() === UnitType.City ||
-          r.unit.type() === UnitType.Port ||
-          r.unit.type() === UnitType.Hospital ||
-          r.unit.type() === UnitType.Academy ||
-          r.unit.type() === UnitType.MissileSilo ||
-          r.unit.type() === UnitType.SAMLauncher ||
-          r.unit.type() === UnitType.ResearchLab ||
-          r.unit.type() === UnitType.Factory
-        ) {
+        if (isUpgradeableStructure(r.unit.type())) {
           r.pixiSprite.texture = this.createTexture(r.unit);
         }
       }
@@ -204,6 +201,21 @@ export class StructureLayer implements Layer {
       this.shouldRedraw = true;
       this.updateHighlights();
       // Rebuild price labels when toggling upgrade mode
+      this.updateLabels();
+      if (this.renderer) this.renderer.render(this.stage);
+    });
+    this.eventBus.on(ToggleBomberUpgradeModeEvent, (e) => {
+      this.bomberUpgradeMode = e.enabled;
+      // Rebuild textures for airfields so border tint updates immediately.
+      for (const r of this.renders) {
+        if (r.unit.type() === UnitType.Airfield) {
+          r.pixiSprite.texture = this.createTexture(r.unit);
+        }
+      }
+      // Force redraw so highlight state applies instantly.
+      this.shouldRedraw = true;
+      this.updateHighlights();
+      // Rebuild price labels when toggling bomber upgrade mode
       this.updateLabels();
       if (this.renderer) this.renderer.render(this.stage);
     });
@@ -334,9 +346,7 @@ export class StructureLayer implements Layer {
     const cfg = this.game.config();
     const baseCost = cfg.unitInfo(unitType).cost(me as any);
     const multiplier = cfg.structureUpgradeCostMultiplier(unitType);
-    const scale = 100n; // fixed-point precision: 2 decimals
-    const scaledMultiplier = BigInt(Math.round(multiplier * Number(scale)));
-    const upgradeCost = (baseCost * scaledMultiplier) / scale;
+    const upgradeCost = computeUpgradeStepCost(baseCost, multiplier);
     return me.gold() >= upgradeCost;
   }
 
@@ -347,10 +357,7 @@ export class StructureLayer implements Layer {
     const cfg = this.game.config();
     const baseCost = cfg.unitInfo(unitType).cost(me as any);
     const multiplier = cfg.structureUpgradeCostMultiplier(unitType);
-    const scale = 100n; // fixed-point precision: 2 decimals
-    const scaledMultiplier = BigInt(Math.round(multiplier * Number(scale)));
-    const upgradeCost = (baseCost * scaledMultiplier) / scale;
-    return upgradeCost;
+    return computeUpgradeStepCost(baseCost, multiplier);
   }
 
   // Compact gold formatter using k/m lowercase suffixes
@@ -363,66 +370,79 @@ export class StructureLayer implements Layer {
   }
 
   private isUpgradeableStructure(unit: UnitView): boolean {
-    if (
-      unit.type() !== UnitType.City &&
-      unit.type() !== UnitType.Port &&
-      unit.type() !== UnitType.Hospital &&
-      unit.type() !== UnitType.Academy &&
-      unit.type() !== UnitType.ResearchLab &&
-      unit.type() !== UnitType.Factory &&
-      unit.type() !== UnitType.MissileSilo &&
-      unit.type() !== UnitType.SAMLauncher
-    )
-      return false;
-    if (unit.type() === UnitType.MissileSilo && unit.level() >= 3) return false;
-    if (unit.type() === UnitType.SAMLauncher && unit.level() >= 3) return false;
+    if (!isUpgradeableStructure(unit.type())) return false;
+    // Check if at max level for this player (based on researched techs)
+    const me = this.game.myPlayer();
+    if (!me) return false;
+    const maxLevel = playerMaxStructureLevel(me, unit.type());
+    if (unit.level() >= maxLevel) return false;
     return true;
   }
 
-  private updateHighlights() {
-    const affordableCity = this.canAffordUpgradeForType(UnitType.City);
-    const affordablePort = this.canAffordUpgradeForType(UnitType.Port);
-    const affordableHospital = this.canAffordUpgradeForType(UnitType.Hospital);
-    const affordableAcademy = this.canAffordUpgradeForType(UnitType.Academy);
-    const affordableSilo = this.canAffordUpgradeForType(UnitType.MissileSilo);
-    const affordableSAM = this.canAffordUpgradeForType(UnitType.SAMLauncher);
-    const affordableResearchLab = this.canAffordUpgradeForType(
-      UnitType.ResearchLab,
+  // Bomber upgrade cost: 20% of airfield cost × airfield level
+  private computeBomberUpgradeCost(airfield: UnitView): bigint {
+    const me = this.game.myPlayer();
+    if (!me) return 0n;
+    const cfg = this.game.config();
+    const airfieldBaseCost = cfg.unitInfo(UnitType.Airfield).cost(me as any);
+    const airfieldLevel = airfield.level?.() ?? 1;
+    // BOMBER_UPGRADE_COST_MULTIPLIER of airfield cost × airfield level
+    return (
+      (airfieldBaseCost *
+        BigInt(Math.round(BOMBER_UPGRADE_COST_MULTIPLIER * 100)) *
+        BigInt(airfieldLevel)) /
+      100n
     );
-    const affordableFactory = this.canAffordUpgradeForType(UnitType.Factory);
-    if (!this.upgradeMode) {
-      if (
-        this.lastAffordableForUpgradeCity !== null ||
-        this.lastAffordableForUpgradePort !== null ||
-        this.lastAffordableForUpgradeHospital !== null ||
-        this.lastAffordableForUpgradeAcademy !== null ||
-        this.lastAffordableForUpgradeResearchLab !== null ||
-        this.lastAffordableForUpgradeSilo !== null ||
-        this.lastAffordableForUpgradeSAM !== null ||
-        this.lastAffordableForUpgradeFactory !== null
-      ) {
+  }
+
+  // Check if player can afford to upgrade bombers for this airfield
+  private canAffordBomberUpgrade(airfield: UnitView): boolean {
+    const me = this.game.myPlayer();
+    if (!me) return false;
+    if (airfield.type() !== UnitType.Airfield) return false;
+    // Check if any bombers for this airfield can be upgraded
+    if (!this.hasBombersToUpgrade(airfield)) return false;
+    const upgradeCost = this.computeBomberUpgradeCost(airfield);
+    return me.gold() >= upgradeCost;
+  }
+
+  // Check if the airfield has bombers (server enforces max level)
+  private hasBombersToUpgrade(airfield: UnitView): boolean {
+    const me = this.game.myPlayer();
+    if (!me) return false;
+    // Check if airfield has any bombers (level > 0 means at least one bomber)
+    const airfieldLevel = airfield.level?.() ?? 1;
+    if (airfieldLevel === 0) return false;
+    return true;
+  }
+
+  // Check if airfield is eligible for bomber upgrade mode highlighting
+  private isEligibleForBomberUpgrade(unit: UnitView): boolean {
+    if (unit.type() !== UnitType.Airfield) return false;
+    const me = this.game.myPlayer();
+    if (!me || unit.owner() !== me) return false;
+    return this.hasBombersToUpgrade(unit);
+  }
+
+  private updateHighlights() {
+    // Build current affordability map for all upgradeable structure types
+    const currentAffordable = new Map<UnitType, boolean>();
+    for (const r of this.renders) {
+      const t = r.unit.type();
+      if (isUpgradeableStructure(t) && !currentAffordable.has(t)) {
+        currentAffordable.set(t, this.canAffordUpgradeForType(t));
+      }
+    }
+
+    if (!this.upgradeMode && !this.bomberUpgradeMode) {
+      // When exiting upgrade mode, clear affordability cache and refresh upgradeable structures
+      if (this.lastAffordableForUpgrade.size > 0) {
         for (const r of this.renders) {
-          if (
-            r.unit.type() === UnitType.City ||
-            r.unit.type() === UnitType.Port ||
-            r.unit.type() === UnitType.Hospital ||
-            r.unit.type() === UnitType.Academy ||
-            r.unit.type() === UnitType.ResearchLab ||
-            r.unit.type() === UnitType.MissileSilo ||
-            r.unit.type() === UnitType.SAMLauncher ||
-            r.unit.type() === UnitType.Factory
-          ) {
+          if (isUpgradeableStructure(r.unit.type())) {
             r.pixiSprite.texture = this.createTexture(r.unit);
           }
         }
-        this.lastAffordableForUpgradeCity = null;
-        this.lastAffordableForUpgradePort = null;
-        this.lastAffordableForUpgradeHospital = null;
-        this.lastAffordableForUpgradeAcademy = null;
-        this.lastAffordableForUpgradeResearchLab = null;
-        this.lastAffordableForUpgradeFactory = null;
-        this.lastAffordableForUpgradeSilo = null;
-        this.lastAffordableForUpgradeSAM = null;
+        this.lastAffordableForUpgrade.clear();
         this.shouldRedraw = true;
       }
       // When exiting upgrade mode, ensure any previously highlighted sprites are refreshed
@@ -438,68 +458,51 @@ export class StructureLayer implements Layer {
       }
       return;
     }
-    const cityChanged = this.lastAffordableForUpgradeCity !== affordableCity;
-    const portChanged = this.lastAffordableForUpgradePort !== affordablePort;
-    const hospitalChanged =
-      this.lastAffordableForUpgradeHospital !== affordableHospital;
-    const academyChanged =
-      this.lastAffordableForUpgradeAcademy !== affordableAcademy;
-    const siloChanged = this.lastAffordableForUpgradeSilo !== affordableSilo;
-    const samChanged = this.lastAffordableForUpgradeSAM !== affordableSAM;
-    const labChanged =
-      this.lastAffordableForUpgradeResearchLab !== affordableResearchLab;
-    const factoryChanged =
-      this.lastAffordableForUpgradeFactory !== affordableFactory;
-    if (
-      cityChanged ||
-      portChanged ||
-      hospitalChanged ||
-      academyChanged ||
-      siloChanged ||
-      samChanged ||
-      labChanged ||
-      factoryChanged
-    ) {
+
+    // Handle bomber upgrade mode highlighting for airfields
+    if (this.bomberUpgradeMode) {
+      let anyChanged = false;
       for (const r of this.renders) {
-        const t = r.unit.type();
-        if (
-          (cityChanged && t === UnitType.City) ||
-          (portChanged && t === UnitType.Port) ||
-          (hospitalChanged && t === UnitType.Hospital) ||
-          (academyChanged && t === UnitType.Academy) ||
-          (labChanged && t === UnitType.ResearchLab) ||
-          (siloChanged && t === UnitType.MissileSilo) ||
-          (samChanged && t === UnitType.SAMLauncher) ||
-          (factoryChanged && t === UnitType.Factory)
-        ) {
+        if (r.unit.type() !== UnitType.Airfield) continue;
+        const should = this.shouldHighlightForBomberUpgrade(r.unit);
+        const prev = this.lastHighlight.get(r.unit.id()) ?? false;
+        if (prev !== should) {
+          r.pixiSprite.texture = this.createTexture(r.unit);
+          this.lastHighlight.set(r.unit.id(), should);
+          anyChanged = true;
+        }
+      }
+      if (anyChanged) {
+        this.shouldRedraw = true;
+      }
+      // Still fall through to handle regular upgrade mode if both are somehow on
+      if (!this.upgradeMode) return;
+    }
+
+    // Check if affordability changed for any structure type
+    const changedTypes = new Set<UnitType>();
+    for (const [type, affordable] of currentAffordable) {
+      const lastAffordable = this.lastAffordableForUpgrade.get(type);
+      if (lastAffordable !== affordable) {
+        changedTypes.add(type);
+        this.lastAffordableForUpgrade.set(type, affordable);
+      }
+    }
+
+    // Refresh textures for structures whose affordability changed
+    if (changedTypes.size > 0) {
+      for (const r of this.renders) {
+        if (changedTypes.has(r.unit.type())) {
           r.pixiSprite.texture = this.createTexture(r.unit);
         }
       }
-      this.lastAffordableForUpgradeCity = affordableCity;
-      this.lastAffordableForUpgradePort = affordablePort;
-      this.lastAffordableForUpgradeHospital = affordableHospital;
-      this.lastAffordableForUpgradeAcademy = affordableAcademy;
-      this.lastAffordableForUpgradeResearchLab = affordableResearchLab;
-      this.lastAffordableForUpgradeSilo = affordableSilo;
-      this.lastAffordableForUpgradeSAM = affordableSAM;
-      this.lastAffordableForUpgradeFactory = affordableFactory;
       this.shouldRedraw = true;
     }
 
     // Per-unit sanity check: if highlight eligibility changed (e.g., level cap reached), refresh that unit
     let anyUnitChanged = false;
     for (const r of this.renders) {
-      const t = r.unit.type();
-      if (
-        t !== UnitType.City &&
-        t !== UnitType.Port &&
-        t !== UnitType.Hospital &&
-        t !== UnitType.Academy &&
-        t !== UnitType.ResearchLab &&
-        t !== UnitType.Factory &&
-        t !== UnitType.MissileSilo &&
-        t !== UnitType.SAMLauncher
-      ) {
+      if (!isUpgradeableStructure(r.unit.type())) {
         continue;
       }
       const should = this.shouldHighlight(r.unit);
@@ -589,21 +592,14 @@ export class StructureLayer implements Layer {
     }
     // Differentiate textures by upgrade highlight state so mixed eligibility among
     // units of the same type/owner doesn't lead to incorrect texture reuse.
-    if (!isConstruction) {
-      const t = structureType as UnitType;
-      if (
-        t === UnitType.City ||
-        t === UnitType.Port ||
-        t === UnitType.Hospital ||
-        t === UnitType.Academy ||
-        t === UnitType.MissileSilo ||
-        t === UnitType.SAMLauncher ||
-        t === UnitType.ResearchLab ||
-        t === UnitType.Factory
-      ) {
-        const hl = this.shouldHighlight(unit) ? 1 : 0;
-        cacheKey += `-hl${hl}`;
-      }
+    if (!isConstruction && isUpgradeableStructure(structureType as UnitType)) {
+      const hl = this.shouldHighlight(unit) ? 1 : 0;
+      cacheKey += `-hl${hl}`;
+    }
+    // Add bomber upgrade highlight state for airfields
+    if (!isConstruction && structureType === UnitType.Airfield) {
+      const bhl = this.shouldHighlightForBomberUpgrade(unit) ? 1 : 0;
+      cacheKey += `-bhl${bhl}`;
     }
     if (this.textureCache.has(cacheKey)) {
       // If render requested invalidation (upgrade mode toggle), bypass cache by deleting
@@ -651,17 +647,21 @@ export class StructureLayer implements Layer {
     let highlightTint = borderColor;
     if (
       !isConstruction &&
-      (structureType === UnitType.City ||
-        structureType === UnitType.Port ||
-        structureType === UnitType.Hospital ||
-        structureType === UnitType.Academy ||
-        structureType === UnitType.ResearchLab ||
-        structureType === UnitType.Factory ||
-        structureType === UnitType.MissileSilo ||
-        structureType === UnitType.SAMLauncher) &&
+      isUpgradeableStructure(structureType as UnitType) &&
       this.shouldHighlight(unit)
     ) {
       // Blend neon green with the base border color to reduce intensity
+      highlightTint = this.blendHexColors("#00FF8A", borderColor, 0.6);
+      borderColor = highlightTint;
+      highlightEligibleIcon = true;
+    }
+    // Apply highlight for bomber upgrade mode on airfields
+    if (
+      !isConstruction &&
+      structureType === UnitType.Airfield &&
+      this.shouldHighlightForBomberUpgrade(unit)
+    ) {
+      // Use the same neon green as regular upgrade mode
       highlightTint = this.blendHexColors("#00FF8A", borderColor, 0.6);
       borderColor = highlightTint;
       highlightEligibleIcon = true;
@@ -798,6 +798,17 @@ export class StructureLayer implements Layer {
     if (unit.type() === UnitType.Construction) return false;
     if (!this.isUpgradeableStructure(unit)) return false;
     return unit.owner().id() === me.id() && this.canAffordUpgrade(unit);
+  }
+
+  private shouldHighlightForBomberUpgrade(unit: UnitView): boolean {
+    if (!this.bomberUpgradeMode) return false;
+    const me = this.game.myPlayer();
+    if (!me) return false;
+    if (unit.type() !== UnitType.Airfield) return false;
+    if (unit.owner().id() !== me.id()) return false;
+    return (
+      this.isEligibleForBomberUpgrade(unit) && this.canAffordBomberUpgrade(unit)
+    );
   }
 
   private createPixiSprite(unit: UnitView): PIXI.Sprite {
@@ -945,34 +956,24 @@ export class StructureLayer implements Layer {
       if (clickedUnit.owner() !== this.game.myPlayer()) {
         return;
       }
-      // In upgrade mode: attempt to upgrade structure (City/Port/Hospital/Academy/ResearchLab/MissileSilo/SAMLauncher) immediately
-      if (
-        this.upgradeMode &&
-        (clickedUnit.type() === UnitType.City ||
-          clickedUnit.type() === UnitType.Port ||
-          clickedUnit.type() === UnitType.Hospital ||
-          clickedUnit.type() === UnitType.Academy ||
-          clickedUnit.type() === UnitType.ResearchLab ||
-          clickedUnit.type() === UnitType.Factory ||
-          clickedUnit.type() === UnitType.MissileSilo ||
-          clickedUnit.type() === UnitType.SAMLauncher)
-      ) {
-        // Only if affordable
-        // And only if not at level cap for Missile Silo
-        if (
-          clickedUnit.type() === UnitType.MissileSilo &&
-          clickedUnit.level() >= 3
-        ) {
-          return;
+      // In bomber upgrade mode: attempt to upgrade bombers for clicked airfield
+      if (this.bomberUpgradeMode && clickedUnit.type() === UnitType.Airfield) {
+        // Check if any bombers can be upgraded and player can afford it
+        if (this.canAffordBomberUpgrade(clickedUnit)) {
+          // Fire transport event to send intent
+          this.eventBus.emit(
+            new SendUpgradeBomberIntentEvent(clickedUnit.id()),
+          );
         }
-        // SAMs also cap at level 3
+        return; // Do not change selection while upgrading
+      }
+      // In upgrade mode: attempt to upgrade upgradeable structures immediately
+      if (this.upgradeMode && isUpgradeableStructure(clickedUnit.type())) {
+        // Check if upgradeable (not at max level) and affordable
         if (
-          clickedUnit.type() === UnitType.SAMLauncher &&
-          clickedUnit.level() >= 3
+          this.isUpgradeableStructure(clickedUnit) &&
+          this.canAffordUpgrade(clickedUnit)
         ) {
-          return;
-        }
-        if (this.canAffordUpgrade(clickedUnit)) {
           // Fire transport event to send intent; rely on server update to change level
           this.eventBus.emit(
             new SendUpgradeStructureIntentEvent(
@@ -1029,11 +1030,18 @@ export class StructureLayer implements Layer {
       unit.type() !== UnitType.Construction
     ) {
       // Initialize with server level (typically 1 unless upgraded before client joined)
-      this.structureLevels.set(id, { primary: unit.level(), secondary: 0 });
+      // For airfields, set secondary to bomber upgrade level
+      const secondary =
+        unit.type() === UnitType.Airfield ? unit.bomberLevel() : 0;
+      this.structureLevels.set(id, { primary: unit.level(), secondary });
     } else if (this.structureLevels.has(id)) {
       // Keep in sync with authoritative server level each tick/render cycle
       const rec = this.structureLevels.get(id)!;
       rec.primary = unit.level();
+      // For airfields, update secondary to bomber upgrade level
+      if (unit.type() === UnitType.Airfield) {
+        rec.secondary = unit.bomberLevel();
+      }
     }
   }
 
@@ -1190,6 +1198,76 @@ export class StructureLayer implements Layer {
           });
           const priceText = this.formatGoldCompact(
             this.computeUpgradeCostForType(u.type()),
+          );
+          const t = new PIXI.Text(priceText, style);
+
+          const paddingX = Math.round(fontSize * 0.5);
+          const paddingY = Math.round(fontSize * 0.35);
+          const pillWidth = t.width + paddingX * 2;
+          const pillHeight = t.height + paddingY * 2;
+          const bg = new PIXI.Graphics();
+          // Nudge even closer to icon (further up)
+          const gapBelow = Math.round(1 * labelScale);
+          const bgX = Math.round(screenPos.x - pillWidth / 2);
+          const bgY = Math.round(
+            screenPos.y + (iconDim * labelScale) / 2 + gapBelow,
+          );
+          bg.roundRect(
+            bgX,
+            bgY,
+            pillWidth,
+            pillHeight,
+            Math.min(14, fontSize),
+          ).fill({
+            color: 0x000000,
+            alpha: 0.55,
+          });
+          this.labelContainer.addChild(bg);
+          t.x = bgX + Math.round((pillWidth - t.width) / 2);
+          t.y = bgY + Math.round((pillHeight - t.height) / 2);
+          this.labelContainer.addChild(t);
+        }
+      }
+    }
+
+    // 3) In bomber upgrade mode, show UPGRADE PRICE BELOW for all eligible airfields owned by me
+    if (this.bomberUpgradeMode) {
+      const me = this.game.myPlayer();
+      if (me) {
+        for (const r of this.renders) {
+          const u = r.unit;
+          if (!u.isActive()) continue;
+          if (u.owner() !== me) continue;
+          if (u.type() !== UnitType.Airfield) continue;
+          if (!this.isEligibleForBomberUpgrade(u)) continue;
+
+          const tile = u.tile();
+          const worldX = this.game.x(tile);
+          const worldY = this.game.y(tile);
+          const screenPos = this.transformHandler.worldToScreenCoordinates(
+            new Cell(worldX, worldY),
+          );
+          const shape: BgShape =
+            STRUCTURE_BG_SHAPES[u.type() as UnitType] ?? "circle";
+          const iconDim = ICON_SIZES[shape] ?? ICON_SIZE;
+          const iconScale = this.iconScreenScale();
+          const labelScale = iconScale * ICON_TEXTURE_QUALITY;
+
+          // Shrink cost indicator by 50%
+          const fontSize = Math.round(iconDim * labelScale * 0.25);
+          // Use orange/amber for bomber upgrades when affordable; otherwise white
+          const affordable = this.canAffordBomberUpgrade(u);
+          const fillColor = affordable ? 0xffa500 : 0xffffff;
+          const style = new PIXI.TextStyle({
+            fontFamily:
+              "system-ui, -apple-system, Segoe UI, Roboto, sans-serif",
+            fontSize,
+            fontWeight: "600",
+            fill: fillColor,
+            align: "center",
+          });
+          const priceText = this.formatGoldCompact(
+            this.computeBomberUpgradeCost(u),
           );
           const t = new PIXI.Text(priceText, style);
 

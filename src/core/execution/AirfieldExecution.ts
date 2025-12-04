@@ -1,13 +1,6 @@
-import {
-  Execution,
-  Game,
-  Player,
-  PlayerType,
-  Relation,
-  Unit,
-  UnitType,
-} from "../game/Game";
+import { Execution, Game, Player, Unit, UnitType } from "../game/Game";
 import { TileRef } from "../game/GameMap";
+import { maxUnitLevel } from "../game/Upgradeables";
 import { PseudoRandom } from "../PseudoRandom";
 import { BomberExecution } from "./BomberExecution";
 import { CargoPlaneExecution } from "./CargoPlaneExecution";
@@ -18,11 +11,12 @@ export class AirfieldExecution implements Execution {
   private airfield: Unit | null = null;
   private random: PseudoRandom | null = null;
   private checkOffset: number | null = null;
-  private spawnTicker = 0;
+  private lastLevel = 0; // Track airfield level to detect upgrades
 
   constructor(
     private player: Player,
     private tile: TileRef,
+    private initialBomberLevel: number = 1, // Bomber upgrade level
   ) {}
 
   init(mg: Game, ticks: number): void {
@@ -47,6 +41,19 @@ export class AirfieldExecution implements Execution {
         return;
       }
       this.airfield = this.player.buildUnit(UnitType.Airfield, spawn, {});
+      this.lastLevel = this.airfield.level?.() ?? 1;
+
+      // Set initial bomber upgrade level if specified (clamped to max)
+      const bomberLvl = Math.min(
+        maxUnitLevel(UnitType.Bomber),
+        Math.max(1, this.initialBomberLevel),
+      );
+      if (bomberLvl > 1) {
+        this.airfield.setBomberLevel?.(bomberLvl);
+      }
+
+      // Spawn initial bombers when airfield is built
+      this.spawnBombersForLevel(mg);
     }
 
     if (!this.airfield.isActive()) {
@@ -58,21 +65,27 @@ export class AirfieldExecution implements Execution {
       this.player = this.airfield.owner();
     }
 
+    // Check if airfield was upgraded - spawn additional bombers
+    const currentLevel = this.airfield.level?.() ?? 1;
+    if (currentLevel > this.lastLevel) {
+      const bombersToAdd = currentLevel - this.lastLevel;
+      for (let i = 0; i < bombersToAdd; i++) {
+        mg.addExecution(new BomberExecution(this.player, this.airfield));
+      }
+      this.lastLevel = currentLevel;
+    }
+
     if ((mg.ticks() + this.checkOffset) % 10 !== 0) {
       return;
     }
 
     const airfieldUnit = this.airfield;
-    const totalEffectiveAirfields = mg
-      .players()
-      .reduce((sum, p) => sum + p.effectiveUnits(UnitType.Airfield), 0);
-    const activeBombers = this.player.units(UnitType.Bomber).length;
 
-    if (activeBombers >= totalEffectiveAirfields) {
-      return;
-    }
-
+    // Handle cargo planes
     if (mg.config().cargoPlanesEnabled()) {
+      const totalEffectiveAirfields = mg
+        .players()
+        .reduce((sum, p) => sum + p.effectiveUnits(UnitType.Airfield), 0);
       if (
         this.random.chance(
           mg.config().cargoPlaneSpawnRate(totalEffectiveAirfields),
@@ -87,113 +100,13 @@ export class AirfieldExecution implements Execution {
         }
       }
     }
+  }
 
-    if (!mg.config().bombersEnabled()) return;
-
-    const isPeaceTimerActive =
-      mg.peaceTimerEndsAtTick !== null && mg.ticks() < mg.peaceTimerEndsAtTick;
-
-    if (isPeaceTimerActive) {
-      return; // Block bomber launch
+  private spawnBombersForLevel(mg: Game): void {
+    const level = this.airfield?.level?.() ?? 1;
+    for (let i = 0; i < level; i++) {
+      mg.addExecution(new BomberExecution(this.player, this.airfield!));
     }
-
-    this.spawnTicker++;
-    if (this.spawnTicker < mg.config().bomberSpawnInterval()) return;
-    this.spawnTicker = 0;
-
-    const findAndLaunchBomber = (targets: Unit[]) => {
-      for (const targetUnit of targets) {
-        const currentBombers =
-          this.player.bombersOnTarget.get(targetUnit.tile()) ?? 0;
-        if (currentBombers < 6) {
-          mg.addExecution(
-            new BomberExecution(
-              this.player,
-              airfieldUnit,
-              targetUnit.tile(),
-              this.player.bombersOnTarget,
-            ),
-          );
-          this.player.bombersOnTarget.set(
-            targetUnit.tile(),
-            currentBombers + 1,
-          );
-          return true;
-        }
-      }
-      return false;
-    };
-
-    const intent = this.player.getBomberIntent?.();
-    if (intent?.targetPlayerID && intent?.structure) {
-      const targetPlayer = mg.player(intent.targetPlayerID);
-      if (targetPlayer && !this.player.isFriendly(targetPlayer)) {
-        const targets = targetPlayer.units(intent.structure);
-        if (findAndLaunchBomber(targets)) {
-          return;
-        }
-      }
-    }
-
-    // Default targeting logic
-    if (!this.player.isAutoBombingEnabled()) {
-      return;
-    }
-    const range = mg.config().bomberTargetRange();
-    const enemies = mg
-      .nearbyUnits(airfieldUnit.tile(), range, [
-        UnitType.SAMLauncher,
-        UnitType.Airfield,
-        UnitType.MissileSilo,
-        UnitType.Port,
-        UnitType.DefensePost,
-        UnitType.City,
-        UnitType.Academy,
-        UnitType.Hospital,
-        UnitType.DoomsdayDevice,
-        UnitType.Factory,
-        UnitType.ResearchLab,
-      ])
-      .filter(({ unit }) => {
-        const o = mg.owner(unit.tile());
-        return (
-          o.isPlayer() &&
-          o.id() !== this.player.id() &&
-          (this.player.type() === PlayerType.FakeHuman
-            ? this.player.relation(o) <= Relation.Hostile
-            : !this.player.isFriendly(o))
-        );
-      })
-      .map(({ unit, distSquared }) => ({ unit, dist2: distSquared }));
-
-    if (enemies.length === 0) return;
-
-    const priority: UnitType[] = [
-      UnitType.SAMLauncher,
-      UnitType.Airfield,
-      UnitType.MissileSilo,
-      UnitType.Port,
-      UnitType.DefensePost,
-      UnitType.City,
-      UnitType.Academy,
-      UnitType.Hospital,
-      UnitType.DoomsdayDevice,
-      UnitType.Factory,
-      UnitType.ResearchLab,
-    ];
-
-    const sortedEnemies = enemies.sort((a, b) => {
-      const priorityA = priority.indexOf(a.unit.type());
-      const priorityB = priority.indexOf(b.unit.type());
-      if (priorityA !== priorityB) {
-        return priorityA - priorityB;
-      }
-      return a.dist2 - b.dist2;
-    });
-
-    const potentialTargets = sortedEnemies.map((e) => e.unit);
-
-    findAndLaunchBomber(potentialTargets);
   }
 
   isActive(): boolean {

@@ -19,7 +19,6 @@ import {
   Tick,
   UnitInfo,
   UnitType,
-  UpgradeType,
 } from "../game/Game";
 import { GameMap, TileRef } from "../game/GameMap";
 import { PlayerView } from "../game/GameView";
@@ -66,10 +65,6 @@ export interface ServerConfig {
 export interface NukeMagnitude {
   inner: number;
   outer: number;
-}
-
-export interface UpgradeInfo {
-  cost: (player: Player | PlayerView) => Gold;
 }
 
 export interface Config {
@@ -149,7 +144,7 @@ export interface Config {
   donateCooldown(): Tick;
   defaultDonationAmount(sender: Player): number;
   unitInfo(type: UnitType): UnitInfo;
-  upgradeInfo(type: UpgradeType): UpgradeInfo;
+  scorchedEarthActivationCost(player: Player | PlayerView): Gold;
   tradeShipGold(dist: number): Gold;
   tradeShipSpawnRate(numberOfPorts: number): number;
   // Trade rework: gravity-based demand and port-supplied ships
@@ -198,13 +193,22 @@ export interface Config {
   bomberDropCadence(): number;
   bomberPayload(): number;
   bomberSpawnInterval(): number;
-  bomberTargetRange(): number;
+  bomberLaunchGapTicks(): number;
+  bomberTakeoffHealthThreshold(): number;
+  bomberTargetRange(level?: number): number;
   bomberExplosionRadius(): number;
-  bomberSpeed(): number;
+  bomberSpeed(level?: number): number;
+  bomberMaxHealth(level?: number): number;
+  bomberDamage(level?: number): number;
+  bomberCooldownTicks(): number;
   safeFromPiratesCooldownMax(): number;
   defensePostRange(): number;
   citySamLaunchRange(): number;
   citySamCooldown(): number;
+  cityAARange(): number;
+  cityAAFireRate(): number;
+  cityAABulletDamage(): number;
+  cityAABulletSpeed(): number;
   SAMNukeCooldown(): number;
   SAMPlaneCooldown(): number;
   SiloCooldown(): number;
