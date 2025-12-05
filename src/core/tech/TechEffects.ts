@@ -37,8 +37,8 @@ export interface ResearchEffectivenessModifiers {
 }
 
 export interface IncomeModifiers {
-  // Multiplier to apply to gross gold income
-  incomeMul: number;
+  // Multiplier for domestic income (non-trade income from population/industry)
+  domesticIncomeMul: number;
 }
 
 export interface InfrastructureEffectivenessModifiers {
@@ -47,8 +47,10 @@ export interface InfrastructureEffectivenessModifiers {
 }
 
 export interface TradeIncomeModifiers {
-  // Multiplier to apply to trade income
+  // Multiplier to apply to trade income (from roads and trade ships)
   incomeMul: number;
+  // Additional multiplier for trade ship income specifically (stacks with incomeMul)
+  tradeShipIncomeMul: number;
 }
 
 // Central registry shape for tech effects: on-complete side-effects and battle modifiers
@@ -951,13 +953,14 @@ export function researchEffectivenessModifiers(
 /**
  * Compute income multiplier based on researched techs and policy directives.
  * incomeMul > 1 means higher gross gold income.
+ * domesticIncomeMul > 1 means higher domestic (non-trade) income.
  */
 export function incomeModifiers(player: {
   hasResearchedTech?(techId: string): boolean;
   getPolicyChoice?(directiveId: string): string | null;
 }): IncomeModifiers {
   const mods: IncomeModifiers = {
-    incomeMul: 1.0,
+    domesticIncomeMul: 1.0,
   };
   // Apply tech effects
   for (const [techId, def] of Object.entries(TECHS)) {
@@ -973,8 +976,8 @@ export function incomeModifiers(player: {
         directive.id as PolicyDirectiveId,
         chosenOptionId,
       );
-      if (option?.effects.incomeMul) {
-        mods.incomeMul *= option.effects.incomeMul;
+      if (option?.effects.domesticIncomeMul) {
+        mods.domesticIncomeMul *= option.effects.domesticIncomeMul;
       }
     }
   }
@@ -1000,18 +1003,37 @@ export function infrastructureEffectivenessModifiers(player: {
 }
 
 /**
- * Compute trade income multiplier based on researched techs.
+ * Compute trade income multiplier based on researched techs and policy directives.
  * incomeMul > 1 means higher trade income.
+ * tradeShipIncomeMul > 1 means higher income for trade ship owners.
  */
 export function tradeIncomeModifiers(player: {
   hasResearchedTech?(techId: string): boolean;
+  getPolicyChoice?(directiveId: string): string | null;
 }): TradeIncomeModifiers {
   const mods: TradeIncomeModifiers = {
     incomeMul: 1.0,
+    tradeShipIncomeMul: 1.0,
   };
   for (const [techId, def] of Object.entries(TECHS)) {
     if (player.hasResearchedTech?.(techId)) {
       def.effects?.tradeIncome?.(mods);
+    }
+  }
+  // Apply policy directive effects
+  for (const directive of getAllPolicyDirectives()) {
+    const chosenOptionId = player.getPolicyChoice?.(directive.id);
+    if (chosenOptionId) {
+      const option = getPolicyOption(
+        directive.id as PolicyDirectiveId,
+        chosenOptionId,
+      );
+      if (option?.effects.tradeIncomeMul) {
+        mods.incomeMul *= option.effects.tradeIncomeMul;
+      }
+      if (option?.effects.tradeShipIncomeMul) {
+        mods.tradeShipIncomeMul *= option.effects.tradeShipIncomeMul;
+      }
     }
   }
   return mods;

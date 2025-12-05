@@ -1,4 +1,4 @@
-import { Execution, Game, Player } from "../game/Game";
+import { Execution, Game, Player, UpgradeType } from "../game/Game";
 import {
   getPolicyDirective,
   isDirectiveUnlocked,
@@ -77,6 +77,12 @@ export class PolicyDirectiveSelectExecution implements Execution {
 
     // Set the policy choice
     this.player.setPolicyChoice(this.directiveId, this.optionId);
+
+    // Apply upgrade effects from the chosen option
+    if (option.effects.grantsInternationalTrade) {
+      this.player.addUpgrade(UpgradeType.InternationalTrade);
+    }
+
     this._active = false;
   }
 }

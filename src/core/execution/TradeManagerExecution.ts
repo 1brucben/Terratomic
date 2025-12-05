@@ -8,6 +8,7 @@ import {
   Tick,
   Unit,
   UnitType,
+  UpgradeType,
 } from "../game/Game";
 import { TileRef } from "../game/GameMap";
 import { PathFindResultType } from "../pathfinding/AStar";
@@ -148,6 +149,14 @@ export class TradeManagerExecution implements Execution {
         // If either side has an embargo against the other, demand is zero
         if (a.hasEmbargoAgainst(b) || b.hasEmbargoAgainst(a)) {
           // Keep fractional demand at 0 for this pair
+          this.demand.set(this.key(a, b), 0);
+          continue;
+        }
+        // If either side lacks InternationalTrade upgrade (autarky), demand is zero
+        if (
+          !a.hasUpgrade(UpgradeType.InternationalTrade) ||
+          !b.hasUpgrade(UpgradeType.InternationalTrade)
+        ) {
           this.demand.set(this.key(a, b), 0);
           continue;
         }
@@ -1107,8 +1116,13 @@ export class AssignedTradeRouteExecution implements Execution {
     // Calculate base shares with tech modifiers
     const aBaseTechShare = BigInt(Math.floor(Number(third) * aMods.incomeMul));
     const bBaseTechShare = BigInt(Math.floor(Number(third) * bMods.incomeMul));
+    // Ship owner gets both incomeMul and tradeShipIncomeMul bonus
     const ownerBaseTechShare = BigInt(
-      Math.floor(Number(third + remainder) * ownerMods.incomeMul),
+      Math.floor(
+        Number(third + remainder) *
+          ownerMods.incomeMul *
+          ownerMods.tradeShipIncomeMul,
+      ),
     );
 
     // Apply road connection bonus to port owners' shares

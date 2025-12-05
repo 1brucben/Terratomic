@@ -1238,10 +1238,14 @@ export class DefaultConfig implements Config {
     const k = player.effectiveUnits(UnitType.Factory);
     const factoryFactor = Math.pow(1 + k, 0.35);
     const multiplier = this._gameConfig.goldMultiplier ?? 1;
-    // Apply tech-based income multiplier
+    // Apply tech/policy-based domestic income multiplier
     const incomeMods = incomeModifiers(player);
     const grossGold =
-      base * productivity * factoryFactor * multiplier * incomeMods.incomeMul;
+      base *
+      productivity *
+      factoryFactor *
+      multiplier *
+      incomeMods.domesticIncomeMul;
     return Number.isFinite(grossGold) && grossGold >= 0 ? grossGold : 0;
   }
 

@@ -1,5 +1,6 @@
 import { renderNumber } from "../../client/Utils";
 import { PseudoRandom } from "../PseudoRandom";
+import { tradeIncomeModifiers } from "../tech/TechEffects";
 import { simpleHash } from "../Util";
 import { Game, MessageType, Player, PlayerID, UpgradeType } from "./Game";
 import { TileRef } from "./GameMap";
@@ -91,7 +92,7 @@ export class CargoManager {
           }
         }
       }
-      // International
+      // International - requires InternationalTrade upgrade (granted by Open Trade policy)
       if (
         player.hasUpgrade(UpgradeType.InternationalTrade) &&
         this.game.config().internationalCargoTrucksEnabled() &&
@@ -99,7 +100,10 @@ export class CargoManager {
           this.game.config().internationalCargoTruckSpawnChance(),
         )
       ) {
-        const tradingPartners = player.tradingPartners();
+        // Filter to trading partners who also have InternationalTrade upgrade
+        const tradingPartners = player.tradingPartners().filter((partner) => {
+          return partner.hasUpgrade(UpgradeType.InternationalTrade);
+        });
         if (tradingPartners.length > 0) {
           const destinationPlayer = this.random.randElement(tradingPartners);
           const originStructure = this.random.randElement(connectedNodes);
@@ -147,12 +151,16 @@ export class CargoManager {
       if (truck.progress >= truck.path.length) {
         // Arrived
         if (truck.isInternational && truck.destinationOwner) {
-          // International Arrival (Original logic with hardcoded strings)
+          // International Arrival
           if (
             truck.owner.canTrade(truck.destinationOwner) &&
             truck.destinationOwner.isAlive()
           ) {
-            const totalGold = BigInt(
+            // Apply trade income modifiers for each player
+            const ownerMods = tradeIncomeModifiers(truck.owner);
+            const destMods = tradeIncomeModifiers(truck.destinationOwner);
+
+            const baseGold = BigInt(
               Math.floor(
                 Number(this.game.config().cargoTruckGold(truck.path.length)) *
                   this.game.config().internationalCargoTruckGoldMultiplier(),
@@ -161,10 +169,15 @@ export class CargoManager {
             const splitRatio = this.game
               .config()
               .internationalCargoTruckGoldSplitRatio();
+            // Apply trade income modifiers for each player
             const destinationGold = BigInt(
-              Math.floor(Number(totalGold) * splitRatio),
+              Math.floor(Number(baseGold) * splitRatio * destMods.incomeMul),
             );
-            const originGold = totalGold - destinationGold;
+            const originGold = BigInt(
+              Math.floor(
+                Number(baseGold) * (1 - splitRatio) * ownerMods.incomeMul,
+              ),
+            );
             truck.owner.addGold(originGold);
             truck.destinationOwner.addGold(destinationGold);
             this.game.displayMessage(

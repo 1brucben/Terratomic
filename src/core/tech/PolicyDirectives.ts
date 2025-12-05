@@ -8,6 +8,7 @@ import { RESEARCH_TECH_IDS } from "./TechIds";
 // Policy directive identifiers
 export const POLICY_DIRECTIVE_IDS = {
   INDUSTRIAL_DEVELOPMENT_STRATEGY: "policy_industrial_development",
+  TRADE_POLICY_FRAMEWORK: "policy_trade_policy",
 } as const;
 
 export type PolicyDirectiveId =
@@ -24,10 +25,16 @@ export interface PolicyOption {
 }
 
 export interface PolicyEffects {
-  // Multiplier for gold income (e.g., 1.07 = +7%)
-  incomeMul?: number;
   // Multiplier for construction speed (e.g., 1.03 = +3% faster)
   constructionSpeedMul?: number;
+  // Multiplier for trade income from roads and trade ships (e.g., 1.05 = +5%)
+  tradeIncomeMul?: number;
+  // Multiplier for trade ship income specifically (stacks with tradeIncomeMul)
+  tradeShipIncomeMul?: number;
+  // Multiplier for domestic income (non-trade income from population/industry)
+  domesticIncomeMul?: number;
+  // If true, grants the InternationalTrade upgrade (enables international road/sea trade)
+  grantsInternationalTrade?: boolean;
   // Multiplier for maintenance cost reduction (e.g., 0.93 = -7% maintenance)
   // TODO: Commented out until maintenance is implemented
   // maintenanceCostMul?: number;
@@ -57,19 +64,47 @@ export const POLICY_DIRECTIVES: Readonly<
       {
         id: "heavy_industry",
         name: "Heavy Industry Priority",
-        description: "+7% gold income, +3% construction speed",
+        description: "+7% domestic income, +3% construction speed",
         effects: {
-          incomeMul: 1.07,
+          domesticIncomeMul: 1.07,
           constructionSpeedMul: 1.03,
         },
       },
       {
         id: "consumer_industry",
         name: "Consumer Industry Priority",
-        description: "+3% gold income", // TODO: +7% maintenance cost reduction when maintenance is implemented
+        description: "+3% domestic income", // TODO: +7% maintenance cost reduction when maintenance is implemented
         effects: {
-          incomeMul: 1.03,
+          domesticIncomeMul: 1.03,
           // TODO: maintenanceCostMul: 0.93, // 7% reduction
+        },
+      },
+    ],
+  },
+  [POLICY_DIRECTIVE_IDS.TRADE_POLICY_FRAMEWORK]: {
+    id: POLICY_DIRECTIVE_IDS.TRADE_POLICY_FRAMEWORK,
+    name: "Trade Policy Framework",
+    description:
+      "Choose your nation's approach to international commerce and trade relations.",
+    unlockedByTech: RESEARCH_TECH_IDS.TRADE_POLICY_FRAMEWORK,
+    options: [
+      {
+        id: "open_trade",
+        name: "Open Trade Policy",
+        description:
+          "Enables international trade, +5% trade income, +5% trade ship income",
+        effects: {
+          grantsInternationalTrade: true,
+          tradeIncomeMul: 1.05,
+          tradeShipIncomeMul: 1.05,
+        },
+      },
+      {
+        id: "autarky",
+        name: "Autarky Doctrine",
+        description: "No international trade, +30% domestic income",
+        effects: {
+          domesticIncomeMul: 1.3,
         },
       },
     ],
