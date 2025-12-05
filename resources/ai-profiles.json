@@ -1,0 +1,15 @@
+{
+  "profiles": [
+    {
+      "id": "default",
+      "name": "Default",
+      "params": {
+        "spawnHopping": true,
+        "spawnHopRate": 40,
+        "spawnSniping": false,
+        "spawnAvoidance": false,
+        "spawnAvoidanceDistance": 50
+      }
+    }
+  ]
+}
