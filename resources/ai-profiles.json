@@ -8,7 +8,11 @@
         "spawnHopRate": 40,
         "spawnSniping": false,
         "spawnAvoidance": false,
-        "spawnAvoidanceDistance": 50
+        "spawnAvoidanceDistance": 50,
+        "attackTroopThreshold": 0.5,
+        "attackMaxDistance": 200,
+        "attackOwnTroopPercent": 0.2,
+        "attackEnemyTroopMultiplier": 1.5
       }
     }
   ]
