@@ -42,8 +42,12 @@ export class AIBotAttackHandler {
       return;
     }
 
-    // If no bot target, find one
-    if (this.currentBotTarget === null || !this.currentBotTarget.isAlive()) {
+    // If no bot target, or target is dead, or target became unreachable, find a new one
+    if (
+      this.currentBotTarget === null ||
+      !this.currentBotTarget.isAlive() ||
+      !this.isReachable(player, this.currentBotTarget)
+    ) {
       this.currentBotTarget = this.findBotTarget(player);
     }
 
@@ -78,7 +82,9 @@ export class AIBotAttackHandler {
           (playerCapital.y - otherCapital.y) ** 2,
       );
 
-      if (distance <= maxDistance) {
+      // Neighbors bypass distance check, otherwise respect maxDistance
+      const isNeighbor = player.sharesBorderWith(other);
+      if (isNeighbor || distance <= maxDistance) {
         candidates.push({ player: other, distance });
       }
     }
