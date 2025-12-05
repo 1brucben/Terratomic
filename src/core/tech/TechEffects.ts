@@ -483,20 +483,6 @@ export const TECHS: Readonly<Record<string, TechDefinition>> = Object.freeze({
       },
     },
   },
-  [RESEARCH_TECH_IDS.SURFACE_TO_AIR_MISSILES]: {
-    meta: {
-      name: "Surface-to-Air Missiles",
-      description:
-        "Enables Level 1 SAM Launchers. Advanced SAM technology for enhanced air defense capabilities.",
-    },
-    effects: {
-      onComplete: (player) => {
-        if (!player.hasUpgrade?.(UpgradeType.SAMLevel1)) {
-          player.addUpgrade?.(UpgradeType.SAMLevel1);
-        }
-      },
-    },
-  },
   // Air techs - Level 3
   [RESEARCH_TECH_IDS.PULSE_DOPPLER_RADAR]: {
     meta: {
@@ -540,20 +526,6 @@ export const TECHS: Readonly<Record<string, TechDefinition>> = Object.freeze({
       },
     },
   },
-  [RESEARCH_TECH_IDS.RADAR_GUIDED_SAMS]: {
-    meta: {
-      name: "Radar-Guided SAMs",
-      description:
-        "Enables Level 2 SAM Launchers. Advanced radar-guided surface-to-air missiles with improved accuracy.",
-    },
-    effects: {
-      onComplete: (player) => {
-        if (!player.hasUpgrade?.(UpgradeType.SAMLevel2)) {
-          player.addUpgrade?.(UpgradeType.SAMLevel2);
-        }
-      },
-    },
-  },
   // Air techs - Level 4
   [RESEARCH_TECH_IDS.FLY_BY_WIRE_SYSTEMS]: {
     meta: {
@@ -577,20 +549,6 @@ export const TECHS: Readonly<Record<string, TechDefinition>> = Object.freeze({
     },
     effects: {
       // Placeholder - add specific upgrade when needed
-    },
-  },
-  [RESEARCH_TECH_IDS.STRATEGIC_SAM_SYSTEMS]: {
-    meta: {
-      name: "Strategic SAM Systems",
-      description:
-        "Enables Level 3 SAM Launchers. Long-range surface-to-air missile systems for area denial and strategic defense.",
-    },
-    effects: {
-      onComplete: (player) => {
-        if (!player.hasUpgrade?.(UpgradeType.SAMLevel3)) {
-          player.addUpgrade?.(UpgradeType.SAMLevel3);
-        }
-      },
     },
   },
   [RESEARCH_TECH_IDS.NUCLEAR_FISSION]: {

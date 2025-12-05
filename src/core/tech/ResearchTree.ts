@@ -198,14 +198,7 @@ const extras: TechNode[] = [
     requiresAllOf: ["Air-0"],
     cost: costForLevel(2),
   },
-  {
-    id: "Air-2D",
-    category: "Air",
-    level: 2,
-    requiresAllOf: ["Air-1"],
-    cost: costForLevel(2),
-  },
-  // Air tech tree - Level 3 (four techs)
+  // Air tech tree - Level 3 (three techs)
   {
     id: "Air-3A",
     category: "Air",
@@ -227,14 +220,7 @@ const extras: TechNode[] = [
     requiresAllOf: ["Air-2B"],
     cost: costForLevel(3),
   },
-  {
-    id: "Air-3D",
-    category: "Air",
-    level: 3,
-    requiresAllOf: ["Air-2D"],
-    cost: costForLevel(3),
-  },
-  // Air tech tree - Level 4 (three techs)
+  // Air tech tree - Level 4 (two techs)
   {
     id: "Air-4A",
     category: "Air",
@@ -247,13 +233,6 @@ const extras: TechNode[] = [
     category: "Air",
     level: 4,
     requiresAllOf: ["Air-3C"],
-    cost: costForLevel(4),
-  },
-  {
-    id: "Air-4C",
-    category: "Air",
-    level: 4,
-    requiresAllOf: ["Air-3D"],
     cost: costForLevel(4),
   },
 ];
