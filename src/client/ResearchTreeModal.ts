@@ -206,8 +206,8 @@ export class ResearchTreeModal extends LitElement {
         title=${tooltip}
       >
         ${hasUpgrade
-          ? "Activated"
-          : `Activate (${renderNumber(activationCost)} gold)`}
+          ? "Scorched Earth Active"
+          : `Scorched Earth (${renderNumber(activationCost)} gold)`}
       </button>
     `;
   }
@@ -578,6 +578,15 @@ export class ResearchTreeModal extends LitElement {
       me.hasResearchedTech(techId),
     );
 
+    // Sort so unlocked (available) directives appear first
+    const sortedDirectives = [...pendingDirectives].sort((a, b) => {
+      const aUnlocked = unlockedDirectives.some((d) => d.id === a.id);
+      const bUnlocked = unlockedDirectives.some((d) => d.id === b.id);
+      if (aUnlocked && !bUnlocked) return -1;
+      if (!aUnlocked && bUnlocked) return 1;
+      return 0;
+    });
+
     if (pendingDirectives.length === 0) {
       return html`
         <div class="policy-directives-view">
@@ -598,7 +607,7 @@ export class ResearchTreeModal extends LitElement {
           </p>
         </div>
         <div class="policy-directives-list">
-          ${pendingDirectives.map((directive) => {
+          ${sortedDirectives.map((directive) => {
             const isUnlocked = unlockedDirectives.some(
               (d) => d.id === directive.id,
             );
