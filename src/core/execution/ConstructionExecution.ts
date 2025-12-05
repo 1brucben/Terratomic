@@ -96,13 +96,10 @@ export class ConstructionExecution implements Execution {
             this.player,
             this.constructionType,
             this.desiredLevel,
-            isUpgradeableUnit(this.constructionType)
-              ? this.mg
-                  .config()
-                  .unitUpgradeCostMultiplier(this.constructionType)
-              : this.mg
-                  .config()
-                  .structureUpgradeCostMultiplier(this.constructionType),
+            // For upgradeable units, aggregateStructureBuildCost ignores multiplier
+            this.mg
+              .config()
+              .structureUpgradeCostMultiplier(this.constructionType),
           ) +
           (this.constructionType === UnitType.Airfield
             ? computeBomberUpgradeCost(
@@ -141,11 +138,10 @@ export class ConstructionExecution implements Execution {
           this.player,
           this.constructionType,
           this.desiredLevel,
-          isUpgradeableUnit(this.constructionType)
-            ? this.mg.config().unitUpgradeCostMultiplier(this.constructionType)
-            : this.mg
-                .config()
-                .structureUpgradeCostMultiplier(this.constructionType),
+          // For upgradeable units, aggregateStructureBuildCost ignores multiplier
+          this.mg
+            .config()
+            .structureUpgradeCostMultiplier(this.constructionType),
         ) +
         (this.constructionType === UnitType.Airfield
           ? computeBomberUpgradeCost(

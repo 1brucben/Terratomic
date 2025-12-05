@@ -1,8 +1,6 @@
 import { Gold, UnitType } from "./Game";
+import { getUnitLevelCost, getUnitUpgradeData } from "./UnitUpgrades";
 import { maxUnitLevel } from "./Upgradeables";
-
-/** Bomber upgrade cost as a percentage of new airfield cost. */
-export const BOMBER_UPGRADE_COST_MULTIPLIER = 0.2;
 
 const SCALE = 100n; // two decimal places of precision
 
@@ -38,6 +36,14 @@ export function aggregateStructureBuildCost(
   desiredLevel: number,
   multiplier: number,
 ): Gold {
+  // For upgradeable units (Bomber, Fighter, Warship, Submarine), use hardcoded total costs
+  const unitUpgrades = getUnitUpgradeData(type);
+  if (unitUpgrades) {
+    // UnitUpgrades now stores total cost at each level, just return it directly
+    return getUnitLevelCost(type, desiredLevel);
+  }
+
+  // For structures, use the existing multiplier-based calculation
   const base = unitInfoProvider.unitInfo(type).cost(player);
   const steps = Math.max(0, desiredLevel - 1);
   if (steps === 0) return base;
@@ -59,28 +65,19 @@ type AirfieldCostProvider = {
 
 /**
  * Compute bomber upgrade cost for airfields during construction.
- * Cost = baseCost * 20% * airfieldLevel * (bomberLevel - 1)
- * Scales with both airfield level and bomber upgrade levels.
+ * Now uses hardcoded costs from UnitUpgrades instead of calculating.
  */
 export function computeBomberUpgradeCost(
-  provider: AirfieldCostProvider,
-  player: any,
+  _provider: AirfieldCostProvider,
+  _player: any,
   bomberLevel: number,
-  airfieldLevel: number = 1,
+  _airfieldLevel: number = 1,
 ): Gold {
   const bLevel = Math.min(
     maxUnitLevel(UnitType.Bomber),
     Math.max(1, bomberLevel),
   );
   if (bLevel <= 1) return 0n;
-  const airfieldBaseCost = provider.unitInfo(UnitType.Airfield).cost(player);
-  const upgradeLevels = bLevel - 1;
-  const aLevel = Math.max(1, airfieldLevel);
-  return (
-    (airfieldBaseCost *
-      BigInt(Math.round(BOMBER_UPGRADE_COST_MULTIPLIER * 100)) *
-      BigInt(aLevel) *
-      BigInt(upgradeLevels)) /
-    100n
-  );
+  // Use hardcoded total cost from UnitUpgrades
+  return getUnitLevelCost(UnitType.Bomber, bLevel);
 }

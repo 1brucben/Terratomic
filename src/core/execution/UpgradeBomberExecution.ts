@@ -1,12 +1,12 @@
-import { BOMBER_UPGRADE_COST_MULTIPLIER } from "../game/Costs";
 import { Execution, Gold, Player, Unit, UnitType } from "../game/Game";
 import { GameImpl } from "../game/GameImpl";
+import { getUnitUpgradeCost } from "../game/UnitUpgrades";
 import { playerMaxUnitLevel } from "../game/Upgradeables";
 import { NoOpExecution } from "./NoOpExecution";
 
 /**
  * Upgrades all bombers associated with an airfield.
- * Cost = 20% of new airfield cost × airfield level (number of bombers).
+ * Uses hardcoded per-level upgrade costs from UnitUpgrades.
  */
 export class UpgradeBomberExecution implements Execution {
   private mg!: GameImpl;
@@ -61,16 +61,11 @@ export class UpgradeBomberExecution implements Execution {
       return;
     }
 
-    // Calculate cost: 20% of airfield cost × airfield level
-    const airfieldBaseCost: Gold = this.mg
-      .unitInfo(UnitType.Airfield)
-      .cost(this.player);
-    const airfieldLevel = this.airfield.level?.() ?? 1;
-    const upgradeCost: Gold =
-      (airfieldBaseCost *
-        BigInt(Math.round(BOMBER_UPGRADE_COST_MULTIPLIER * 100)) *
-        BigInt(airfieldLevel)) /
-      100n;
+    // Get hardcoded upgrade cost from UnitUpgrades (fromLevel -> nextLevel)
+    const upgradeCost: Gold = getUnitUpgradeCost(
+      UnitType.Bomber,
+      currentBomberLevel,
+    );
 
     if (this.player.gold() < upgradeCost) {
       this._isActive = false;
@@ -78,11 +73,11 @@ export class UpgradeBomberExecution implements Execution {
     }
 
     // Deduct cost and upgrade airfield's bomber level
+    const newLevel = currentBomberLevel + 1;
     this.player.removeGold(upgradeCost);
-    this.airfield.setBomberLevel?.(currentBomberLevel + 1);
+    this.airfield.setBomberLevel?.(newLevel);
 
     // Update existing bombers' max health to match new level
-    const newLevel = currentBomberLevel + 1;
     const baseHealth = this.mg.unitInfo(UnitType.Bomber).maxHealth ?? 500;
     const newMaxHealth = this.mg.config().bomberMaxHealth(newLevel);
     const bonus = newMaxHealth - baseHealth;

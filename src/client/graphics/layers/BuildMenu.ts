@@ -569,19 +569,17 @@ export class BuildMenu extends LitElement {
       }
       return structureCost;
     }
-    // Units: apply configured per-step multiplier for upgradeable combat units
+    // Units: use hardcoded costs from UnitUpgrades (aggregateStructureBuildCost handles this)
     if (isUpgradeableUnit(item.unitType)) {
       const desired = this._desiredUnitLevel(item.unitType);
       if (desired <= 1) return base;
-      const multiplier = this.game
-        .config()
-        .unitUpgradeCostMultiplier(item.unitType);
+      // aggregateStructureBuildCost detects upgradeable units and uses hardcoded costs
       return aggregateStructureBuildCost(
         this.game.config(),
         this.game.myPlayer()!,
         item.unitType,
         desired,
-        multiplier,
+        0, // multiplier ignored for upgradeable units
       );
     }
     return base;

@@ -22,6 +22,14 @@ import {
 } from "../game/Game";
 import { TileRef } from "../game/GameMap";
 import { PlayerView } from "../game/GameView";
+import {
+  getBomberLevelData,
+  getFighterLevelData,
+  getSubmarineLevelData,
+  getUnitLevelCost,
+  getUnitUpgradeCost,
+  getWarshipLevelData,
+} from "../game/UnitUpgrades";
 import { UserSettings } from "../game/UserSettings";
 import {
   GameConfig,
@@ -470,51 +478,19 @@ export class DefaultConfig implements Config {
     return 1;
   }
   bomberTargetRange(level: number = 1): number {
-    switch (level) {
-      case 1:
-        return 250;
-      case 2:
-        return 350;
-      case 3:
-      default:
-        return 450;
-    }
+    return getBomberLevelData(level).targetRange;
   }
   bomberExplosionRadius(): number {
     return 4;
   }
   bomberSpeed(level: number = 1): number {
-    switch (level) {
-      case 1:
-        return 2;
-      case 2:
-        return 3;
-      case 3:
-      default:
-        return 4;
-    }
+    return getBomberLevelData(level).speed;
   }
   bomberMaxHealth(level: number = 1): number {
-    switch (level) {
-      case 1:
-        return 500;
-      case 2:
-        return 600;
-      case 3:
-      default:
-        return 700;
-    }
+    return getBomberLevelData(level).maxHealth;
   }
   bomberDamage(level: number = 1): number {
-    switch (level) {
-      case 1:
-        return 250;
-      case 2:
-        return 300;
-      case 3:
-      default:
-        return 350;
-    }
+    return getBomberLevelData(level).damageMin;
   }
   bomberCooldownTicks(): number {
     return 100; // Ticks before bomber can take off again after landing/respawn
@@ -548,76 +524,30 @@ export class DefaultConfig implements Config {
 
   // Fighter Jet per-level stats
   fighterJetLevelMaxHealth(level: number): number {
-    const lvl = Math.max(1, Math.min(4, Math.floor(level)));
-    switch (lvl) {
-      case 1:
-        return 750; // default
-      case 2:
-        return 1000;
-      case 3:
-        return 1250;
-      case 4:
-        return 1500;
-      default:
-        return 750;
-    }
+    return getFighterLevelData(level).maxHealth;
   }
 
   fighterJetDamageRange(level: number): { min: number; max: number } {
-    const lvl = Math.max(1, Math.min(4, Math.floor(level)));
-    switch (lvl) {
-      case 1:
-        // Level 1 fighter damage
-        return { min: 200, max: 325 };
-      case 2:
-        return { min: 300, max: 425 };
-      case 3:
-        return { min: 400, max: 525 };
-      case 4:
-        return { min: 500, max: 625 };
-      default:
-        return { min: 200, max: 325 };
-    }
+    const data = getFighterLevelData(level);
+    return { min: data.damageMin, max: data.damageMax };
   }
 
   // Warship per-level stats
   warshipLevelMaxHealth(level: number): number {
-    const lvl = Math.max(1, Math.min(3, Math.floor(level)));
-    switch (lvl) {
-      case 1:
-        return 1000;
-      case 2:
-        return 1250;
-      case 3:
-        return 1500;
-      default:
-        return 1000;
-    }
+    return getWarshipLevelData(level).maxHealth;
   }
   warshipDamageRange(level: number): { min: number; max: number } {
-    const lvl = Math.max(1, Math.min(3, Math.floor(level)));
-    const bonus = 70 * (lvl - 1);
-    return { min: 200 + bonus, max: 325 + bonus };
+    const data = getWarshipLevelData(level);
+    return { min: data.damageMin, max: data.damageMax };
   }
 
   // Submarine per-level stats
   submarineLevelMaxHealth(level: number): number {
-    const lvl = Math.max(1, Math.min(3, Math.floor(level)));
-    switch (lvl) {
-      case 1:
-        return 1000;
-      case 2:
-        return 1250;
-      case 3:
-        return 1500;
-      default:
-        return 1000;
-    }
+    return getSubmarineLevelData(level).maxHealth;
   }
   submarineDamageRange(level: number): { min: number; max: number } {
-    const lvl = Math.max(1, Math.min(3, Math.floor(level)));
-    const bonus = 70 * (lvl - 1);
-    return { min: 200 + bonus, max: 325 + bonus };
+    const data = getSubmarineLevelData(level);
+    return { min: data.damageMin, max: data.damageMax };
   }
 
   // Paratroopers/Air attack
@@ -1438,16 +1368,12 @@ export class DefaultConfig implements Config {
         return 1.0;
     }
   }
-  // --- Unit upgrade cost multipliers ---
-  unitUpgradeCostMultiplier(type: UnitType): number {
-    switch (type) {
-      case UnitType.Warship:
-      case UnitType.FighterJet:
-      case UnitType.Submarine:
-        return 0.2; // Default 20% per step for upgradeable units
-      default:
-        return 1.0;
-    }
+  // --- Unit upgrade costs (hardcoded per level) ---
+  unitUpgradeStepCost(type: UnitType, fromLevel: number): Gold {
+    return getUnitUpgradeCost(type, fromLevel);
+  }
+  unitUpgradeTotalCost(type: UnitType, targetLevel: number): Gold {
+    return getUnitLevelCost(type, targetLevel);
   }
   // --- Research system defaults ---
   // f(x) = A * investment^B, where investment is gold allocated to research this tick

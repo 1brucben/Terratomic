@@ -178,8 +178,10 @@ export interface Config {
 
   // Structure upgrade cost multiplier per structure type (e.g., 0.8 for 80%)
   structureUpgradeCostMultiplier(type: UnitType): number;
-  // Unit upgrade cost multiplier per unit type (e.g., 0.2 for 20%)
-  unitUpgradeCostMultiplier(type: UnitType): number;
+  // Hardcoded unit upgrade cost: cost to upgrade from current level to next level
+  unitUpgradeStepCost(type: UnitType, fromLevel: number): Gold;
+  // Hardcoded unit upgrade cost: total cost to build unit at targetLevel
+  unitUpgradeTotalCost(type: UnitType, targetLevel: number): Gold;
 
   cargoPlaneGold(dist: number): Gold;
   cargoPlaneSpawnRate(numberOfAirplanes: number): number;
