@@ -21,6 +21,10 @@ export interface AIBehaviorParams {
   terraNulliusTroopThreshold?: number;
   /** Percent of own troops to use when expanding into Terra Nullius */
   terraNulliusOwnTroopPercent?: number;
+  /** Maximum distance from capital to attack TN (bypassed if shares land border) */
+  terraNulliusMaxDistance?: number;
+  /** Minimum spacing between TN boat targets to prevent clustering */
+  terraNulliusBoatSpacing?: number;
 
   // === Bot Attack Behavior ===
   /** Minimum troop ratio (troops / maxTroops) before attacking bots (0-1) */
