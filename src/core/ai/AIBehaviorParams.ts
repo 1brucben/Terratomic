@@ -51,6 +51,20 @@ export interface AIBehaviorParams {
   // === Policy Directives ===
   /** If true, choose Open Trade; if false, choose Autarky */
   preferOpenTrade?: boolean;
+
+  // === Construction ===
+  /** Whether to build cities */
+  buildCities?: boolean;
+  /** Tiles per city (e.g., 500 = 1 city per 500 tiles) */
+  tilesPerCity?: number;
+  /** Whether to build factories */
+  buildFactories?: boolean;
+  /** Tiles per factory */
+  tilesPerFactory?: number;
+  /** Whether to build ports */
+  buildPorts?: boolean;
+  /** Tiles per port */
+  tilesPerPort?: number;
 }
 
 export interface AIProfile {
