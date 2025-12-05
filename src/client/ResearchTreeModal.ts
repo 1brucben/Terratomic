@@ -564,16 +564,22 @@ export class ResearchTreeModal extends LitElement {
       `;
     }
 
-    // Get all policy directives and filter to those unlocked
+    // Get all policy directives, filter out those where a choice has already been made
     const allDirectives = getAllPolicyDirectives();
+    const pendingDirectives = allDirectives.filter(
+      (d) => me.getPolicyChoice?.(d.id) === null,
+    );
     const unlockedDirectives = getUnlockedDirectives((techId) =>
       me.hasResearchedTech(techId),
     );
 
-    if (allDirectives.length === 0) {
+    if (pendingDirectives.length === 0) {
       return html`
         <div class="policy-directives-view">
-          <div class="empty-state">No policy directives available.</div>
+          <div class="empty-state">
+            No pending policy directives. New directives will appear here when
+            you research certain technologies.
+          </div>
         </div>
       `;
     }
@@ -587,7 +593,7 @@ export class ResearchTreeModal extends LitElement {
           </p>
         </div>
         <div class="policy-directives-list">
-          ${allDirectives.map((directive) => {
+          ${pendingDirectives.map((directive) => {
             const isUnlocked = unlockedDirectives.some(
               (d) => d.id === directive.id,
             );
