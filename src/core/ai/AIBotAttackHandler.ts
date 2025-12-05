@@ -35,7 +35,8 @@ export class AIBotAttackHandler {
     const attackThreshold = this.params.botAttackTroopThreshold ?? 0.5;
     const maxPop = this.mg.config().maxPopulation(player);
     const maxTroops = maxPop * player.targetTroopRatio();
-    const troopRatio = player.troops() / maxTroops;
+    const totalTroops = player.troops() + player.attackingTroops();
+    const troopRatio = totalTroops / maxTroops;
 
     // Only attack bots if we have enough troops
     if (troopRatio < attackThreshold) {
