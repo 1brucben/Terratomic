@@ -5,6 +5,7 @@ import { simpleHash } from "../Util";
 import { AIBehaviorParams } from "./AIBehaviorParams";
 import { AIBotAttackHandler } from "./AIBotAttackHandler";
 import { AISpawnHandler } from "./AISpawnHandler";
+import { AITerraNulliusHandler } from "./AITerraNulliusHandler";
 
 /**
  * AI Player Execution - A configurable AI player with behavior parameters.
@@ -15,6 +16,7 @@ export class AIPlayerExecution implements Execution {
   private player: Player | null = null;
   private random: PseudoRandom;
   private spawnHandler: AISpawnHandler | null = null;
+  private terraNulliusHandler: AITerraNulliusHandler | null = null;
   private botAttackHandler: AIBotAttackHandler | null = null;
 
   constructor(
@@ -32,6 +34,12 @@ export class AIPlayerExecution implements Execution {
     this.spawnHandler = new AISpawnHandler(
       mg,
       this.nation,
+      this.random,
+      this.params,
+    );
+    this.terraNulliusHandler = new AITerraNulliusHandler(
+      mg,
+      this.nation.playerInfo.id,
       this.random,
       this.params,
     );
@@ -68,6 +76,9 @@ export class AIPlayerExecution implements Execution {
       this.active = false;
       return;
     }
+
+    // Handle Terra Nullius expansion every tick
+    this.terraNulliusHandler?.handleTerraNulliusAttack();
 
     // Handle bot attacks every tick
     this.botAttackHandler?.handleBotAttack();
