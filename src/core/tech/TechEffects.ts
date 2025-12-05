@@ -298,7 +298,7 @@ export const TECHS: Readonly<Record<string, TechDefinition>> = Object.freeze({
     meta: {
       name: "National Reconstruction Program",
       description:
-        "Revitalize infrastructure and industry by mobilizing civilian labor and resources to rebuild the national economy. Effects: Enables Roads.",
+        "Revitalize infrastructure and industry by mobilizing civilian labor and resources to rebuild the national economy. Effects: Enables Roads, +5% infrastructure spending effectiveness.",
     },
     effects: {
       onComplete: (player, game) => {
@@ -316,6 +316,9 @@ export const TECHS: Readonly<Record<string, TechDefinition>> = Object.freeze({
           player.removeUpgrade?.(UpgradeType.Roads);
           game.markPlayerNodesForReconnection?.(player);
         }
+      },
+      infrastructureEffectiveness: (mods) => {
+        mods.effectivenessMul *= 1.05; // +5% infrastructure spending effectiveness
       },
     },
   },
