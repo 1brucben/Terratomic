@@ -1,4 +1,4 @@
-import { Execution, Game, Nation, Player } from "../game/Game";
+import { Execution, Game, Nation, Player, UpgradeType } from "../game/Game";
 import { PseudoRandom } from "../PseudoRandom";
 import { GameID } from "../Schemas";
 import { simpleHash } from "../Util";
@@ -18,6 +18,8 @@ export class AIPlayerExecution implements Execution {
   private spawnHandler: AISpawnHandler | null = null;
   private terraNulliusHandler: AITerraNulliusHandler | null = null;
   private botAttackHandler: AIBotAttackHandler | null = null;
+  private initialInvestmentSet = false;
+  private roadInvestmentSet = false;
 
   constructor(
     private gameID: GameID,
@@ -75,6 +77,23 @@ export class AIPlayerExecution implements Execution {
     if (this.player === null || !this.player.isAlive()) {
       this.active = false;
       return;
+    }
+
+    // Set initial investment rates once
+    if (!this.initialInvestmentSet) {
+      const productivityRate = this.params.productivityInvestmentRate ?? 0.1;
+      const researchRate = this.params.researchInvestmentRate ?? 0.1;
+      this.player.setInvestmentRate(productivityRate);
+      this.player.setResearchInvestmentRate(researchRate);
+      this.player.setRoadInvestmentRate(0);
+      this.initialInvestmentSet = true;
+    }
+
+    // Set road investment once roads are researched
+    if (!this.roadInvestmentSet && this.player.hasUpgrade(UpgradeType.Roads)) {
+      const roadRate = this.params.roadInvestmentRate ?? 0.1;
+      this.player.setRoadInvestmentRate(roadRate);
+      this.roadInvestmentSet = true;
     }
 
     // Handle Terra Nullius expansion every tick

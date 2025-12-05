@@ -16,7 +16,10 @@
         "botAttackTroopThreshold": 0.5,
         "botAttackMaxDistance": 200,
         "botAttackOwnTroopPercent": 0.2,
-        "botAttackEnemyTroopMultiplier": 1.5
+        "botAttackEnemyTroopMultiplier": 1.5,
+        "productivityInvestmentRate": 0.1,
+        "researchInvestmentRate": 0.1,
+        "roadInvestmentRate": 0.1
       }
     }
   ]
