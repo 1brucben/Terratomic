@@ -4,6 +4,7 @@ import { GameID } from "../Schemas";
 import { simpleHash } from "../Util";
 import { AIBehaviorParams } from "./AIBehaviorParams";
 import { AIBotAttackHandler } from "./AIBotAttackHandler";
+import { AIConstructionHandler } from "./AIConstructionHandler";
 import { AIPolicyHandler } from "./AIPolicyHandler";
 import { AISpawnHandler } from "./AISpawnHandler";
 import { AITerraNulliusHandler } from "./AITerraNulliusHandler";
@@ -20,6 +21,7 @@ export class AIPlayerExecution implements Execution {
   private terraNulliusHandler: AITerraNulliusHandler | null = null;
   private botAttackHandler: AIBotAttackHandler | null = null;
   private policyHandler: AIPolicyHandler | null = null;
+  private constructionHandler: AIConstructionHandler | null = null;
   private initialInvestmentSet = false;
   private roadInvestmentSet = false;
 
@@ -59,6 +61,12 @@ export class AIPlayerExecution implements Execution {
       this.random,
       this.params,
     );
+    this.constructionHandler = new AIConstructionHandler(
+      mg,
+      this.nation.playerInfo.id,
+      this.random,
+      this.params,
+    );
   }
 
   isActive(): boolean {
@@ -90,6 +98,7 @@ export class AIPlayerExecution implements Execution {
     // Handle slider updates every 100 ticks
     if (ticks % 100 === 0) {
       this.updateSliders(ticks);
+      this.constructionHandler?.handleConstruction();
     }
 
     // Handle policy directive choices
