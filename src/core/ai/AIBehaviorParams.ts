@@ -16,15 +16,15 @@ export interface AIBehaviorParams {
   /** Minimum distance to maintain from other players when spawnAvoidance is enabled */
   spawnAvoidanceDistance?: number;
 
-  // === Attack Behavior ===
-  /** Minimum troop ratio (troops / maxPopulation) before attacking (0-1) */
-  attackTroopThreshold?: number;
-  /** Maximum distance (in tiles) to consider a target */
-  attackMaxDistance?: number;
-  /** Percent of own troops to use in attack (alpha) */
-  attackOwnTroopPercent?: number;
-  /** Multiplier of enemy troops to cap attack size (beta) */
-  attackEnemyTroopMultiplier?: number;
+  // === Bot Attack Behavior ===
+  /** Minimum troop ratio (troops / maxTroops) before attacking bots (0-1) */
+  botAttackTroopThreshold?: number;
+  /** Maximum distance (in tiles) to consider a bot target */
+  botAttackMaxDistance?: number;
+  /** Percent of own troops to use in bot attack (alpha) */
+  botAttackOwnTroopPercent?: number;
+  /** Multiplier of bot troops to cap attack size (beta) */
+  botAttackEnemyTroopMultiplier?: number;
 }
 
 export interface AIProfile {
