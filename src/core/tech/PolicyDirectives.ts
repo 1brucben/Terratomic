@@ -12,6 +12,7 @@ export const POLICY_DIRECTIVE_IDS = {
   INFRASTRUCTURE_PRIORITIZATION: "policy_infrastructure",
   NATIONAL_ECONOMIC_COORDINATION: "policy_economic_coordination",
   MECHANIZED_WARFARE_DOCTRINE: "policy_mechanized_warfare",
+  MAIN_BATTLE_TANK_STANDARDIZATION: "policy_mbt_standardization",
 } as const;
 
 export type PolicyDirectiveId =
@@ -46,6 +47,8 @@ export interface PolicyEffects {
   attackSpeedMul?: number;
   // Multiplier for attacker losses when attacking (e.g., 0.9 = -10% losses)
   attackerLossMul?: number;
+  // Multiplier for defender losses when defending (e.g., 0.9 = -10% losses)
+  defenderLossMul?: number;
   // Multiplier for maintenance cost reduction (e.g., 0.90 = -10% maintenance)
   // TODO: Commented out until maintenance is implemented
   // maintenanceCostMul?: number;
@@ -191,6 +194,31 @@ export const POLICY_DIRECTIVES: Readonly<
       {
         id: "armored_breakthrough",
         name: "Armored Breakthrough Emphasis",
+        description: "-10% losses when attacking",
+        effects: {
+          attackerLossMul: 0.9,
+        },
+      },
+    ],
+  },
+  [POLICY_DIRECTIVE_IDS.MAIN_BATTLE_TANK_STANDARDIZATION]: {
+    id: POLICY_DIRECTIVE_IDS.MAIN_BATTLE_TANK_STANDARDIZATION,
+    name: "Main Battle Tank Standardization",
+    description:
+      "Choose your armor doctrine emphasis for standardized MBT operations.",
+    unlockedByTech: RESEARCH_TECH_IDS.MAIN_BATTLE_TANK_STANDARDIZATION,
+    options: [
+      {
+        id: "survivability_focus",
+        name: "Survivability Focus",
+        description: "-10% losses when defending",
+        effects: {
+          defenderLossMul: 0.9,
+        },
+      },
+      {
+        id: "offensive_armor",
+        name: "Offensive Armor Focus",
         description: "-10% losses when attacking",
         effects: {
           attackerLossMul: 0.9,

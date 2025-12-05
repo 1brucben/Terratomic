@@ -377,20 +377,24 @@ export const TECHS: Readonly<Record<string, TechDefinition>> = Object.freeze({
     meta: {
       name: "Main Battle Tank Standardization",
       description:
-        "Adopt standardized tank designs for improved maintenance and battlefield coordination.",
+        "Adopt standardized MBT designs (T-62, T-72, M60, Leopard 1) for improved maintenance and battlefield coordination. Policy Directive: Survivability Focus (-10% losses defending) or Offensive Armor Focus (-10% losses attacking).",
     },
     effects: {
-      // Effects to be added later
+      // Policy directive effects are applied via getPolicyChoice
     },
   },
-  [RESEARCH_TECH_IDS.SELF_PROPELLED_FIRE_SUPPORT]: {
+  [RESEARCH_TECH_IDS.ADVANCED_SAM_SYSTEMS]: {
     meta: {
-      name: "Self-Propelled Fire Support",
+      name: "Advanced SAM Systems",
       description:
-        "Mount artillery on mobile platforms for rapid deployment and shoot-and-scoot tactics.",
+        "Deploy mobile SAM batteries (SA-6, Hawk, early TELARs). Effects: Enables SAM Level 2.",
     },
     effects: {
-      // Effects to be added later
+      onComplete: (player) => {
+        if (!player.hasUpgrade?.(UpgradeType.SAMLevel2)) {
+          player.addUpgrade?.(UpgradeType.SAMLevel2);
+        }
+      },
     },
   },
   // Land Level 4 techs
@@ -650,13 +654,14 @@ export function applyTechCompletionEffects(
 }
 
 /**
- * Compute casualty multipliers when a player is defending, based on researched techs.
+ * Compute casualty multipliers when a player is defending, based on researched techs and policy directives.
  * - attackerLossMul > 1 increases enemy losses
  * - defenderLossMul < 1 reduces own losses
  */
-export function defenseCasualtyModifiers(
-  defender: Player,
-): DefenseCasualtyModifiers {
+export function defenseCasualtyModifiers(defender: {
+  hasResearchedTech?(techId: string): boolean;
+  getPolicyChoice?(directiveId: string): string | null;
+}): DefenseCasualtyModifiers {
   const mods: DefenseCasualtyModifiers = {
     attackerLossMul: 1.0,
     defenderLossMul: 1.0,
@@ -664,6 +669,19 @@ export function defenseCasualtyModifiers(
   for (const [techId, def] of Object.entries(TECHS)) {
     if (defender.hasResearchedTech?.(techId)) {
       def.effects?.defense?.(mods);
+    }
+  }
+  // Apply policy directive effects
+  for (const directive of getAllPolicyDirectives()) {
+    const chosenOptionId = defender.getPolicyChoice?.(directive.id);
+    if (chosenOptionId) {
+      const option = getPolicyOption(
+        directive.id as PolicyDirectiveId,
+        chosenOptionId,
+      );
+      if (option?.effects.defenderLossMul) {
+        mods.defenderLossMul *= option.effects.defenderLossMul;
+      }
     }
   }
   return mods;
