@@ -16,6 +16,12 @@ export interface AIBehaviorParams {
   /** Minimum distance to maintain from other players when spawnAvoidance is enabled */
   spawnAvoidanceDistance?: number;
 
+  // === Terra Nullius Expansion ===
+  /** Minimum troop ratio (troops / maxTroops) before expanding into unclaimed land (0-1) */
+  terraNulliusTroopThreshold?: number;
+  /** Percent of own troops to use when expanding into Terra Nullius */
+  terraNulliusOwnTroopPercent?: number;
+
   // === Bot Attack Behavior ===
   /** Minimum troop ratio (troops / maxTroops) before attacking bots (0-1) */
   botAttackTroopThreshold?: number;
