@@ -6,10 +6,11 @@ import { PseudoRandom } from "../PseudoRandom";
 import { AIBehaviorParams } from "./AIBehaviorParams";
 
 /**
- * Handles attack behavior for AI players.
+ * Handles attack behavior against Bot players only.
+ * Player attacks (Human, FakeHuman, etc.) are handled separately.
  */
-export class AIAttackHandler {
-  private currentTarget: Player | null = null;
+export class AIBotAttackHandler {
+  private currentBotTarget: Player | null = null;
 
   constructor(
     private mg: Game,
@@ -25,36 +26,36 @@ export class AIAttackHandler {
     return this.mg.player(this.playerId);
   }
 
-  handleAttack(): void {
+  handleBotAttack(): void {
     const player = this.getPlayer();
     if (!player || !player.isAlive()) {
       return;
     }
 
-    const attackThreshold = this.params.attackTroopThreshold ?? 0.5;
+    const attackThreshold = this.params.botAttackTroopThreshold ?? 0.5;
     const maxPop = this.mg.config().maxPopulation(player);
     const maxTroops = maxPop * player.targetTroopRatio();
     const troopRatio = player.troops() / maxTroops;
 
-    // Only attack if we have enough troops
+    // Only attack bots if we have enough troops
     if (troopRatio < attackThreshold) {
       return;
     }
 
-    // If no target, find one
-    if (this.currentTarget === null || !this.currentTarget.isAlive()) {
-      this.currentTarget = this.findTarget(player);
+    // If no bot target, find one
+    if (this.currentBotTarget === null || !this.currentBotTarget.isAlive()) {
+      this.currentBotTarget = this.findBotTarget(player);
     }
 
-    if (this.currentTarget === null) {
+    if (this.currentBotTarget === null) {
       return;
     }
 
-    this.launchAttack(player, this.currentTarget);
+    this.launchBotAttack(player, this.currentBotTarget);
   }
 
-  private findTarget(player: Player): Player | null {
-    const maxDistance = this.params.attackMaxDistance ?? 200;
+  private findBotTarget(player: Player): Player | null {
+    const maxDistance = this.params.botAttackMaxDistance ?? 200;
     const playerCapital = player.capital();
 
     if (playerCapital === null) {
@@ -117,9 +118,9 @@ export class AIAttackHandler {
     return false;
   }
 
-  private launchAttack(player: Player, target: Player): void {
-    const alpha = this.params.attackOwnTroopPercent ?? 0.2;
-    const beta = this.params.attackEnemyTroopMultiplier ?? 1.5;
+  private launchBotAttack(player: Player, target: Player): void {
+    const alpha = this.params.botAttackOwnTroopPercent ?? 0.2;
+    const beta = this.params.botAttackEnemyTroopMultiplier ?? 1.5;
 
     const troopsFromOwn = player.troops() * alpha;
     const troopsFromEnemy = target.troops() * beta;
@@ -135,7 +136,7 @@ export class AIAttackHandler {
       return;
     }
 
-    // Otherwise, try boat attack
+    // Otherwise, try boat attack against the bot
     const playerShore = Array.from(player.borderTiles()).filter((t) =>
       this.mg.isOceanShore(t),
     );

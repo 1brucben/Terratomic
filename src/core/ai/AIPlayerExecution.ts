@@ -2,8 +2,8 @@ import { Execution, Game, Nation, Player } from "../game/Game";
 import { PseudoRandom } from "../PseudoRandom";
 import { GameID } from "../Schemas";
 import { simpleHash } from "../Util";
-import { AIAttackHandler } from "./AIAttackHandler";
 import { AIBehaviorParams } from "./AIBehaviorParams";
+import { AIBotAttackHandler } from "./AIBotAttackHandler";
 import { AISpawnHandler } from "./AISpawnHandler";
 
 /**
@@ -15,7 +15,7 @@ export class AIPlayerExecution implements Execution {
   private player: Player | null = null;
   private random: PseudoRandom;
   private spawnHandler: AISpawnHandler | null = null;
-  private attackHandler: AIAttackHandler | null = null;
+  private botAttackHandler: AIBotAttackHandler | null = null;
 
   constructor(
     private gameID: GameID,
@@ -35,7 +35,7 @@ export class AIPlayerExecution implements Execution {
       this.random,
       this.params,
     );
-    this.attackHandler = new AIAttackHandler(
+    this.botAttackHandler = new AIBotAttackHandler(
       mg,
       this.nation.playerInfo.id,
       this.random,
@@ -69,7 +69,7 @@ export class AIPlayerExecution implements Execution {
       return;
     }
 
-    // Handle attacks every tick
-    this.attackHandler?.handleAttack();
+    // Handle bot attacks every tick
+    this.botAttackHandler?.handleBotAttack();
   }
 }
