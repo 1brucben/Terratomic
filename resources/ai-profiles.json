@@ -21,6 +21,7 @@
         "productivityInvestmentRate": 0.1,
         "researchInvestmentRate": 0.1,
         "roadInvestmentRate": 0.1,
+        "roadInvestmentCapToMaintenance": true,
         "preferOpenTrade": true
       }
     }
