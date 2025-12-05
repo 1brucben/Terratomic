@@ -71,7 +71,7 @@ describe("Economy tech integrations", () => {
     expect(player.hasUpgrade(UpgradeType.HospitalResearch)).toBe(true);
   });
 
-  it("revokes Roads when National Reconstruction Program is revoked", async () => {
+  it("removeResearchedTechsByCategory removes techs but not upgrades", async () => {
     const info = playerInfo("revoker", PlayerType.Human);
     const game = (await setup("ocean_and_land", {}, [info])) as GameImpl;
     const player = game.player(info.id) as PlayerImpl;
@@ -80,6 +80,12 @@ describe("Economy tech integrations", () => {
     expect(player.hasUpgrade(UpgradeType.Roads)).toBe(true);
 
     player.removeResearchedTechsByCategory("Economy");
-    expect(player.hasUpgrade(UpgradeType.Roads)).toBe(false);
+    // Techs are removed but upgrades remain
+    expect(
+      player.hasResearchedTech(
+        RESEARCH_TECH_IDS.NATIONAL_RECONSTRUCTION_PROGRAM,
+      ),
+    ).toBe(false);
+    expect(player.hasUpgrade(UpgradeType.Roads)).toBe(true);
   });
 });

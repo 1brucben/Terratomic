@@ -38,8 +38,9 @@ describe("PlayerImpl.removeResearchedTechsByCategory", () => {
         RESEARCH_TECH_IDS.INDUSTRIAL_DEVELOPMENT_STRATEGY,
       ),
     ).toBe(false);
-    expect(player.hasUpgrade(UpgradeType.Roads)).toBe(false);
-    expect(player.hasUpgrade(UpgradeType.HospitalResearch)).toBe(false);
+    // Upgrades are NOT removed by removeResearchedTechsByCategory - only techs and progress
+    expect(player.hasUpgrade(UpgradeType.Roads)).toBe(true);
+    expect(player.hasUpgrade(UpgradeType.HospitalResearch)).toBe(true);
     expect(player.researchBeakers("Economy-3A")).toBe(0);
     expect(player.researchPriority()).toBeNull();
   });

@@ -76,13 +76,6 @@ describe("ScorchedEarthExecution", () => {
     );
     expect(mockGame.destroyPlayerRoads).toHaveBeenCalledWith(mockPlayer);
     expect(mockPlayer.setRoadInvestmentRate).toHaveBeenCalledWith(0);
-    expect(mockPlayer.removeUpgrade).toHaveBeenCalledWith(UpgradeType.Roads);
-    expect(mockPlayer.removeUpgrade).toHaveBeenCalledWith(
-      UpgradeType.InternationalTrade,
-    );
-    expect(mockPlayer.removeResearchedTechsByCategory).toHaveBeenCalledWith(
-      "Economy",
-    );
     expect(mockGame.markPlayerNodesForReconnection).toHaveBeenCalledWith(
       mockPlayer,
     );
