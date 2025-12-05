@@ -41,7 +41,7 @@ export const RESEARCH_TECH_IDS = {
   ADVANCED_SAM_SYSTEMS: "Land-3B",
   // Land techs - Level 4
   NIGHT_VISION_BATTLEFIELD_SENSORS: "Land-4A",
-  C3I_PRECISION_STRIKE: "Land-4B",
+  INTEGRATED_C3I_SAM_NETWORKS: "Land-4B",
   // Economy techs - Level 1
   NATIONAL_RECONSTRUCTION_PROGRAM: "Economy-1",
   // Economy techs - Level 2

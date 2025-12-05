@@ -402,20 +402,30 @@ export const TECHS: Readonly<Record<string, TechDefinition>> = Object.freeze({
     meta: {
       name: "Night Vision & Battlefield Sensors",
       description:
-        "Equip forces with infrared and thermal imaging for 24-hour combat capability.",
+        "Equip forces with infrared and thermal imaging for 24-hour combat capability. Policy Directive: High-Speed Night Maneuvers (+10% offensive speed) or Precision Night Engagements (+10% enemy losses when attacking).",
     },
     effects: {
-      // Effects to be added later
+      // Policy directive effects are applied via getPolicyChoice
     },
   },
-  [RESEARCH_TECH_IDS.C3I_PRECISION_STRIKE]: {
+  [RESEARCH_TECH_IDS.INTEGRATED_C3I_SAM_NETWORKS]: {
     meta: {
-      name: "C3I & Precision Strike Systems",
+      name: "Integrated C3I & Advanced SAM Networks",
       description:
-        "Command, Control, Communications, Intelligence and precision-guided munitions for integrated battlefield awareness.",
+        "Integrate SA-10, Patriot-era SAM platforms with C3I systems. Effects: Enables SAM Level 3, +5% enemy losses when you attack, +5% enemy losses when they attack you.",
     },
     effects: {
-      // Effects to be added later
+      onComplete: (player) => {
+        if (!player.hasUpgrade?.(UpgradeType.SAMLevel3)) {
+          player.addUpgrade?.(UpgradeType.SAMLevel3);
+        }
+      },
+      attack: (mods) => {
+        mods.defenderLossMul *= 1.05; // enemy takes 5% more losses when we attack
+      },
+      defense: (mods) => {
+        mods.attackerLossMul *= 1.05; // enemy takes 5% more losses when they attack us
+      },
     },
   },
   [RESEARCH_TECH_IDS.JET_ENGINES]: {
@@ -716,6 +726,9 @@ export function attackCasualtyModifiers(attacker: {
       );
       if (option?.effects.attackerLossMul) {
         mods.attackerLossMul *= option.effects.attackerLossMul;
+      }
+      if (option?.effects.enemyLossMulOnAttack) {
+        mods.defenderLossMul *= option.effects.enemyLossMulOnAttack;
       }
     }
   }
