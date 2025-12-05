@@ -35,6 +35,14 @@ export interface AIBehaviorParams {
   botAttackOwnTroopPercent?: number;
   /** Multiplier of bot troops to cap attack size (beta) */
   botAttackEnemyTroopMultiplier?: number;
+
+  // === Investment Rates ===
+  /** Productivity investment rate (0-1), set at game start */
+  productivityInvestmentRate?: number;
+  /** Research investment rate (0-1), set at game start */
+  researchInvestmentRate?: number;
+  /** Road investment rate (0-1), set once roads are researched */
+  roadInvestmentRate?: number;
 }
 
 export interface AIProfile {
