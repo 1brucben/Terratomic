@@ -39,8 +39,12 @@ export class ScorchedEarthExecution implements Execution {
       return;
     }
 
-    // Must have researched the Scorched Earth tech first
-    if (!this.player.hasResearchedTech(RESEARCH_TECH_IDS.SCORCHED_EARTH)) {
+    // Must have researched Mechanized Warfare Doctrine to unlock Scorched Earth
+    if (
+      !this.player.hasResearchedTech(
+        RESEARCH_TECH_IDS.MECHANIZED_WARFARE_DOCTRINE,
+      )
+    ) {
       this._isActive = false;
       return;
     }

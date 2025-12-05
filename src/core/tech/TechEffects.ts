@@ -347,32 +347,29 @@ export const TECHS: Readonly<Record<string, TechDefinition>> = Object.freeze({
       // Effects to be added later
     },
   },
-  [RESEARCH_TECH_IDS.SCORCHED_EARTH]: {
-    meta: {
-      name: "Scorched Earth",
-      description:
-        "Unleash a scorched earth campaign: raze your entire road network to deny enemy logistics.",
-    },
-  },
   // Land Level 2 techs
   [RESEARCH_TECH_IDS.MECHANIZED_WARFARE_DOCTRINE]: {
     meta: {
       name: "Mechanized Warfare Doctrine",
       description:
-        "Develop doctrine for mechanized infantry and armored operations. Effects: Unlocks Scorched Earth.",
+        "Develop doctrine for mechanized infantry and armored operations. Effects: Unlocks Scorched Earth. Policy Directive: Mobile Infantry Emphasis (+10% offensive speed) or Armored Breakthrough Emphasis (-10% losses when attacking).",
     },
     effects: {
-      // Effects to be added later
+      // Policy directive effects are applied via getPolicyChoice
     },
   },
-  [RESEARCH_TECH_IDS.FIELD_ARTILLERY_MODERNIZATION]: {
+  [RESEARCH_TECH_IDS.SAM_DEPLOYMENT]: {
     meta: {
-      name: "Field Artillery Modernization",
+      name: "Surface-to-Air Missile Deployment",
       description:
-        "Modernize field artillery with improved range, accuracy, and fire control systems.",
+        "Deploy first-generation SAM systems (SA-2 Guideline, Nike Hercules, S-75). Effects: Enables SAM Level 1.",
     },
     effects: {
-      // Effects to be added later
+      onComplete: (player) => {
+        if (!player.hasUpgrade?.(UpgradeType.SAMLevel1)) {
+          player.addUpgrade?.(UpgradeType.SAMLevel1);
+        }
+      },
     },
   },
   // Land Level 3 techs
@@ -673,15 +670,15 @@ export function defenseCasualtyModifiers(
 }
 
 /**
- * Compute casualty multipliers when a player is attacking, based on researched techs.
+ * Compute casualty multipliers when a player is attacking, based on researched techs and policy directives.
  * Returned multipliers stack multiplicatively with defender-side modifiers.
  * - attackerLossMul < 1 reduces own losses
  * - defenderLossMul > 1 increases enemy losses
- * Currently no attacker-side techs are defined; this is ready for future use.
  */
-export function attackCasualtyModifiers(
-  attacker: Player,
-): DefenseCasualtyModifiers {
+export function attackCasualtyModifiers(attacker: {
+  hasResearchedTech?(techId: string): boolean;
+  getPolicyChoice?(directiveId: string): string | null;
+}): DefenseCasualtyModifiers {
   const mods: DefenseCasualtyModifiers = {
     attackerLossMul: 1.0,
     defenderLossMul: 1.0,
@@ -691,20 +688,49 @@ export function attackCasualtyModifiers(
       def.effects?.attack?.(mods);
     }
   }
+  // Apply policy directive effects
+  for (const directive of getAllPolicyDirectives()) {
+    const chosenOptionId = attacker.getPolicyChoice?.(directive.id);
+    if (chosenOptionId) {
+      const option = getPolicyOption(
+        directive.id as PolicyDirectiveId,
+        chosenOptionId,
+      );
+      if (option?.effects.attackerLossMul) {
+        mods.attackerLossMul *= option.effects.attackerLossMul;
+      }
+    }
+  }
   return mods;
 }
 
 /**
- * Compute attack speed multiplier based on researched techs.
+ * Compute attack speed multiplier based on researched techs and policy directives.
  * speedMul > 1 increases tiles conquered per tick (faster attacks).
  */
-export function attackSpeedModifiers(attacker: Player): AttackSpeedModifiers {
+export function attackSpeedModifiers(attacker: {
+  hasResearchedTech?(techId: string): boolean;
+  getPolicyChoice?(directiveId: string): string | null;
+}): AttackSpeedModifiers {
   const mods: AttackSpeedModifiers = {
     speedMul: 1.0,
   };
   for (const [techId, def] of Object.entries(TECHS)) {
     if (attacker.hasResearchedTech?.(techId)) {
       def.effects?.attackSpeed?.(mods);
+    }
+  }
+  // Apply policy directive effects
+  for (const directive of getAllPolicyDirectives()) {
+    const chosenOptionId = attacker.getPolicyChoice?.(directive.id);
+    if (chosenOptionId) {
+      const option = getPolicyOption(
+        directive.id as PolicyDirectiveId,
+        chosenOptionId,
+      );
+      if (option?.effects.attackSpeedMul) {
+        mods.speedMul *= option.effects.attackSpeedMul;
+      }
     }
   }
   return mods;

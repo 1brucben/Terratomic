@@ -11,6 +11,7 @@ export const POLICY_DIRECTIVE_IDS = {
   TRADE_POLICY_FRAMEWORK: "policy_trade_policy",
   INFRASTRUCTURE_PRIORITIZATION: "policy_infrastructure",
   NATIONAL_ECONOMIC_COORDINATION: "policy_economic_coordination",
+  MECHANIZED_WARFARE_DOCTRINE: "policy_mechanized_warfare",
 } as const;
 
 export type PolicyDirectiveId =
@@ -41,6 +42,10 @@ export interface PolicyEffects {
   roadEffectMul?: number;
   // Multiplier for infrastructure spending effectiveness (e.g., 1.2 = +20% more roads per gold)
   infrastructureSpendingEffectivenessMul?: number;
+  // Multiplier for attack speed (e.g., 1.1 = +10% faster offensive speed)
+  attackSpeedMul?: number;
+  // Multiplier for attacker losses when attacking (e.g., 0.9 = -10% losses)
+  attackerLossMul?: number;
   // Multiplier for maintenance cost reduction (e.g., 0.90 = -10% maintenance)
   // TODO: Commented out until maintenance is implemented
   // maintenanceCostMul?: number;
@@ -164,6 +169,31 @@ export const POLICY_DIRECTIVES: Readonly<
         effects: {
           infrastructureSpendingEffectivenessMul: 1.2,
           constructionSpeedMul: 1.1,
+        },
+      },
+    ],
+  },
+  [POLICY_DIRECTIVE_IDS.MECHANIZED_WARFARE_DOCTRINE]: {
+    id: POLICY_DIRECTIVE_IDS.MECHANIZED_WARFARE_DOCTRINE,
+    name: "Mechanized Warfare Doctrine",
+    description:
+      "Choose your tactical doctrine emphasis for mechanized operations.",
+    unlockedByTech: RESEARCH_TECH_IDS.MECHANIZED_WARFARE_DOCTRINE,
+    options: [
+      {
+        id: "mobile_infantry",
+        name: "Mobile Infantry Emphasis",
+        description: "+10% offensive speed",
+        effects: {
+          attackSpeedMul: 1.1,
+        },
+      },
+      {
+        id: "armored_breakthrough",
+        name: "Armored Breakthrough Emphasis",
+        description: "-10% losses when attacking",
+        effects: {
+          attackerLossMul: 0.9,
         },
       },
     ],

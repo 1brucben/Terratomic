@@ -45,7 +45,7 @@ describe("Scorched Earth Full Cycle Integration Test", () => {
     expect(player.hasUpgrade(UpgradeType.HospitalResearch)).toBe(true);
 
     // Step 2: Research and activate Scorched Earth, verify network destruction and tech rollback
-    player.addResearchedTech(RESEARCH_TECH_IDS.SCORCHED_EARTH);
+    player.addResearchedTech(RESEARCH_TECH_IDS.MECHANIZED_WARFARE_DOCTRINE);
     game.addExecution(new ScorchedEarthExecution(player));
     game.executeNextTick();
     expect(game.roads().length).toBe(0);

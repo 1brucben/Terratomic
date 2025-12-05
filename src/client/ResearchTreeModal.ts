@@ -178,7 +178,12 @@ export class ResearchTreeModal extends LitElement {
     me: PlayerView | null,
     isResearched: boolean,
   ) {
-    if (tech.id !== RESEARCH_TECH_IDS.SCORCHED_EARTH || !me || !isResearched) {
+    // Show Scorched Earth button on Mechanized Warfare Doctrine (Land-2A) when researched
+    if (
+      tech.id !== RESEARCH_TECH_IDS.MECHANIZED_WARFARE_DOCTRINE ||
+      !me ||
+      !isResearched
+    ) {
       return "";
     }
     const config = this.game?.config?.();
@@ -192,7 +197,7 @@ export class ResearchTreeModal extends LitElement {
       ? "Scorched Earth already active."
       : gold < activationCost
         ? "Earn more gold to activate Scorched Earth."
-        : "Activate to raze your road network and reset Economy techs.";
+        : "Activate to raze your road network.";
     return html`
       <button
         class="tech-action"

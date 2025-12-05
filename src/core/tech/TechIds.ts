@@ -35,7 +35,7 @@ export const RESEARCH_TECH_IDS = {
   POST_WW2_MODERNIZATION: "Land-1",
   // Land techs - Level 2
   MECHANIZED_WARFARE_DOCTRINE: "Land-2A",
-  FIELD_ARTILLERY_MODERNIZATION: "Land-2B",
+  SAM_DEPLOYMENT: "Land-2B",
   // Land techs - Level 3
   MAIN_BATTLE_TANK_STANDARDIZATION: "Land-3A",
   SELF_PROPELLED_FIRE_SUPPORT: "Land-3B",
@@ -53,8 +53,6 @@ export const RESEARCH_TECH_IDS = {
   // Economy techs - Level 4
   COMPUTING_DATA_SYSTEMS: "Economy-4A",
   NATIONAL_ECONOMIC_COORDINATION: "Economy-4B",
-  // Special Economy actions (not research nodes)
-  SCORCHED_EARTH: "Economy-Action-ScorchedEarth",
   // Nuclear techs
   NUCLEAR_FISSION: "Nuclear-1",
   THERMONUCLEAR_STAGING: "Nuclear-2",
