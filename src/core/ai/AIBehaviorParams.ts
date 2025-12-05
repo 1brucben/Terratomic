@@ -45,6 +45,8 @@ export interface AIBehaviorParams {
   researchInvestmentRate?: number;
   /** Road investment rate (0-1), set once roads are researched */
   roadInvestmentRate?: number;
+  /** If true, cap road investment to maintenance cost (or exact maintenance if at max quality) */
+  roadInvestmentCapToMaintenance?: boolean;
 
   // === Policy Directives ===
   /** If true, choose Open Trade; if false, choose Autarky */
