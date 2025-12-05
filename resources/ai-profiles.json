@@ -11,6 +11,8 @@
         "spawnAvoidanceDistance": 50,
         "terraNulliusTroopThreshold": 0.3,
         "terraNulliusOwnTroopPercent": 0.1,
+        "terraNulliusMaxDistance": 300,
+        "terraNulliusBoatSpacing": 30,
         "botAttackTroopThreshold": 0.5,
         "botAttackMaxDistance": 200,
         "botAttackOwnTroopPercent": 0.2,
