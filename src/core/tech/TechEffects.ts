@@ -1,4 +1,3 @@
-import { CityAAExecution } from "../execution/CityAAExecution";
 import { Game, Player, UpgradeType } from "../game/Game";
 import {
   getAllPolicyDirectives,
@@ -410,22 +409,6 @@ export const TECHS: Readonly<Record<string, TechDefinition>> = Object.freeze({
     },
     effects: {
       // Effects to be added later
-    },
-  },
-  [RESEARCH_TECH_IDS.ANTI_AIR_GUNS]: {
-    meta: {
-      name: "Anti-Air Guns",
-      description:
-        "Allows cities to defend themselves against aerial threats with rapid-fire AA guns. Does not defend against MIRVs.",
-    },
-    effects: {
-      onComplete: (player, game) => {
-        if (!player.hasUpgrade?.(UpgradeType.CityAntiAir)) {
-          player.addUpgrade?.(UpgradeType.CityAntiAir);
-          // Start the city AA execution to fire bullets at planes
-          game.addExecution(new CityAAExecution(player));
-        }
-      },
     },
   },
   [RESEARCH_TECH_IDS.JET_ENGINES]: {

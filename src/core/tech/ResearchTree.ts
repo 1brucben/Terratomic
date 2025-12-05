@@ -173,10 +173,9 @@ const landTechs: TechNode[] = [
 
 // Parallel/branching techs as per current UI
 const extras: TechNode[] = [
-  // Air tech tree - Level 1 (two parallel starting techs)
+  // Air tech tree - Level 1
   { id: "Air-0", category: "Air", level: 1, cost: costForLevel(1) },
-  { id: "Air-1", category: "Air", level: 1, cost: costForLevel(1) },
-  // Air tech tree - Level 2 (four techs)
+  // Air tech tree - Level 2 (three techs)
   {
     id: "Air-2A",
     category: "Air",

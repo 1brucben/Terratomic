@@ -6,7 +6,6 @@
 export const RESEARCH_TECH_IDS = {
   // Air techs - Level 1
   JET_ENGINES: "Air-0",
-  ANTI_AIR_GUNS: "Air-1",
   // Air techs - Level 2
   SUPERSONIC_FLIGHT: "Air-2A",
   TURBOJET_BOMBERS: "Air-2B",
