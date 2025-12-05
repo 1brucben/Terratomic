@@ -5,7 +5,6 @@ import { getDirectivesUnlockedByTech } from "../tech/PolicyDirectives";
 import { Category, findTech } from "../tech/ResearchTree";
 import {
   applyTechCompletionEffects,
-  revokeTechEffects,
   roadEffectModifiers,
 } from "../tech/TechEffects";
 import {
@@ -441,7 +440,6 @@ export class PlayerImpl implements Player {
 
     for (const techId of toRemove) {
       this._researchTreeTechs.delete(techId);
-      revokeTechEffects(this, this.mg, techId);
     }
     for (const techId of progressToClear) {
       this._researchBeakers.delete(techId);

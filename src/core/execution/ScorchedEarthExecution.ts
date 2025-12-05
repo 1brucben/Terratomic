@@ -56,12 +56,9 @@ export class ScorchedEarthExecution implements Execution {
     this.player.removeGold(cost);
     this.player.addUpgrade(UpgradeType.ScorchedEarth);
 
-    // Destroy roads and reset economy
+    // Destroy roads only (keep techs and upgrades)
     this.mg.destroyPlayerRoads(this.player);
     this.player.setRoadInvestmentRate(0);
-    this.player.removeUpgrade(UpgradeType.Roads);
-    this.player.removeUpgrade(UpgradeType.InternationalTrade);
-    this.player.removeResearchedTechsByCategory("Economy");
     this.mg.markPlayerNodesForReconnection(this.player);
 
     this._isActive = false;

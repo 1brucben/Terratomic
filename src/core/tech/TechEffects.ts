@@ -62,8 +62,6 @@ export interface RoadEffectModifiers {
 export type TechEffect = {
   // Runs once when the tech is completed
   onComplete?: (player: Player, game: Game) => void;
-  // Runs when the tech is revoked (e.g., via category reset)
-  onRevoke?: (player: Player, game: Game) => void;
   // Applied each time casualty modifiers are computed while defending
   defense?: (mods: DefenseCasualtyModifiers) => void;
   // Applied each time casualty modifiers are computed while attacking
@@ -106,11 +104,6 @@ export const TECHS: Readonly<Record<string, TechDefinition>> = Object.freeze({
           player.addUpgrade?.(UpgradeType.WarshipLevel1);
         }
       },
-      onRevoke: (player) => {
-        if (player.hasUpgrade?.(UpgradeType.WarshipLevel1)) {
-          player.removeUpgrade?.(UpgradeType.WarshipLevel1);
-        }
-      },
     },
   },
   [RESEARCH_TECH_IDS.DIESEL_ELECTRIC_SUBS]: {
@@ -123,11 +116,6 @@ export const TECHS: Readonly<Record<string, TechDefinition>> = Object.freeze({
       onComplete: (player) => {
         if (!player.hasUpgrade?.(UpgradeType.SubmarineLevel1)) {
           player.addUpgrade?.(UpgradeType.SubmarineLevel1);
-        }
-      },
-      onRevoke: (player) => {
-        if (player.hasUpgrade?.(UpgradeType.SubmarineLevel1)) {
-          player.removeUpgrade?.(UpgradeType.SubmarineLevel1);
         }
       },
     },
@@ -145,11 +133,6 @@ export const TECHS: Readonly<Record<string, TechDefinition>> = Object.freeze({
           player.addUpgrade?.(UpgradeType.WarshipLevel2);
         }
       },
-      onRevoke: (player) => {
-        if (player.hasUpgrade?.(UpgradeType.WarshipLevel2)) {
-          player.removeUpgrade?.(UpgradeType.WarshipLevel2);
-        }
-      },
     },
   },
   [RESEARCH_TECH_IDS.NUCLEAR_ATTACK_SUBMARINES]: {
@@ -164,11 +147,6 @@ export const TECHS: Readonly<Record<string, TechDefinition>> = Object.freeze({
           player.addUpgrade?.(UpgradeType.SubmarineLevel2);
         }
       },
-      onRevoke: (player) => {
-        if (player.hasUpgrade?.(UpgradeType.SubmarineLevel2)) {
-          player.removeUpgrade?.(UpgradeType.SubmarineLevel2);
-        }
-      },
     },
   },
   [RESEARCH_TECH_IDS.BALLISTIC_MISSILE_SUBMARINES]: {
@@ -181,11 +159,6 @@ export const TECHS: Readonly<Record<string, TechDefinition>> = Object.freeze({
       onComplete: (player) => {
         if (!player.hasUpgrade?.(UpgradeType.NuclearSubmarineResearch)) {
           player.addUpgrade?.(UpgradeType.NuclearSubmarineResearch);
-        }
-      },
-      onRevoke: (player) => {
-        if (player.hasUpgrade?.(UpgradeType.NuclearSubmarineResearch)) {
-          player.removeUpgrade?.(UpgradeType.NuclearSubmarineResearch);
         }
       },
     },
@@ -203,11 +176,6 @@ export const TECHS: Readonly<Record<string, TechDefinition>> = Object.freeze({
           player.addUpgrade?.(UpgradeType.WarshipLevel3);
         }
       },
-      onRevoke: (player) => {
-        if (player.hasUpgrade?.(UpgradeType.WarshipLevel3)) {
-          player.removeUpgrade?.(UpgradeType.WarshipLevel3);
-        }
-      },
     },
   },
   [RESEARCH_TECH_IDS.ADVANCED_NUCLEAR_ATTACK_SUBS]: {
@@ -222,11 +190,6 @@ export const TECHS: Readonly<Record<string, TechDefinition>> = Object.freeze({
           player.addUpgrade?.(UpgradeType.SubmarineLevel3);
         }
       },
-      onRevoke: (player) => {
-        if (player.hasUpgrade?.(UpgradeType.SubmarineLevel3)) {
-          player.removeUpgrade?.(UpgradeType.SubmarineLevel3);
-        }
-      },
     },
   },
   [RESEARCH_TECH_IDS.NAVAL_SAM_SYSTEMS]: {
@@ -239,11 +202,6 @@ export const TECHS: Readonly<Record<string, TechDefinition>> = Object.freeze({
       onComplete: (player) => {
         if (!player.hasUpgrade?.(UpgradeType.WarshipAntiAir)) {
           player.addUpgrade?.(UpgradeType.WarshipAntiAir);
-        }
-      },
-      onRevoke: (player) => {
-        if (player.hasUpgrade?.(UpgradeType.WarshipAntiAir)) {
-          player.removeUpgrade?.(UpgradeType.WarshipAntiAir);
         }
       },
     },
@@ -281,11 +239,6 @@ export const TECHS: Readonly<Record<string, TechDefinition>> = Object.freeze({
           player.addUpgrade?.(UpgradeType.MilitaryAcademy);
         }
       },
-      onRevoke: (player) => {
-        if (player.hasUpgrade?.(UpgradeType.MilitaryAcademy)) {
-          player.removeUpgrade?.(UpgradeType.MilitaryAcademy);
-        }
-      },
       attack: (mods) => {
         mods.defenderLossMul *= 1.05; // enemy (defender) takes 5% more losses when we attack
       },
@@ -309,12 +262,6 @@ export const TECHS: Readonly<Record<string, TechDefinition>> = Object.freeze({
         }
         if (player.hasUpgrade?.(UpgradeType.ScorchedEarth)) {
           player.removeUpgrade?.(UpgradeType.ScorchedEarth);
-        }
-      },
-      onRevoke: (player, game) => {
-        if (player.hasUpgrade?.(UpgradeType.Roads)) {
-          player.removeUpgrade?.(UpgradeType.Roads);
-          game.markPlayerNodesForReconnection?.(player);
         }
       },
       infrastructureEffectiveness: (mods) => {
@@ -354,9 +301,6 @@ export const TECHS: Readonly<Record<string, TechDefinition>> = Object.freeze({
       onComplete: (player) => {
         player.addUpgrade?.(UpgradeType.ResearchLabResearch);
       },
-      onRevoke: (player) => {
-        player.removeUpgrade?.(UpgradeType.ResearchLabResearch);
-      },
     },
   },
   [RESEARCH_TECH_IDS.INFRASTRUCTURE_PRIORITIZATION]: {
@@ -369,11 +313,6 @@ export const TECHS: Readonly<Record<string, TechDefinition>> = Object.freeze({
       onComplete: (player) => {
         if (!player.hasUpgrade?.(UpgradeType.HospitalResearch)) {
           player.addUpgrade?.(UpgradeType.HospitalResearch);
-        }
-      },
-      onRevoke: (player) => {
-        if (player.hasUpgrade?.(UpgradeType.HospitalResearch)) {
-          player.removeUpgrade?.(UpgradeType.HospitalResearch);
         }
       },
     },
@@ -402,7 +341,7 @@ export const TECHS: Readonly<Record<string, TechDefinition>> = Object.freeze({
     meta: {
       name: "Scorched Earth",
       description:
-        "Unleash a scorched earth campaign: raze your road network and reset economic research to deny enemy logistics.",
+        "Unleash a scorched earth campaign: raze your entire road network to deny enemy logistics.",
     },
   },
   // Land Level 2 techs
@@ -482,12 +421,6 @@ export const TECHS: Readonly<Record<string, TechDefinition>> = Object.freeze({
           game.addExecution(new CityAAExecution(player));
         }
       },
-      onRevoke: (player) => {
-        if (player.hasUpgrade?.(UpgradeType.CityAntiAir)) {
-          player.removeUpgrade?.(UpgradeType.CityAntiAir);
-          // Note: CityAAExecution will deactivate itself when upgrade is removed
-        }
-      },
     },
   },
   [RESEARCH_TECH_IDS.JET_ENGINES]: {
@@ -499,11 +432,6 @@ export const TECHS: Readonly<Record<string, TechDefinition>> = Object.freeze({
       onComplete: (player) => {
         if (!player.hasUpgrade?.(UpgradeType.JetEngines)) {
           player.addUpgrade?.(UpgradeType.JetEngines);
-        }
-      },
-      onRevoke: (player) => {
-        if (player.hasUpgrade?.(UpgradeType.JetEngines)) {
-          player.removeUpgrade?.(UpgradeType.JetEngines);
         }
       },
     },
@@ -520,11 +448,6 @@ export const TECHS: Readonly<Record<string, TechDefinition>> = Object.freeze({
           player.addUpgrade?.(UpgradeType.FighterLevel2);
         }
       },
-      onRevoke: (player) => {
-        if (player.hasUpgrade?.(UpgradeType.FighterLevel2)) {
-          player.removeUpgrade?.(UpgradeType.FighterLevel2);
-        }
-      },
     },
   },
   [RESEARCH_TECH_IDS.TURBOJET_BOMBERS]: {
@@ -537,11 +460,6 @@ export const TECHS: Readonly<Record<string, TechDefinition>> = Object.freeze({
       onComplete: (player) => {
         if (!player.hasUpgrade?.(UpgradeType.BomberLevel2)) {
           player.addUpgrade?.(UpgradeType.BomberLevel2);
-        }
-      },
-      onRevoke: (player) => {
-        if (player.hasUpgrade?.(UpgradeType.BomberLevel2)) {
-          player.removeUpgrade?.(UpgradeType.BomberLevel2);
         }
       },
     },
@@ -558,11 +476,6 @@ export const TECHS: Readonly<Record<string, TechDefinition>> = Object.freeze({
           player.addUpgrade?.(UpgradeType.AirUpgrade1);
         }
       },
-      onRevoke: (player) => {
-        if (player.hasUpgrade?.(UpgradeType.AirUpgrade1)) {
-          player.removeUpgrade?.(UpgradeType.AirUpgrade1);
-        }
-      },
     },
   },
   [RESEARCH_TECH_IDS.SURFACE_TO_AIR_MISSILES]: {
@@ -575,11 +488,6 @@ export const TECHS: Readonly<Record<string, TechDefinition>> = Object.freeze({
       onComplete: (player) => {
         if (!player.hasUpgrade?.(UpgradeType.SAMLevel1)) {
           player.addUpgrade?.(UpgradeType.SAMLevel1);
-        }
-      },
-      onRevoke: (player) => {
-        if (player.hasUpgrade?.(UpgradeType.SAMLevel1)) {
-          player.removeUpgrade?.(UpgradeType.SAMLevel1);
         }
       },
     },
@@ -597,11 +505,6 @@ export const TECHS: Readonly<Record<string, TechDefinition>> = Object.freeze({
           player.addUpgrade?.(UpgradeType.FighterLevel3);
         }
       },
-      onRevoke: (player) => {
-        if (player.hasUpgrade?.(UpgradeType.FighterLevel3)) {
-          player.removeUpgrade?.(UpgradeType.FighterLevel3);
-        }
-      },
     },
   },
   [RESEARCH_TECH_IDS.NAVAL_STRIKE_TARGETING]: {
@@ -614,11 +517,6 @@ export const TECHS: Readonly<Record<string, TechDefinition>> = Object.freeze({
       onComplete: (player) => {
         if (!player.hasUpgrade?.(UpgradeType.FighterJetNavalTargeting)) {
           player.addUpgrade?.(UpgradeType.FighterJetNavalTargeting);
-        }
-      },
-      onRevoke: (player) => {
-        if (player.hasUpgrade?.(UpgradeType.FighterJetNavalTargeting)) {
-          player.removeUpgrade?.(UpgradeType.FighterJetNavalTargeting);
         }
       },
     },
@@ -635,11 +533,6 @@ export const TECHS: Readonly<Record<string, TechDefinition>> = Object.freeze({
           player.addUpgrade?.(UpgradeType.BomberLevel3);
         }
       },
-      onRevoke: (player) => {
-        if (player.hasUpgrade?.(UpgradeType.BomberLevel3)) {
-          player.removeUpgrade?.(UpgradeType.BomberLevel3);
-        }
-      },
     },
   },
   [RESEARCH_TECH_IDS.RADAR_GUIDED_SAMS]: {
@@ -652,11 +545,6 @@ export const TECHS: Readonly<Record<string, TechDefinition>> = Object.freeze({
       onComplete: (player) => {
         if (!player.hasUpgrade?.(UpgradeType.SAMLevel2)) {
           player.addUpgrade?.(UpgradeType.SAMLevel2);
-        }
-      },
-      onRevoke: (player) => {
-        if (player.hasUpgrade?.(UpgradeType.SAMLevel2)) {
-          player.removeUpgrade?.(UpgradeType.SAMLevel2);
         }
       },
     },
@@ -672,11 +560,6 @@ export const TECHS: Readonly<Record<string, TechDefinition>> = Object.freeze({
       onComplete: (player) => {
         if (!player.hasUpgrade?.(UpgradeType.FighterLevel4)) {
           player.addUpgrade?.(UpgradeType.FighterLevel4);
-        }
-      },
-      onRevoke: (player) => {
-        if (player.hasUpgrade?.(UpgradeType.FighterLevel4)) {
-          player.removeUpgrade?.(UpgradeType.FighterLevel4);
         }
       },
     },
@@ -703,11 +586,6 @@ export const TECHS: Readonly<Record<string, TechDefinition>> = Object.freeze({
           player.addUpgrade?.(UpgradeType.SAMLevel3);
         }
       },
-      onRevoke: (player) => {
-        if (player.hasUpgrade?.(UpgradeType.SAMLevel3)) {
-          player.removeUpgrade?.(UpgradeType.SAMLevel3);
-        }
-      },
     },
   },
   [RESEARCH_TECH_IDS.NUCLEAR_FISSION]: {
@@ -719,11 +597,6 @@ export const TECHS: Readonly<Record<string, TechDefinition>> = Object.freeze({
       onComplete: (player) => {
         if (!player.hasUpgrade?.(UpgradeType.NuclearFission)) {
           player.addUpgrade?.(UpgradeType.NuclearFission);
-        }
-      },
-      onRevoke: (player) => {
-        if (player.hasUpgrade?.(UpgradeType.NuclearFission)) {
-          player.removeUpgrade?.(UpgradeType.NuclearFission);
         }
       },
     },
@@ -739,11 +612,6 @@ export const TECHS: Readonly<Record<string, TechDefinition>> = Object.freeze({
           player.addUpgrade?.(UpgradeType.ThermonuclearStaging);
         }
       },
-      onRevoke: (player) => {
-        if (player.hasUpgrade?.(UpgradeType.ThermonuclearStaging)) {
-          player.removeUpgrade?.(UpgradeType.ThermonuclearStaging);
-        }
-      },
     },
   },
   [RESEARCH_TECH_IDS.MIRV_TECHNOLOGY]: {
@@ -757,11 +625,6 @@ export const TECHS: Readonly<Record<string, TechDefinition>> = Object.freeze({
           player.addUpgrade?.(UpgradeType.MIRVTechnology);
         }
       },
-      onRevoke: (player) => {
-        if (player.hasUpgrade?.(UpgradeType.MIRVTechnology)) {
-          player.removeUpgrade?.(UpgradeType.MIRVTechnology);
-        }
-      },
     },
   },
   [RESEARCH_TECH_IDS.DOOMSDAY_DEVICE]: {
@@ -773,11 +636,6 @@ export const TECHS: Readonly<Record<string, TechDefinition>> = Object.freeze({
       onComplete: (player) => {
         if (!player.hasUpgrade?.(UpgradeType.DoomsdayDeviceResearch)) {
           player.addUpgrade?.(UpgradeType.DoomsdayDeviceResearch);
-        }
-      },
-      onRevoke: (player) => {
-        if (player.hasUpgrade?.(UpgradeType.DoomsdayDeviceResearch)) {
-          player.removeUpgrade?.(UpgradeType.DoomsdayDeviceResearch);
         }
       },
     },
@@ -840,15 +698,6 @@ export function applyTechCompletionEffects(
 ): void {
   const entry = TECHS[techId]?.effects;
   entry?.onComplete?.(player, game);
-}
-
-export function revokeTechEffects(
-  player: Player,
-  game: Game,
-  techId: string,
-): void {
-  const entry = TECHS[techId]?.effects;
-  entry?.onRevoke?.(player, game);
 }
 
 /**
