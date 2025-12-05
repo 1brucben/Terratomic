@@ -255,7 +255,7 @@ export class PlayerInfoOverlay extends LitElement implements Layer {
               style="transform: translateY(-1px); filter: drop-shadow(0 0 1px rgba(255, 255, 255, 0.8));"
               alt="Research"
             />
-            ${Math.floor(player.researchTechLevel())}
+            ${player.researchTechLevel().toFixed(1)}
           </div>
 
           <div
