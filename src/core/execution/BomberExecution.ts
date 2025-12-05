@@ -2,6 +2,7 @@ import type { Execution, Game, Player, Unit } from "../game/Game";
 import { UnitType } from "../game/Game";
 import type { TileRef } from "../game/GameMap";
 import { StraightPathFinder } from "../pathfinding/PathFinding";
+import { roadEffectModifiers } from "../tech/TechEffects";
 
 export class BomberExecution implements Execution {
   private active = true;
@@ -45,7 +46,9 @@ export class BomberExecution implements Execution {
     // Get road quality (0-150, with 100 being baseline)
     const roadQuality = this.origOwner.roadNetworkQuality();
     // Road bonus: at 100% quality = 20% reduction, at 50% = 10%, at 150% = 30%
-    const reductionFactor = 0.2 * (roadQuality / 100);
+    // roadEffectMul further amplifies/dampens the road bonus (e.g., Transport Priority policy)
+    const roadMods = roadEffectModifiers(this.origOwner);
+    const reductionFactor = 0.2 * (roadQuality / 100) * roadMods.effectMul;
     const effectiveCooldown = baseCooldown * (1 - reductionFactor);
 
     return Math.max(1, Math.floor(effectiveCooldown));

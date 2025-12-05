@@ -14,7 +14,7 @@ import { TileRef } from "../game/GameMap";
 import { PathFindResultType } from "../pathfinding/AStar";
 import { PathFinder } from "../pathfinding/PathFinding";
 import { PseudoRandom } from "../PseudoRandom";
-import { tradeIncomeModifiers } from "../tech/TechEffects";
+import { roadEffectModifiers, tradeIncomeModifiers } from "../tech/TechEffects";
 
 type PairKey = string; // `${fromId}->${toId}`
 
@@ -1178,7 +1178,9 @@ export class AssignedTradeRouteExecution implements Execution {
     // Get road quality (0-150, with 100 being baseline)
     const roadQuality = (owner as Player).roadNetworkQuality();
     // Road bonus: at 100% quality = 20% increase, at 50% = 10%, at 150% = 30%
-    const bonusFactor = 0.2 * (roadQuality / 100);
+    // roadEffectMul further amplifies/dampens the road bonus (e.g., Transport Priority policy)
+    const roadMods = roadEffectModifiers(owner as Player);
+    const bonusFactor = 0.2 * (roadQuality / 100) * roadMods.effectMul;
     const bonusGold = BigInt(Math.floor(Number(baseGold) * bonusFactor));
 
     return baseGold + bonusGold;

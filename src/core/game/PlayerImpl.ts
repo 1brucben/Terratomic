@@ -6,6 +6,7 @@ import { Category, findTech } from "../tech/ResearchTree";
 import {
   applyTechCompletionEffects,
   revokeTechEffects,
+  roadEffectModifiers,
 } from "../tech/TechEffects";
 import {
   assertNever,
@@ -554,7 +555,9 @@ export class PlayerImpl implements Player {
         if (isRoadEligible && this.mg.isStructureConnectedToRoadNetwork(u)) {
           // Bonus scales with road quality: at 100% quality, +20% bonus
           // roadQuality is typically 0-150, so roadQuality/100 gives 0-1.5
-          const roadBonus = 0.2 * (roadQuality / 100);
+          // roadEffectMul further amplifies/dampens the road bonus (e.g., Transport Priority policy)
+          const roadMods = roadEffectModifiers(this);
+          const roadBonus = 0.2 * (roadQuality / 100) * roadMods.effectMul;
           baseEffect *= 1 + roadBonus;
         }
 

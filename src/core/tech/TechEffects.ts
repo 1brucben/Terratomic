@@ -53,6 +53,11 @@ export interface TradeIncomeModifiers {
   tradeShipIncomeMul: number;
 }
 
+export interface RoadEffectModifiers {
+  // Multiplier to apply to road effects (higher = stronger road bonuses)
+  effectMul: number;
+}
+
 // Central registry shape for tech effects: on-complete side-effects and battle modifiers
 export type TechEffect = {
   // Runs once when the tech is completed
@@ -77,6 +82,8 @@ export type TechEffect = {
   ) => void;
   // Applied to modify trade income
   tradeIncome?: (mods: TradeIncomeModifiers) => void;
+  // Applied to modify road effects (bonuses from roads)
+  roadEffect?: (mods: RoadEffectModifiers) => void;
 };
 
 export type TechDefinition = {
@@ -1033,6 +1040,39 @@ export function tradeIncomeModifiers(player: {
       }
       if (option?.effects.tradeShipIncomeMul) {
         mods.tradeShipIncomeMul *= option.effects.tradeShipIncomeMul;
+      }
+    }
+  }
+  return mods;
+}
+
+/**
+ * Compute road effect multiplier based on researched techs and policy directives.
+ * effectMul > 1 means roads provide stronger bonuses.
+ */
+export function roadEffectModifiers(player: {
+  hasResearchedTech?(techId: string): boolean;
+  getPolicyChoice?(directiveId: string): string | null;
+}): RoadEffectModifiers {
+  const mods: RoadEffectModifiers = {
+    effectMul: 1.0,
+  };
+  // Apply tech effects
+  for (const [techId, def] of Object.entries(TECHS)) {
+    if (player.hasResearchedTech?.(techId)) {
+      def.effects?.roadEffect?.(mods);
+    }
+  }
+  // Apply policy directive effects
+  for (const directive of getAllPolicyDirectives()) {
+    const chosenOptionId = player.getPolicyChoice?.(directive.id);
+    if (chosenOptionId) {
+      const option = getPolicyOption(
+        directive.id as PolicyDirectiveId,
+        chosenOptionId,
+      );
+      if (option?.effects.roadEffectMul) {
+        mods.effectMul *= option.effects.roadEffectMul;
       }
     }
   }
