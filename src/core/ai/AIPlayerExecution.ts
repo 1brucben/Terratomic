@@ -96,10 +96,13 @@ export class AIPlayerExecution implements Execution {
     this.policyHandler?.handlePolicyDirectives();
 
     // Handle Terra Nullius expansion every tick
-    this.terraNulliusHandler?.handleTerraNulliusAttack();
+    const tnAttacked =
+      this.terraNulliusHandler?.handleTerraNulliusAttack() ?? false;
 
-    // Handle bot attacks every tick
-    this.botAttackHandler?.handleBotAttack();
+    // Handle bot attacks every tick (skip if TN already attacked)
+    if (!tnAttacked) {
+      this.botAttackHandler?.handleBotAttack();
+    }
   }
 
   private updateSliders(ticks: number): void {

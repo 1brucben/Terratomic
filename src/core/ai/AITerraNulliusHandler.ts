@@ -25,10 +25,10 @@ export class AITerraNulliusHandler {
     return this.mg.player(this.playerId);
   }
 
-  handleTerraNulliusAttack(): void {
+  handleTerraNulliusAttack(): boolean {
     const player = this.getPlayer();
     if (!player || !player.isAlive()) {
-      return;
+      return false;
     }
 
     // Clean up pending targets (tiles we now own)
@@ -41,32 +41,32 @@ export class AITerraNulliusHandler {
     const troopRatio = totalTroops / maxTroops;
 
     if (troopRatio < attackThreshold) {
-      return;
+      return false;
     }
 
     // Check if we border Terra Nullius - if so, attack by land
     const tn = this.mg.terraNullius();
     if (player.sharesBorderWith(tn)) {
-      this.launchLandAttack(player);
-      return;
+      return this.launchLandAttack(player);
     }
 
     // Otherwise, try to boat to TN via random sampling
-    this.launchBoatAttack(player);
+    return this.launchBoatAttack(player);
   }
 
-  private launchLandAttack(player: Player): void {
+  private launchLandAttack(player: Player): boolean {
     const ownTroopPercent = this.params.terraNulliusOwnTroopPercent ?? 0.1;
     const troops = player.troops() * ownTroopPercent;
 
     if (troops < 1) {
-      return;
+      return false;
     }
 
     this.mg.addExecution(new AttackExecution(troops, player, null));
+    return true;
   }
 
-  private launchBoatAttack(player: Player): void {
+  private launchBoatAttack(player: Player): boolean {
     const maxDistance = this.params.terraNulliusMaxDistance ?? 300;
     const minSpacing = this.params.terraNulliusBoatSpacing ?? 30;
     const boatTroopPercent = this.params.terraNulliusBoatTroopPercent ?? 0.05;
@@ -76,7 +76,7 @@ export class AITerraNulliusHandler {
       this.mg.isOceanShore(t),
     );
     if (playerShore.length === 0) {
-      return;
+      return false;
     }
 
     const shoreSample = this.random.sampleArray(playerShore, 8);
@@ -94,15 +94,16 @@ export class AITerraNulliusHandler {
 
       const troops = player.troops() * boatTroopPercent;
       if (troops < 1) {
-        return;
+        return false;
       }
 
       this.pendingBoatTargets.add(dst);
       this.mg.addExecution(
         new TransportShipExecution(player, null, dst, troops, null),
       );
-      return;
+      return true;
     }
+    return false;
   }
 
   private findRandomTNShore(
