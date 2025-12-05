@@ -22,7 +22,13 @@
         "researchInvestmentRate": 0.1,
         "roadInvestmentRate": 0.1,
         "roadInvestmentCapToMaintenance": true,
-        "preferOpenTrade": true
+        "preferOpenTrade": true,
+        "buildCities": true,
+        "tilesPerCity": 500,
+        "buildFactories": true,
+        "tilesPerFactory": 1000,
+        "buildPorts": true,
+        "tilesPerPort": 2000
       }
     }
   ]
