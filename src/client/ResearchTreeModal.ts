@@ -624,7 +624,9 @@ export class ResearchTreeModal extends LitElement {
         <div class="policy-options">
           ${directive.options.map((option) => {
             const isSelected = currentChoice === option.id;
-            const isDisabled = !isUnlocked;
+            // Disable if not unlocked OR if a choice has already been made (one-time selection)
+            const hasChoiceMade = currentChoice !== null;
+            const isDisabled = !isUnlocked || hasChoiceMade;
             return html`
               <button
                 class="policy-option ${isSelected
@@ -640,7 +642,7 @@ export class ResearchTreeModal extends LitElement {
                 </div>
                 ${isSelected
                   ? html`<span class="policy-option-selected-badge"
-                      >✓ Active</span
+                      >✓ Locked In</span
                     >`
                   : ""}
               </button>
@@ -656,9 +658,9 @@ export class ResearchTreeModal extends LitElement {
     const me = this.game.myPlayer?.();
     if (!me) return;
 
-    // Don't allow selection if already selected
+    // Don't allow selection if any choice has already been made (one-time selection)
     const currentChoice = me.getPolicyChoice?.(directiveId);
-    if (currentChoice === optionId) return;
+    if (currentChoice !== null && currentChoice !== undefined) return;
 
     // Emit the intent to select this policy
     this.eventBus.emit(
@@ -1785,6 +1787,7 @@ export class ResearchTreeModal extends LitElement {
             font-size: 10px;
             font-weight: bold;
             color: #000;
+            padding-left: 1px;
             animation: pulse-tab-badge 1.5s ease-in-out infinite;
           }
           @keyframes pulse-tab-badge {

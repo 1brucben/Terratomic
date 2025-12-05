@@ -128,7 +128,7 @@ export class ResearchToggleButton extends LitElement implements Layer {
             box-shadow 120ms ease,
             background 120ms ease;
         }
-        .research-vertical-button span {
+        .research-vertical-button span:not(.policy-notification-badge) {
           display: block;
           font-size: 14px;
           line-height: 1.1;
@@ -157,12 +157,12 @@ export class ResearchToggleButton extends LitElement implements Layer {
           background: #ffc107;
           border: 2px solid #000;
           border-radius: 50%;
-          display: flex;
-          align-items: center;
-          justify-content: center;
           font-size: 12px;
           font-weight: bold;
           color: #000;
+          line-height: 14px;
+          text-align: center;
+          padding-left: 1px;
           animation: pulse-badge 1.5s ease-in-out infinite;
         }
         @keyframes pulse-badge {

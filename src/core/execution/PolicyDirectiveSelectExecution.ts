@@ -65,6 +65,16 @@ export class PolicyDirectiveSelectExecution implements Execution {
       return;
     }
 
+    // Check if a choice has already been made (policy directives are one-time choices)
+    const existingChoice = this.player.getPolicyChoice(this.directiveId);
+    if (existingChoice !== null) {
+      console.warn(
+        `[PolicyDirectiveSelectExecution] Choice already made for directive: ${this.directiveId}`,
+      );
+      this._active = false;
+      return;
+    }
+
     // Set the policy choice
     this.player.setPolicyChoice(this.directiveId, this.optionId);
     this._active = false;
