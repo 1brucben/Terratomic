@@ -1,3 +1,4 @@
+import { CityAAExecution } from "../execution/CityAAExecution";
 import { Game, Player, UpgradeType } from "../game/Game";
 import {
   getAllPolicyDirectives,
@@ -230,12 +231,17 @@ export const TECHS: Readonly<Record<string, TechDefinition>> = Object.freeze({
     meta: {
       name: "Post-WW2 Modernization",
       description:
-        "Doctrine refined by hard-won experience improves offensive capabilities and tactical efficiency. Effects: Enables Military Academy. Enemy takes +5% more losses when you attack them. Your offensive speed +5%.",
+        "Doctrine refined by hard-won experience improves offensive capabilities and tactical efficiency. Effects: Enables Military Academy, City AA. Enemy takes +5% more losses when you attack them. Your offensive speed +5%.",
     },
     effects: {
-      onComplete: (player) => {
+      onComplete: (player, game) => {
         if (!player.hasUpgrade?.(UpgradeType.MilitaryAcademy)) {
           player.addUpgrade?.(UpgradeType.MilitaryAcademy);
+        }
+        if (!player.hasUpgrade?.(UpgradeType.CityAntiAir)) {
+          player.addUpgrade?.(UpgradeType.CityAntiAir);
+          // Start the city AA execution to fire bullets at planes
+          game.addExecution(new CityAAExecution(player));
         }
       },
       attack: (mods) => {
