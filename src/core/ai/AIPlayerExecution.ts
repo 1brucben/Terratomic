@@ -87,6 +87,24 @@ export class AIPlayerExecution implements Execution {
       return;
     }
 
+    // Handle slider updates every 100 ticks
+    if (ticks % 100 === 0) {
+      this.updateSliders(ticks);
+    }
+
+    // Handle policy directive choices
+    this.policyHandler?.handlePolicyDirectives();
+
+    // Handle Terra Nullius expansion every tick
+    this.terraNulliusHandler?.handleTerraNulliusAttack();
+
+    // Handle bot attacks every tick
+    this.botAttackHandler?.handleBotAttack();
+  }
+
+  private updateSliders(ticks: number): void {
+    if (this.player === null) return;
+
     // Set initial investment rates once
     if (!this.initialInvestmentSet) {
       const productivityRate = this.params.productivityInvestmentRate ?? 0.1;
@@ -108,15 +126,6 @@ export class AIPlayerExecution implements Execution {
       // Continuously update road investment when capping to maintenance
       this.updateRoadInvestment(this.player);
     }
-
-    // Handle policy directive choices
-    this.policyHandler?.handlePolicyDirectives();
-
-    // Handle Terra Nullius expansion every tick
-    this.terraNulliusHandler?.handleTerraNulliusAttack();
-
-    // Handle bot attacks every tick
-    this.botAttackHandler?.handleBotAttack();
   }
 
   private updateRoadInvestment(player: Player): void {
@@ -155,8 +164,8 @@ export class AIPlayerExecution implements Execution {
     }
     maintenanceRate = Math.max(0, Math.min(1, maintenanceRate));
 
-    // If at max quality, set exactly to maintenance; otherwise min of base and maintenance
-    const atMaxQuality = quality >= maxQuality;
+    // If near max quality (within 1%), set exactly to maintenance; otherwise min of base and maintenance
+    const atMaxQuality = quality >= maxQuality - 1;
     const finalRate = atMaxQuality
       ? maintenanceRate
       : Math.min(baseRate, maintenanceRate);
