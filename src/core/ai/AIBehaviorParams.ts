@@ -4,6 +4,7 @@ import aiProfilesData from "../../../resources/ai-profiles.json" with { type: "j
  * Behavior parameters that define how an AI player acts.
  */
 export interface AIBehaviorParams {
+  // === Spawn Behavior ===
   /** Whether to move spawn point around during spawn phase */
   spawnHopping?: boolean;
   /** How often (in ticks) to move spawn point when spawnHopping is enabled */
@@ -14,6 +15,16 @@ export interface AIBehaviorParams {
   spawnAvoidance?: boolean;
   /** Minimum distance to maintain from other players when spawnAvoidance is enabled */
   spawnAvoidanceDistance?: number;
+
+  // === Attack Behavior ===
+  /** Minimum troop ratio (troops / maxPopulation) before attacking (0-1) */
+  attackTroopThreshold?: number;
+  /** Maximum distance (in tiles) to consider a target */
+  attackMaxDistance?: number;
+  /** Percent of own troops to use in attack (alpha) */
+  attackOwnTroopPercent?: number;
+  /** Multiplier of enemy troops to cap attack size (beta) */
+  attackEnemyTroopMultiplier?: number;
 }
 
 export interface AIProfile {

@@ -2,6 +2,7 @@ import { Execution, Game, Nation, Player } from "../game/Game";
 import { PseudoRandom } from "../PseudoRandom";
 import { GameID } from "../Schemas";
 import { simpleHash } from "../Util";
+import { AIAttackHandler } from "./AIAttackHandler";
 import { AIBehaviorParams } from "./AIBehaviorParams";
 import { AISpawnHandler } from "./AISpawnHandler";
 
@@ -14,6 +15,7 @@ export class AIPlayerExecution implements Execution {
   private player: Player | null = null;
   private random: PseudoRandom;
   private spawnHandler: AISpawnHandler | null = null;
+  private attackHandler: AIAttackHandler | null = null;
 
   constructor(
     private gameID: GameID,
@@ -33,6 +35,12 @@ export class AIPlayerExecution implements Execution {
       this.random,
       this.params,
     );
+    this.attackHandler = new AIAttackHandler(
+      mg,
+      this.nation.playerInfo.id,
+      this.random,
+      this.params,
+    );
   }
 
   isActive(): boolean {
@@ -48,6 +56,20 @@ export class AIPlayerExecution implements Execution {
       this.spawnHandler?.handleSpawnPhase(ticks);
       return;
     }
-    // TODO: Implement post-spawn behavior
+
+    // Find player if not found yet
+    if (this.player === null) {
+      this.player =
+        this.mg.players().find((p) => p.id() === this.nation.playerInfo.id) ??
+        null;
+    }
+
+    if (this.player === null || !this.player.isAlive()) {
+      this.active = false;
+      return;
+    }
+
+    // Handle attacks every tick
+    this.attackHandler?.handleAttack();
   }
 }
