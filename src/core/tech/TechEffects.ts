@@ -992,11 +992,12 @@ export function incomeModifiers(player: {
 }
 
 /**
- * Compute infrastructure spending effectiveness multiplier based on researched techs.
+ * Compute infrastructure spending effectiveness multiplier based on researched techs and policy directives.
  * effectivenessMul > 1 means more roads per gold spent.
  */
 export function infrastructureEffectivenessModifiers(player: {
   hasResearchedTech?(techId: string): boolean;
+  getPolicyChoice?(directiveId: string): string | null;
 }): InfrastructureEffectivenessModifiers {
   const mods: InfrastructureEffectivenessModifiers = {
     effectivenessMul: 1.0,
@@ -1004,6 +1005,20 @@ export function infrastructureEffectivenessModifiers(player: {
   for (const [techId, def] of Object.entries(TECHS)) {
     if (player.hasResearchedTech?.(techId)) {
       def.effects?.infrastructureEffectiveness?.(mods);
+    }
+  }
+  // Apply policy directive effects
+  for (const directive of getAllPolicyDirectives()) {
+    const chosenOptionId = player.getPolicyChoice?.(directive.id);
+    if (chosenOptionId) {
+      const option = getPolicyOption(
+        directive.id as PolicyDirectiveId,
+        chosenOptionId,
+      );
+      if (option?.effects.infrastructureSpendingEffectivenessMul) {
+        mods.effectivenessMul *=
+          option.effects.infrastructureSpendingEffectivenessMul;
+      }
     }
   }
   return mods;

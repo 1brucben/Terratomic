@@ -10,6 +10,7 @@ export const POLICY_DIRECTIVE_IDS = {
   INDUSTRIAL_DEVELOPMENT_STRATEGY: "policy_industrial_development",
   TRADE_POLICY_FRAMEWORK: "policy_trade_policy",
   INFRASTRUCTURE_PRIORITIZATION: "policy_infrastructure",
+  NATIONAL_ECONOMIC_COORDINATION: "policy_economic_coordination",
 } as const;
 
 export type PolicyDirectiveId =
@@ -38,6 +39,8 @@ export interface PolicyEffects {
   grantsInternationalTrade?: boolean;
   // Multiplier for road effects (e.g., 1.2 = +20% stronger road bonuses)
   roadEffectMul?: number;
+  // Multiplier for infrastructure spending effectiveness (e.g., 1.2 = +20% more roads per gold)
+  infrastructureSpendingEffectivenessMul?: number;
   // Multiplier for maintenance cost reduction (e.g., 0.90 = -10% maintenance)
   // TODO: Commented out until maintenance is implemented
   // maintenanceCostMul?: number;
@@ -133,6 +136,34 @@ export const POLICY_DIRECTIVES: Readonly<
         effects: {
           constructionSpeedMul: 1.1,
           // TODO: maintenanceCostMul: 0.90, // 10% reduction
+        },
+      },
+    ],
+  },
+  [POLICY_DIRECTIVE_IDS.NATIONAL_ECONOMIC_COORDINATION]: {
+    id: POLICY_DIRECTIVE_IDS.NATIONAL_ECONOMIC_COORDINATION,
+    name: "National Economic Coordination Systems",
+    description:
+      "Choose your nation's approach to economic coordination and planning.",
+    unlockedByTech: RESEARCH_TECH_IDS.NATIONAL_ECONOMIC_COORDINATION,
+    options: [
+      {
+        id: "market_optimization",
+        name: "Market Optimization Systems",
+        description: "+5% domestic income", // TODO: -5% maintenance costs when maintenance is implemented
+        effects: {
+          domesticIncomeMul: 1.05,
+          // TODO: maintenanceCostMul: 0.95, // 5% reduction
+        },
+      },
+      {
+        id: "central_planning",
+        name: "Central Planning Optimization",
+        description:
+          "+20% infrastructure spending effectiveness, +10% construction speed",
+        effects: {
+          infrastructureSpendingEffectivenessMul: 1.2,
+          constructionSpeedMul: 1.1,
         },
       },
     ],
