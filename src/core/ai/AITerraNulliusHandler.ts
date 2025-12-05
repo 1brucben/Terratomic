@@ -69,7 +69,7 @@ export class AITerraNulliusHandler {
   private launchBoatAttack(player: Player): void {
     const maxDistance = this.params.terraNulliusMaxDistance ?? 300;
     const minSpacing = this.params.terraNulliusBoatSpacing ?? 30;
-    const ownTroopPercent = this.params.terraNulliusOwnTroopPercent ?? 0.1;
+    const boatTroopPercent = this.params.terraNulliusBoatTroopPercent ?? 0.05;
 
     // Sample player's ocean shore tiles
     const playerShore = Array.from(player.borderTiles()).filter((t) =>
@@ -92,7 +92,7 @@ export class AITerraNulliusHandler {
         continue;
       }
 
-      const troops = player.troops() * ownTroopPercent;
+      const troops = player.troops() * boatTroopPercent;
       if (troops < 1) {
         return;
       }
