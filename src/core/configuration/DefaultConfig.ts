@@ -1419,18 +1419,6 @@ export class DefaultConfig implements Config {
   structureInsuranceRefundDen(): number {
     return 3;
   }
-  automationTradeIncomeMultiplierNum(): number {
-    return 2;
-  }
-  automationTradeIncomeMultiplierDen(): number {
-    return 1;
-  }
-  automationTroopRegenMultiplierNum(): number {
-    return 4;
-  }
-  automationTroopRegenMultiplierDen(): number {
-    return 5;
-  }
   // --- Structure upgrade cost multipliers ---
   structureUpgradeCostMultiplier(type: UnitType): number {
     switch (type) {

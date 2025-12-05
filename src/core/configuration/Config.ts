@@ -175,10 +175,6 @@ export interface Config {
   urbanPlanningPopulationBonusDen(): number;
   structureInsuranceRefundNum(): number;
   structureInsuranceRefundDen(): number;
-  automationTradeIncomeMultiplierNum(): number;
-  automationTradeIncomeMultiplierDen(): number;
-  automationTroopRegenMultiplierNum(): number;
-  automationTroopRegenMultiplierDen(): number;
 
   // Structure upgrade cost multiplier per structure type (e.g., 0.8 for 80%)
   structureUpgradeCostMultiplier(type: UnitType): number;
