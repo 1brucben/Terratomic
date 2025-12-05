@@ -4,6 +4,7 @@ import { GameID } from "../Schemas";
 import { simpleHash } from "../Util";
 import { AIBehaviorParams } from "./AIBehaviorParams";
 import { AIBotAttackHandler } from "./AIBotAttackHandler";
+import { AIPolicyHandler } from "./AIPolicyHandler";
 import { AISpawnHandler } from "./AISpawnHandler";
 import { AITerraNulliusHandler } from "./AITerraNulliusHandler";
 
@@ -18,6 +19,7 @@ export class AIPlayerExecution implements Execution {
   private spawnHandler: AISpawnHandler | null = null;
   private terraNulliusHandler: AITerraNulliusHandler | null = null;
   private botAttackHandler: AIBotAttackHandler | null = null;
+  private policyHandler: AIPolicyHandler | null = null;
   private initialInvestmentSet = false;
   private roadInvestmentSet = false;
 
@@ -46,6 +48,12 @@ export class AIPlayerExecution implements Execution {
       this.params,
     );
     this.botAttackHandler = new AIBotAttackHandler(
+      mg,
+      this.nation.playerInfo.id,
+      this.random,
+      this.params,
+    );
+    this.policyHandler = new AIPolicyHandler(
       mg,
       this.nation.playerInfo.id,
       this.random,
@@ -95,6 +103,9 @@ export class AIPlayerExecution implements Execution {
       this.player.setRoadInvestmentRate(roadRate);
       this.roadInvestmentSet = true;
     }
+
+    // Handle policy directive choices
+    this.policyHandler?.handlePolicyDirectives();
 
     // Handle Terra Nullius expansion every tick
     this.terraNulliusHandler?.handleTerraNulliusAttack();

@@ -19,8 +19,10 @@ export interface AIBehaviorParams {
   // === Terra Nullius Expansion ===
   /** Minimum troop ratio (troops / maxTroops) before expanding into unclaimed land (0-1) */
   terraNulliusTroopThreshold?: number;
-  /** Percent of own troops to use when expanding into Terra Nullius */
+  /** Percent of own troops to use when expanding into Terra Nullius by land */
   terraNulliusOwnTroopPercent?: number;
+  /** Percent of own troops to use when boating to Terra Nullius */
+  terraNulliusBoatTroopPercent?: number;
   /** Maximum distance from capital to attack TN (bypassed if shares land border) */
   terraNulliusMaxDistance?: number;
   /** Minimum spacing between TN boat targets to prevent clustering */
@@ -43,6 +45,10 @@ export interface AIBehaviorParams {
   researchInvestmentRate?: number;
   /** Road investment rate (0-1), set once roads are researched */
   roadInvestmentRate?: number;
+
+  // === Policy Directives ===
+  /** If true, choose Open Trade; if false, choose Autarky */
+  preferOpenTrade?: boolean;
 }
 
 export interface AIProfile {
