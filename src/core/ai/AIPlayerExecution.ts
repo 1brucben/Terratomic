@@ -99,9 +99,14 @@ export class AIPlayerExecution implements Execution {
 
     // Set road investment once roads are researched
     if (!this.roadInvestmentSet && this.player.hasUpgrade(UpgradeType.Roads)) {
-      const roadRate = this.params.roadInvestmentRate ?? 0.1;
-      this.player.setRoadInvestmentRate(roadRate);
+      this.updateRoadInvestment(this.player);
       this.roadInvestmentSet = true;
+    } else if (
+      this.roadInvestmentSet &&
+      this.params.roadInvestmentCapToMaintenance
+    ) {
+      // Continuously update road investment when capping to maintenance
+      this.updateRoadInvestment(this.player);
     }
 
     // Handle policy directive choices
@@ -112,5 +117,50 @@ export class AIPlayerExecution implements Execution {
 
     // Handle bot attacks every tick
     this.botAttackHandler?.handleBotAttack();
+  }
+
+  private updateRoadInvestment(player: Player): void {
+    const baseRate = this.params.roadInvestmentRate ?? 0.1;
+    const capToMaintenance =
+      this.params.roadInvestmentCapToMaintenance ?? false;
+
+    if (!capToMaintenance) {
+      player.setRoadInvestmentRate(baseRate);
+      return;
+    }
+
+    // Calculate maintenance rate needed
+    const config = this.mg.config();
+    const baseCost = config.roadConstructionBaseCost();
+    const maintMult = config.roadMaintenanceMultiplier();
+    const roadLength = player.roadNetworkLength();
+    const productivity = Math.max(0.0001, player.productivity());
+    const quality = player.roadNetworkQuality();
+    const maxQuality = config.roadQualityMax?.() ?? 150;
+    const minQuality = config.roadQualityMin?.() ?? 0;
+    const clampedQuality = Math.max(minQuality, Math.min(maxQuality, quality));
+    const qualityFactor = clampedQuality / 100;
+
+    // Maintenance per tick
+    const maintenancePerTick =
+      baseCost * maintMult * productivity * roadLength * qualityFactor;
+
+    // Gross gold per tick
+    const grossGoldPerTick = config.grossGoldAdditionRate(player);
+
+    // Calculate maintenance rate as fraction of gross gold
+    let maintenanceRate = 0;
+    if (grossGoldPerTick > 0) {
+      maintenanceRate = maintenancePerTick / grossGoldPerTick;
+    }
+    maintenanceRate = Math.max(0, Math.min(1, maintenanceRate));
+
+    // If at max quality, set exactly to maintenance; otherwise min of base and maintenance
+    const atMaxQuality = quality >= maxQuality;
+    const finalRate = atMaxQuality
+      ? maintenanceRate
+      : Math.min(baseRate, maintenanceRate);
+
+    player.setRoadInvestmentRate(finalRate);
   }
 }
