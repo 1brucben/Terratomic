@@ -322,10 +322,15 @@ export const TECHS: Readonly<Record<string, TechDefinition>> = Object.freeze({
     meta: {
       name: "Computing & Data Systems",
       description:
-        "Develop computing infrastructure and data processing systems.",
+        "Develop computing infrastructure and data processing systems. Effects: +5% research spending effectiveness, +5% infrastructure spending effectiveness.",
     },
     effects: {
-      // Effects to be added later
+      researchEffectiveness: (mods) => {
+        mods.effectivenessMul *= 1.05; // +5% research spending effectiveness
+      },
+      infrastructureEffectiveness: (mods) => {
+        mods.effectivenessMul *= 1.05; // +5% infrastructure spending effectiveness
+      },
     },
   },
   [RESEARCH_TECH_IDS.NATIONAL_ECONOMIC_COORDINATION]: {
