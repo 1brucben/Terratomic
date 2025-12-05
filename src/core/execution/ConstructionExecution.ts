@@ -309,7 +309,12 @@ export class ConstructionExecution implements Execution {
         break;
       case UnitType.Airfield:
         this.mg.addExecution(
-          new AirfieldExecution(player, this.tile, this.bomberLevel),
+          new AirfieldExecution(
+            player,
+            this.tile,
+            this.bomberLevel,
+            this.desiredLevel,
+          ),
         );
         break;
       default:

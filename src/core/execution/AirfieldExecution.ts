@@ -1,6 +1,6 @@
 import { Execution, Game, Player, Unit, UnitType } from "../game/Game";
 import { TileRef } from "../game/GameMap";
-import { maxUnitLevel } from "../game/Upgradeables";
+import { maxUnitLevel, playerMaxStructureLevel } from "../game/Upgradeables";
 import { PseudoRandom } from "../PseudoRandom";
 import { BomberExecution } from "./BomberExecution";
 import { CargoPlaneExecution } from "./CargoPlaneExecution";
@@ -17,6 +17,7 @@ export class AirfieldExecution implements Execution {
     private player: Player,
     private tile: TileRef,
     private initialBomberLevel: number = 1, // Bomber upgrade level
+    private desiredLevel: number = 1, // Structure upgrade level
   ) {}
 
   init(mg: Game, ticks: number): void {
@@ -41,6 +42,13 @@ export class AirfieldExecution implements Execution {
         return;
       }
       this.airfield = this.player.buildUnit(UnitType.Airfield, spawn, {});
+
+      // Apply structure upgrades if requested
+      const structureLevel = this.computeDesiredLevel(
+        UnitType.Airfield,
+        this.desiredLevel,
+      );
+      this.applyUpgrades(this.airfield, structureLevel);
       this.lastLevel = this.airfield.level?.() ?? 1;
 
       // Set initial bomber upgrade level if specified (clamped to max)
@@ -115,5 +123,20 @@ export class AirfieldExecution implements Execution {
 
   activeDuringSpawnPhase(): boolean {
     return false;
+  }
+
+  private computeDesiredLevel(type: UnitType, target?: number): number {
+    if (target === undefined || target < 1) return 1;
+    const cap = playerMaxStructureLevel(this.player, type);
+    return Math.max(1, Math.min(cap, target));
+  }
+
+  private applyUpgrades(unit: Unit, desiredLevel: number): void {
+    const steps = Math.max(0, desiredLevel - 1);
+    if (steps <= 0) return;
+    const impl = unit as any;
+    if (typeof impl.upgradeStructure === "function") {
+      for (let i = 0; i < steps; i++) impl.upgradeStructure();
+    }
   }
 }
