@@ -132,12 +132,20 @@ class RankingService {
 
   /**
    * Update rankings for players after a game ends
+   * Only public lobby games count towards rankings (custom games are excluded to prevent cheating)
    * Uses read-modify-write pattern to avoid overwriting other workers' updates
    */
   async updateGameResults(
     players: PlayerRecord[],
     winnerClientID: string | null,
+    isPublicGame: boolean,
   ): Promise<void> {
+    // Only public lobby games count towards rankings
+    if (!isPublicGame) {
+      log.info("Skipping ranking update for non-public game");
+      return;
+    }
+
     // Read fresh data from R2 before modifying to avoid overwriting other workers' updates
     try {
       await this.loadFromR2();

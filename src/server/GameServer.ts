@@ -802,7 +802,11 @@ export class GameServer {
     // Winner format: ["player", clientID, ...] or ["team", teamName, ...]
     const winnerClientID =
       this.winner?.winner?.[0] === "player" ? this.winner.winner[1] : null;
-    await rankingService.updateGameResults(playerRecords, winnerClientID);
+    await rankingService.updateGameResults(
+      playerRecords,
+      winnerClientID,
+      this.isPublic(),
+    );
   }
 
   private handleSynchronization() {
