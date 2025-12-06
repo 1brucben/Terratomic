@@ -1004,11 +1004,11 @@ export class HostLobbyModal extends LitElement {
 
               <!-- Start Button -->
               <o-button
-                title=${this.clients.length === 1
+                title=${this.clients.length < 2
                   ? translateText("host_modal.waiting")
                   : translateText("host_modal.start")}
                 @click=${this.startGame}
-                ?disabled=${this.clients.length < 2}
+                ?disable=${this.clients.length < 2}
                 block
               ></o-button>
             </div>
