@@ -1041,8 +1041,8 @@ export class DefaultConfig implements Config {
     // Get tech-based speed modifier
     const speedMods = attackSpeedModifiers(attacker);
     const baseTiles = defender.isPlayer()
-      ? 10 * numAdjacentTilesWithEnemy
-      : 12 * numAdjacentTilesWithEnemy;
+      ? 7.5 * numAdjacentTilesWithEnemy // 25% slower attacks (was 10)
+      : 9 * numAdjacentTilesWithEnemy; // 25% slower attacks (was 12)
     return baseTiles * speedMods.speedMul;
   }
 
@@ -1129,7 +1129,7 @@ export class DefaultConfig implements Config {
     const max = this.maxPopulation(player);
     //population grows proportional to current population with growth decreasing as it approaches max
     // smaller countries recieve a boost to pop growth to speed up early game
-    const baseAdditionRate = 10;
+    const baseAdditionRate = 7.5; // 25% slower population growth (was 10)
     const basePopGrowthRate = 1200 / max + 1 / 200;
     const reproductionPop = player.troops() + 1.15 * player.workers();
     let toAdd = baseAdditionRate + basePopGrowthRate * reproductionPop;
@@ -1163,7 +1163,7 @@ export class DefaultConfig implements Config {
 
   // Gross gold per tick BEFORE any investments are subtracted
   grossGoldAdditionRate(player: Player | PlayerView): number {
-    const base = 0.06 * Math.pow(player.workers(), 0.65);
+    const base = 0.12 * Math.pow(player.workers(), 0.65); // 2x gold generation (was 0.06)
     const productivity = player.productivity();
     const k = player.effectiveUnits(UnitType.Factory);
     const factoryFactor = Math.pow(1 + k, 0.35);
@@ -1378,7 +1378,7 @@ export class DefaultConfig implements Config {
   // --- Research system defaults ---
   // f(x) = A * investment^B, where investment is gold allocated to research this tick
   researchAlpha(): number {
-    return 1.0; // Tunable: scalar applied to investment^B
+    return 4.0; // 4x faster research (was 1.0)
   }
   researchBeta(): number {
     return 1.0; // Tunable: exponent applied to investment
