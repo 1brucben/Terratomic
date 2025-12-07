@@ -56,6 +56,7 @@ import { createRenderer, GameRenderer } from "./graphics/GameRenderer";
 import { WinModal } from "./graphics/layers/WinModal";
 import { AVAILABLE_STATS, computeStatValue } from "./stats/StatDefinitions";
 import statsStore from "./stats/StatsStore";
+import { PerformanceMetrics } from "./utilities/PerformanceMetrics";
 
 export interface LobbyConfig {
   serverConfig: ServerConfig;
@@ -391,7 +392,9 @@ export class ClientGameRunner {
         this.eventBus.emit(new SendHashEvent(hu.tick, hu.hash));
       });
       this.gameView.update(gu);
+
       this.renderer.tick();
+
       statsStore.onTick(gu.tick);
 
       if (gu.updates[GameUpdateType.Win].length > 0) {
@@ -412,6 +415,7 @@ export class ClientGameRunner {
     };
     const onmessage = (message: ServerMessage) => {
       this.lastMessageTime = Date.now();
+      PerformanceMetrics.getInstance().updatePacketReceived();
       if (message.type === "start") {
         this.hasJoined = true;
         console.log("starting game!");
@@ -468,6 +472,18 @@ export class ClientGameRunner {
           this.turnBuffer.push(message.turn);
           this.worker.sendTurn(message.turn);
           this.turnsSeen++;
+          PerformanceMetrics.getInstance().updateTick();
+          if (this.turnsSeen % 10 === 0 && this.gameView) {
+            const units = this.gameView.units();
+            PerformanceMetrics.getInstance().updateEntityCount(units.length);
+
+            const composition = new Map<UnitType, number>();
+            for (const u of units) {
+              const t = u.type();
+              composition.set(t, (composition.get(t) ?? 0) + 1);
+            }
+            PerformanceMetrics.getInstance().updateUnitComposition(composition);
+          }
         }
       }
     };

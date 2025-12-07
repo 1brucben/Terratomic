@@ -17,6 +17,7 @@ import {
   MoveSubmarineIntentEvent,
   MoveWarshipIntentEvent,
 } from "../../Transport";
+import { PerformanceMetrics } from "../../utilities/PerformanceMetrics";
 import type { ReplaySpeedMultiplier } from "../../utilities/ReplaySpeedMultiplier";
 import { defaultReplaySpeedMultiplier } from "../../utilities/ReplaySpeedMultiplier";
 import type { TransformHandler } from "../TransformHandler";
@@ -35,6 +36,25 @@ enum Relationship {
   Ally,
   Enemy,
 }
+
+// Unit types that should be rendered by UnitLayer.
+// This excludes structures, constructions, and other types handled by specific layers.
+const UNIT_LAYER_TYPES = new Set<UnitType>([
+  UnitType.TransportShip,
+  UnitType.Paratrooper,
+  UnitType.Submarine,
+  UnitType.Warship,
+  UnitType.Shell,
+  UnitType.SAMMissile,
+  UnitType.TradeShip,
+  UnitType.CargoPlane,
+  UnitType.MIRVWarhead,
+  UnitType.Bomber,
+  UnitType.FighterJet,
+  UnitType.AtomBomb,
+  UnitType.HydrogenBomb,
+  UnitType.MIRV,
+]);
 
 export class UnitLayer implements Layer {
   private canvas: HTMLCanvasElement;
@@ -132,6 +152,19 @@ export class UnitLayer implements Layer {
       ?.[GameUpdateType.Unit]?.map((unit) => unit.id);
 
     this.updateUnitsSprites(unitIds ?? []);
+
+    // Sweep for zombies (units that are inactive but weren't in the update list)
+    // This fixes the issue where visible entities count > total entities
+    const zombieIds: number[] = [];
+    for (const [id, unit] of this.renderedUnits) {
+      if (!unit.isActive()) {
+        zombieIds.push(id);
+      }
+    }
+    if (zombieIds.length > 0) {
+      this.updateUnitsSprites(zombieIds);
+    }
+
     this.updateGhosts();
   }
 
@@ -299,6 +332,9 @@ export class UnitLayer implements Layer {
 
   renderLayer(context: CanvasRenderingContext2D) {
     this.updateInterpolatedUnits();
+    PerformanceMetrics.getInstance().incrementVisibleEntities(
+      this.renderedUnits.size,
+    );
     context.drawImage(
       this.transportShipTrailCanvas,
       -this.game.width() / 2,
@@ -354,7 +390,11 @@ export class UnitLayer implements Layer {
 
     this.renderedUnits.clear();
     const units = this.game.units();
-    units.forEach((u) => this.renderedUnits.set(u.id(), u));
+    units.forEach((u) => {
+      if (UNIT_LAYER_TYPES.has(u.type())) {
+        this.renderedUnits.set(u.id(), u);
+      }
+    });
     this.updateUnitsSprites(units.map((unit) => unit.id()));
 
     // After redrawing units, render submarine ghosts (last known positions)
@@ -392,8 +432,10 @@ export class UnitLayer implements Layer {
       for (const id of unitIds) {
         const unit = this.game.unit(id);
         if (unit) {
-          unitsToUpdate.push(unit);
-          this.renderedUnits.set(id, unit);
+          if (UNIT_LAYER_TYPES.has(unit.type())) {
+            unitsToUpdate.push(unit);
+            this.renderedUnits.set(id, unit);
+          }
         } else {
           const removed = this.renderedUnits.get(id);
           if (removed) {

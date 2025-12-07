@@ -2,16 +2,18 @@ import { EventBus } from "../../core/EventBus";
 import { GameView } from "../../core/game/GameView";
 import { GameStartingModal } from "../GameStartingModal";
 import { RefreshGraphicsEvent as RedrawGraphicsEvent } from "../InputHandler";
+import { PerformanceMetrics } from "../utilities/PerformanceMetrics";
 import { TransformHandler } from "./TransformHandler";
 import { UIState } from "./UIState";
-import { AttackWarningOverlay } from "./layers/AttackWarningOverlay";
 import { AABulletLayer } from "./layers/AABulletLayer";
+import { AttackWarningOverlay } from "./layers/AttackWarningOverlay";
 import { BuildMenu } from "./layers/BuildMenu";
 import { CargoTruckLayer } from "./layers/CargoTruckLayer";
 import { ChatDisplay } from "./layers/ChatDisplay";
 import { ChatModal } from "./layers/ChatModal";
 import { ControlPanel } from "./layers/ControlPanel";
 import { ControlPanel2 } from "./layers/ControlPanel2";
+import { DevHud } from "./layers/DevHud";
 import { EmojiTable } from "./layers/EmojiTable";
 import { EventsDisplay } from "./layers/EventsDisplay";
 import { FxLayer } from "./layers/FxLayer";
@@ -274,6 +276,7 @@ export function createRenderer(
     ...(DEBUG_SHOW_POINTER_COORDS
       ? [new PointerCoordsLayer(game, eventBus, transformHandler)]
       : []),
+
     eventsDisplay,
     chatDisplay,
     attackWarningOverlay,
@@ -302,6 +305,7 @@ export function createRenderer(
     playerPanel,
     headsUpMessage,
     multiTabModal,
+    new DevHud(game, transformHandler),
   ];
 
   return new GameRenderer(
@@ -367,6 +371,7 @@ export class GameRenderer {
   }
 
   renderGame() {
+    PerformanceMetrics.getInstance().resetVisibleCount();
     const start = performance.now();
     // Set background
     this.context.fillStyle = this.game
@@ -380,6 +385,7 @@ export class GameRenderer {
     let isTransformed = false;
 
     for (const layer of this.layers) {
+      const layerStart = performance.now();
       const layerNeedsTransform = layer.shouldTransform?.() ?? false;
 
       if (layerNeedsTransform && !isTransformed) {
@@ -392,6 +398,11 @@ export class GameRenderer {
       }
 
       layer.renderLayer?.(this.context);
+      const layerEnd = performance.now();
+      PerformanceMetrics.getInstance().updateLayerDuration(
+        layer.constructor.name,
+        layerEnd - layerStart,
+      );
     }
 
     if (isTransformed) {
@@ -402,6 +413,7 @@ export class GameRenderer {
     requestAnimationFrame(() => this.renderGame());
 
     const duration = performance.now() - start;
+    PerformanceMetrics.getInstance().updateFrame(duration);
     if (duration > 50) {
       console.warn(
         `tick ${this.game.ticks()} took ${duration}ms to render frame`,

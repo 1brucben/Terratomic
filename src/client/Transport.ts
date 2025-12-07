@@ -32,6 +32,7 @@ import {
 import { replacer } from "../core/Util";
 import { LobbyConfig } from "./ClientGameRunner";
 import { LocalServer } from "./LocalServer";
+
 export class PauseGameEvent implements GameEvent {
   constructor(public readonly paused: boolean) {}
 }

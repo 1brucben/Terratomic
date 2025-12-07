@@ -32,6 +32,7 @@ import {
   SendUpgradeBomberIntentEvent,
   SendUpgradeStructureIntentEvent,
 } from "../../Transport";
+import { PerformanceMetrics } from "../../utilities/PerformanceMetrics";
 import { renderNumber } from "../../Utils";
 import { TransformHandler } from "../TransformHandler";
 import { Layer } from "./Layer";
@@ -299,6 +300,16 @@ export class StructureLayer implements Layer {
       }
     }
 
+    // Sweep for zombie structures
+    // Iterate backwards to allow safe removal
+    for (let i = this.renders.length - 1; i >= 0; i--) {
+      const render = this.renders[i];
+      if (!render.unit.isActive()) {
+        this.deleteStructure(render);
+        this.shouldRedraw = true;
+      }
+    }
+
     // Update all bars every tick (for smooth loading bar progress)
     for (const render of this.renders) {
       if (render.loadingBarGraphics) {
@@ -313,6 +324,12 @@ export class StructureLayer implements Layer {
 
   renderLayer(mainContext: CanvasRenderingContext2D) {
     if (!this.renderer) return;
+
+    let visibleCount = 0;
+    for (const render of this.renders) {
+      if (render.isOnScreen) visibleCount++;
+    }
+    PerformanceMetrics.getInstance().incrementVisibleEntities(visibleCount);
 
     if (this.transformHandler.hasChanged()) {
       for (const render of this.renders) {

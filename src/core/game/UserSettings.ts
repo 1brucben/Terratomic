@@ -114,4 +114,12 @@ export class UserSettings {
   toggleLobbyNotifications() {
     this.set("settings.lobbyNotifications", !this.lobbyNotificationsEnabled());
   }
+
+  showDevHud() {
+    return this.get("settings.showDevHud", false);
+  }
+
+  toggleDevHud() {
+    this.set("settings.showDevHud", !this.showDevHud());
+  }
 }
