@@ -878,7 +878,7 @@ export class HelpModal extends LitElement {
       {
         nameKey: "units.naval.submarine.name",
         iconClass: "submarine-icon",
-        hotkey: this.t("labels.none"),
+        hotkey: "0",
         descKey: "units.naval.submarine.desc",
       },
       {
