@@ -296,7 +296,7 @@
       "airfield": "Automatically deploys bombers that fly out to strike enemy structures then return to base.",
       "hospital": "Heals injured troops and increases population growth rate.",
       "research_lab": "Generates research points to unlock new technologies. Build more to research faster.",
-      "factory": "Increases production speed of units and structures. Essential for scaling your military.",
+      "factory": "Boosts gold generation efficiency. Essential for scaling your economy.",
       "academy": "Trains troops faster and provides experience bonuses.",
       "missile_silo": "Allows launching missiles (Atom Bomb, Hydrogen Bomb, MIRV).",
       "sam_launcher": "Can intercept enemy missiles and planes. Essential for defense against nuclear attacks.",
