@@ -189,7 +189,7 @@ export const TECHS: Readonly<Record<string, TechDefinition>> = Object.freeze({
     meta: {
       name: "National Reconstruction Program",
       description:
-        "Revitalize infrastructure and industry by mobilizing civilian labor and resources to rebuild the national economy. Effects: Enables Roads, +5% infrastructure spending effectiveness.",
+        "Revitalize infrastructure and industry by mobilizing civilian labor and resources to rebuild the national economy. Effects: Enables Roads, Hospitals. +20% infrastructure spending effectiveness, +20% stronger road effects.",
     },
     effects: {
       onComplete: (player, game) => {
@@ -201,83 +201,72 @@ export const TECHS: Readonly<Record<string, TechDefinition>> = Object.freeze({
         if (player.hasUpgrade?.(UpgradeType.ScorchedEarth)) {
           player.removeUpgrade?.(UpgradeType.ScorchedEarth);
         }
-      },
-      infrastructureEffectiveness: (mods) => {
-        mods.effectivenessMul *= 1.05; // +5% infrastructure spending effectiveness
-      },
-    },
-  },
-  // Economy Level 2 techs
-  [RESEARCH_TECH_IDS.INDUSTRIAL_DEVELOPMENT_STRATEGY]: {
-    meta: {
-      name: "Industrial Development Strategy",
-      description:
-        "Prioritize industrial capacity and manufacturing output to strengthen the national economy.",
-    },
-    effects: {
-      // Effects to be added later
-    },
-  },
-  [RESEARCH_TECH_IDS.TRADE_POLICY_FRAMEWORK]: {
-    meta: {
-      name: "Trade Policy Framework",
-      description:
-        "Establish trade agreements and commercial policies to boost economic growth.",
-    },
-    effects: {
-      // Effects to be added later
-    },
-  },
-  // Economy Level 3 techs
-  [RESEARCH_TECH_IDS.SCIENTIFIC_RESEARCH_NETWORK]: {
-    meta: {
-      name: "Scientific Research Network",
-      description:
-        "Establish national research networks for scientific advancement. Effects: Enables Research Labs.",
-    },
-    effects: {
-      onComplete: (player) => {
-        player.addUpgrade?.(UpgradeType.ResearchLabResearch);
-      },
-    },
-  },
-  [RESEARCH_TECH_IDS.INFRASTRUCTURE_PRIORITIZATION]: {
-    meta: {
-      name: "Infrastructure Prioritization",
-      description:
-        "Focus national resources on critical infrastructure development. Effects: Enables Hospitals.",
-    },
-    effects: {
-      onComplete: (player) => {
+        // Unlock Hospitals
         if (!player.hasUpgrade?.(UpgradeType.HospitalResearch)) {
           player.addUpgrade?.(UpgradeType.HospitalResearch);
         }
       },
-    },
-  },
-  // Economy Level 4 techs
-  [RESEARCH_TECH_IDS.COMPUTING_DATA_SYSTEMS]: {
-    meta: {
-      name: "Computing & Data Systems",
-      description:
-        "Develop computing infrastructure and data processing systems. Effects: +5% research spending effectiveness, +5% infrastructure spending effectiveness.",
-    },
-    effects: {
-      researchEffectiveness: (mods) => {
-        mods.effectivenessMul *= 1.05; // +5% research spending effectiveness
-      },
       infrastructureEffectiveness: (mods) => {
-        mods.effectivenessMul *= 1.05; // +5% infrastructure spending effectiveness
+        mods.effectivenessMul *= 1.2; // +20% infrastructure spending effectiveness
+      },
+      roadEffect: (mods) => {
+        mods.effectMul *= 1.2; // +20% stronger road effects
       },
     },
   },
-  [RESEARCH_TECH_IDS.NATIONAL_ECONOMIC_COORDINATION]: {
+  // Economy Level 2 tech - National Research & Industrial Foundations (1960s)
+  [RESEARCH_TECH_IDS.NATIONAL_RESEARCH_INDUSTRIAL_FOUNDATIONS]: {
     meta: {
-      name: "National Economic Coordination Systems",
-      description: "National systems for economic planning and coordination.",
+      name: "National Research & Industrial Foundations",
+      description:
+        "Establish national research institutions and industrial base. Effects: Enables Research Labs. Policy Directive: Industrial Expansion Priority (+5% domestic income, +20% construction speed) or Scientific Institution Priority (+30% research spending effectiveness).",
     },
     effects: {
-      // Effects to be added later
+      onComplete: (player) => {
+        if (!player.hasUpgrade?.(UpgradeType.ResearchLabResearch)) {
+          player.addUpgrade?.(UpgradeType.ResearchLabResearch);
+        }
+      },
+      // Policy directive effects are applied via getPolicyChoice
+    },
+  },
+  // Economy Level 3 tech - Trade Policy Framework (1970s)
+  [RESEARCH_TECH_IDS.TRADE_POLICY_FRAMEWORK]: {
+    meta: {
+      name: "Trade Policy Framework",
+      description:
+        "Establish trade agreements and commercial policies. Policy Directive: Open Trade Policy (+5% trade income, +5% trade ship income) or Autarky Doctrine (disables international trade, +20% domestic income).",
+    },
+    effects: {
+      // Policy directive effects are applied via getPolicyChoice
+    },
+  },
+  // Economy Level 4 tech - National Infrastructure Modernization (1980s)
+  [RESEARCH_TECH_IDS.NATIONAL_INFRASTRUCTURE_MODERNIZATION]: {
+    meta: {
+      name: "National Infrastructure Modernization",
+      description:
+        "Modernize national infrastructure with advanced technology. Effects: +20% infrastructure spending effectiveness, -20% maintenance costs, +10% construction speed.",
+    },
+    effects: {
+      infrastructureEffectiveness: (mods) => {
+        mods.effectivenessMul *= 1.2; // +20% infrastructure spending effectiveness
+      },
+      constructionSpeed: (mods) => {
+        mods.speedMul *= 1.1; // +10% construction speed
+      },
+      // TODO: -20% maintenance costs when maintenance is implemented
+    },
+  },
+  // Economy Level 5 tech - Digital Administration & Economic Coordination Systems (Early 1990s)
+  [RESEARCH_TECH_IDS.DIGITAL_ADMINISTRATION_SYSTEMS]: {
+    meta: {
+      name: "Digital Administration & Economic Coordination Systems",
+      description:
+        "Digital systems for administration and economic coordination. Policy Directive: Market Optimization Systems (+10% domestic income, -10% maintenance costs) or Central Planning Automation (+5% domestic income, +20% infrastructure spending effectiveness, +10% construction speed).",
+    },
+    effects: {
+      // Policy directive effects are applied via getPolicyChoice
     },
   },
   // Land Level 2 tech - Mechanized Warfare Doctrine (1960s)

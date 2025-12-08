@@ -23,6 +23,9 @@ describe("Economy tech integrations", () => {
 
     expect(player.hasUpgrade(UpgradeType.InternationalTrade)).toBe(false);
     player.addResearchedTech(RESEARCH_TECH_IDS.NATIONAL_RECONSTRUCTION_PROGRAM);
+    player.addResearchedTech(
+      RESEARCH_TECH_IDS.NATIONAL_RESEARCH_INDUSTRIAL_FOUNDATIONS,
+    );
     player.addResearchedTech(RESEARCH_TECH_IDS.TRADE_POLICY_FRAMEWORK);
     // Tech alone doesn't grant the upgrade anymore
     expect(player.hasUpgrade(UpgradeType.InternationalTrade)).toBe(false);
@@ -42,6 +45,9 @@ describe("Economy tech integrations", () => {
     const player = game.player(info.id) as PlayerImpl;
 
     player.addResearchedTech(RESEARCH_TECH_IDS.NATIONAL_RECONSTRUCTION_PROGRAM);
+    player.addResearchedTech(
+      RESEARCH_TECH_IDS.NATIONAL_RESEARCH_INDUSTRIAL_FOUNDATIONS,
+    );
     player.addResearchedTech(RESEARCH_TECH_IDS.TRADE_POLICY_FRAMEWORK);
 
     // Choosing Autarky policy does NOT grant the upgrade
@@ -56,18 +62,14 @@ describe("Economy tech integrations", () => {
   // it("refunds 33% of a structure's cost on destruction with Infrastructure Recovery Fund", ...)
   // it("refunds insured structures when conquered", ...)
 
-  it("enables HospitalResearch after researching Infrastructure Prioritization", async () => {
+  it("enables HospitalResearch after researching National Reconstruction Program", async () => {
     const info = playerInfo("health", PlayerType.Human);
     const game = (await setup("ocean_and_land", {}, [info])) as GameImpl;
     const player = game.player(info.id) as PlayerImpl;
 
-    // Need to research level 1 and 2 first (prerequisites)
-    player.addResearchedTech(RESEARCH_TECH_IDS.NATIONAL_RECONSTRUCTION_PROGRAM);
-    player.addResearchedTech(RESEARCH_TECH_IDS.INDUSTRIAL_DEVELOPMENT_STRATEGY);
-    player.addResearchedTech(RESEARCH_TECH_IDS.TRADE_POLICY_FRAMEWORK);
-
+    // Hospitals are unlocked at Level 1 now (National Reconstruction Program)
     expect(player.hasUpgrade(UpgradeType.HospitalResearch)).toBe(false);
-    player.addResearchedTech(RESEARCH_TECH_IDS.INFRASTRUCTURE_PRIORITIZATION);
+    player.addResearchedTech(RESEARCH_TECH_IDS.NATIONAL_RECONSTRUCTION_PROGRAM);
     expect(player.hasUpgrade(UpgradeType.HospitalResearch)).toBe(true);
   });
 

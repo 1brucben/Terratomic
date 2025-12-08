@@ -15,15 +15,16 @@ describe("PlayerImpl.removeResearchedTechsByCategory", () => {
       RESEARCH_TECH_IDS.POST_WW2_GROUND_FORCES_MODERNIZATION,
     );
     player.addResearchedTech(RESEARCH_TECH_IDS.NATIONAL_RECONSTRUCTION_PROGRAM);
-    player.addResearchedTech(RESEARCH_TECH_IDS.INDUSTRIAL_DEVELOPMENT_STRATEGY);
+    player.addResearchedTech(
+      RESEARCH_TECH_IDS.NATIONAL_RESEARCH_INDUSTRIAL_FOUNDATIONS,
+    );
     player.addResearchedTech(RESEARCH_TECH_IDS.TRADE_POLICY_FRAMEWORK);
-    player.addResearchedTech(RESEARCH_TECH_IDS.INFRASTRUCTURE_PRIORITIZATION);
-    player.addResearchBeakers("Economy-3A", 500, 1_000);
-    player.setResearchPriority("Economy-3A");
+    player.addResearchBeakers("Economy-4", 500, 1_000);
+    player.setResearchPriority("Economy-4");
 
     expect(player.hasUpgrade(UpgradeType.Roads)).toBe(true);
     expect(player.hasUpgrade(UpgradeType.HospitalResearch)).toBe(true);
-    expect(player.researchBeakers("Economy-3A")).toBe(500);
+    expect(player.researchBeakers("Economy-4")).toBe(500);
 
     player.removeResearchedTechsByCategory("Economy");
 
@@ -39,13 +40,13 @@ describe("PlayerImpl.removeResearchedTechsByCategory", () => {
     ).toBe(false);
     expect(
       player.hasResearchedTech(
-        RESEARCH_TECH_IDS.INDUSTRIAL_DEVELOPMENT_STRATEGY,
+        RESEARCH_TECH_IDS.NATIONAL_RESEARCH_INDUSTRIAL_FOUNDATIONS,
       ),
     ).toBe(false);
     // Upgrades are NOT removed by removeResearchedTechsByCategory - only techs and progress
     expect(player.hasUpgrade(UpgradeType.Roads)).toBe(true);
     expect(player.hasUpgrade(UpgradeType.HospitalResearch)).toBe(true);
-    expect(player.researchBeakers("Economy-3A")).toBe(0);
+    expect(player.researchBeakers("Economy-4")).toBe(0);
     expect(player.researchPriority()).toBeNull();
   });
 });

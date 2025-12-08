@@ -152,54 +152,41 @@ const airTechs: TechNode[] = [
   },
 ];
 
-// Economy branch techs (explicit definitions)
+// Economy branch techs (explicit definitions) - Linear 5-level tree
 const economyTechs: TechNode[] = [
-  // Level 1 - National Reconstruction Program (enables roads)
+  // Level 1 - National Reconstruction Program (1950s): Roads, Hospitals, +20% infrastructure effectiveness, +20% road effects
   { id: "Economy-1", category: "Economy", level: 1, cost: costForLevel(1) },
-  // Level 2 - Two parallel paths
+  // Level 2 - National Research & Industrial Foundations (1960s): Research Labs, policy directive
   {
-    id: "Economy-2A",
+    id: "Economy-2",
     category: "Economy",
     level: 2,
     requiresAllOf: ["Economy-1"],
     cost: costForLevel(2),
   },
+  // Level 3 - Trade Policy Framework (1970s): policy directive (Open Trade vs Autarky)
   {
-    id: "Economy-2B",
-    category: "Economy",
-    level: 2,
-    requiresAllOf: ["Economy-1"],
-    cost: costForLevel(2),
-  },
-  // Level 3 - Each follows its own path
-  {
-    id: "Economy-3A",
+    id: "Economy-3",
     category: "Economy",
     level: 3,
-    requiresAllOf: ["Economy-2A"],
+    requiresAllOf: ["Economy-2"],
     cost: costForLevel(3),
   },
+  // Level 4 - National Infrastructure Modernization (1980s): +20% infrastructure effectiveness, -20% maintenance, +10% construction speed
   {
-    id: "Economy-3B",
-    category: "Economy",
-    level: 3,
-    requiresAllOf: ["Economy-2B"],
-    cost: costForLevel(3),
-  },
-  // Level 4 - Each follows its own path
-  {
-    id: "Economy-4A",
+    id: "Economy-4",
     category: "Economy",
     level: 4,
-    requiresAllOf: ["Economy-3A"],
+    requiresAllOf: ["Economy-3"],
     cost: costForLevel(4),
   },
+  // Level 5 - Digital Administration & Economic Coordination Systems (Early 1990s): policy directive
   {
-    id: "Economy-4B",
+    id: "Economy-5",
     category: "Economy",
-    level: 4,
-    requiresAllOf: ["Economy-3B"],
-    cost: costForLevel(4),
+    level: 5,
+    requiresAllOf: ["Economy-4"],
+    cost: costForLevel(5),
   },
 ];
 

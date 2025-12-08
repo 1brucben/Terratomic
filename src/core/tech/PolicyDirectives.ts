@@ -7,10 +7,9 @@ import { RESEARCH_TECH_IDS } from "./TechIds";
 
 // Policy directive identifiers
 export const POLICY_DIRECTIVE_IDS = {
-  INDUSTRIAL_DEVELOPMENT_STRATEGY: "policy_industrial_development",
+  NATIONAL_RESEARCH_INDUSTRIAL_FOUNDATIONS: "policy_research_industrial",
   TRADE_POLICY_FRAMEWORK: "policy_trade_policy",
-  INFRASTRUCTURE_PRIORITIZATION: "policy_infrastructure",
-  NATIONAL_ECONOMIC_COORDINATION: "policy_economic_coordination",
+  DIGITAL_ADMINISTRATION_SYSTEMS: "policy_digital_administration",
   MECHANIZED_WARFARE_DOCTRINE: "policy_mechanized_warfare",
   NIGHT_VISION_THERMAL_C3I: "policy_night_vision_thermal",
 } as const;
@@ -43,6 +42,8 @@ export interface PolicyEffects {
   roadEffectMul?: number;
   // Multiplier for infrastructure spending effectiveness (e.g., 1.2 = +20% more roads per gold)
   infrastructureSpendingEffectivenessMul?: number;
+  // Multiplier for research spending effectiveness (e.g., 1.3 = +30% research effectiveness)
+  researchEffectivenessMul?: number;
   // Multiplier for attack speed (e.g., 1.1 = +10% faster offensive speed)
   attackSpeedMul?: number;
   // Multiplier for attacker losses when attacking (e.g., 0.9 = -10% losses)
@@ -72,29 +73,28 @@ export interface PolicyDirective {
 export const POLICY_DIRECTIVES: Readonly<
   Record<PolicyDirectiveId, PolicyDirective>
 > = Object.freeze({
-  [POLICY_DIRECTIVE_IDS.INDUSTRIAL_DEVELOPMENT_STRATEGY]: {
-    id: POLICY_DIRECTIVE_IDS.INDUSTRIAL_DEVELOPMENT_STRATEGY,
-    name: "Industrial Development Strategy",
+  [POLICY_DIRECTIVE_IDS.NATIONAL_RESEARCH_INDUSTRIAL_FOUNDATIONS]: {
+    id: POLICY_DIRECTIVE_IDS.NATIONAL_RESEARCH_INDUSTRIAL_FOUNDATIONS,
+    name: "National Research & Industrial Foundations",
     description:
-      "Choose your nation's industrial priority to shape economic growth.",
-    unlockedByTech: RESEARCH_TECH_IDS.INDUSTRIAL_DEVELOPMENT_STRATEGY,
+      "Choose your nation's priority between industrial expansion and scientific institutions.",
+    unlockedByTech: RESEARCH_TECH_IDS.NATIONAL_RESEARCH_INDUSTRIAL_FOUNDATIONS,
     options: [
       {
-        id: "heavy_industry",
-        name: "Heavy Industry Priority",
-        description: "+7% domestic income, +3% construction speed",
+        id: "industrial_expansion",
+        name: "Industrial Expansion Priority",
+        description: "+5% domestic income, +20% construction speed",
         effects: {
-          domesticIncomeMul: 1.07,
-          constructionSpeedMul: 1.03,
+          domesticIncomeMul: 1.05,
+          constructionSpeedMul: 1.2,
         },
       },
       {
-        id: "consumer_industry",
-        name: "Consumer Industry Priority",
-        description: "+3% domestic income", // TODO: +7% maintenance cost reduction when maintenance is implemented
+        id: "scientific_institution",
+        name: "Scientific Institution Priority",
+        description: "+30% research spending effectiveness",
         effects: {
-          domesticIncomeMul: 1.03,
-          // TODO: maintenanceCostMul: 0.93, // 7% reduction
+          researchEffectivenessMul: 1.3,
         },
       },
     ],
@@ -109,8 +109,7 @@ export const POLICY_DIRECTIVES: Readonly<
       {
         id: "open_trade",
         name: "Open Trade Policy",
-        description:
-          "Enables international trade, +5% trade income, +5% trade ship income",
+        description: "+5% trade income, +5% income from owned trade ships",
         effects: {
           grantsInternationalTrade: true,
           tradeIncomeMul: 1.05,
@@ -120,60 +119,36 @@ export const POLICY_DIRECTIVES: Readonly<
       {
         id: "autarky",
         name: "Autarky Doctrine",
-        description: "No international trade, +30% domestic income",
+        description: "Disables international trade, +20% domestic income",
         effects: {
-          domesticIncomeMul: 1.3,
+          domesticIncomeMul: 1.2,
         },
       },
     ],
   },
-  [POLICY_DIRECTIVE_IDS.INFRASTRUCTURE_PRIORITIZATION]: {
-    id: POLICY_DIRECTIVE_IDS.INFRASTRUCTURE_PRIORITIZATION,
-    name: "Infrastructure Prioritization",
-    description: "Choose your nation's infrastructure development focus.",
-    unlockedByTech: RESEARCH_TECH_IDS.INFRASTRUCTURE_PRIORITIZATION,
-    options: [
-      {
-        id: "transport_priority",
-        name: "Transport Priority",
-        description: "+20% stronger road effects",
-        effects: {
-          roadEffectMul: 1.2,
-        },
-      },
-      {
-        id: "utilities_energy",
-        name: "Utilities & Energy Priority",
-        description: "+10% construction speed", // TODO: -10% maintenance costs when maintenance is implemented
-        effects: {
-          constructionSpeedMul: 1.1,
-          // TODO: maintenanceCostMul: 0.90, // 10% reduction
-        },
-      },
-    ],
-  },
-  [POLICY_DIRECTIVE_IDS.NATIONAL_ECONOMIC_COORDINATION]: {
-    id: POLICY_DIRECTIVE_IDS.NATIONAL_ECONOMIC_COORDINATION,
-    name: "National Economic Coordination Systems",
+  [POLICY_DIRECTIVE_IDS.DIGITAL_ADMINISTRATION_SYSTEMS]: {
+    id: POLICY_DIRECTIVE_IDS.DIGITAL_ADMINISTRATION_SYSTEMS,
+    name: "Digital Administration & Economic Coordination Systems",
     description:
-      "Choose your nation's approach to economic coordination and planning.",
-    unlockedByTech: RESEARCH_TECH_IDS.NATIONAL_ECONOMIC_COORDINATION,
+      "Choose your nation's approach to digital administration and economic coordination.",
+    unlockedByTech: RESEARCH_TECH_IDS.DIGITAL_ADMINISTRATION_SYSTEMS,
     options: [
       {
         id: "market_optimization",
         name: "Market Optimization Systems",
-        description: "+5% domestic income", // TODO: -5% maintenance costs when maintenance is implemented
+        description: "+10% domestic income, -10% maintenance costs",
         effects: {
-          domesticIncomeMul: 1.05,
-          // TODO: maintenanceCostMul: 0.95, // 5% reduction
+          domesticIncomeMul: 1.1,
+          // TODO: maintenanceCostMul: 0.90, // 10% reduction when maintenance is implemented
         },
       },
       {
         id: "central_planning",
-        name: "Central Planning Optimization",
+        name: "Central Planning Automation",
         description:
-          "+20% infrastructure spending effectiveness, +10% construction speed",
+          "+5% domestic income, +20% infrastructure spending effectiveness, +10% construction speed",
         effects: {
+          domesticIncomeMul: 1.05,
           infrastructureSpendingEffectivenessMul: 1.2,
           constructionSpeedMul: 1.1,
         },

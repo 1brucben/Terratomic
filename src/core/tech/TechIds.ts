@@ -30,17 +30,16 @@ export const RESEARCH_TECH_IDS = {
   INTEGRATED_SAM_BATTLEFIELD_COMMAND: "Land-4",
   // Land techs - Level 5
   NIGHT_VISION_THERMAL_C3I: "Land-5",
-  // Economy techs - Level 1
+  // Economy techs - Level 1 (1950s)
   NATIONAL_RECONSTRUCTION_PROGRAM: "Economy-1",
-  // Economy techs - Level 2
-  INDUSTRIAL_DEVELOPMENT_STRATEGY: "Economy-2A",
-  TRADE_POLICY_FRAMEWORK: "Economy-2B",
-  // Economy techs - Level 3
-  SCIENTIFIC_RESEARCH_NETWORK: "Economy-3A",
-  INFRASTRUCTURE_PRIORITIZATION: "Economy-3B",
-  // Economy techs - Level 4
-  COMPUTING_DATA_SYSTEMS: "Economy-4A",
-  NATIONAL_ECONOMIC_COORDINATION: "Economy-4B",
+  // Economy techs - Level 2 (1960s)
+  NATIONAL_RESEARCH_INDUSTRIAL_FOUNDATIONS: "Economy-2",
+  // Economy techs - Level 3 (1970s)
+  TRADE_POLICY_FRAMEWORK: "Economy-3",
+  // Economy techs - Level 4 (1980s)
+  NATIONAL_INFRASTRUCTURE_MODERNIZATION: "Economy-4",
+  // Economy techs - Level 5 (Early 1990s)
+  DIGITAL_ADMINISTRATION_SYSTEMS: "Economy-5",
   // Nuclear techs
   NUCLEAR_FISSION: "Nuclear-1",
   THERMONUCLEAR_STAGING: "Nuclear-2",
