@@ -30,6 +30,7 @@ import {
   isUnitAvailable,
   isUpgradeableStructure,
   isUpgradeableUnit,
+  maxStructureLevel,
   maxUnitLevel,
   playerMaxStructureLevel,
   playerMaxUnitLevel,
