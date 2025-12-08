@@ -1703,44 +1703,6 @@ export class ControlPanel2 extends LitElement implements Layer {
                     <span>Multi-Build Structures</span>
                   </button>
                   <div class="relative inline-block">
-                    <<<<<<< HEAD =======
-                    <button
-                      class="upgrade-structures-button ${this.uiState
-                        .upgradeMode
-                        ? "selected"
-                        : ""}"
-                      title="Click structures to upgrade them"
-                      @click=${() => {
-                        const enabled = !this.uiState.upgradeMode;
-                        this.uiState.upgradeMode = enabled;
-                        this.eventBus.emit(new ToggleUpgradeModeEvent(enabled));
-                        // Disable mass production if upgrade is enabled
-                        if (enabled && this._multibuildEnabled) {
-                          this._multibuildEnabled = false;
-                          this.uiState.multibuildEnabled = false;
-                        }
-                        // Disable bomber upgrade mode if structure upgrade is enabled
-                        if (enabled && this.uiState.bomberUpgradeMode) {
-                          this.uiState.bomberUpgradeMode = false;
-                          this.eventBus.emit(
-                            new ToggleBomberUpgradeModeEvent(false),
-                          );
-                        }
-                        // Clear pending build selection when upgrade is enabled
-                        if (enabled) {
-                          this.uiState.pendingBuildUnitType = null;
-                        }
-                        this.requestUpdate();
-                      }}
-                    >
-                      <img
-                        class="upgrade-icon"
-                        src=${upgradeArrowIcon}
-                        alt="Upgrade"
-                      />
-                      <span>Upgrade Structures</span>
-                    </button>
-                    >>>>>>> upstream/v0.2.0
                     <div
                       class="flex items-center h-[36px] px-3"
                       style="
@@ -1815,6 +1777,13 @@ export class ControlPanel2 extends LitElement implements Layer {
                       if (enabled && this._multibuildEnabled) {
                         this._multibuildEnabled = false;
                         this.uiState.multibuildEnabled = false;
+                      }
+                      // Disable bomber upgrade mode if structure upgrade is enabled
+                      if (enabled && this.uiState.bomberUpgradeMode) {
+                        this.uiState.bomberUpgradeMode = false;
+                        this.eventBus.emit(
+                          new ToggleBomberUpgradeModeEvent(false),
+                        );
                       }
                       // Clear pending build selection when upgrade is enabled
                       if (enabled) {
