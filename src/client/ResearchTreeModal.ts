@@ -178,7 +178,7 @@ export class ResearchTreeModal extends LitElement {
     me: PlayerView | null,
     isResearched: boolean,
   ) {
-    // Show Scorched Earth button on Mechanized Warfare Doctrine (Land-2A) when researched
+    // Show Scorched Earth button on Mechanized Warfare Doctrine (Land-2) when researched
     if (
       tech.id !== RESEARCH_TECH_IDS.MECHANIZED_WARFARE_DOCTRINE ||
       !me ||

@@ -1379,12 +1379,7 @@ export class PlayerImpl implements Player {
       }
     }
 
-    // SAM Launcher tech requirement (Surface-to-Air Missiles)
-    if (unitType === UnitType.SAMLauncher) {
-      if (!this.hasUpgrade(UpgradeType.SAMLevel1)) {
-        return false;
-      }
-    }
+    // SAM Launcher: Level 1 is available by default, no tech requirement
 
     // Military Academy tech requirement (WWII Lessons Learned)
     if (unitType === UnitType.Academy) {
