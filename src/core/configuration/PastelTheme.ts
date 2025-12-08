@@ -128,7 +128,10 @@ export class PastelTheme implements Theme {
           g: 206 + mag / 2,
           b: 230 + mag / 2,
         });
+      case TerrainType.Barrier:
+        return colord({ r: 0, g: 0, b: 0 }); // Black
     }
+    return this.shore; // Fallback
   }
 
   backgroundColor(): Colord {

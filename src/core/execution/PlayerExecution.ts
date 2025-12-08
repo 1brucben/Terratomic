@@ -9,6 +9,7 @@ import {
 } from "../game/Game";
 import { PseudoRandom } from "../PseudoRandom";
 import { getTechNodes, isTechAvailable } from "../tech/ResearchTree";
+import { researchEffectivenessModifiers } from "../tech/TechEffects";
 import { simpleHash } from "../Util";
 
 export class PlayerExecution implements Execution {
@@ -132,7 +133,7 @@ export class PlayerExecution implements Execution {
 
     // Regenerate health of damaged buildings
     this.player.units().forEach((u) => {
-      if (u.hasHealth() && u.health() < (u.info().maxHealth ?? 0)) {
+      if (u.hasHealth() && u.health() < u.effectiveMaxHealth()) {
         u.modifyHealth(0.5);
       }
     });
@@ -150,9 +151,8 @@ export class PlayerExecution implements Execution {
     if (investRate <= 0 || grossGold <= 0) return;
 
     const investment = Math.max(0, grossGold * investRate);
-    const A = this.config.researchAlpha();
     const B = this.config.researchBeta();
-    let xTotal = A * Math.pow(investment, B);
+    let xTotal = Math.pow(investment, B);
     if (!Number.isFinite(xTotal) || xTotal <= 0) return;
 
     // Apply Research Lab multiplier: +40% for first, +20% for second, halving thereafter
@@ -166,6 +166,10 @@ export class PlayerExecution implements Execution {
       const multiplier = 1 + boostSum; // caps at 1.8 as labs -> infinity
       xTotal *= multiplier;
     }
+
+    // Apply tech-based research effectiveness multiplier
+    const researchMods = researchEffectivenessModifiers(this.player);
+    xTotal *= researchMods.effectivenessMul;
 
     // Build researched set and available techs
     const nodes = getTechNodes();

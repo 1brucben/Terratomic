@@ -103,6 +103,7 @@ const baseGameConfig: GameConfig = {
   instantBuild: false,
   peaceTimerDurationMinutes: PeaceTimerDuration.None,
   startingGold: 0,
+  goldMultiplier: 1,
 };
 
 const createLogger = (): Logger => {

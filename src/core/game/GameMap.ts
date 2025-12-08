@@ -1,7 +1,43 @@
-import { Cell, TerrainType } from "./Game";
-
 export type TileRef = number;
 export type TileUpdate = bigint;
+
+export enum TerrainType {
+  Plains,
+  Highland,
+  Mountain,
+  Lake,
+  Ocean,
+  Barrier,
+}
+
+export interface MapPos {
+  x: number;
+  y: number;
+}
+
+export class Cell {
+  public index: number;
+
+  private strRepr: string;
+
+  constructor(
+    public readonly x: number,
+    public readonly y: number,
+  ) {
+    this.strRepr = `Cell[${this.x},${this.y}]`;
+  }
+
+  pos(): MapPos {
+    return {
+      x: this.x,
+      y: this.y,
+    };
+  }
+
+  toString(): string {
+    return this.strRepr;
+  }
+}
 
 export interface GameMap {
   ref(x: number, y: number): TileRef;
@@ -268,6 +304,7 @@ export class GameMapImpl implements GameMap {
   terrainType(ref: TileRef): TerrainType {
     if (this.isLand(ref)) {
       const magnitude = this.magnitude(ref);
+      if (magnitude >= 31) return TerrainType.Barrier;
       if (magnitude < 10) return TerrainType.Plains;
       if (magnitude < 20) return TerrainType.Highland;
       return TerrainType.Mountain;

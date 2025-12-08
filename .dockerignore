@@ -14,3 +14,6 @@ helm-charts
 .idea
 coverage*
 commands.sh
+static
+Terrain-Viewer
+tests

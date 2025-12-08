@@ -1,9 +1,10 @@
-import { colord, Colord } from "colord";
-import { EventBus } from "../../../core/EventBus";
-import { Theme } from "../../../core/configuration/Config";
+import type { Colord } from "colord";
+import { colord } from "colord";
+import type { EventBus } from "../../../core/EventBus";
+import type { Theme } from "../../../core/configuration/Config";
 import { UnitType } from "../../../core/game/Game";
-import { TileRef } from "../../../core/game/GameMap";
-import { GameView, UnitView } from "../../../core/game/GameView";
+import type { TileRef } from "../../../core/game/GameMap";
+import type { GameView, UnitView } from "../../../core/game/GameView";
 import { BezenhamLine } from "../../../core/utilities/Line";
 import {
   AlternateViewEvent,
@@ -16,13 +17,12 @@ import {
   MoveSubmarineIntentEvent,
   MoveWarshipIntentEvent,
 } from "../../Transport";
-import {
-  defaultReplaySpeedMultiplier,
-  ReplaySpeedMultiplier,
-} from "../../utilities/ReplaySpeedMultiplier";
-import { TransformHandler } from "../TransformHandler";
-import { UIState } from "../UIState";
-import { Layer } from "./Layer";
+import { PerformanceMetrics } from "../../utilities/PerformanceMetrics";
+import type { ReplaySpeedMultiplier } from "../../utilities/ReplaySpeedMultiplier";
+import { defaultReplaySpeedMultiplier } from "../../utilities/ReplaySpeedMultiplier";
+import type { TransformHandler } from "../TransformHandler";
+import type { UIState } from "../UIState";
+import type { Layer } from "./Layer";
 
 import { GameUpdateType } from "../../../core/game/GameUpdates";
 import {
@@ -36,6 +36,25 @@ enum Relationship {
   Ally,
   Enemy,
 }
+
+// Unit types that should be rendered by UnitLayer.
+// This excludes structures, constructions, and other types handled by specific layers.
+const UNIT_LAYER_TYPES = new Set<UnitType>([
+  UnitType.TransportShip,
+  UnitType.Paratrooper,
+  UnitType.Submarine,
+  UnitType.Warship,
+  UnitType.Shell,
+  UnitType.SAMMissile,
+  UnitType.TradeShip,
+  UnitType.CargoPlane,
+  UnitType.MIRVWarhead,
+  UnitType.Bomber,
+  UnitType.FighterJet,
+  UnitType.AtomBomb,
+  UnitType.HydrogenBomb,
+  UnitType.MIRV,
+]);
 
 export class UnitLayer implements Layer {
   private canvas: HTMLCanvasElement;
@@ -76,6 +95,7 @@ export class UnitLayer implements Layer {
     UnitType.MIRV,
     UnitType.MIRVWarhead,
     UnitType.Shell,
+    // AABullet is rendered by AABulletLayer using PIXI
     UnitType.Warship,
     UnitType.TransportShip,
     UnitType.TradeShip,
@@ -132,6 +152,19 @@ export class UnitLayer implements Layer {
       ?.[GameUpdateType.Unit]?.map((unit) => unit.id);
 
     this.updateUnitsSprites(unitIds ?? []);
+
+    // Sweep for zombies (units that are inactive but weren't in the update list)
+    // This fixes the issue where visible entities count > total entities
+    const zombieIds: number[] = [];
+    for (const [id, unit] of this.renderedUnits) {
+      if (!unit.isActive()) {
+        zombieIds.push(id);
+      }
+    }
+    if (zombieIds.length > 0) {
+      this.updateUnitsSprites(zombieIds);
+    }
+
     this.updateGhosts();
   }
 
@@ -299,6 +332,9 @@ export class UnitLayer implements Layer {
 
   renderLayer(context: CanvasRenderingContext2D) {
     this.updateInterpolatedUnits();
+    PerformanceMetrics.getInstance().incrementVisibleEntities(
+      this.renderedUnits.size,
+    );
     context.drawImage(
       this.transportShipTrailCanvas,
       -this.game.width() / 2,
@@ -343,6 +379,7 @@ export class UnitLayer implements Layer {
     if (interpolationContext === null)
       throw new Error("2d context not supported");
     this.interpolationContext = interpolationContext;
+    this.interpolationContext.imageSmoothingEnabled = false;
 
     this.canvas.width = this.game.width();
     this.canvas.height = this.game.height();
@@ -353,7 +390,11 @@ export class UnitLayer implements Layer {
 
     this.renderedUnits.clear();
     const units = this.game.units();
-    units.forEach((u) => this.renderedUnits.set(u.id(), u));
+    units.forEach((u) => {
+      if (UNIT_LAYER_TYPES.has(u.type())) {
+        this.renderedUnits.set(u.id(), u);
+      }
+    });
     this.updateUnitsSprites(units.map((unit) => unit.id()));
 
     // After redrawing units, render submarine ghosts (last known positions)
@@ -391,8 +432,10 @@ export class UnitLayer implements Layer {
       for (const id of unitIds) {
         const unit = this.game.unit(id);
         if (unit) {
-          unitsToUpdate.push(unit);
-          this.renderedUnits.set(id, unit);
+          if (UNIT_LAYER_TYPES.has(unit.type())) {
+            unitsToUpdate.push(unit);
+            this.renderedUnits.set(id, unit);
+          }
         } else {
           const removed = this.renderedUnits.get(id);
           if (removed) {
@@ -523,12 +566,32 @@ export class UnitLayer implements Layer {
         continue;
       }
 
+      // Hide bombers at their airfield
+      if (unit.type() === UnitType.Bomber) {
+        const airfieldAtSamePos = this.game
+          .units(UnitType.Airfield)
+          .find(
+            (a) =>
+              a.owner() === unit.owner() &&
+              a.tile() === unit.tile() &&
+              a.isActive(),
+          );
+        if (airfieldAtSamePos) {
+          continue; // Skip rendering this bomber
+        }
+      }
+
       // Respect submarine visibility rules from onUnitEvent
       if (
         unit.type() === UnitType.Submarine &&
         unit.owner() !== this.game.myPlayer()
       ) {
         // Server handles visibility filtering.
+      }
+
+      // Skip AABullets - they're rendered by AABulletLayer
+      if (unit.type() === UnitType.AABullet) {
+        continue;
       }
 
       const position = this.interpolatePosition(unit, alpha);
@@ -549,7 +612,7 @@ export class UnitLayer implements Layer {
             position,
             this.getInterpolatedSpriteColor(unit),
             this.interpolationContext,
-            false,
+            true,
           );
       }
     }
@@ -676,6 +739,21 @@ export class UnitLayer implements Layer {
       this.handleUnitDeactivation(unit);
     }
 
+    // Hide bombers at their airfield
+    if (unit.type() === UnitType.Bomber) {
+      const airfieldAtSamePos = this.game
+        .units(UnitType.Airfield)
+        .find(
+          (a) =>
+            a.owner() === unit.owner() &&
+            a.tile() === unit.tile() &&
+            a.isActive(),
+        );
+      if (airfieldAtSamePos) {
+        return; // Skip rendering this bomber
+      }
+    }
+
     if (
       unit.type() === UnitType.Submarine &&
       unit.owner() !== this.game.myPlayer()
@@ -713,6 +791,7 @@ export class UnitLayer implements Layer {
       case UnitType.Shell:
         this.handleShellEvent(unit);
         break;
+      // AABullet is handled by AABulletLayer
       case UnitType.SAMMissile:
         this.handleMissileEvent(unit);
         break;
@@ -1090,12 +1169,13 @@ export class UnitLayer implements Layer {
       );
 
       // Draw a tiny top-right corner badge offset 1px outside the sprite
-      // Only for Warships, FighterJets, and Submarines
+      // Only for Warships, FighterJets, Submarines, and Bombers
       const type = unit.type();
       if (
         type === UnitType.Warship ||
         type === UnitType.FighterJet ||
-        type === UnitType.Submarine
+        type === UnitType.Submarine ||
+        type === UnitType.Bomber
       ) {
         const level = unit.level ? unit.level() : 1;
         // Tier color mapping: 1→bronze, 2→silver, 3→gold, 4+→platinum
@@ -1214,7 +1294,8 @@ export class UnitLayer implements Layer {
       if (
         type === UnitType.Warship ||
         type === UnitType.FighterJet ||
-        type === UnitType.Submarine
+        type === UnitType.Submarine ||
+        type === UnitType.Bomber
       ) {
         const level = (unit as any).level ? (unit as any).level() : 1;
         const tierColor =
@@ -1320,9 +1401,10 @@ export class UnitLayer implements Layer {
       unit.type() === UnitType.Submarine &&
       unit.owner() === this.game.myPlayer()
     ) {
-      const isAttacking = (unit as any).isAttacking?.() ?? false;
-      const isDetected = (unit as any).isDetectedByNavalUnit?.() ?? false;
-      const isOnCooldown = (unit as any).isCooldown?.() ?? false;
+      const isAttacking = ((unit as any).isAttacking?.() ?? false) as boolean;
+      const isDetected = ((unit as any).isDetectedByNavalUnit?.() ??
+        false) as boolean;
+      const isOnCooldown = ((unit as any).isCooldown?.() ?? false) as boolean;
       const isVisibleToEnemies = isAttacking || isDetected || isOnCooldown;
       if (!isVisibleToEnemies) {
         return 0.75;

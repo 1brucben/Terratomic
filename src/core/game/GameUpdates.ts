@@ -136,6 +136,7 @@ export interface UnitUpdate {
   health?: number;
   maxHealth?: number; // Effective max health (base + bonuses)
   constructionType?: UnitType;
+  constructionTargetLevel?: number; // Target level for construction units
   // Deprecated: ticksLeftInCooldown is replaced by cooldownEndsAt
   ticksLeftInCooldown?: Tick;
   // Unified cooldown end tick; client derives remaining as (endsAt - currentTick)
@@ -159,6 +160,8 @@ export interface UnitUpdate {
   pendingTradeShipDueTick?: Tick;
   // Port-specific: support multiple concurrent trade ship constructions
   pendingTradeShipDueTicks?: Tick[];
+  // Airfield-specific: bomber upgrade level
+  bomberLevel?: number;
 }
 
 export interface AttackUpdate {
@@ -231,6 +234,10 @@ export interface PlayerUpdate {
   researchTreeBeakers?: Record<string, number>;
   // Currently selected research priority tech id (optional)
   researchPriorityTech?: string | null;
+  // Policy directive choices: directiveId -> optionId (optional; omitted if none)
+  policyChoices?: Record<string, string>;
+  // Whether the player has unseen policy directives to review
+  hasUnseenPolicyDirectives?: boolean;
 }
 
 export interface AllianceRequestUpdate {

@@ -34,7 +34,7 @@ describe("ResearchTreeSelectExecution", () => {
     // Simulate PlayerImpl side-effects when research completes
     (mockPlayer.addResearchedTech as jest.Mock).mockImplementation(
       (id: string) => {
-        if (id === RESEARCH_TECH_IDS.POST_WAR_RECONSTRUCTION) {
+        if (id === RESEARCH_TECH_IDS.NATIONAL_RECONSTRUCTION_PROGRAM) {
           const alreadyHas = (mockPlayer.hasUpgrade as jest.Mock)(
             UpgradeType.Roads,
           );
@@ -50,20 +50,20 @@ describe("ResearchTreeSelectExecution", () => {
   it("adds researched tech ID to the player's set", () => {
     const exec = new ResearchTreeSelectExecution(
       mockPlayer as any,
-      RESEARCH_TECH_IDS.WWII_LESSONS,
+      RESEARCH_TECH_IDS.POST_WW2_GROUND_FORCES_MODERNIZATION,
     );
     exec.init(mockGame as any, 0);
     exec.tick(0);
 
     expect(mockPlayer.addResearchedTech as jest.Mock).toHaveBeenCalledWith(
-      RESEARCH_TECH_IDS.WWII_LESSONS,
+      RESEARCH_TECH_IDS.POST_WW2_GROUND_FORCES_MODERNIZATION,
     );
   });
 
   it("grants Roads and reconnects when Economy-1 is selected", () => {
     const exec = new ResearchTreeSelectExecution(
       mockPlayer as any,
-      RESEARCH_TECH_IDS.POST_WAR_RECONSTRUCTION,
+      RESEARCH_TECH_IDS.NATIONAL_RECONSTRUCTION_PROGRAM,
     );
     exec.init(mockGame as any, 0);
     exec.tick(0);
@@ -78,7 +78,7 @@ describe("ResearchTreeSelectExecution", () => {
     (mockPlayer.hasUpgrade as jest.Mock).mockReturnValue(true);
     const exec = new ResearchTreeSelectExecution(
       mockPlayer as any,
-      RESEARCH_TECH_IDS.POST_WAR_RECONSTRUCTION,
+      RESEARCH_TECH_IDS.NATIONAL_RECONSTRUCTION_PROGRAM,
     );
     exec.init(mockGame as any, 0);
     exec.tick(0);

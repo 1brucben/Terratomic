@@ -131,6 +131,31 @@ export class UILayer implements Layer {
         this.drawHealthBar(unit);
         break;
       }
+      case UnitType.FighterJet: {
+        this.drawHealthBar(unit);
+        break;
+      }
+      case UnitType.Bomber: {
+        // Don't show health bar for bombers at their airfield
+        const airfieldAtSamePos = this.game
+          .units(UnitType.Airfield)
+          .find(
+            (a) =>
+              a.owner() === unit.owner() &&
+              a.tile() === unit.tile() &&
+              a.isActive(),
+          );
+        if (airfieldAtSamePos) {
+          // Clear any existing health bar
+          if (this.allHealthBars.has(unit.id())) {
+            this.allHealthBars.get(unit.id())?.clear();
+            this.allHealthBars.delete(unit.id());
+          }
+          break;
+        }
+        this.drawHealthBar(unit);
+        break;
+      }
       case UnitType.Submarine: {
         // Only draw health bar when submarine is visible to the local player.
         // Visibility rules mirror UnitLayer: enemy subs are visible only when

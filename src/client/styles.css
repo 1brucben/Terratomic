@@ -490,6 +490,10 @@ label.option-card:hover {
     cover;
 }
 
+#helpModal .submarine-icon {
+  mask: url("../../resources/images/submarine.svg") no-repeat center / cover;
+}
+
 #helpModal .missile-silo-icon {
   mask: url("../../resources/images/MissileSiloIconWhite.svg") no-repeat
     center / cover;
@@ -559,8 +563,46 @@ label.option-card:hover {
   mask: url("../../resources/images/BoatIcon.svg") no-repeat center / cover;
 }
 
+#helpModal .transport-ship-icon {
+  background-image: url("../../resources/images/TroopIconWhite.png");
+  background-size: contain;
+  background-repeat: no-repeat;
+  background-position: center;
+  background-color: transparent;
+}
+
 #helpModal .cancel-icon {
   mask: url("../../resources/images/XIcon.svg") no-repeat center / cover;
+}
+
+#helpModal .hospital-icon {
+  mask: url("../../resources/images/HospitalIconWhite.svg") no-repeat center /
+    cover;
+}
+
+#helpModal .research-lab-icon {
+  mask: url("../../proprietary/images/researchlab.png") no-repeat center / cover;
+  background-size: contain;
+}
+
+#helpModal .academy-icon {
+  mask: url("../../resources/images/AcademyIconWhite.svg") no-repeat center /
+    cover;
+}
+
+#helpModal .factory-icon {
+  mask: url("../../resources/images/factoryicon.png") no-repeat center / cover;
+  background-size: contain;
+}
+
+#helpModal .doomsday-icon {
+  mask: url("../../resources/images/MushroomCloudIconWhite.svg") no-repeat
+    center / cover;
+}
+
+#helpModal .fighter-jet-icon {
+  mask: url("../../resources/images/FighterJetIcon.svg") no-repeat center /
+    cover;
 }
 
 @media screen and (max-width: 768px) {
@@ -765,4 +807,40 @@ news-button .active button {
 .peace-timer-select option {
   background-color: var(--ui-panel-shell-bottom);
   color: var(--ui-text-light);
+}
+
+#helpModal .info-icon {
+  background-color: transparent;
+  color: white;
+  font-weight: bold;
+  font-size: 24px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-family: serif;
+  vertical-align: middle;
+}
+
+#helpModal .info-icon::before {
+  content: "i";
+}
+
+#helpModal .dove-icon {
+  mask: url("../../proprietary/images/dove.png") no-repeat center / cover;
+  background-size: contain;
+}
+
+#helpModal .war-icon {
+  mask: url("../../proprietary/images/waricon.png") no-repeat center / cover;
+  background-size: contain;
+}
+
+#helpModal .air-attack-icon {
+  mask: url("../../resources/images/AirAttackIconWhite.svg") no-repeat center /
+    cover;
+}
+
+#helpModal .sword-icon {
+  mask: url("../../resources/images/SwordIconWhite.svg") no-repeat center /
+    cover;
 }

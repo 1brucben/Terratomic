@@ -21,7 +21,10 @@ export default async (env, argv) => {
       publicPath: "/",
       filename: "js/[name].[contenthash].js", // Added content hash
       path: path.resolve(__dirname, "static"),
-      clean: isProduction,
+      // Production: clean everything. Dev: only clean js/ to prevent chunk buildup
+      clean: isProduction || {
+        keep: (asset) => !asset.startsWith("js/"),
+      },
     },
     module: {
       rules: [
@@ -242,6 +245,13 @@ export default async (env, argv) => {
                 "/api/kick_player",
               ],
               target: "http://localhost:3000",
+              secure: false,
+              changeOrigin: true,
+            },
+            // Rankings API endpoints - route to worker 0
+            {
+              context: ["/api/rankings"],
+              target: "http://localhost:3001",
               secure: false,
               changeOrigin: true,
             },

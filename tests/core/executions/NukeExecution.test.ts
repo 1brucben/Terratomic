@@ -5,6 +5,7 @@ import {
   PlayerInfo,
   PlayerType,
   UnitType,
+  UpgradeType,
 } from "../../../src/core/game/Game";
 import { setup } from "../../util/Setup";
 import { TestConfig } from "../../util/TestConfig";
@@ -49,6 +50,10 @@ describe("NukeExecution", () => {
 
     player = game.player("player_id");
     otherPlayer = game.player("other_id");
+
+    // Grant nuclear upgrade so players can build nukes
+    player.addUpgrade(UpgradeType.NuclearFission);
+    otherPlayer.addUpgrade(UpgradeType.NuclearFission);
   });
 
   test("nuke should destroy buildings and redraw out of range buildings", async () => {

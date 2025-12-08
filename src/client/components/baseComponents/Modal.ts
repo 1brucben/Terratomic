@@ -107,17 +107,41 @@ export class OModal extends LitElement {
   }
 
   public close() {
+    if (!this.isModalOpen) return;
     this.isModalOpen = false;
     this.dispatchEvent(
       new CustomEvent("modal-close", { bubbles: true, composed: true }),
     );
   }
 
+  override connectedCallback() {
+    super.connectedCallback();
+    window.addEventListener("keydown", this._handleKeyDown);
+  }
+
+  override disconnectedCallback() {
+    super.disconnectedCallback();
+    window.removeEventListener("keydown", this._handleKeyDown);
+  }
+
+  private _handleKeyDown = (e: KeyboardEvent) => {
+    if (this.isModalOpen && e.key === "Escape") {
+      this.close();
+    }
+  };
+
+  private _handleOverlayClick(e: MouseEvent) {
+    // Only close if the click is on the overlay itself, not bubbling from children
+    if (e.target === e.currentTarget) {
+      this.close();
+    }
+  }
+
   render() {
     return html`
       ${this.isModalOpen
         ? html`
-            <aside class="c-modal">
+            <aside class="c-modal" @click=${this._handleOverlayClick}>
               <div class="c-modal__wrapper" style="max-width: ${this.maxWidth}">
                 <header class="c-modal__header">
                   ${`${this.translationKey}` === ""

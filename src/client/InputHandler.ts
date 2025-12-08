@@ -113,6 +113,7 @@ export class CenterCameraEvent implements GameEvent {
 
 import { UnitType } from "../core/game/Game";
 import { GameView } from "../core/game/GameView";
+import { ToggleBomberUpgradeModeEvent } from "./events/ToggleBomberUpgradeModeEvent";
 import { ToggleUpgradeModeEvent } from "./events/ToggleUpgradeModeEvent";
 import { TransformHandler } from "./graphics/TransformHandler";
 import { UIState } from "./graphics/UIState";
@@ -185,6 +186,7 @@ export class InputHandler {
       buildMIRV: "Digit7",
       buildFighterJet: "Digit8",
       buildWarship: "Digit9",
+      buildSubmarine: "Digit0",
       buildCity: "KeyY",
       buildPort: "KeyU",
       buildAirfield: "KeyI",
@@ -376,6 +378,7 @@ export class InputHandler {
       [this.keybinds.buildMIRV]: UnitType.MIRV,
       [this.keybinds.buildFighterJet]: UnitType.FighterJet,
       [this.keybinds.buildWarship]: UnitType.Warship,
+      [this.keybinds.buildSubmarine]: UnitType.Submarine,
       [this.keybinds.buildCity]: UnitType.City,
       [this.keybinds.buildPort]: UnitType.Port,
       [this.keybinds.buildAirfield]: UnitType.Airfield,
@@ -395,7 +398,11 @@ export class InputHandler {
         this.uiState.upgradeMode = false;
         this.eventBus.emit(new ToggleUpgradeModeEvent(false));
       }
-      // unit upgrade mode removed
+      // Disable bomber upgrade mode on build action
+      if (this.uiState.bomberUpgradeMode) {
+        this.uiState.bomberUpgradeMode = false;
+        this.eventBus.emit(new ToggleBomberUpgradeModeEvent(false));
+      }
       const cell = this.transformHandler.screenToWorldCoordinates(
         this.lastPointerX,
         this.lastPointerY,
@@ -487,7 +494,11 @@ export class InputHandler {
         this.uiState.upgradeMode = false;
         this.eventBus.emit(new ToggleUpgradeModeEvent(false));
       }
-      // unit upgrade mode removed
+      // Disable bomber upgrade mode on build action
+      if (this.uiState.bomberUpgradeMode) {
+        this.uiState.bomberUpgradeMode = false;
+        this.eventBus.emit(new ToggleBomberUpgradeModeEvent(false));
+      }
       this.eventBus.emit(
         new BuildUnitIntentEvent(this.uiState.pendingBuildUnitType, tile),
       );

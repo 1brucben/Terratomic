@@ -2,20 +2,23 @@ import { html, LitElement } from "lit";
 import { customElement, state } from "lit/decorators.js";
 import multiBuildIcon from "../../../../resources/images/MultiBuildIcon.svg";
 import upgradeArrowIcon from "../../../../resources/images/UpgradeArrowIcon.svg";
-import { EventBus } from "../../../core/EventBus";
+import type { EventBus } from "../../../core/EventBus";
+import type { Gold, PlayerID } from "../../../core/game/Game";
+import { PlayerType, UnitType, UpgradeType } from "../../../core/game/Game";
+import type {
+  GameView,
+  PlayerView,
+  UnitView,
+} from "../../../core/game/GameView";
 import {
-  Gold,
-  PlayerID,
-  PlayerType,
-  UnitType,
-  UpgradeType,
-} from "../../../core/game/Game";
-import { GameView, PlayerView, UnitView } from "../../../core/game/GameView";
-import {
+  isUnitAvailable,
   maxStructureLevel,
   maxUnitLevel,
+  playerMaxStructureLevel,
+  playerMaxUnitLevel,
 } from "../../../core/game/Upgradeables";
 import { getTechMeta, RESEARCH_TECH_IDS } from "../../../core/tech/TechEffects";
+import { translateText } from "../../Utils";
 // Ensure modal custom elements register at runtime
 import "../../BuildSettingsModal";
 import {
@@ -26,12 +29,17 @@ import {
   type InvestmentSyncDetail,
 } from "../../events/InvestmentEvents";
 import { PlayerListChangedEvent } from "../../events/PlayerListChangedEvent";
+import { ToggleBomberUpgradeModeEvent } from "../../events/ToggleBomberUpgradeModeEvent";
 import { ToggleUpgradeModeEvent } from "../../events/ToggleUpgradeModeEvent";
 import { AttackRatioEvent } from "../../InputHandler";
 import "../../StatisticsModal"; // ensure statistics modal is registered
 import {
+  SendAllianceRequestIntentEvent,
   SendBomberIntentEvent,
+  SendBreakAllianceIntentEvent,
+  SendDeclareWarIntentEvent,
   SendEmbargoIntentEvent,
+  SendPeaceRequestIntentEvent,
   SendSetAutoBombingEvent,
   SendSetInvestmentRateEvent,
   SendSetResearchInvestmentEvent,
@@ -39,9 +47,9 @@ import {
   SendSetTargetTroopRatioEvent,
 } from "../../Transport";
 import "../../UnitUpgradeSettingsModal";
-import { UIState } from "../UIState";
+import type { UIState } from "../UIState";
 import { ToggleBuildPanelEvent } from "./ControlPanel";
-import { Layer } from "./Layer";
+import type { Layer } from "./Layer";
 
 @customElement("control-panel2")
 export class ControlPanel2 extends LitElement implements Layer {
@@ -124,10 +132,13 @@ export class ControlPanel2 extends LitElement implements Layer {
   private _currentTargetPlayerId: PlayerID | null = null;
 
   @state()
-  private _currentTargetStructureType: UnitType | null = null;
+  private _currentTargetStructureTypes: UnitType[] = [];
 
   @state()
   private _currentTargetPlayerName: string | null = null;
+
+  @state()
+  private _bomberPreferClosest: boolean = true;
 
   @state()
   private _isAutoBombingEnabled: boolean = false;
@@ -143,6 +154,9 @@ export class ControlPanel2 extends LitElement implements Layer {
 
   @state()
   private _unitLevels: Record<string, number> = {};
+
+  @state()
+  private _uiSelectedStructures: UnitType[] = [];
 
   private unitIconMap: { [key: string]: string } = {
     City: "/images/CityIconWhite.svg",
@@ -298,6 +312,16 @@ export class ControlPanel2 extends LitElement implements Layer {
     this.init_ = true;
     this.uiState.attackRatio = this.attackRatio;
 
+    // Select first 6 structures by default for the UI
+    this._uiSelectedStructures = [
+      UnitType.City,
+      UnitType.DefensePost,
+      UnitType.SAMLauncher,
+      UnitType.MissileSilo,
+      UnitType.Port,
+      UnitType.Airfield,
+    ];
+
     this.eventBus.on(AttackRatioEvent, (event: AttackRatioEvent) => {
       let newAttackRatio =
         (parseInt(
@@ -389,7 +413,7 @@ export class ControlPanel2 extends LitElement implements Layer {
     }
 
     const player = this.game.myPlayer();
-    if (player === null || !player.isAlive()) {
+    if (!player?.isAlive()) {
       this.setVisibile(false);
       return;
     }
@@ -759,7 +783,7 @@ export class ControlPanel2 extends LitElement implements Layer {
 
   private _getPlayersInAirfieldRange(): PlayerView[] {
     const myPlayer = this.game.myPlayer();
-    if (!myPlayer || !myPlayer.isAlive()) {
+    if (!myPlayer?.isAlive()) {
       return [];
     }
 
@@ -770,12 +794,14 @@ export class ControlPanel2 extends LitElement implements Layer {
       return [];
     }
 
-    const bomberRange = this.game.config().bomberTargetRange();
     const reachablePlayers = new Map<PlayerID, PlayerView>();
 
     const structureIndex = this.game.getStructureIndex();
 
     for (const airfield of myAirfields) {
+      const bomberRange = this.game
+        .config()
+        .bomberTargetRange(airfield.bomberLevel());
       const airfieldPos = {
         x: this.game.x(airfield.tile()),
         y: this.game.y(airfield.tile()),
@@ -839,6 +865,14 @@ export class ControlPanel2 extends LitElement implements Layer {
         }, 3000); // Highlight for 3 seconds
       }
     }
+
+    // Apply translations to tooltips after rendering
+    this.querySelectorAll("[data-i18n-title]").forEach((el) => {
+      const key = el.getAttribute("data-i18n-title");
+      if (key) {
+        el.setAttribute("title", translateText(key));
+      }
+    });
   }
 
   populateBomberForm() {
@@ -880,43 +914,48 @@ export class ControlPanel2 extends LitElement implements Layer {
     const playerSelect = this.querySelector(
       "#bomber-player-select",
     ) as HTMLSelectElement;
-    const selectedStructure = this.querySelector(
-      "input[name='structure']:checked",
-    ) as HTMLInputElement | null;
 
-    if (!playerSelect || !selectedStructure) return;
+    if (!playerSelect || this._uiSelectedStructures.length === 0) return;
 
     const targetID = String(playerSelect.value);
-    const structure = selectedStructure.value as unknown as UnitType;
+    // Use the state variable instead of querying the DOM
+    const structures = [...this._uiSelectedStructures];
 
-    this.sendBomberIntent(targetID, structure);
+    this.sendBomberIntent(targetID, structures, this._bomberPreferClosest);
   }
 
-  sendBomberIntent(targetID: string | null, structure: UnitType | null) {
+  sendBomberIntent(
+    targetID: string | null,
+    structures: UnitType[] | null,
+    preferClosest: boolean,
+  ) {
     if (!this.eventBus) return;
     this._currentTargetPlayerId = targetID;
-    this._currentTargetStructureType = structure;
+    this._currentTargetStructureTypes = structures ?? [];
+    this._bomberPreferClosest = preferClosest;
     if (targetID) {
       const targetPlayer = this.game.players().find((p) => p.id() === targetID);
       this._currentTargetPlayerName = targetPlayer ? targetPlayer.name() : null;
     } else {
       this._currentTargetPlayerName = null;
     }
-    this.eventBus.emit(new SendBomberIntentEvent(targetID, structure));
+    this.eventBus.emit(
+      new SendBomberIntentEvent(targetID, structures, preferClosest),
+    );
   }
 
   _startAutoBombing() {
     this._isAutoBombingEnabled = true;
     this.eventBus.emit(new SendSetAutoBombingEvent(true));
     // Clear any manual target when auto-bombing is enabled
-    this.sendBomberIntent(null, null);
+    this.sendBomberIntent(null, null, true);
   }
 
   async _stopAutoBombing() {
     this._isAutoBombingEnabled = false;
     this.eventBus.emit(new SendSetAutoBombingEvent(false));
     // Clear any manual target when auto-bombing is disabled
-    this.sendBomberIntent(null, null);
+    this.sendBomberIntent(null, null, true);
 
     await this.updateComplete; // Wait for the UI to update
 
@@ -924,17 +963,19 @@ export class ControlPanel2 extends LitElement implements Layer {
   }
 
   handleStructureChange(e: Event) {
-    const changedCheckbox = e.target as HTMLInputElement;
-    if (changedCheckbox.checked) {
-      const checkboxes = this.querySelectorAll(
-        "input[name='structure']",
-      ) as NodeListOf<HTMLInputElement>;
-      checkboxes.forEach((checkbox) => {
-        if (checkbox !== changedCheckbox) {
-          checkbox.checked = false;
-        }
-      });
+    const checkbox = e.target as HTMLInputElement;
+    const value = checkbox.value as UnitType;
+
+    if (checkbox.checked) {
+      if (!this._uiSelectedStructures.includes(value)) {
+        this._uiSelectedStructures = [...this._uiSelectedStructures, value];
+      }
+    } else {
+      this._uiSelectedStructures = this._uiSelectedStructures.filter(
+        (s) => s !== value,
+      );
     }
+    this.requestUpdate();
   }
 
   private _handleBomberTargetChange(e: Event) {
@@ -950,6 +991,11 @@ export class ControlPanel2 extends LitElement implements Layer {
       this.uiState.upgradeMode = false;
       this.eventBus.emit(new ToggleUpgradeModeEvent(false));
     }
+    // Disable bomber upgrade mode if mass production is enabled
+    if (this._multibuildEnabled && this.uiState.bomberUpgradeMode) {
+      this.uiState.bomberUpgradeMode = false;
+      this.eventBus.emit(new ToggleBomberUpgradeModeEvent(false));
+    }
     this.requestUpdate();
   }
 
@@ -962,19 +1008,39 @@ export class ControlPanel2 extends LitElement implements Layer {
       return;
     }
     const openFn = modal.open;
+    // Get player-specific max level and availability functions for structures
+    const player = this.game?.myPlayer();
+    const maxLevelFn = player
+      ? (type: UnitType) => playerMaxStructureLevel(player, type)
+      : undefined;
+    const isAvailableFn = player
+      ? (type: UnitType) => isUnitAvailable(player, type)
+      : undefined;
     if (typeof openFn !== "function") {
       // Fallback if element existed before registration; re-import then retry
       import("../../BuildSettingsModal").then(() => {
         const retryOpen = modal.open;
         if (typeof retryOpen === "function") {
-          retryOpen.call(modal, this.StructureTypes, this.unitIconMap);
+          retryOpen.call(
+            modal,
+            this.StructureTypes,
+            this.unitIconMap,
+            maxLevelFn,
+            isAvailableFn,
+          );
         } else {
           console.warn("BuildSettingsModal still missing open() after import");
         }
       });
       return;
     }
-    openFn.call(modal, this.StructureTypes, this.unitIconMap);
+    openFn.call(
+      modal,
+      this.StructureTypes,
+      this.unitIconMap,
+      maxLevelFn,
+      isAvailableFn,
+    );
   }
 
   private _ensureBuildSettingsModal(): HTMLElement | null {
@@ -990,7 +1056,7 @@ export class ControlPanel2 extends LitElement implements Layer {
 
   private _openUnitUpgradeSettings() {
     const modal =
-      (document.querySelector("unit-upgrade-settings-modal") as any) ||
+      (document.querySelector("unit-upgrade-settings-modal") as any) ??
       this._ensureUnitUpgradeSettingsModal();
     if (!modal) {
       console.warn(
@@ -1003,12 +1069,21 @@ export class ControlPanel2 extends LitElement implements Layer {
       UnitType.Warship,
       UnitType.FighterJet,
       UnitType.Submarine,
+      UnitType.Bomber,
     ];
     if (typeof openFn !== "function") {
       console.warn("UnitUpgradeSettingsModal missing open() method");
       return;
     }
-    openFn.call(modal, unitTypes, {});
+    // Pass player-specific max level function and availability check based on researched techs
+    const player = this.game?.myPlayer();
+    const maxLevelFn = player
+      ? (type: UnitType) => playerMaxUnitLevel(player, type)
+      : undefined;
+    const isAvailableFn = player
+      ? (type: UnitType) => isUnitAvailable(player, type)
+      : undefined;
+    openFn.call(modal, unitTypes, {}, maxLevelFn, isAvailableFn);
   }
 
   private _ensureUnitUpgradeSettingsModal(): HTMLElement | null {
@@ -1033,7 +1108,7 @@ export class ControlPanel2 extends LitElement implements Layer {
 
   private _openStatistics() {
     const modal =
-      (document.querySelector("statistics-modal") as any) ||
+      (document.querySelector("statistics-modal") as any) ??
       this._ensureStatisticsModal();
     if (!modal) {
       console.warn("StatisticsModal element not found or failed to create");
@@ -1254,6 +1329,7 @@ export class ControlPanel2 extends LitElement implements Layer {
               ? "active"
               : ""}"
             @click=${() => this._changeTab("Build")}
+            data-i18n-title="control_panel2.build_tab_tooltip"
           >
             Build
           </button>
@@ -1263,6 +1339,7 @@ export class ControlPanel2 extends LitElement implements Layer {
               ? "active"
               : ""}"
             @click=${() => this._changeTab("Attack")}
+            data-i18n-title="control_panel2.attack_tab_tooltip"
           >
             Attack
           </button>
@@ -1272,6 +1349,7 @@ export class ControlPanel2 extends LitElement implements Layer {
               ? "active"
               : ""}"
             @click=${() => this._changeTab("Economy")}
+            data-i18n-title="control_panel2.economy_tab_tooltip"
           >
             Economy
           </button>
@@ -1281,6 +1359,7 @@ export class ControlPanel2 extends LitElement implements Layer {
               ? "active"
               : ""}"
             @click=${() => this._changeTab("Trade")}
+            data-i18n-title="control_panel2.trade_tab_tooltip"
           >
             Trade
           </button>
@@ -1290,6 +1369,7 @@ export class ControlPanel2 extends LitElement implements Layer {
               ? "active"
               : ""}"
             @click=${() => this._changeTab("Diplomacy")}
+            data-i18n-title="control_panel2.diplomacy_tab_tooltip"
           >
             Diplomacy
           </button>
@@ -1301,6 +1381,7 @@ export class ControlPanel2 extends LitElement implements Layer {
                     ? "active"
                     : ""} ${this._highlightBombersTab ? "highlight-tab" : ""}"
                   @click=${() => this._changeTab("Bombers")}
+                  data-i18n-title="control_panel2.bombers_tab_tooltip"
                 >
                   Bombers
                 </button>
@@ -1325,155 +1406,284 @@ export class ControlPanel2 extends LitElement implements Layer {
         <div class="tab-content flex-grow overflow-y-auto max-w-full pr-4 pt-2">
           ${this.activeTab === "Bombers"
             ? html`
-                <div class="flex w-full">
-                  <!-- Column 1: Auto-Bombing -->
-                  <div class="w-1/3 pr-2">
-                    <h3 class="military-heading mb-2">Auto-Bombing</h3>
-                    <div class="flex flex-col gap-2">
+
+                <div class="flex w-full gap-2 h-full">
+                  <!-- Column 1: Targeting Configuration (2/3 width) -->
+                  <div class="w-2/3 flex flex-col gap-2">
+                    ${
+                      this._isAutoBombingEnabled
+                        ? html`
+                            <div
+                              class="flex flex-col items-center justify-center h-full text-blue-300 font-bold text-center border border-dashed border-blue-900 rounded bg-blue-900/20"
+                            >
+                              <div class="text-lg mb-2">
+                                AUTO-BOMBING ACTIVE
+                              </div>
+                              <div class="text-sm opacity-80">
+                                Bombers are automatically targeting nearby
+                                enemies.
+                              </div>
+                            </div>
+                          `
+                        : html`
+                            <div class="flex gap-2 items-end">
+                              <label class="flex-grow text-sm military-label">
+                                Target Player
+                                <select
+                                  id="bomber-player-select"
+                                  class="mt-1 block w-full p-1 text-white rounded-sm truncate text-sm"
+                                  style="background-color: var(--ui-secondary); border: 1px solid var(--ui-panel-border);"
+                                  @change=${this._handleBomberTargetChange}
+                                ></select>
+                              </label>
+
+                              <div class="flex flex-col justify-end pb-0.5">
+                                <span class="text-[10px] military-label mb-1"
+                                  >Priority</span
+                                >
+                                <div class="flex bg-gray-800 rounded p-0.5">
+                                  <label
+                                    class="flex items-center px-2 py-0.5 cursor-pointer hover:bg-gray-700 rounded transition-colors"
+                                    title="Target closest structures first"
+                                  >
+                                    <input
+                                      type="radio"
+                                      name="distance-pref"
+                                      value="closest"
+                                      ?checked=${this._bomberPreferClosest}
+                                      @change=${() => {
+                                        this._bomberPreferClosest = true;
+                                      }}
+                                      class="hidden"
+                                    />
+                                    <span
+                                      class="text-xs ${this._bomberPreferClosest
+                                        ? "text-blue-400 font-bold"
+                                        : "text-gray-400"}"
+                                      >Closest</span
+                                    >
+                                  </label>
+                                  <div class="w-px bg-gray-700 mx-0.5"></div>
+                                  <label
+                                    class="flex items-center px-2 py-0.5 cursor-pointer hover:bg-gray-700 rounded transition-colors"
+                                    title="Target furthest structures first"
+                                  >
+                                    <input
+                                      type="radio"
+                                      name="distance-pref"
+                                      value="furthest"
+                                      ?checked=${!this._bomberPreferClosest}
+                                      @change=${() => {
+                                        this._bomberPreferClosest = false;
+                                      }}
+                                      class="hidden"
+                                    />
+                                    <span
+                                      class="text-xs ${!this
+                                        ._bomberPreferClosest
+                                        ? "text-blue-400 font-bold"
+                                        : "text-gray-400"}"
+                                      >Furthest</span
+                                    >
+                                  </label>
+                                </div>
+                              </div>
+                            </div>
+
+                            <div class="flex-grow flex flex-col min-h-0">
+                              <label class="text-xs military-label mb-1"
+                                >Target Structures</label
+                              >
+                              <div
+                                class="grid grid-cols-11 gap-1.5 overflow-y-auto pr-1"
+                              >
+                                ${[
+                                  UnitType.City,
+                                  UnitType.DefensePost,
+                                  UnitType.SAMLauncher,
+                                  UnitType.MissileSilo,
+                                  UnitType.Port,
+                                  UnitType.Airfield,
+                                  UnitType.Hospital,
+                                  UnitType.Academy,
+                                  UnitType.ResearchLab,
+                                  UnitType.Factory,
+                                  UnitType.DoomsdayDevice,
+                                ].map((s) => {
+                                  const isSelected =
+                                    this._uiSelectedStructures.includes(s);
+                                  return html`
+                                    <label
+                                      class="flex flex-col items-center justify-center p-0.5 rounded cursor-pointer transition-all aspect-square ${isSelected
+                                        ? "border-[0.5px] border-white shadow-[0_0_5px_rgba(29,58,96,1.0)]"
+                                        : "border border-gray-700 hover:bg-gray-800"}"
+                                      style="${isSelected
+                                        ? "background-color: rgb(29, 58, 96);"
+                                        : ""}"
+                                      title="${s}"
+                                    >
+                                      <input
+                                        type="checkbox"
+                                        name="structure"
+                                        value="${s}"
+                                        class="hidden"
+                                        .checked=${isSelected}
+                                        @change=${this.handleStructureChange}
+                                      />
+                                      <img
+                                        src="${this.unitIconMap[s]}"
+                                        alt="${s}"
+                                        class="w-4 h-4 object-contain"
+                                      />
+                                    </label>
+                                  `;
+                                })}
+                              </div>
+                            </div>
+
+                            <!-- SET TARGET Button -->
+                            <div class="flex gap-2 items-center mt-2">
+                              <button
+                                type="button"
+                                class="military-button py-2 px-4 font-bold"
+                                @click=${this.handleBomberIntent}
+                              >
+                                SET TARGET
+                              </button>
+                              <button
+                                type="button"
+                                class="text-xs text-gray-400 hover:text-white underline"
+                                @click=${() =>
+                                  this.sendBomberIntent(null, null, true)}
+                              >
+                                Clear
+                              </button>
+                              <div class="text-xs flex-grow">
+                                ${this._currentTargetPlayerId &&
+                                this._currentTargetStructureTypes.length > 0
+                                  ? html`
+                                      <div class="flex items-center gap-2">
+                                        <span class="font-bold text-blue-300"
+                                          >${this
+                                            ._currentTargetPlayerName}</span
+                                        >
+                                        <span class="text-[10px] text-gray-400"
+                                          >${this._bomberPreferClosest
+                                            ? "Closest"
+                                            : "Furthest"}</span
+                                        >
+                                        <div class="flex gap-0.5">
+                                          ${this._currentTargetStructureTypes.map(
+                                            (structType) => html`
+                                              <img
+                                                src="${this.unitIconMap[
+                                                  structType
+                                                ]}"
+                                                class="w-3 h-3 opacity-80"
+                                              />
+                                            `,
+                                          )}
+                                        </div>
+                                      </div>
+                                    `
+                                  : html`<span class="text-gray-500 italic"
+                                      >No target set</span
+                                    >`}
+                              </div>
+                            </div>
+                          `
+                    }
+                  </div>
+
+                  <!-- Column 2: Actions & Status (1/3 width) -->
+                  <div class="w-1/3 flex flex-col gap-2 pl-2 border-l border-gray-800">
+                    <!-- Upgrade Bombers Button -->
+                    <div class="bg-gray-900/50 p-2 rounded border border-gray-800">
+                      <div class="flex items-center justify-between mb-1">
+                        <span class="text-xs font-bold text-gray-300"
+                          >Upgrade Bombers</span
+                        >
+                        <div
+                          class="w-2 h-2 rounded-full ${
+                            this.uiState.bomberUpgradeMode
+                              ? "bg-green-500 shadow-[0_0_5px_#22c55e]"
+                              : "bg-gray-600"
+                          }"
+                        ></div>
+                      </div>
                       <button
                         type="button"
-                        class="military-button w-full"
-                        @click=${this._startAutoBombing}
+                        class="military-button w-full text-xs py-1.5"
+                        title="Click airfields to upgrade their bombers"
+                        @click=${() => {
+                          const enabled = !this.uiState.bomberUpgradeMode;
+                          this.uiState.bomberUpgradeMode = enabled;
+                          this.eventBus.emit(
+                            new ToggleBomberUpgradeModeEvent(enabled),
+                          );
+                          // Disable structure upgrade mode if bomber upgrade is enabled
+                          if (enabled && this.uiState.upgradeMode) {
+                            this.uiState.upgradeMode = false;
+                            this.eventBus.emit(
+                              new ToggleUpgradeModeEvent(false),
+                            );
+                          }
+                          // Clear pending build selection when upgrade is enabled
+                          if (enabled) {
+                            this.uiState.pendingBuildUnitType = null;
+                          }
+                          this.requestUpdate();
+                        }}
                       >
-                        Start Auto Bombing
-                      </button>
-                      <button
-                        type="button"
-                        class="military-button w-full"
-                        style="background-color: var(--alertColor); border-color: var(--alertColor);"
-                        @click=${this._stopAutoBombing}
-                      >
-                        Stop Auto Bombing
+                        Upgrade Bombers
                       </button>
                     </div>
-                    <p class="text-xs mt-3 text-gray-400">
-                      Autobombing sends bombers to nearby non-allied territory
-                      and bombs their structures.
-                    </p>
+
+                    <!-- Auto-Bombing Toggle -->
+                    <div class="bg-gray-900/50 p-2 rounded border border-gray-800">
+                      <div class="flex items-center justify-between mb-1">
+                        <span class="text-xs font-bold text-gray-300"
+                          >Auto-Bomb</span
+                        >
+                        <div
+                          class="w-2 h-2 rounded-full ${
+                            this._isAutoBombingEnabled
+                              ? "bg-green-500 shadow-[0_0_5px_#22c55e]"
+                              : "bg-gray-600"
+                          }"
+                        ></div>
+                      </div>
+                      ${
+                        this._isAutoBombingEnabled
+                          ? html`
+                              <button
+                                type="button"
+                                class="military-button w-full text-xs py-1.5"
+                                style="background-color: var(--alertColor); border-color: var(--alertColor);"
+                                @click=${this._stopAutoBombing}
+                              >
+                                Stop Auto
+                              </button>
+                            `
+                          : html`
+                              <button
+                                type="button"
+                                class="military-button w-full text-xs py-1.5"
+                                @click=${this._startAutoBombing}
+                                title="Automatically target nearby enemies"
+                              >
+                                Start Auto
+                              </button>
+                            `
+                      }
+                    </div>
                   </div>
-
-                  <!-- Column 2: Manual Targeting -->
-                  <div class="w-1/3 px-2">
-                    ${this._isAutoBombingEnabled
-                      ? html`
-                          <div
-                            class="flex flex-col items-center justify-center h-full text-blue-300 font-bold text-center"
-                          >
-                            Automatic bombing is enabled.
-                          </div>
-                        `
-                      : html`
-                          <h3 class="military-heading mb-2">
-                            Manual Targeting
-                          </h3>
-                          <form
-                            @submit=${(e: Event) => e.preventDefault()}
-                            class="flex flex-col gap-2"
-                          >
-                            <label
-                              class="inline-flex items-center text-sm military-label"
-                            >
-                              Select Target
-                              <select
-                                id="bomber-player-select"
-                                class="ml-1 p-1 text-white rounded-sm w-full truncate"
-                                style="background-color: var(--ui-secondary); border: 1px solid var(--ui-panel-border);"
-                                @change=${this._handleBomberTargetChange}
-                              ></select>
-                            </label>
-
-                            <label class="block text-sm military-label"
-                              >Select Structure</label
-                            >
-                            <div class="grid grid-cols-4 gap-2">
-                              ${[
-                                UnitType.City,
-                                UnitType.DefensePost,
-                                UnitType.SAMLauncher,
-                                UnitType.MissileSilo,
-                                UnitType.Port,
-                                UnitType.Airfield,
-                                UnitType.Hospital,
-                                UnitType.Academy,
-                                UnitType.ResearchLab,
-                                UnitType.Factory,
-                                UnitType.DoomsdayDevice,
-                              ].map((s) => {
-                                return html`
-                                  <label
-                                    class="flex items-center space-x-1 p-1 border border-gray-700 rounded-sm cursor-pointer has-checked:border-blue-400"
-                                  >
-                                    <img
-                                      src="${this.unitIconMap[s]}"
-                                      alt="${s}"
-                                      class="w-4 h-4"
-                                    />
-                                    <input
-                                      type="checkbox"
-                                      name="structure"
-                                      value="${s}"
-                                      ?checked=${s === UnitType.City}
-                                      class="form-checkbox h-4 w-4 text-blue-400 bg-gray-700 border-gray-500 rounded-sm focus:ring-blue-400"
-                                      @change=${this.handleStructureChange}
-                                    />
-                                  </label>
-                                `;
-                              })}
-                            </div>
-                          </form>
-                        `}
-                  </div>
-
-                  <!-- Column 3: Target Actions -->
-                  <div class="w-1/3 pl-2">
-                    ${this._isAutoBombingEnabled
-                      ? ""
-                      : html`
-                          <h3 class="military-heading mb-2">Target Actions</h3>
-                          <div class="text-sm min-h-[20px]">
-                            ${this._currentTargetPlayerId &&
-                            this._currentTargetStructureType
-                              ? html`<span class="font-bold military-label"
-                                    >Target:</span
-                                  >
-                                  ${this._currentTargetPlayerName}
-                                  <img
-                                    src="${this.unitIconMap[
-                                      this._currentTargetStructureType
-                                    ]}"
-                                    alt="${this._currentTargetStructureType}"
-                                    class="inline-block align-top ml-1"
-                                    style="width: ${this.iconPixelSize(
-                                      this._currentTargetStructureType,
-                                    )}px; height: ${this.iconPixelSize(
-                                      this._currentTargetStructureType,
-                                    )}px;"
-                                  />`
-                              : html`<span class="military-label"
-                                  >No target selected</span
-                                >`}
-                          </div>
-
-                          <div class="flex gap-2 mt-auto">
-                            <button
-                              type="button"
-                              class="military-button flex-1"
-                              @click=${this.handleBomberIntent}
-                            >
-                              Set Target
-                            </button>
-                            <button
-                              type="button"
-                              class="military-button flex-1"
-                              @click=${() => this.sendBomberIntent(null, null)}
-                            >
-                              Clear Target
-                            </button>
-                          </div>
-                        `}
                   </div>
                 </div>
               `
+            : ""}
+          ${this.activeTab === "Build"
+            ? html` <div class="flex items-center mb-2 gap-4 ml-1"></div> `
             : ""}
           ${this.activeTab === "Build"
             ? html`
@@ -1493,6 +1703,44 @@ export class ControlPanel2 extends LitElement implements Layer {
                     <span>Multi-Build Structures</span>
                   </button>
                   <div class="relative inline-block">
+                    <<<<<<< HEAD =======
+                    <button
+                      class="upgrade-structures-button ${this.uiState
+                        .upgradeMode
+                        ? "selected"
+                        : ""}"
+                      title="Click structures to upgrade them"
+                      @click=${() => {
+                        const enabled = !this.uiState.upgradeMode;
+                        this.uiState.upgradeMode = enabled;
+                        this.eventBus.emit(new ToggleUpgradeModeEvent(enabled));
+                        // Disable mass production if upgrade is enabled
+                        if (enabled && this._multibuildEnabled) {
+                          this._multibuildEnabled = false;
+                          this.uiState.multibuildEnabled = false;
+                        }
+                        // Disable bomber upgrade mode if structure upgrade is enabled
+                        if (enabled && this.uiState.bomberUpgradeMode) {
+                          this.uiState.bomberUpgradeMode = false;
+                          this.eventBus.emit(
+                            new ToggleBomberUpgradeModeEvent(false),
+                          );
+                        }
+                        // Clear pending build selection when upgrade is enabled
+                        if (enabled) {
+                          this.uiState.pendingBuildUnitType = null;
+                        }
+                        this.requestUpdate();
+                      }}
+                    >
+                      <img
+                        class="upgrade-icon"
+                        src=${upgradeArrowIcon}
+                        alt="Upgrade"
+                      />
+                      <span>Upgrade Structures</span>
+                    </button>
+                    >>>>>>> upstream/v0.2.0
                     <div
                       class="flex items-center h-[36px] px-3"
                       style="
@@ -1702,6 +1950,7 @@ export class ControlPanel2 extends LitElement implements Layer {
                     <label
                       class="block military-label mb-1 whitespace-nowrap"
                       translate="no"
+                      data-i18n-title="control_panel2.production_investment_tooltip"
                     >
                       Production Investment Rate:
                       ${(this.investmentRate * 100).toFixed(0)}%
@@ -1752,6 +2001,7 @@ export class ControlPanel2 extends LitElement implements Layer {
                           ._lockProd
                           ? "slider-locked"
                           : ""}"
+                        data-i18n-title="control_panel2.production_investment_tooltip"
                         @dblclick=${() => {
                           this._lockProd = !this._lockProd;
                           this.emitInvestmentSync();
@@ -1812,6 +2062,7 @@ export class ControlPanel2 extends LitElement implements Layer {
                         <label
                           class="block military-label mb-1 whitespace-nowrap"
                           translate="no"
+                          data-i18n-title="control_panel2.road_investment_tooltip"
                         >
                           Road investment: ${(effectiveRoad * 100).toFixed(0)}%
                           ${this._lockRoad && hasRoads
@@ -1834,7 +2085,7 @@ export class ControlPanel2 extends LitElement implements Layer {
                           ${!hasRoads
                             ? html`<span
                                 class="lock-badge"
-                                title=${`Research '${getTechMeta(RESEARCH_TECH_IDS.POST_WAR_RECONSTRUCTION, { strict: false }).name}' to enable road investment`}
+                                title=${`Research '${getTechMeta(RESEARCH_TECH_IDS.NATIONAL_RECONSTRUCTION_PROGRAM, { strict: false }).name}' to enable road investment`}
                               >
                                 <svg
                                   class="lock-icon"
@@ -1926,8 +2177,9 @@ export class ControlPanel2 extends LitElement implements Layer {
                         .value=${(this._roadInvestmentRate * 100).toString()}
                         ?disabled=${!hasRoads}
                         title=${!hasRoads
-                          ? `Research '${getTechMeta(RESEARCH_TECH_IDS.POST_WAR_RECONSTRUCTION, { strict: false }).name}' to enable road investment`
+                          ? `Research '${getTechMeta(RESEARCH_TECH_IDS.NATIONAL_RECONSTRUCTION_PROGRAM, { strict: false }).name}' to enable road investment`
                           : ""}
+                        data-i18n-title="control_panel2.road_investment_tooltip"
                         @input=${(e: Event) => {
                           if (!hasRoads) return;
                           const input = e.target as HTMLInputElement;
@@ -1972,7 +2224,11 @@ export class ControlPanel2 extends LitElement implements Layer {
                     ${(() => {
                       // Removed gold cost display next to the research slider per request
                       return html`
-                        <label class="block military-label mb-1" translate="no">
+                        <label
+                          class="block military-label mb-1"
+                          translate="no"
+                          data-i18n-title="control_panel2.research_investment_tooltip"
+                        >
                           Research investment:
                           ${(this._researchInvestmentRate * 100).toFixed(0)}%
                           ${this._lockResearch
@@ -2016,6 +2272,7 @@ export class ControlPanel2 extends LitElement implements Layer {
                         .value=${(
                           this._researchInvestmentRate * 100
                         ).toString()}
+                        data-i18n-title="control_panel2.research_investment_tooltip"
                         @input=${(e: Event) => {
                           const input = e.target as HTMLInputElement;
                           const proposed = parseInt(input.value) / 100;
@@ -2249,6 +2506,7 @@ export class ControlPanel2 extends LitElement implements Layer {
                 color: var(--ui-text-accent);
                 box-shadow: inset 0 0 10px rgba(0, 0, 0, 0.5), 0 2px 6px rgba(0, 0, 0, 0.4);
               "
+              data-i18n-title="control_panel2.embargo_all_tooltip"
               @click=${this._handleEmbargoAll}
             >
               Embargo All
@@ -2261,6 +2519,7 @@ export class ControlPanel2 extends LitElement implements Layer {
                 color: var(--ui-text-accent);
                 box-shadow: inset 0 0 10px rgba(0, 0, 0, 0.5), 0 2px 6px rgba(0, 0, 0, 0.4);
               "
+              data-i18n-title="control_panel2.remove_all_embargos_tooltip"
               @click=${this._handleRemoveAllEmbargos}
             >
               Remove All Embargos
@@ -2284,40 +2543,206 @@ export class ControlPanel2 extends LitElement implements Layer {
           (p.type() === PlayerType.Human || p.type() === PlayerType.FakeHuman),
       );
 
-    const atWar = players.filter((p) => me.isAtWarWith(p));
-    const allied = players.filter((p) => me.isAlliedWith(p));
-    const neutral = players.filter(
-      (p) => !me.isAtWarWith(p) && !me.isAlliedWith(p),
-    );
+    // Icons and colors reused from radial menu
+    const warIcon = "/images/waricon.png";
+    const peaceIcon = "/images/dove.png";
+    const allianceIcon = "/images/AllianceIconWhite.svg";
+    const traitorIcon = "/images/TraitorIconWhite.svg";
 
-    const renderPlayerList = (list: PlayerView[], title: string) => html`
-      <div class="flex flex-col w-1/3 px-1">
-        <h3 class="text-center font-bold mb-2 text-gray-300">${title}</h3>
-        <div class="flex flex-col">
-          ${list.map(
-            (p) => html`
-              <div
-                class="py-1 text-sm text-gray-300 truncate"
-                title="${p.name()}"
-              >
-                ${p.name()}
-              </div>
-            `,
-          )}
-          ${list.length === 0
-            ? html`<div class="text-center text-gray-500 italic text-xs">
-                None
-              </div>`
-            : ""}
-        </div>
+    // Colors matching radial menu
+    const warColor = "#8B0000"; // dark red for declare war
+    const peaceColor = "#e5e7eb"; // light gray for peace
+    const allianceColor = "#53ac75"; // green for alliance
+    const betrayColor = "#c74848"; // red for betray
+
+    const iconBtn = (
+      src: string,
+      bgColor: string,
+      titleKey: string,
+      onClick: () => void,
+    ) => html`
+      <button
+        class="inline-flex items-center justify-center border-2 border-[var(--ui-panel-border)] rounded px-1 py-1 hover:opacity-80 hover:scale-105 transition-all"
+        style="background-color: ${bgColor};"
+        data-i18n-title=${titleKey}
+        @click=${onClick}
+      >
+        <img src=${src} style="width:16px;height:16px;object-fit:contain;" />
+      </button>
+    `;
+
+    const renderName = (p: PlayerView) => html`
+      <div class="text-sm text-gray-300 truncate" title="${p.name()}">
+        ${p.name()}
       </div>
     `;
 
+    const renderBtn = (btn: ReturnType<typeof html>) => html`
+      <div class="flex justify-center">${btn}</div>
+    `;
+
+    const renderEmpty = () => html`<div>&nbsp;</div>`;
+
+    // Build rows for each player
+    const rows = players.map((p) => {
+      const atWar = me.isAtWarWith(p);
+      const allied = me.isAlliedWith(p);
+      const neutral = !atWar && !allied;
+
+      // At War column cell
+      let atWarCell;
+      if (atWar) {
+        atWarCell = renderName(p);
+      } else if (neutral) {
+        atWarCell = renderBtn(
+          iconBtn(
+            warIcon,
+            warColor,
+            "control_panel2.diplomacy_declare_war_tooltip",
+            () => this.eventBus.emit(new SendDeclareWarIntentEvent(me, p)),
+          ),
+        );
+      } else if (allied) {
+        atWarCell = renderBtn(
+          iconBtn(
+            traitorIcon,
+            betrayColor,
+            "control_panel2.diplomacy_betray_tooltip",
+            () => this.eventBus.emit(new SendBreakAllianceIntentEvent(me, p)),
+          ),
+        );
+      } else {
+        atWarCell = renderEmpty();
+      }
+
+      // Allied column cell
+      let alliedCell;
+      if (allied) {
+        alliedCell = renderName(p);
+      } else {
+        // Can request alliance from both neutral and at-war players
+        alliedCell = renderBtn(
+          iconBtn(
+            allianceIcon,
+            allianceColor,
+            "control_panel2.diplomacy_request_alliance_tooltip",
+            () => this.eventBus.emit(new SendAllianceRequestIntentEvent(me, p)),
+          ),
+        );
+      }
+
+      // Neutral column cell
+      let neutralCell;
+      if (neutral) {
+        neutralCell = renderName(p);
+      } else if (atWar) {
+        neutralCell = renderBtn(
+          iconBtn(
+            peaceIcon,
+            peaceColor,
+            "control_panel2.diplomacy_request_peace_tooltip",
+            () => this.eventBus.emit(new SendPeaceRequestIntentEvent(me, p)),
+          ),
+        );
+      } else {
+        neutralCell = renderEmpty();
+      }
+
+      return html`
+        <div class="flex w-full py-1 border-b border-gray-600/50">
+          <div class="w-1/3 px-1 flex items-center justify-center">
+            ${atWarCell}
+          </div>
+          <div class="w-1/3 px-1 flex items-center justify-center">
+            ${alliedCell}
+          </div>
+          <div class="w-1/3 px-1 flex items-center justify-center">
+            ${neutralCell}
+          </div>
+        </div>
+      `;
+    });
+
+    // Bulk action handlers
+    const declareWarOnAll = () => {
+      players.forEach((p) => {
+        if (me.isAlliedWith(p)) {
+          // Break alliance first (betray), then declare war
+          this.eventBus.emit(new SendBreakAllianceIntentEvent(me, p));
+        }
+        if (!me.isAtWarWith(p)) {
+          this.eventBus.emit(new SendDeclareWarIntentEvent(me, p));
+        }
+      });
+    };
+
+    const requestAllianceWithAll = () => {
+      players.forEach((p) => {
+        if (!me.isAlliedWith(p)) {
+          this.eventBus.emit(new SendAllianceRequestIntentEvent(me, p));
+        }
+      });
+    };
+
+    const requestPeaceWithAll = () => {
+      players.forEach((p) => {
+        if (me.isAtWarWith(p)) {
+          this.eventBus.emit(new SendPeaceRequestIntentEvent(me, p));
+        }
+      });
+    };
+
+    // Small icon button for header bulk actions
+    const headerBtn = (
+      icon: string,
+      bgColor: string,
+      titleKey: string,
+      onClick: () => void,
+    ) => html`
+      <button
+        class="ml-1 inline-flex items-center justify-center w-5 h-5 rounded hover:opacity-80 hover:scale-105 transition-all"
+        style="background-color: ${bgColor};"
+        data-i18n-title=${titleKey}
+        @click=${onClick}
+      >
+        <img src=${icon} style="width:12px;height:12px;object-fit:contain;" />
+      </button>
+    `;
+
     return html`
-      <div class="flex w-full h-full">
-        ${renderPlayerList(atWar, "At War")}
-        ${renderPlayerList(allied, "Allied")}
-        ${renderPlayerList(neutral, "Neutral")}
+      <div class="flex flex-col w-full h-full">
+        <!-- Header row -->
+        <div class="flex w-full mb-2 border-b border-gray-600/50 pb-2">
+          <div class="w-1/3 px-1 flex items-center justify-center">
+            <span class="font-bold text-gray-300">At War</span>
+            ${headerBtn(
+              warIcon,
+              warColor,
+              "control_panel2.diplomacy_war_all_tooltip",
+              declareWarOnAll,
+            )}
+          </div>
+          <div class="w-1/3 px-1 flex items-center justify-center">
+            <span class="font-bold text-gray-300">Allied</span>
+            ${headerBtn(
+              allianceIcon,
+              allianceColor,
+              "control_panel2.diplomacy_ally_all_tooltip",
+              requestAllianceWithAll,
+            )}
+          </div>
+          <div class="w-1/3 px-1 flex items-center justify-center">
+            <span class="font-bold text-gray-300">Neutral</span>
+            ${headerBtn(
+              peaceIcon,
+              peaceColor,
+              "control_panel2.diplomacy_peace_all_tooltip",
+              requestPeaceWithAll,
+            )}
+          </div>
+        </div>
+        <!-- Player rows -->
+        ${rows}
       </div>
     `;
   }

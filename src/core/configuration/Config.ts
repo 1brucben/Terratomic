@@ -19,7 +19,6 @@ import {
   Tick,
   UnitInfo,
   UnitType,
-  UpgradeType,
 } from "../game/Game";
 import { GameMap, TileRef } from "../game/GameMap";
 import { PlayerView } from "../game/GameView";
@@ -66,10 +65,6 @@ export interface ServerConfig {
 export interface NukeMagnitude {
   inner: number;
   outer: number;
-}
-
-export interface UpgradeInfo {
-  cost: (player: Player | PlayerView) => Gold;
 }
 
 export interface Config {
@@ -149,7 +144,7 @@ export interface Config {
   donateCooldown(): Tick;
   defaultDonationAmount(sender: Player): number;
   unitInfo(type: UnitType): UnitInfo;
-  upgradeInfo(type: UpgradeType): UpgradeInfo;
+  scorchedEarthActivationCost(player: Player | PlayerView): Gold;
   tradeShipGold(dist: number): Gold;
   tradeShipSpawnRate(numberOfPorts: number): number;
   // Trade rework: gravity-based demand and port-supplied ships
@@ -180,15 +175,13 @@ export interface Config {
   urbanPlanningPopulationBonusDen(): number;
   structureInsuranceRefundNum(): number;
   structureInsuranceRefundDen(): number;
-  automationTradeIncomeMultiplierNum(): number;
-  automationTradeIncomeMultiplierDen(): number;
-  automationTroopRegenMultiplierNum(): number;
-  automationTroopRegenMultiplierDen(): number;
 
   // Structure upgrade cost multiplier per structure type (e.g., 0.8 for 80%)
   structureUpgradeCostMultiplier(type: UnitType): number;
-  // Unit upgrade cost multiplier per unit type (e.g., 0.2 for 20%)
-  unitUpgradeCostMultiplier(type: UnitType): number;
+  // Hardcoded unit upgrade cost: cost to upgrade from current level to next level
+  unitUpgradeStepCost(type: UnitType, fromLevel: number): Gold;
+  // Hardcoded unit upgrade cost: total cost to build unit at targetLevel
+  unitUpgradeTotalCost(type: UnitType, targetLevel: number): Gold;
 
   cargoPlaneGold(dist: number): Gold;
   cargoPlaneSpawnRate(numberOfAirplanes: number): number;
@@ -198,13 +191,22 @@ export interface Config {
   bomberDropCadence(): number;
   bomberPayload(): number;
   bomberSpawnInterval(): number;
-  bomberTargetRange(): number;
+  bomberLaunchGapTicks(): number;
+  bomberTakeoffHealthThreshold(): number;
+  bomberTargetRange(level?: number): number;
   bomberExplosionRadius(): number;
-  bomberSpeed(): number;
+  bomberSpeed(level?: number): number;
+  bomberMaxHealth(level?: number): number;
+  bomberDamage(level?: number): number;
+  bomberCooldownTicks(): number;
   safeFromPiratesCooldownMax(): number;
   defensePostRange(): number;
   citySamLaunchRange(): number;
   citySamCooldown(): number;
+  cityAARange(): number;
+  cityAAFireRate(): number;
+  cityAABulletDamage(): number;
+  cityAABulletSpeed(): number;
   SAMNukeCooldown(): number;
   SAMPlaneCooldown(): number;
   SiloCooldown(): number;
@@ -267,8 +269,7 @@ export interface Config {
   maxProductivity(): number;
 
   // Research system parameters
-  researchAlpha(): number; // A in A * investment^B
-  researchBeta(): number; // B in A * investment^B
+  researchBeta(): number; // B in investment^B
   researchK(): number; // k in 1 - exp(-k * x)
   researchBeakerMin(): number; // inclusive
   researchBeakerMax(): number; // inclusive

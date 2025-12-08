@@ -4,6 +4,7 @@ import { EventBus } from "../../../core/EventBus";
 import { GameView } from "../../../core/game/GameView";
 import "../../ResearchTreeModal";
 import type { ResearchTreeModal } from "../../ResearchTreeModal";
+import { translateText } from "../../Utils";
 import { Layer } from "./Layer";
 
 @customElement("research-toggle-button")
@@ -16,6 +17,9 @@ export class ResearchToggleButton extends LitElement implements Layer {
 
   @state()
   private _isModalOpen = false;
+
+  @state()
+  private _hasUnseenPolicyDirectives = false;
 
   private modalRef: ResearchTreeModal | null = null;
 
@@ -35,6 +39,12 @@ export class ResearchToggleButton extends LitElement implements Layer {
     );
     if (shouldShow !== this._isVisible) {
       this._isVisible = shouldShow;
+      this.requestUpdate();
+    }
+    // Check for unseen policy directives
+    const hasUnseen = player?.hasUnseenPolicyDirectives?.() ?? false;
+    if (hasUnseen !== this._hasUnseenPolicyDirectives) {
+      this._hasUnseenPolicyDirectives = hasUnseen;
       this.requestUpdate();
     }
     this.updateModalState();
@@ -118,7 +128,7 @@ export class ResearchToggleButton extends LitElement implements Layer {
             box-shadow 120ms ease,
             background 120ms ease;
         }
-        .research-vertical-button span {
+        .research-vertical-button span:not(.policy-notification-badge) {
           display: block;
           font-size: 14px;
           line-height: 1.1;
@@ -138,6 +148,32 @@ export class ResearchToggleButton extends LitElement implements Layer {
           );
           border-color: var(--ui-secondary);
         }
+        .policy-notification-badge {
+          position: absolute;
+          top: -4px;
+          right: -4px;
+          width: 18px;
+          height: 18px;
+          background: #ffc107;
+          border: 2px solid #000;
+          border-radius: 50%;
+          font-size: 12px;
+          font-weight: bold;
+          color: #000;
+          line-height: 14px;
+          text-align: center;
+          padding-left: 1px;
+          animation: pulse-badge 1.5s ease-in-out infinite;
+        }
+        @keyframes pulse-badge {
+          0%,
+          100% {
+            transform: scale(1);
+          }
+          50% {
+            transform: scale(1.15);
+          }
+        }
       </style>
       <div
         class="ui-scale-surface"
@@ -146,9 +182,14 @@ export class ResearchToggleButton extends LitElement implements Layer {
         <button
           type="button"
           class="research-vertical-button ${this._isModalOpen ? "open" : ""}"
-          aria-label="Toggle Research Tree"
+          aria-label=${translateText("research_tree.toggle_tooltip")}
+          title=${translateText("research_tree.toggle_tooltip")}
           @click=${this.toggleModal}
+          style="position: relative;"
         >
+          ${this._hasUnseenPolicyDirectives
+            ? html`<span class="policy-notification-badge">!</span>`
+            : ""}
           ${["R", "E", "S", "E", "A", "R", "C", "H"].map(
             (letter) => html`<span>${letter}</span>`,
           )}

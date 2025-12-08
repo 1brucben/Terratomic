@@ -368,6 +368,11 @@ export class SAMLauncherExecution implements Execution {
           return false;
         }
 
+        // Exclude bombers at their source airfield
+        if (unit.isAtSourceAirfield()) {
+          return false;
+        }
+
         return !unit.targetedBySAM();
       })
       .sort((a, b) => {
@@ -399,22 +404,23 @@ export class SAMLauncherExecution implements Execution {
       const random = this.pseudoRandom!.next();
       const hit = this.isHit(targetPlane.type(), random);
 
+      // Always create missile execution for visual FX, whether hit or miss
+      targetPlane.setTargetedBySAM(true);
+      this.mg.addExecution(
+        new SAMMissileExecution(
+          this.sam!.tile(),
+          this.sam!.owner(),
+          this.sam!,
+          targetPlane,
+          targetPlane.tile(),
+        ),
+      );
+
       if (hit) {
         this.mg.displayMessage(
           "messages.airplane_intercepted",
           MessageType.SAM_HIT,
           samOwner.id(),
-        );
-
-        targetPlane.setTargetedBySAM(true);
-        this.mg.addExecution(
-          new SAMMissileExecution(
-            this.sam!.tile(),
-            this.sam!.owner(),
-            this.sam!,
-            targetPlane,
-            targetPlane.tile(),
-          ),
         );
       } else {
         this.mg.displayMessage(

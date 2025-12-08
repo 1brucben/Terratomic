@@ -1,4 +1,5 @@
 import { Execution, Game, UnitType } from "../game/Game";
+import { isUpgradeableStructure } from "../game/Upgradeables";
 import { PseudoRandom } from "../PseudoRandom";
 import { ClientID, GameID, Intent, Turn } from "../Schemas";
 import { simpleHash } from "../Util";
@@ -18,6 +19,7 @@ import { EmbargoExecution } from "./EmbargoExecution";
 import { EmojiExecution } from "./EmojiExecution";
 import { FakeHumanExecution } from "./FakeHumanExecution";
 import { MarkDisconnectedExecution } from "./MarkDisconnectedExecution";
+import { MarkPolicyDirectivesSeenExecution } from "./MarkPolicyDirectivesSeenExecution";
 import { MoveFighterJetExecution } from "./MoveFighterJetExecution";
 import { MoveSubmarineExecution } from "./MoveSubmarineExecution";
 import { MoveWarshipExecution } from "./MoveWarshipExecution";
@@ -25,10 +27,11 @@ import { NoOpExecution } from "./NoOpExecution";
 import { ParatrooperAttackExecution } from "./ParatrooperAttackExecution";
 import { ParatrooperRetreatExecution } from "./ParatrooperRetreatExecution";
 import { PeaceRequestExecution } from "./PeaceRequestExecution";
-import { PurchaseUpgradeExecution } from "./PurchaseUpgradeExecution";
+import { PolicyDirectiveSelectExecution } from "./PolicyDirectiveSelectExecution";
 import { QuickChatExecution } from "./QuickChatExecution";
 import { ResearchTreeSelectExecution } from "./ResearchTreeSelectExecution";
 import { RetreatExecution } from "./RetreatExecution";
+import { ScorchedEarthExecution } from "./ScorchedEarthExecution";
 import { SetAutoBombingExecution } from "./SetAutoBombingExecution";
 import { SetInvestmentRateExecution } from "./SetInvestmentRateExecution";
 import { SetResearchInvestmentExecution } from "./SetResearchInvestmentExecution";
@@ -37,6 +40,7 @@ import { SetTargetTroopRatioExecution } from "./SetTargetTroopRatioExecution";
 import { SpawnExecution } from "./SpawnExecution";
 import { TargetPlayerExecution } from "./TargetPlayerExecution";
 import { TransportShipExecution } from "./TransportShipExecution";
+import { UpgradeBomberExecution } from "./UpgradeBomberExecution";
 import { UpgradeStructureExecution } from "./UpgradeStructureExecution";
 
 export class Executor {
@@ -89,7 +93,8 @@ export class Executor {
         return new BomberTargetExecution(
           player,
           intent.targetID,
-          intent.structure,
+          intent.structures,
+          intent.preferClosest,
         );
 
       case "spawn":
@@ -152,29 +157,32 @@ export class Executor {
           intent.unit,
           intent.tile,
           intent.targetLevel,
+          intent.bomberLevel,
         );
-      case "purchase_upgrade":
-        return new PurchaseUpgradeExecution(player, intent.upgrade);
+      case "activate_scorched_earth":
+        return new ScorchedEarthExecution(player);
       case "upgrade_structure": {
         const unit = player.units().find((u) => u.id() === intent.unitId);
         if (!unit || unit.owner() !== player) return new NoOpExecution();
-        // Allow upgrades for City, Port, Hospital, Academy, Research Lab, Missile Silo, SAM Launcher
-        const allowed =
-          intent.unitType === UnitType.City ||
-          intent.unitType === UnitType.Port ||
-          intent.unitType === UnitType.Hospital ||
-          intent.unitType === UnitType.Academy ||
-          intent.unitType === UnitType.ResearchLab ||
-          intent.unitType === UnitType.Factory ||
-          intent.unitType === UnitType.MissileSilo ||
-          intent.unitType === UnitType.SAMLauncher;
-        if (!allowed || unit.type() !== intent.unitType) {
+        // Check if this is an upgradeable structure type
+        if (
+          !isUpgradeableStructure(intent.unitType) ||
+          unit.type() !== intent.unitType
+        ) {
           return new NoOpExecution();
         }
         return new UpgradeStructureExecution(player, unit);
       }
       case "research_tree_select":
         return new ResearchTreeSelectExecution(player, intent.techId);
+      case "policy_directive_select":
+        return new PolicyDirectiveSelectExecution(
+          player,
+          intent.directiveId,
+          intent.optionId,
+        );
+      case "mark_policy_directives_seen":
+        return new MarkPolicyDirectivesSeenExecution(player);
 
       case "quick_chat":
         return new QuickChatExecution(
@@ -203,6 +211,13 @@ export class Executor {
         return new MarkDisconnectedExecution(player, intent.isDisconnected);
       case "set_auto_bombing":
         return new SetAutoBombingExecution(player, intent.enabled);
+      case "upgrade_bomber": {
+        const airfield = player
+          .units(UnitType.Airfield)
+          .find((u) => u.id() === intent.airfieldId);
+        if (!airfield) return new NoOpExecution();
+        return new UpgradeBomberExecution(player, airfield);
+      }
       default:
         throw new Error(`intent type ${intent} not found`);
     }

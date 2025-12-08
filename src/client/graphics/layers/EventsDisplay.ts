@@ -105,6 +105,8 @@ export class EventsDisplay extends LitElement implements Layer {
     disabled?: boolean;
     translate?: boolean;
     hidden?: boolean;
+    title?: string;
+    ariaLabel?: string;
   }) {
     const {
       content,
@@ -113,6 +115,8 @@ export class EventsDisplay extends LitElement implements Layer {
       disabled = false,
       translate = true,
       hidden = false,
+      title,
+      ariaLabel,
     } = options;
 
     if (hidden) {
@@ -125,6 +129,8 @@ export class EventsDisplay extends LitElement implements Layer {
         @click=${onClick}
         ?disabled=${disabled}
         ?translate=${translate}
+        title=${title ?? null}
+        aria-label=${ariaLabel ?? null}
       >
         ${content}
       </button>
@@ -1050,6 +1056,8 @@ export class EventsDisplay extends LitElement implements Layer {
                         this.toggleEventFilter(MessageCategory.ATTACK),
                       className:
                         "cursor-pointer pointer-events-auto text-gray-200",
+                      title: translateText("events_display.filter_attack"),
+                      ariaLabel: translateText("events_display.filter_attack"),
                     })}
                     ${this.renderButton({
                       content: html`<img
@@ -1065,6 +1073,8 @@ export class EventsDisplay extends LitElement implements Layer {
                         this.toggleEventFilter(MessageCategory.TRADE),
                       className:
                         "cursor-pointer pointer-events-auto text-gray-200",
+                      title: translateText("events_display.filter_trade"),
+                      ariaLabel: translateText("events_display.filter_trade"),
                     })}
                     ${this.renderButton({
                       content: html`<img
@@ -1080,6 +1090,10 @@ export class EventsDisplay extends LitElement implements Layer {
                         this.toggleEventFilter(MessageCategory.ALLIANCE),
                       className:
                         "cursor-pointer pointer-events-auto text-gray-200",
+                      title: translateText("events_display.filter_alliance"),
+                      ariaLabel: translateText(
+                        "events_display.filter_alliance",
+                      ),
                     })}
                     ${this.renderButton({
                       content: html`<img
@@ -1095,6 +1109,8 @@ export class EventsDisplay extends LitElement implements Layer {
                         this.toggleEventFilter(MessageCategory.CHAT),
                       className:
                         "cursor-pointer pointer-events-auto text-gray-200",
+                      title: translateText("events_display.filter_chat"),
+                      ariaLabel: translateText("events_display.filter_chat"),
                     })}
                   </div>
                   <div class="flex items-center gap-3">

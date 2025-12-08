@@ -1,4 +1,4 @@
-import { PurchaseUpgradeExecution } from "../../src/core/execution/PurchaseUpgradeExecution";
+import { ScorchedEarthExecution } from "../../src/core/execution/ScorchedEarthExecution";
 import { PlayerType, UnitType, UpgradeType } from "../../src/core/game/Game";
 import { GameImpl } from "../../src/core/game/GameImpl";
 import { PlayerImpl } from "../../src/core/game/PlayerImpl";
@@ -30,11 +30,14 @@ describe("Scorched Earth Full Cycle Integration Test", () => {
     }
 
     // Research core economy techs to unlock and test revocation behavior
-    player.addResearchedTech(RESEARCH_TECH_IDS.WWII_LESSONS);
-    player.addResearchedTech(RESEARCH_TECH_IDS.POST_WAR_RECONSTRUCTION);
-    player.addResearchedTech(RESEARCH_TECH_IDS.INTERNATIONAL_TRADE);
-    player.addResearchedTech(RESEARCH_TECH_IDS.STRUCTURE_INSURANCE);
-    player.addResearchedTech(RESEARCH_TECH_IDS.AUTOMATION);
+    player.addResearchedTech(
+      RESEARCH_TECH_IDS.POST_WW2_GROUND_FORCES_MODERNIZATION,
+    );
+    player.addResearchedTech(RESEARCH_TECH_IDS.NATIONAL_RECONSTRUCTION_PROGRAM);
+    player.addResearchedTech(
+      RESEARCH_TECH_IDS.NATIONAL_RESEARCH_INDUSTRIAL_FOUNDATIONS,
+    );
+    player.addResearchedTech(RESEARCH_TECH_IDS.TRADE_POLICY_FRAMEWORK);
 
     // Allow the automatic road upgrade to build out the network
     for (let i = 0; i < 200; i++) {
@@ -42,32 +45,31 @@ describe("Scorched Earth Full Cycle Integration Test", () => {
     }
     expect(game.roads().length).toBeGreaterThan(0);
     expect(player.hasUpgrade(UpgradeType.Roads)).toBe(true);
-    expect(player.hasUpgrade(UpgradeType.InternationalTrade)).toBe(true);
-    expect(player.hasUpgrade(UpgradeType.StructureInsurance)).toBe(true);
-    expect(player.hasUpgrade(UpgradeType.Automation)).toBe(true);
+    expect(player.hasUpgrade(UpgradeType.HospitalResearch)).toBe(true);
 
-    // Step 2: Research and activate Scorched Earth, verify network destruction and tech rollback
-    player.addResearchedTech(RESEARCH_TECH_IDS.SCORCHED_EARTH);
-    game.addExecution(
-      new PurchaseUpgradeExecution(player, UpgradeType.ScorchedEarth),
-    );
+    // Step 2: Research and activate Scorched Earth, verify network destruction
+    player.addResearchedTech(RESEARCH_TECH_IDS.MECHANIZED_WARFARE_DOCTRINE);
+    game.addExecution(new ScorchedEarthExecution(player));
     game.executeNextTick();
     expect(game.roads().length).toBe(0);
-    expect(player.hasUpgrade(UpgradeType.Roads)).toBe(false);
-    expect(player.hasUpgrade(UpgradeType.InternationalTrade)).toBe(false);
-    expect(player.hasUpgrade(UpgradeType.StructureInsurance)).toBe(false);
-    expect(player.hasUpgrade(UpgradeType.Automation)).toBe(false);
+    // Scorched Earth only destroys roads, keeps upgrades and techs
+    expect(player.hasUpgrade(UpgradeType.Roads)).toBe(true);
+    expect(player.hasUpgrade(UpgradeType.HospitalResearch)).toBe(true);
     expect(player.hasUpgrade(UpgradeType.ScorchedEarth)).toBe(true);
     expect(player.roadInvestmentRate()).toBe(0);
     expect(
-      player.hasResearchedTech(RESEARCH_TECH_IDS.POST_WAR_RECONSTRUCTION),
-    ).toBe(false);
+      player.hasResearchedTech(
+        RESEARCH_TECH_IDS.NATIONAL_RECONSTRUCTION_PROGRAM,
+      ),
+    ).toBe(true);
     expect(
-      player.hasResearchedTech(RESEARCH_TECH_IDS.INTERNATIONAL_TRADE),
-    ).toBe(false);
+      player.hasResearchedTech(
+        RESEARCH_TECH_IDS.NATIONAL_RESEARCH_INDUSTRIAL_FOUNDATIONS,
+      ),
+    ).toBe(true);
 
     // Step 3: Re-unlock roads and verify Scorched Earth deactivates
-    player.addResearchedTech(RESEARCH_TECH_IDS.POST_WAR_RECONSTRUCTION);
+    player.addResearchedTech(RESEARCH_TECH_IDS.NATIONAL_RECONSTRUCTION_PROGRAM);
     expect(player.hasUpgrade(UpgradeType.ScorchedEarth)).toBe(false);
     player.setRoadInvestmentRate(1);
     for (let i = 0; i < 200; i++) {

@@ -5,7 +5,7 @@ import {
 } from "../../../src/core/tech/TechEffects";
 
 describe("TechEffects", () => {
-  it("removes Scorched Earth upgrade when Post-War Reconstruction completes", () => {
+  it("removes Scorched Earth upgrade when National Reconstruction Program completes", () => {
     const owned = new Set<UpgradeType>([UpgradeType.ScorchedEarth]);
     const player = {
       hasUpgrade: jest.fn((upgrade: UpgradeType) => owned.has(upgrade)),
@@ -19,7 +19,7 @@ describe("TechEffects", () => {
     applyTechCompletionEffects(
       player,
       game,
-      RESEARCH_TECH_IDS.POST_WAR_RECONSTRUCTION,
+      RESEARCH_TECH_IDS.NATIONAL_RECONSTRUCTION_PROGRAM,
     );
 
     expect(player.addUpgrade).toHaveBeenCalledWith(UpgradeType.Roads);

@@ -25,16 +25,19 @@ const analyticsFolder = "analytics";
 export async function archive(gameRecord: GameRecord) {
   try {
     gameRecord.gitCommit = config.gitCommit();
-    // Archive to R2
-    await archiveAnalyticsToR2(gameRecord);
 
-    // Archive full game if there are turns
-    if (gameRecord.turns.length > 0) {
-      log.info(
-        `${gameRecord.info.gameID}: game has more than zero turns, attempting to write to full game to R2`,
-      );
-      await archiveFullGameToR2(gameRecord);
-    }
+    // All archiving disabled to save storage
+    // Rankings are now tracked separately via RankingService
+
+    // Uncomment to enable analytics (~1-2KB per game, just metadata)
+    // await archiveAnalyticsToR2(gameRecord);
+
+    // Uncomment to enable full replay storage (~50-80KB per game)
+    // if (gameRecord.turns.length > 0) {
+    //   await archiveFullGameToR2(gameRecord);
+    // }
+
+    log.info(`${gameRecord.info.gameID}: archiving skipped (disabled)`);
   } catch (error: unknown) {
     // If the error is not an instance of Error, log it as a string
     if (!(error instanceof Error)) {

@@ -7,11 +7,17 @@ import {
   GameStartInfo,
   PlayerRecord,
   ServerMessage,
+  Turn,
 } from "../core/Schemas";
 import { createGameRecord } from "../core/Util";
 import { ServerConfig } from "../core/configuration/Config";
 import { getConfig } from "../core/configuration/ConfigLoader";
-import { PlayerActions, PlayerType, UnitType } from "../core/game/Game";
+import {
+  GameType,
+  PlayerActions,
+  PlayerType,
+  UnitType,
+} from "../core/game/Game";
 import { TileRef } from "../core/game/GameMap";
 import {
   ErrorUpdate,
@@ -32,19 +38,25 @@ import {
   MouseUpEvent,
   UnitSelectionEvent,
 } from "./InputHandler";
+import { LobbyNotificationPopup } from "./LobbyNotificationPopup";
+import { LobbyWatcher } from "./LobbyWatcher";
 import { endGame, startGame, startTime } from "./LocalPersistantStats";
 import { getPersistentID } from "./Main";
 import {
+  SaveReplayRequestEvent,
   SendAttackIntentEvent,
   SendBoatAttackIntentEvent,
   SendHashEvent,
+  SendLobbyNotificationEvent,
   SendSpawnIntentEvent,
   Transport,
 } from "./Transport";
 import { createCanvas } from "./Utils";
 import { createRenderer, GameRenderer } from "./graphics/GameRenderer";
+import { WinModal } from "./graphics/layers/WinModal";
 import { AVAILABLE_STATS, computeStatValue } from "./stats/StatDefinitions";
 import statsStore from "./stats/StatsStore";
+import { PerformanceMetrics } from "./utilities/PerformanceMetrics";
 
 export interface LobbyConfig {
   serverConfig: ServerConfig;
@@ -188,6 +200,7 @@ export class ClientGameRunner {
 
   private turnsSeen = 0;
   private hasJoined = false;
+  private turnBuffer: Turn[] = [];
 
   private lastMousePosition: { x: number; y: number } | null = null;
 
@@ -195,6 +208,7 @@ export class ClientGameRunner {
   private connectionCheckInterval: NodeJS.Timeout | null = null;
 
   private selectedUnit: UnitView | null = null;
+  private lobbyWatcher: LobbyWatcher | null = null;
 
   constructor(
     private lobby: LobbyConfig,
@@ -206,35 +220,97 @@ export class ClientGameRunner {
     private gameView: GameView,
   ) {
     this.lastMessageTime = Date.now();
+    // Start lobby watcher for Single Player games
+    if (
+      this.transport.isLocal &&
+      this.lobby.gameStartInfo?.config.gameType === GameType.Singleplayer
+    ) {
+      this.lobbyWatcher = new LobbyWatcher(this.eventBus);
+      // Listen for lobby notifications and show popup
+      this.eventBus.on(SendLobbyNotificationEvent, (e) => {
+        const popup = document.querySelector(
+          "lobby-notification-popup",
+        ) as LobbyNotificationPopup;
+        if (popup) {
+          popup.show(e);
+        }
+      });
+    }
   }
 
   private saveGame(update: WinUpdate) {
+    if (this.lobby.gameRecord) {
+      return;
+    }
     if (this.myPlayer === null) {
       return;
     }
-    const players: PlayerRecord[] = [
-      {
-        persistentID: getPersistentID(),
-        username: this.lobby.playerName,
-        clientID: this.lobby.clientID,
-        stats: update.allPlayersStats[this.lobby.clientID],
-      },
-    ];
-
     if (this.lobby.gameStartInfo === undefined) {
       throw new Error("missing gameStartInfo");
     }
+
+    // Include all players from the game, not just the local player
+    const players: PlayerRecord[] = this.lobby.gameStartInfo.players.map(
+      (p) => ({
+        persistentID:
+          p.clientID === this.lobby.clientID ? getPersistentID() : "unknown",
+        username: p.username,
+        clientID: p.clientID,
+        stats: update.allPlayersStats[p.clientID] ?? {},
+      }),
+    );
     const record = createGameRecord(
       this.lobby.gameStartInfo.gameID,
       this.lobby.gameStartInfo.config,
       players,
-      // Not saving turns locally
-      [],
+      this.turnBuffer,
       startTime(),
       Date.now(),
       update.winner,
     );
     endGame(record);
+
+    // Pass record to WinModal
+    const winModal = document.querySelector("win-modal") as WinModal;
+    if (winModal) {
+      winModal.setGameRecord(record);
+    }
+  }
+
+  private handleSaveReplayRequest() {
+    if (this.lobby.gameRecord) {
+      // Already watching a replay, don't save
+      return;
+    }
+    if (this.lobby.gameStartInfo === undefined) {
+      return;
+    }
+
+    // Include all players from the game, not just the local player
+    const players: PlayerRecord[] = this.lobby.gameStartInfo.players.map(
+      (p) => ({
+        persistentID:
+          p.clientID === this.lobby.clientID ? getPersistentID() : "unknown",
+        username: p.username,
+        clientID: p.clientID,
+        stats: {},
+      }),
+    );
+
+    const record = createGameRecord(
+      this.lobby.gameStartInfo.gameID,
+      this.lobby.gameStartInfo.config,
+      players,
+      this.turnBuffer,
+      startTime(),
+      Date.now(),
+      undefined, // No winner yet
+    );
+
+    const winModal = document.querySelector("win-modal") as WinModal;
+    if (winModal) {
+      winModal.showSaveReplay(record);
+    }
   }
 
   public start() {
@@ -260,6 +336,10 @@ export class ClientGameRunner {
 
     this.isActive = true;
     this.lastMessageTime = Date.now();
+    // Start lobby watcher if it exists
+    if (this.lobbyWatcher) {
+      this.lobbyWatcher.start();
+    }
     setTimeout(() => {
       this.connectionCheckInterval = setInterval(
         () => this.onConnectionCheck(),
@@ -282,6 +362,10 @@ export class ClientGameRunner {
       } else if (this.selectedUnit === e.unit) {
         this.selectedUnit = null;
       }
+    });
+
+    this.eventBus.on(SaveReplayRequestEvent, () => {
+      this.handleSaveReplayRequest();
     });
 
     this.renderer.initialize();
@@ -308,7 +392,9 @@ export class ClientGameRunner {
         this.eventBus.emit(new SendHashEvent(hu.tick, hu.hash));
       });
       this.gameView.update(gu);
+
       this.renderer.tick();
+
       statsStore.onTick(gu.tick);
 
       if (gu.updates[GameUpdateType.Win].length > 0) {
@@ -325,11 +411,11 @@ export class ClientGameRunner {
     requestAnimationFrame(keepWorkerAlive);
 
     const onconnect = () => {
-      console.log("Connected to game server!");
       this.transport.joinGame(this.turnsSeen);
     };
     const onmessage = (message: ServerMessage) => {
       this.lastMessageTime = Date.now();
+      PerformanceMetrics.getInstance().updatePacketReceived();
       if (message.type === "start") {
         this.hasJoined = true;
         console.log("starting game!");
@@ -383,8 +469,21 @@ export class ClientGameRunner {
             `got wrong turn have turns ${this.turnsSeen}, received turn ${message.turn.turnNumber}`,
           );
         } else {
+          this.turnBuffer.push(message.turn);
           this.worker.sendTurn(message.turn);
           this.turnsSeen++;
+          PerformanceMetrics.getInstance().updateTick();
+          if (this.turnsSeen % 10 === 0 && this.gameView) {
+            const units = this.gameView.units();
+            PerformanceMetrics.getInstance().updateEntityCount(units.length);
+
+            const composition = new Map<UnitType, number>();
+            for (const u of units) {
+              const t = u.type();
+              composition.set(t, (composition.get(t) ?? 0) + 1);
+            }
+            PerformanceMetrics.getInstance().updateUnitComposition(composition);
+          }
         }
       }
     };
@@ -401,6 +500,12 @@ export class ClientGameRunner {
       clearInterval(this.connectionCheckInterval);
       this.connectionCheckInterval = null;
     }
+    // Stop lobby watcher if it exists
+    if (this.lobbyWatcher) {
+      this.lobbyWatcher.stop();
+    }
+    // Clear turn buffer to free memory
+    this.turnBuffer = [];
   }
 
   private inputEvent(event: MouseUpEvent) {
@@ -637,7 +742,7 @@ export class ClientGameRunner {
     }
     const now = Date.now();
     const timeSinceLastMessage = now - this.lastMessageTime;
-    if (timeSinceLastMessage > 5000) {
+    if (timeSinceLastMessage > 15000) {
       console.log(
         `No message from server for ${timeSinceLastMessage} ms, reconnecting`,
       );

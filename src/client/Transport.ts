@@ -8,7 +8,6 @@ import {
   PlayerType,
   Tick,
   UnitType,
-  UpgradeType,
 } from "../core/game/Game";
 import { TileRef } from "../core/game/GameMap";
 import { PlayerView } from "../core/game/GameView";
@@ -33,6 +32,7 @@ import {
 import { replacer } from "../core/Util";
 import { LobbyConfig } from "./ClientGameRunner";
 import { LocalServer } from "./LocalServer";
+
 export class PauseGameEvent implements GameEvent {
   constructor(public readonly paused: boolean) {}
 }
@@ -56,6 +56,10 @@ export class SendUpgradeStructureIntentEvent implements GameEvent {
     public readonly unitId: number,
     public readonly unitType: UnitType,
   ) {}
+}
+
+export class SendUpgradeBomberIntentEvent implements GameEvent {
+  constructor(public readonly airfieldId: number) {}
 }
 
 export class SendAllianceReplyIntentEvent implements GameEvent {
@@ -120,13 +124,20 @@ export class BuildUnitIntentEvent implements GameEvent {
   ) {}
 }
 
-export class SendPurchaseUpgradeIntentEvent implements GameEvent {
-  constructor(public readonly upgrade: UpgradeType) {}
-}
+export class SendScorchedEarthIntentEvent implements GameEvent {}
 
 export class SendResearchTreeSelectIntentEvent implements GameEvent {
   constructor(public readonly techId: string) {}
 }
+
+export class SendPolicyDirectiveSelectIntentEvent implements GameEvent {
+  constructor(
+    public readonly directiveId: string,
+    public readonly optionId: string,
+  ) {}
+}
+
+export class SendMarkPolicyDirectivesSeenIntentEvent implements GameEvent {}
 
 export class SendTargetPlayerIntentEvent implements GameEvent {
   constructor(public readonly targetID: PlayerID) {}
@@ -203,6 +214,9 @@ export class SendWinnerEvent implements GameEvent {
     public readonly allPlayersStats: AllPlayersStats,
   ) {}
 }
+
+export class SaveReplayRequestEvent implements GameEvent {}
+
 export class SendHashEvent implements GameEvent {
   constructor(
     public readonly tick: Tick,
@@ -234,7 +248,8 @@ export class MoveFighterJetIntentEvent implements GameEvent {
 export class SendBomberIntentEvent implements GameEvent {
   constructor(
     public readonly targetID: PlayerID | null, // who to attack
-    public readonly structure: UnitType | null, // what to bomb
+    public readonly structures: UnitType[] | null, // what to bomb
+    public readonly preferClosest: boolean, // target closest or furthest
   ) {}
 }
 
@@ -243,6 +258,16 @@ export class SendSetAutoBombingEvent implements GameEvent {
 }
 export class SendKickPlayerIntentEvent implements GameEvent {
   constructor(public readonly target: string) {}
+}
+
+export class SendLobbyNotificationEvent implements GameEvent {
+  constructor(
+    public readonly currentPlayers: number,
+    public readonly maxPlayers: number,
+    public readonly timeRemaining: number,
+    public readonly gameID: string,
+    public readonly mapName: string,
+  ) {}
 }
 
 export class Transport {
@@ -326,11 +351,14 @@ export class Transport {
       this.onSendSetAutoBombingEvent(e),
     );
 
-    this.eventBus.on(SendPurchaseUpgradeIntentEvent, (e) =>
-      this.onSendPurchaseUpgradeIntent(e),
+    this.eventBus.on(SendScorchedEarthIntentEvent, () =>
+      this.onSendScorchedEarthIntent(),
     );
     this.eventBus.on(SendUpgradeStructureIntentEvent, (e) =>
       this.onSendUpgradeStructureIntent(e),
+    );
+    this.eventBus.on(SendUpgradeBomberIntentEvent, (e) =>
+      this.onSendUpgradeBomberIntent(e),
     );
     this.eventBus.on(SendParatrooperAttackIntentEvent, (e) =>
       this.onSendParatrooperAttackIntent(e),
@@ -338,6 +366,14 @@ export class Transport {
 
     this.eventBus.on(SendResearchTreeSelectIntentEvent, (e) =>
       this.onSendResearchTreeSelectIntent(e),
+    );
+
+    this.eventBus.on(SendPolicyDirectiveSelectIntentEvent, (e) =>
+      this.onSendPolicyDirectiveSelectIntent(e),
+    );
+
+    this.eventBus.on(SendMarkPolicyDirectivesSeenIntentEvent, () =>
+      this.onSendMarkPolicyDirectivesSeenIntent(),
     );
 
     this.eventBus.on(BuildUnitIntentEvent, (e) => this.onBuildUnitIntent(e));
@@ -417,14 +453,32 @@ export class Transport {
     onconnect: () => void,
     onmessage: (message: ServerMessage) => void,
   ) {
-    this.startPing();
-    this.killExistingSocket();
     const wsHost = window.location.host;
     const wsProtocol = window.location.protocol === "https:" ? "wss:" : "ws:";
     const workerPath = this.lobbyConfig.serverConfig.workerPath(
       this.lobbyConfig.gameID,
     );
-    this.socket = new WebSocket(`${wsProtocol}//${wsHost}/${workerPath}`);
+    const url = `${wsProtocol}//${wsHost}/${workerPath}`;
+
+    if (
+      this.socket !== null &&
+      this.socket.readyState === WebSocket.OPEN &&
+      this.socket.url === url
+    ) {
+      console.log("Reusing existing connection");
+      this.onconnect = onconnect;
+      this.onmessage = onmessage;
+      try {
+        this.onconnect();
+      } catch (err) {
+        console.error("Error in onconnect handler:", err);
+      }
+      return;
+    }
+
+    this.startPing();
+    this.killExistingSocket();
+    this.socket = new WebSocket(url);
     this.onconnect = onconnect;
     this.onmessage = onmessage;
     this.socket.onopen = () => {
@@ -713,9 +767,9 @@ export class Transport {
     this._lastBuildUnit = event.unit;
     this._lastBuildAt = now;
 
-    // Compute desired starting level for upgradeable structures from local settings.
     // Compute desired starting level for upgradeable structures or units from local settings.
     let targetLevel: number | undefined;
+    let bomberLevel: number | undefined;
     try {
       const key = String(event.unit);
       if (isUpgradeableUnit(event.unit)) {
@@ -724,6 +778,7 @@ export class Transport {
           const obj = JSON.parse(rawUnits) as Record<string, number>;
           const val = obj?.[key];
           if (typeof val === "number" && val > 1) {
+            // Server will clamp to player's researched max level
             targetLevel = Math.min(maxUnitLevel(event.unit), val);
           }
         }
@@ -737,9 +792,21 @@ export class Transport {
           }
         }
       }
+      // For airfields, also get bomber upgrade level from unit upgrade settings
+      if (event.unit === UnitType.Airfield) {
+        const rawUnits = localStorage.getItem("unitUpgradeSettings.levels");
+        if (rawUnits) {
+          const obj = JSON.parse(rawUnits) as Record<string, number>;
+          const val = obj?.[String(UnitType.Bomber)];
+          if (typeof val === "number" && val > 1) {
+            bomberLevel = Math.min(maxUnitLevel(UnitType.Bomber), val);
+          }
+        }
+      }
     } catch {
       // Ignore malformed local storage.
       targetLevel = undefined;
+      bomberLevel = undefined;
     }
 
     this.sendIntent({
@@ -748,14 +815,14 @@ export class Transport {
       unit: event.unit,
       tile: event.tile,
       targetLevel,
+      bomberLevel,
     });
   }
 
-  private onSendPurchaseUpgradeIntent(event: SendPurchaseUpgradeIntentEvent) {
+  private onSendScorchedEarthIntent() {
     this.sendIntent({
-      type: "purchase_upgrade",
+      type: "activate_scorched_earth",
       clientID: this.lobbyConfig.clientID,
-      upgrade: event.upgrade,
     });
   }
 
@@ -769,6 +836,14 @@ export class Transport {
     });
   }
 
+  private onSendUpgradeBomberIntent(event: SendUpgradeBomberIntentEvent) {
+    this.sendIntent({
+      type: "upgrade_bomber",
+      clientID: this.lobbyConfig.clientID,
+      airfieldId: event.airfieldId,
+    });
+  }
+
   private onSendResearchTreeSelectIntent(
     event: SendResearchTreeSelectIntentEvent,
   ) {
@@ -776,6 +851,24 @@ export class Transport {
       type: "research_tree_select",
       clientID: this.lobbyConfig.clientID,
       techId: event.techId,
+    });
+  }
+
+  private onSendPolicyDirectiveSelectIntent(
+    event: SendPolicyDirectiveSelectIntentEvent,
+  ) {
+    this.sendIntent({
+      type: "policy_directive_select",
+      clientID: this.lobbyConfig.clientID,
+      directiveId: event.directiveId,
+      optionId: event.optionId,
+    });
+  }
+
+  private onSendMarkPolicyDirectivesSeenIntent() {
+    this.sendIntent({
+      type: "mark_policy_directives_seen",
+      clientID: this.lobbyConfig.clientID,
     });
   }
 
@@ -878,7 +971,8 @@ export class Transport {
       type: "bomber_intent",
       clientID: this.lobbyConfig.clientID,
       targetID: event.targetID ?? null,
-      structure: event.structure ?? null,
+      structures: event.structures ?? null,
+      preferClosest: event.preferClosest,
     });
   }
 

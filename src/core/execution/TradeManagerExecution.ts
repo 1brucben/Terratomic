@@ -8,11 +8,13 @@ import {
   Tick,
   Unit,
   UnitType,
+  UpgradeType,
 } from "../game/Game";
 import { TileRef } from "../game/GameMap";
 import { PathFindResultType } from "../pathfinding/AStar";
 import { PathFinder } from "../pathfinding/PathFinding";
 import { PseudoRandom } from "../PseudoRandom";
+import { roadEffectModifiers, tradeIncomeModifiers } from "../tech/TechEffects";
 
 type PairKey = string; // `${fromId}->${toId}`
 
@@ -147,6 +149,14 @@ export class TradeManagerExecution implements Execution {
         // If either side has an embargo against the other, demand is zero
         if (a.hasEmbargoAgainst(b) || b.hasEmbargoAgainst(a)) {
           // Keep fractional demand at 0 for this pair
+          this.demand.set(this.key(a, b), 0);
+          continue;
+        }
+        // If either side lacks InternationalTrade upgrade (autarky), demand is zero
+        if (
+          !a.hasUpgrade(UpgradeType.InternationalTrade) ||
+          !b.hasUpgrade(UpgradeType.InternationalTrade)
+        ) {
           this.demand.set(this.key(a, b), 0);
           continue;
         }
@@ -1090,15 +1100,43 @@ export class AssignedTradeRouteExecution implements Execution {
 
   private complete(): void {
     // Award fixed income split between traders and ship owner
-    const total = this.mg.config().tradeIncomeFixed();
-    const third = total / 3n;
-    const remainder = total - third * 3n;
+    const baseTotal = this.mg.config().tradeIncomeFixed();
     const owner = this.ship.owner();
     const a = this.startPort.owner();
     const b = this.endPort.owner();
-    a.addGold(third);
-    b.addGold(third);
-    owner.addGold(third + remainder);
+
+    // Apply trade income modifiers from researched techs for each recipient
+    const aMods = tradeIncomeModifiers(a);
+    const bMods = tradeIncomeModifiers(b);
+    const ownerMods = tradeIncomeModifiers(owner);
+
+    const third = baseTotal / 3n;
+    const remainder = baseTotal - third * 3n;
+
+    // Calculate base shares with tech modifiers
+    const aBaseTechShare = BigInt(Math.floor(Number(third) * aMods.incomeMul));
+    const bBaseTechShare = BigInt(Math.floor(Number(third) * bMods.incomeMul));
+    // Ship owner gets both incomeMul and tradeShipIncomeMul bonus
+    const ownerBaseTechShare = BigInt(
+      Math.floor(
+        Number(third + remainder) *
+          ownerMods.incomeMul *
+          ownerMods.tradeShipIncomeMul,
+      ),
+    );
+
+    // Apply road connection bonus to port owners' shares
+    const aShare = this.applyRoadConnectionBonus(
+      this.startPort,
+      aBaseTechShare,
+    );
+    const bShare = this.applyRoadConnectionBonus(this.endPort, bBaseTechShare);
+    // Ship owner gets no road bonus (the ship itself isn't road-connected)
+    const ownerShare = ownerBaseTechShare;
+
+    a.addGold(aShare);
+    b.addGold(bShare);
+    owner.addGold(ownerShare);
 
     // Clear trade phase upon successful completion so the ship is eligible for reassignment
     this.setPhaseWithLog(null, "complete_clear_phase");
@@ -1109,7 +1147,7 @@ export class AssignedTradeRouteExecution implements Execution {
     this.ship.touch();
     this.active = false;
     this.log(
-      `completed ship=${this.ship.id()} startPort=${this.startPort.id()} endPort=${this.endPort.id()} income=${total} ownerShare=${third + remainder}`,
+      `completed ship=${this.ship.id()} startPort=${this.startPort.id()} endPort=${this.endPort.id()} baseIncome=${baseTotal} aShare=${aShare} bShare=${bShare} ownerShare=${ownerShare}`,
     );
   }
 
@@ -1121,6 +1159,31 @@ export class AssignedTradeRouteExecution implements Execution {
     this.ship.setTradePhase(phase);
     const owner = this.ship.owner();
     // Trade phase transition logging removed
+  }
+
+  /**
+   * Calculate port gold with road connection bonus.
+   * If the port is connected to the road network, add up to +20% bonus scaled by road quality.
+   */
+  private applyRoadConnectionBonus(port: Unit, baseGold: bigint): bigint {
+    if (!this.mg.isStructureConnectedToRoadNetwork(port)) {
+      return baseGold;
+    }
+
+    const owner = port.owner();
+    if (!owner.isPlayer()) {
+      return baseGold;
+    }
+
+    // Get road quality (0-150, with 100 being baseline)
+    const roadQuality = (owner as Player).roadNetworkQuality();
+    // Road bonus: at 100% quality = 20% increase, at 50% = 10%, at 150% = 30%
+    // roadEffectMul further amplifies/dampens the road bonus (e.g., Transport Priority policy)
+    const roadMods = roadEffectModifiers(owner as Player);
+    const bonusFactor = 0.2 * (roadQuality / 100) * roadMods.effectMul;
+    const bonusGold = BigInt(Math.floor(Number(baseGold) * bonusFactor));
+
+    return baseGold + bonusGold;
   }
 
   // Pick an ocean tile adjacent to the port (targetTile) as navigation target

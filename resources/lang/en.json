@@ -11,6 +11,7 @@
   "main": {
     "title": "Terratomic (ALPHA)",
     "join_discord": "Join the Discord!",
+    "join_discord_tooltip": "Join our Discord community",
     "login_discord": "Login with Discord",
     "checking_login": "Checking login...",
     "logged_in": "Logged in!",
@@ -26,7 +27,8 @@
     "terms_of_service": "Terms of Service"
   },
   "news": {
-    "title": "Version 23 released!"
+    "title": "News and Updates",
+    "tooltip": "View latest news and updates"
   },
   "help_modal": {
     "hotkeys": "Hotkeys",
@@ -123,13 +125,20 @@
     "allow_alliances": "Allow alliances",
     "options_title": "Options",
     "bots": "Bots: ",
+    "bots_tooltip": "Number of bots in the game",
     "bots_disabled": "Disabled",
     "disable_nations": "Disable Nations",
+    "disable_nations_tooltip": "Disables smart AI nations, leaving only basic bots",
     "instant_build": "Instant Build",
+    "instant_build_tooltip": "Buildings and units are constructed instantly",
     "instant_research": "Instant Research",
+    "instant_research_tooltip": "Click on research for instant completion",
     "research_all_techs": "Research All Techs",
+    "research_all_techs_tooltip": "Unlock all technologies at the start of the game",
     "infinite_gold": "Infinite Gold",
+    "infinite_gold_tooltip": "Never run out of gold",
     "infinite_troops": "Infinite Troops",
+    "infinite_troops_tooltip": "Unlimited troop capacity",
     "disable_nukes": "Disable Nukes",
     "enables_title": "Enable Settings",
     "start": "Start Game"
@@ -163,8 +172,10 @@
     "halkidiki": "Halkidiki",
     "straitofgibraltar": "Strait of Gibraltar",
     "italia": "Italia",
-    "nukewars1024": "NukeWars",
-    "nukewars2": "NukeWars 2"
+    "nukewars1024": "Nukewars 1",
+    "nukewars2": "Nukewars 2",
+    "nukewars2000": "Nukewars",
+    "nukewarsquad": "Nukewars Quad"
   },
   "map_categories": {
     "continental": "Continental",
@@ -173,8 +184,13 @@
   },
   "starting_gold": {
     "label": "Starting Gold",
+    "tooltip": "Amount of gold each player starts with",
     "default": "0 (default)",
     "millions": "{amount}M"
+  },
+  "gold_multiplier": {
+    "label": "Gold Multiplier",
+    "tooltip": "Multiplies gold generation rate for all players"
   },
   "private_lobby": {
     "title": "Join Private Lobby",
@@ -189,6 +205,7 @@
   },
   "public_lobby": {
     "join": "Join next Game",
+    "join_tooltip": "Click to join the upcoming match",
     "waiting": "players waiting",
     "teams_Duos": "Duos (teams of 2)",
     "teams_Trios": "Trios (teams of 3)",
@@ -208,14 +225,22 @@
     "team_count": "Number of Teams",
     "options_title": "Options",
     "bots": "Bots: ",
+    "bots_tooltip": "Number of bots in the game",
     "bots_disabled": "Disabled",
     "disable_nations": "Disable Nations",
+    "disable_nations_tooltip": "Disables smart AI nations, leaving only basic bots",
     "instant_build": "Instant Build",
+    "instant_build_tooltip": "Buildings and units are constructed instantly",
     "instant_research": "Instant Research",
+    "instant_research_tooltip": "Click on research for instant completion",
     "research_all_techs": "Research All Techs",
+    "research_all_techs_tooltip": "Unlock all technologies at the start of the game",
     "infinite_gold": "Infinite Gold",
+    "infinite_gold_tooltip": "Never run out of gold",
     "infinite_troops": "Infinite Troops",
+    "infinite_troops_tooltip": "Unlimited troop capacity",
     "peace_timer": "Protected Start",
+    "peace_timer_tooltip": "Players cannot attack each other for this duration at game start",
     "peace_timer_none": "None",
     "peace_timer_minutes": "{minutes} minutes",
     "enables_title": "Enable Settings",
@@ -225,7 +250,8 @@
     "start": "Start Game",
     "host_badge": "Host",
     "unassigned_players": "Unassigned Players",
-    "spectator": "Spectator"
+    "spectator": "Spectator",
+    "remove_player": "Remove {username}"
   },
   "team_colors": {
     "red": "Red",
@@ -253,7 +279,31 @@
     "teams": "Teams"
   },
   "select_lang": {
-    "title": "Select Language"
+    "title": "Select Language",
+    "tooltip": "Select your language",
+    "settings": "Settings"
+  },
+  "build_menu": {
+    "desc": {
+      "atom_bomb": "Small explosive bomb that destroys territory, buildings, ships and boats. Spawns from the nearest Missile Silo.",
+      "hydrogen_bomb": "Large explosive bomb. Spawns from the nearest Missile Silo.",
+      "mirv": "The most powerful bomb in the game. Splits up into smaller bombs that will cover a huge range of territory.",
+      "fighter_jet": "Fast air unit for intercepting bombers and scouting.",
+      "warship": "Patrols in an area, capturing enemy cargo ships and destroying their Boats and Cruisers.",
+      "submarine": "Stealthy naval unit. Can launch nukes if researched. Invisible to enemies unless they have detection.",
+      "city": "Increases your max population. Useful when you can't expand your territory.",
+      "port": "Allows building Cruisers and Submarines. Automatically sends cargo ships to trade with other players.",
+      "airfield": "Automatically deploys bombers that fly out to strike enemy structures then return to base.",
+      "hospital": "Heals injured troops and increases population growth rate.",
+      "research_lab": "Generates research points to unlock new technologies. Build more to research faster.",
+      "factory": "Boosts gold generation efficiency. Essential for scaling your economy.",
+      "academy": "Trains troops faster and provides experience bonuses.",
+      "missile_silo": "Allows launching missiles (Atom Bomb, Hydrogen Bomb, MIRV).",
+      "sam_launcher": "Can intercept enemy missiles and planes. Essential for defense against nuclear attacks.",
+      "defense_post": "Increases defenses around nearby borders. Attacks from enemies are slower and have more casualties.",
+      "doomsday_device": "The ultimate weapon. Constructing this starts a countdown to global victory."
+    },
+    "not_enough_money": "Not enough money"
   },
   "unit_type": {
     "city": "City",
@@ -277,6 +327,7 @@
   },
   "user_setting": {
     "title": "User Settings",
+    "tooltip": "Configure game settings",
     "tab_basic": "Basic Settings",
     "tab_keybinds": "Keybinds",
     "dark_mode_label": "🌙 Dark Mode",
@@ -297,7 +348,7 @@
     "special_effects_enabled": "Special effects enabled",
     "special_effects_disabled": "Special effects disabled",
     "anonymous_names_enabled": "Anonymous names enabled",
-    "lobby_id_visibility_label": "Hidden Lobby IDs",
+    "lobby_id_visibility_label": "Hidden Lobby Ids",
     "lobby_id_visibility_desc": "Hide Lobby ID in private lobby creation",
     "real_names_shown": "Real names shown",
     "left_click_desc": "When ON, left-click opens menu and sword button attacks. When OFF, left-click attacks directly.",
@@ -377,6 +428,8 @@
     "build_fighter_jet_desc": "Set the hotkey to build a Fighter Jet.",
     "build_warship": "Build Cruiser",
     "build_warship_desc": "Set the hotkey to build a Cruiser.",
+    "build_submarine": "Build Submarine",
+    "build_submarine_desc": "Set the hotkey to build a Submarine.",
     "reset": "Reset",
     "unbind": "Unbind",
     "on": "On",
@@ -475,26 +528,6 @@
       "stop_trading": "Stop trading with [P1]!"
     }
   },
-  "build_menu": {
-    "desc": {
-      "atom_bomb": "Small explosion",
-      "hydrogen_bomb": "Large explosion",
-      "mirv": "Huge explosion, only targets selected player",
-      "missile_silo": "Used to launch nukes",
-      "sam_launcher": "Defends against incoming nukes and planes",
-      "warship": "Captures cargo ships, destroys ships and boats",
-      "submarine": "Stealth unit that destroys ships and boats",
-      "port": "Sends cargo ships to generate gold",
-      "defense_post": "Increase defenses of nearby borders",
-      "city": "Increase max population",
-      "hospital": "Lowers troop casualties from combat",
-      "academy": "Increases troop speed and enemy losses in combat",
-      "airfield": "Send bombers, fighterjets and paratroopers",
-      "fighter_jet": "Destroys bombers and fighters jets",
-      "doomsday_device": "A mysterious device with unknown effects"
-    },
-    "not_enough_money": "Not enough money"
-  },
   "win_modal": {
     "died": "You died",
     "your_team": "Your team won!",
@@ -503,11 +536,17 @@
     "other_won": "{player} has won!",
     "exit": "Exit Game",
     "keep": "Keep Playing",
-    "wishlist": "Wishlist on Steam!"
+    "wishlist": "Wishlist on Steam!",
+    "save_replay": "Save Replay",
+    "encoding_replay": "Encoding replay...",
+    "copy_to_clipboard": "Copy to Clipboard",
+    "copied": "✓ Copied!",
+    "download_file": "Download File"
   },
   "leaderboard": {
     "title": "Leaderboard",
     "hide": "Hide",
+    "show": "Show leaderboard",
     "rank": "Rank",
     "player": "Player",
     "team": "Team",
@@ -561,7 +600,11 @@
     "paratrooper_sent": "Paratrooper",
     "doomsday_triggered": "{player}'s Doomsday Device has been Triggered!",
     "max_paratrooper_units_reached": "Maximum number of paratrooper planes reached.",
-    "incoming_paratrooper_attack": "Incoming Paratrooper Attack from {attackerName}"
+    "incoming_paratrooper_attack": "Incoming Paratrooper Attack from {attackerName}",
+    "filter_attack": "Filter Attack Events",
+    "filter_trade": "Filter Trade Events",
+    "filter_alliance": "Filter Alliance Events",
+    "filter_chat": "Filter Chat Events"
   },
   "unit_info_modal": {
     "structure_info": "Structure Info",
@@ -583,7 +626,31 @@
     "gold": "Gold",
     "troops": "Troops",
     "workers": "Workers",
-    "attack_ratio": "Attack Ratio"
+    "attack_ratio": "Attack Ratio",
+    "pop_tooltip": "Your current population (troops + workers) out of maximum capacity. The green number shows population growth per second. Build Cities to increase max population.",
+    "gold_tooltip": "Your current gold treasury. The number in parentheses shows your net gold income per second (after all investments). Workers generate gold - the more workers you have, the more gold you earn!",
+    "troops_workers_tooltip": "Balance your population between Troops (for combat) and Workers (for gold generation). More troops = stronger military but less income. More workers = more gold but weaker defense. Adjust based on your strategy!",
+    "attack_ratio_tooltip": "Percentage of your troops to send when attacking. Higher ratio = more troops per attack = faster conquest but leaves you vulnerable. Lower ratio = slower expansion but better defense. Tip: Use 30-50% for balanced play."
+  },
+  "control_panel2": {
+    "build_tab_tooltip": "Construct defensive and economic structures like Cities, Ports, and Research Labs to strengthen your nation",
+    "attack_tab_tooltip": "Build military units (Warships, Fighter Jets, Submarines) to expand your territory and defend against enemies",
+    "economy_tab_tooltip": "Manage your gold investments in production (faster building), roads (faster troops), and research (faster tech unlocks)",
+    "trade_tab_tooltip": "View your cargo ships and manage trade embargos. Cargo ships generate passive gold by trading between ports",
+    "diplomacy_tab_tooltip": "See your diplomatic relations: who you're at war with, allied with, or neutral towards",
+    "bombers_tab_tooltip": "Control bomber aircraft from your Airfields to destroy enemy structures. Set auto-bombing or manual targets",
+    "production_investment_tooltip": "Invest gold to boost productivity. Higher productivity = faster construction and cheaper maintenance. This compounds over time - early investment pays off big!",
+    "road_investment_tooltip": "Invest gold to build and maintain roads between your cities. Roads dramatically speed up troop movement. The white marker shows break-even point (covers maintenance cost). Requires 'Post-War Reconstruction' research",
+    "research_investment_tooltip": "Invest gold to speed up research progress. Higher investment = faster technology unlocks. Balance with production and roads based on your strategy!",
+    "embargo_all_tooltip": "Stop all your cargo ships from trading with other players. Use this to cut off enemies from trade benefits and gold income",
+    "remove_all_embargos_tooltip": "Allow your cargo ships to trade with all players again. Removes all trade restrictions and maximizes your trade income",
+    "diplomacy_declare_war_tooltip": "Declare war on this player",
+    "diplomacy_request_peace_tooltip": "Request peace with this player",
+    "diplomacy_request_alliance_tooltip": "Send an alliance request",
+    "diplomacy_betray_tooltip": "Break alliance (you will be marked a traitor)",
+    "diplomacy_war_all_tooltip": "Declare war on all players you are not at war with",
+    "diplomacy_ally_all_tooltip": "Send alliance requests to all non-allied players",
+    "diplomacy_peace_all_tooltip": "Request peace with all players you are at war with"
   },
   "player_panel": {
     "gold": "Gold",
@@ -633,5 +700,502 @@
     "international_trade_destination": "A cargo truck from {originName} arrived. You received {goldAmount} gold.",
     "insurance_refund": "Insurance refund {amount} gold.",
     "insurance_refund_conquest": "Insurance refund {amount} gold for conquered structure."
+  },
+  "research_tree": {
+    "title": "Research Tree",
+    "toggle_tooltip": "Open the Research Tree",
+    "tab_tooltip": {
+      "overview": "View all research categories",
+      "land": "Land-based warfare technologies",
+      "sea": "Naval and amphibious technologies",
+      "air": "Air power technologies",
+      "nuclear": "Nuclear and missile technologies",
+      "economy": "Economic and infrastructure technologies"
+    },
+    "investment": {
+      "slider_locked": "Slider is locked. Double-click to unlock.",
+      "slider_unlocked": "Double-click slider to lock.",
+      "road_disabled": "Research Post-War Reconstruction to enable road investment.",
+      "research_goal": "Increase research investment to unlock technologies faster."
+    }
+  },
+  "unit_upgrade_settings": {
+    "title": "Unit Upgrade Settings",
+    "decrease": "Decrease",
+    "increase": "Increase"
+  },
+  "statistics": {
+    "title": "Statistics",
+    "sort_by": "Sort By {label}",
+    "sort_by_player": "Sort By Player",
+    "graph_aria_label": "Graph"
+  },
+  "sound_button": {
+    "toggle_sound": "Toggle Sound"
+  },
+  "index": {
+    "initializing": "Initializing...",
+    "logout": "Log Out",
+    "create_lobby": "Create Lobby",
+    "join_lobby": "Join Lobby",
+    "chat_test": "Chat Test",
+    "single_player": "Single Player",
+    "instructions": "Instructions",
+    "settings": "Settings"
+  },
+  "lobby_notification": {
+    "title": "Players Waiting!",
+    "starts_in": "Starts in {time}",
+    "join_game": "Join Game",
+    "mute_30m": "Mute for 30 minutes",
+    "disable": "Disable Notifications"
+  },
+  "rankings": {
+    "title": "Rankings",
+    "leaderboard": "Leaderboard",
+    "players_tab": "Players",
+    "clans_tab": "Clans",
+    "hall_of_fame_tab": "Hall of Fame",
+    "player": "Player",
+    "clan": "Clan",
+    "members": "Members",
+    "games": "Games",
+    "wins": "Wins",
+    "win_rate": "Win %",
+    "score": "Score",
+    "total_players": "Total players",
+    "total_clans": "Total clans",
+    "no_rankings": "No rankings yet. Play some games to get on the leaderboard!",
+    "no_clans": "No clan rankings yet. Use [TAG] in your name to join a clan!",
+    "no_hall_of_fame": "No past winners yet. Check back after the first month!",
+    "top_players": "Top Players",
+    "top_clans": "Top Clans",
+    "loading": "Loading...",
+    "retry": "Retry"
+  },
+  "help_modal_v2": {
+    "tabs": {
+      "getting_started": "Getting Started",
+      "ui_guide": "UI Guide",
+      "structures": "Structures",
+      "units": "Units",
+      "investment": "Investment",
+      "tech_tree": "Tech Tree",
+      "strategy": "Strategy"
+    },
+    "labels": {
+      "key": "Key",
+      "action": "Action",
+      "shift": "Shift",
+      "name": "Name",
+      "icon": "Icon",
+      "hotkey": "Hotkey",
+      "description": "Description",
+      "none": "None",
+      "menu": "Radial menu",
+      "auto": "Auto"
+    },
+    "getting_started": {
+      "title": "Getting Started",
+      "objective_title": "Game Objective",
+      "objective_description": "<strong>Win Condition:</strong> Be the first player to control <strong>80% of the world map</strong> (95% in Team games). Expand your territory, build your economy, develop advanced technology, and dominate your rivals through military conquest or strategic alliances.",
+      "objective_territory_control": "<strong>Territory Control:</strong> Your map control percentage is shown in the leaderboard (top-left)",
+      "objective_elimination": "<strong>Elimination:</strong> If you lose all your territory, you're eliminated from the game",
+      "hotkeys_title": "Hotkeys & Controls",
+      "hotkeys_description": "Master these essential controls to play effectively:",
+      "hotkeys": {
+        "space": "Toggle alternative view (shows different information overlays)",
+        "center_camera": "Center camera on your capital/territory",
+        "zoom": "Zoom in / Zoom out",
+        "move_camera": "Move camera (pan view in all directions)",
+        "attack": "Left-click to attack adjacent tiles and expand territory",
+        "emote": "Send emote to player (quick emote without radial menu)",
+        "ratio_keys": "Adjust worker/troop ratio (decrease/increase troops)",
+        "ratio_scroll": "Adjust worker/troop ratio with mouse wheel",
+        "ui_scale": "Scale UI size up/down (resize interface elements)",
+        "reset_graphics": "Reset graphics/rendering (fixes visual glitches)"
+      },
+      "first_steps_title": "First Steps",
+      "first_steps_intro": "When you start a new game, follow these steps:",
+      "first_steps_spawn": "<strong>Select Spawn Point:</strong> When the game starts, click on the map to choose your starting location. Pick a strategic position with room to expand.",
+      "first_steps_ratio": "<strong>Adjust Worker/Troop Ratio:</strong> Press 1 or 2 to balance economy vs military (start with ~50% troops)",
+      "first_steps_expand": "<strong>Expand Territory:</strong> Left-click on adjacent unconquered tiles to send troops and capture land",
+      "first_steps_city": "<strong>Build Your First City:</strong> Press Y on the tile you want, or open the Command Center Build menu (bottom left, next to the control panel) and select City, then click on your territory to increase population cap",
+      "first_steps_economy": "<strong>Manage Economy:</strong> Open the Command Center Economy tab to allocate research funding",
+      "first_steps_growth": "<strong>Keep Expanding:</strong> Continuously capture neutral territory and bots to grow your empire",
+      "first_steps_tip": "<strong>Tip:</strong> Focus on expansion and economy in the first 5-10 minutes. Military units come later once you have the infrastructure.",
+      "core_title": "Core Gameplay Mechanics",
+      "territory_title": "Territory & Expansion",
+      "territory_neutral": "<strong>Neutral Territory:</strong> Unclaimed tiles can be captured by clicking to send troops",
+      "territory_enemy": "<strong>Enemy Territory:</strong> Colored tiles belong to other players or bots - you declare war when you attack them",
+      "territory_capture": "<strong>Capture Mechanics:</strong> Your troops automatically attack adjacent enemy/neutral tiles when you click them",
+      "territory_loss": "<strong>Territory Loss:</strong> If an enemy captures your tile, you lose that land and any structures on it",
+      "combat_title": "Combat System",
+      "combat_auto": "<strong>Automatic Combat:</strong> Troops automatically fight when attacking or defending tiles",
+      "combat_defense": "<strong>Defensive Advantage:</strong> Defending troops have a bonus - attackers need numerical superiority",
+      "combat_casualties": "<strong>Casualties:</strong> Both sides lose troops in combat. Hospitals can recover some casualties",
+      "combat_ratio": "<strong>Attack Ratio:</strong> The slider in your control panel determines what % of troops are attacking vs defending",
+      "population_title": "Population & Growth",
+      "population_cap": "<strong>Population Cap:</strong> Determined by the number and level of Cities you build",
+      "population_growth": "<strong>Growth Rate:</strong> Population grows automatically over time up to your cap",
+      "population_split": "<strong>Worker/Troop Split:</strong> Use keys 1/2 or Shift + mouse wheel to adjust the ratio",
+      "population_workers": "<strong>Workers:</strong> Generate gold based on your productivity level",
+      "population_troops": "<strong>Troops:</strong> Used for attacking, defending, and territorial expansion",
+      "economy_title": "Economy & Resources",
+      "economy_generation": "<strong>Gold Generation:</strong> Workers x Productivity = Gold per second",
+      "economy_productivity": "<strong>Productivity:</strong> Increases over time through investment and Factories",
+      "economy_spending": "<strong>Spending:</strong> Gold is used to build structures, recruit units, and fund research",
+      "economy_investment": "<strong>Investment:</strong> Allocate income to Research, Roads, and Productivity growth in the Economy tab",
+      "economy_example": "<strong>Example:</strong> If you have 1,000 workers at 2.0 productivity, you generate 2,000 gold/second.",
+      "map_title": "Map & Visual Information",
+      "map_colors": "<strong>Territory Colors:</strong> Each player and bot has a unique color - other tiles are neutral",
+      "map_borders": "<strong>Borders:</strong> Thick lines separate player territories",
+      "map_structures": "<strong>Structures:</strong> Icons on the map show where buildings are located",
+      "map_roads": "<strong>Roads:</strong> Visible as lines connecting your structures - increase troop movement speed",
+      "diplomacy_title": "Diplomacy Mechanics",
+      "diplomacy_intro": "Manage relationships with other players through the Diplomacy tab or radial menu (right-click).",
+      "diplomacy_neutral": "<strong>Neutral (Default):</strong> You will not attack each other, but you're not allies. You can trade.",
+      "diplomacy_allied": "<strong>Allied:</strong> You cannot attack each other. Breaking an alliance requires betrayal.",
+      "diplomacy_war": "<strong>War:</strong> You can attack each other's territory. Declared via \"Declare War\" or by attacking an ally.",
+      "diplomacy_peace": "<strong>Peace Requests:</strong> Propose to end a war and return to neutral status. Both players must agree.",
+      "diplomacy_betrayal": "<strong>Alliance Breaking:</strong> Use \"Betray\" to break an alliance - this puts you at war with your former ally.",
+      "diplomacy_warning": "<strong>Warning:</strong> Betraying allies harms your defense. While marked a traitor your defense will be 50% weaker."
+    },
+    "ui_guide": {
+      "title": "User Interface",
+      "welcome_title": "Welcome to Terratomic",
+      "welcome_image_alt": "Game Interface",
+      "control_panel_title": "Control Panel",
+      "control_panel_intro": "The control panel (bottom-left) shows your current resources and population distribution:",
+      "control_panel_population": "<strong>Population:</strong> Total population (workers + troops). Example: \"15,000 / 30,000\" means you have 15k population with a 30k cap",
+      "control_panel_gold": "<strong>Gold:</strong> Current gold reserves and income rate. Example: \"50,000 (+2,500/s)\" means 50k gold, earning 2.5k per second",
+      "control_panel_workers": "<strong>Workers/Troops:</strong> Distribution of population between economy and military. Adjust with keys 1/2",
+      "control_panel_attack_ratio": "<strong>Attack Ratio:</strong> Percentage of troops currently attacking vs defending. Higher = more aggressive expansion",
+      "control_panel_tip": "<strong>Tip:</strong> Don't attack with a large amount of troops. It will leave you vulnerable to counter attacks.",
+      "control_panel_image_alt": "Control Panel",
+      "command_center_title": "Command Center",
+      "command_center_intro": "The Command Center (bottom left, to the right of the control panel) is your main control hub, organized into several tabs for different aspects of your empire management. Open it using the large waffle button next to the control panel.",
+      "command_center_build_title": "Build Tab",
+      "command_center_build_desc": "Construct permanent structures to expand your economy and military capabilities. Buildings include Cities (increase population cap), Defense Posts (fortify territory), Ports (enable naval units), Airfields (enable air units), Hospitals (recover casualties), Research Labs (boost tech speed), Military Academies (increase troop strength), Factories (boost gold income), Missile Silos (enable nuclear weapons), SAM Launchers (air defense), and the Doomsday Device (ultimate deterrent).",
+      "command_center_build_alt": "Build Tab",
+      "command_center_attack_title": "Attack Tab",
+      "command_center_attack_desc": "Recruit mobile units for warfare and expansion. Available units include naval forces (Warships, Submarines, Transport Ships, Trade Ships), air units (Bombers, Fighter Jets, Paratroopers), and nuclear weapons (Atom Bombs, Hydrogen Bombs, MIRVs). Each unit type requires specific structures and technologies to unlock. Units can be upgraded to improve their combat effectiveness.",
+      "command_center_attack_alt": "Attack Tab",
+      "command_center_economy_title": "Economy Tab",
+      "command_center_economy_desc": "Manage your financial investments to grow your empire's long-term power. Allocate income between Research (unlock technologies, 0-50% of income), Productivity (increase worker efficiency and gold generation), and Roads (boost troop movement speed and economic output). Balancing these investments is crucial for maintaining both short-term military strength and long-term economic dominance.",
+      "command_center_economy_alt": "Economy Tab",
+      "command_center_trade_title": "Trade Tab",
+      "command_center_trade_desc": "Monitor your international trade network and manage trade ships. Trade ships automatically travel between your ports and other players' ports to generate passive gold income. This tab displays active trade routes, trade ship counts, and allows you to manage your maritime commerce. Trade ships are vulnerable to enemy warships and submarines during wartime.",
+      "command_center_trade_alt": "Trade Tab",
+      "command_center_diplomacy_title": "Diplomacy Tab",
+      "command_center_diplomacy_desc": "Manage diplomatic relations with other players. View all players in the game and their current diplomatic status with you (Neutral, Allied, or War). Propose alliances, declare war, request peace, or betray allies. Diplomatic actions have strategic consequences - betraying allies weakens your defense by 50% while you have the traitor status, and maintaining good relations can provide strategic advantages.",
+      "command_center_diplomacy_alt": "Diplomacy Tab",
+      "command_center_bombers_title": "Bombers Tab",
+      "command_center_bombers_desc": "Coordinate strategic air strikes from your airfields. Bombers automatically launch from airfields to attack enemy structures and territories, dealing significant damage without risking ground troops. This tab allows you to manage bombing campaigns and target priorities.",
+      "command_center_bombers_alt": "Bombers Tab",
+      "radial_title": "Radial Menu",
+      "radial_intro": "Right-click on tiles to access context-sensitive actions:",
+      "radial_info": "<strong>Info:</strong> View detailed player information and statistics",
+      "radial_transport": "<strong>Transport Ship:</strong> Deploy transport ships to attack across water",
+      "radial_alliance": "<strong>Alliance:</strong> Propose alliances with other players",
+      "radial_betray": "<strong>Betray:</strong> Break alliances with current allies",
+      "radial_peace": "<strong>Peace:</strong> Request peace with neutral players or those you're at war with",
+      "radial_war": "<strong>Declare War:</strong> Formally declare war on neutral players",
+      "radial_air": "<strong>Air Attack:</strong> Deploy paratroopers from airfields (requires tech)",
+      "radial_attack": "<strong>Attack (Center):</strong> Launch ground attack with troops",
+      "radial_note": "<strong>Note:</strong> Available options depend on the tile you click and your current capabilities.",
+      "radial_image_alt": "Radial Menu",
+      "events_title": "Events Panel",
+      "events_intro": "The events panel displays important notifications:",
+      "events_alliance": "<strong>Alliance Requests:</strong> Incoming and outgoing alliance proposals",
+      "events_attacks": "<strong>Attack Warnings:</strong> Notifications when you're under attack",
+      "events_chat": "<strong>Quick Chat:</strong> Messages and emotes from other players",
+      "events_game": "<strong>Game Events:</strong> Important game state changes",
+      "events_image_alt": "Event Panel",
+      "leaderboard_title": "Leaderboard",
+      "leaderboard_intro": "Located in the top-left corner, the leaderboard shows the current standings of all players in the game.",
+      "leaderboard_rankings": "<strong>Rankings:</strong> Players are ranked by territory controlled (percentage of map)",
+      "leaderboard_info": "<strong>Player Info:</strong> Shows each player's name, color, and current map control percentage",
+      "leaderboard_victory": "<strong>Victory Condition:</strong> Control 80% of the world map (95% in Team games).",
+      "leaderboard_updates": "<strong>Real-time Updates:</strong> Rankings update dynamically as territories change hands",
+      "leaderboard_image_alt": "Leaderboard",
+      "research_button_title": "Research Tree Button",
+      "research_button_intro": "Located on the left side of the screen (center height), this button opens the Technology Research Tree interface.",
+      "research_button_view": "<strong>Tech Tree View:</strong> Displays all available technologies organized by category",
+      "research_button_progress": "<strong>Progress Tracking:</strong> Shows completion percentage for each technology",
+      "research_button_priority": "<strong>Priority Selection:</strong> Click technologies to prioritize them for faster research",
+      "research_button_prereq": "<strong>Prerequisites:</strong> Visual connections show which techs must be completed first",
+      "research_button_tip": "<strong>Tip:</strong> Regularly check the tech tree to plan your research path and prioritize critical technologies.",
+      "research_button_image_alt": "Research Menu Button",
+      "options_title": "Options Menu",
+      "options_intro": "Located in the top-left corner (near the leaderboard), the options menu provides access to gameplay settings.",
+      "options_gameplay": "<strong>Gameplay Options:</strong> Toggle various UI elements and game features to customize your experience",
+      "options_image_alt": "Options Menu",
+      "status_title": "Player Status Icons",
+      "status_intro": "Icons appear above player names on the map to show their diplomatic status and relationship with you:",
+      "status_peace": "<strong>Peace Symbol:</strong> Indicates you have an active peace agreement with this player. Neither can attack the other until the peace is broken.",
+      "status_alliance_request": "<strong>Alliance Request:</strong> Shows when a player has sent you an alliance proposal that you haven't responded to yet.",
+      "status_traitor": "<strong>Traitor Symbol:</strong> Appears when a player has betrayed an alliance. Traitors suffer a 50% defense penalty until the status expires.",
+      "status_embargo": "<strong>Embargo Symbol:</strong> Indicates you have placed a trade embargo on this player, preventing trade ships from traveling to their ports.",
+      "status_tip": "<strong>Tip:</strong> These icons help you quickly identify the diplomatic status of players without opening menus.",
+      "status_peace_alt": "Peace Icon",
+      "status_alliance_alt": "Alliance Request Icon",
+      "status_traitor_alt": "Traitor Icon",
+      "status_embargo_alt": "Embargo Icon"
+    },
+    "structures": {
+      "title": "Structures",
+      "intro": "Structures are essential for your economy and military. Build them using <strong>Hotkeys</strong> or by selecting them from the <strong>Command Center Build Menu</strong>.",
+      "city": {
+        "name": "City",
+        "desc": "Urban centers for population mobilization. Increases manpower cap by <strong>30,000</strong> per level. <strong>Tip:</strong> Establish early to secure long-term growth."
+      },
+      "defense_post": {
+        "name": "Defense Post",
+        "desc": "Fortified strongpoints to stall enemy advances. Provides defensive bonuses to stationed troops. <strong>Range:</strong> 40 tiles. <strong>Tip:</strong> Deploy at chokepoints to create kill zones."
+      },
+      "port": {
+        "name": "Port",
+        "desc": "Naval logistics hubs. Enables construction of <strong>Warships</strong> and <strong>Submarines</strong> for maritime dominance. Automatically deploys <strong>Trade Ships</strong>. <strong>Tip:</strong> Vital for projecting power across oceans."
+      },
+      "airfield": {
+        "name": "Airfield",
+        "desc": "Strategic air command bases. Essential for projecting air power. <strong>Bomber Range:</strong> 250 / 350 / 450 tiles (by level). <strong>Tip:</strong> Strike deep behind enemy lines."
+      },
+      "hospital": {
+        "name": "Hospital",
+        "desc": "Field medical centers. Critical for sustaining combat operations. First facility recovers ~10% of casualties; max ~40%. <strong>Tip:</strong> Secure one early to conserve manpower."
+      },
+      "research_lab": {
+        "name": "Research Lab",
+        "desc": "Advanced weapons development facilities. Accelerates technological breakthroughs. First lab provides ~40% boost, second ~20%, halving thereafter. <strong>Tip:</strong> Maintain technological superiority."
+      },
+      "military_academy": {
+        "name": "Military Academy",
+        "desc": "Officer training grounds. Enhances troop combat effectiveness by up to 20%. First academy yields ~10% boost. <strong>Tip:</strong> Train elite forces before major offensives."
+      },
+      "factory": {
+        "name": "Factory",
+        "desc": "Industrial production complexes. Boosts gold generation efficiency. First complex increases output by ~27%. <strong>Tip:</strong> Fuel the war machine with robust industry."
+      },
+      "missile_silo": {
+        "name": "Missile Silo",
+        "desc": "Strategic launch sites. The cornerstone of nuclear deterrence. Enables <strong>Atom Bombs</strong>, <strong>Hydrogen Bombs</strong>, and <strong>MIRVs</strong>. <strong>Tip:</strong> Mutually Assured Destruction is a valid strategy."
+      },
+      "sam_launcher": {
+        "name": "SAM Launcher",
+        "desc": "Air defense batteries. Intercepts incoming aircraft and missiles. <strong>Range:</strong> 70 / 95 / 128 tiles (by level). <strong>Tip:</strong> Create an iron dome over key assets."
+      },
+      "doomsday": {
+        "name": "Doomsday Device",
+        "desc": "The ultimate deterrent. Activation triggers a catastrophic radioactive event, neutralizing territory and crippling global infrastructure. <strong>Warning:</strong> Use only as a last resort."
+      },
+      "hotkeys_title": "Building Hotkeys",
+      "hotkeys_intro": "<strong>Configurable Hotkeys:</strong> You can customize hotkeys for building structures.",
+      "hotkeys_view": "<strong>View Hotkeys:</strong> Check the <strong>Settings</strong> menu to see and customize your hotkeys",
+      "hotkeys_reference": "<strong>Quick Reference:</strong> Look in the bottom right corner of the build items in the <strong>Command Center Build Menu</strong> (bottom left, next to the control panel) to see their assigned hotkeys"
+    },
+    "units": {
+      "title": "Units",
+      "intro": "Mobile units are recruited from the Attack tab in the Command Center. They require specific structures and technologies to unlock.",
+      "deployment_title": "Unit Deployment & Behavior",
+      "deployment_recruitment": "<strong>Recruitment:</strong> Units are built from the Attack tab (Command Center, bottom left, next to the control panel)",
+      "deployment_ai": "<strong>Automatic AI:</strong> Most units operate autonomously - they patrol, defend, and engage enemies automatically",
+      "deployment_manual": "<strong>Manual Control:</strong> Some units (Transport Ships, Nukes) require manual targeting via right-click menu",
+      "deployment_prereq": "<strong>Prerequisites:</strong> Units require specific structures (e.g., Port for ships, Airfield for aircraft)",
+      "deployment_upgrades": "<strong>Upgrades:</strong> Click the upgrade arrow on unit cards to improve their stats (requires tech research)",
+      "naval": {
+        "title": "Naval Units",
+        "transport": {
+          "name": "Transport Ship",
+          "desc": "<strong>Requirement:</strong> Port<br />Carries troops across water to expand your territory overseas. Essential for island hopping. <strong>Capacity:</strong> Can carry large numbers of troops."
+        },
+        "warship": {
+          "name": "Warship",
+          "desc": "<strong>Requirement:</strong> Port<br />Powerful naval combat vessel. Patrols and engages enemy naval units (and trade ships during war). <strong>Upgrades:</strong> Levels 2/3 boost hull and damage (HP 1250/1500; +70 dmg per level)."
+        },
+        "submarine": {
+          "name": "Submarine",
+          "desc": "<strong>Requirement:</strong> Port<br />Stealth naval unit used to ambush trade ships and warships. <strong>Tip:</strong> Great for surprise attacks and map control on water maps."
+        },
+        "trade_ship": {
+          "name": "Trade Ship",
+          "desc": "<strong>Requirement:</strong> Port<br />Generates gold by trading between your ports and other players' ports (not between your own ports). Passive income source. <strong>Tip:</strong> Protect trade routes from pirates and enemy submarines."
+        }
+      },
+      "air": {
+        "title": "Air Units",
+        "bomber": {
+          "name": "Bomber",
+          "desc": "<strong>Requirement:</strong> Airfield<br />Aircraft that bombs enemy structures and territories. Launches from airfields and must return. <strong>Vulnerable to:</strong> Fighter jets and SAM launchers. <strong>Upgrades:</strong> Longer range (250/350/450), faster (speed 2/3/4), tougher (500/600/700 HP), more damage (250/300/350)."
+        },
+        "fighter": {
+          "name": "Fighter Jet",
+          "desc": "<strong>Requirement:</strong> Airfield<br />Fast aircraft that intercepts bombers and missiles. Can patrol areas for air defense. <strong>Upgrades:</strong> Levels 2-4 increase damage and HP (dmg +100 per level; HP 1000/1250/1500). Naval targeting comes from tech, not levels."
+        },
+        "paratrooper": {
+          "name": "Paratrooper",
+          "desc": "<strong>Requirement:</strong> Airfield<br />Airborne troops that can be dropped behind enemy lines for surprise attacks. <strong>Tip:</strong> Excellent for capturing isolated enemy territories."
+        }
+      },
+      "nuclear": {
+        "title": "Nuclear Weapons",
+        "atom": {
+          "name": "Atom Bomb",
+          "desc": "<strong>Requirement:</strong> Missile Silo<br />First-generation nuclear weapon. Destroys structures and kills troops in blast radius. <strong>Range:</strong> Limited by trajectory calculation."
+        },
+        "hydrogen": {
+          "name": "Hydrogen Bomb",
+          "desc": "<strong>Requirement:</strong> Missile Silo<br />More powerful than Atom Bomb. Larger blast radius and more damage. <strong>Tip:</strong> Can devastate entire regions in one strike."
+        },
+        "mirv": {
+          "name": "MIRV",
+          "desc": "<strong>Requirement:</strong> Missile Silo<br />Multiple Independently targetable Reentry Vehicles. Splits into multiple warheads. <strong>Special:</strong> Each warhead can target different locations."
+        }
+      }
+    },
+    "investment": {
+      "title": "Investment & Research",
+      "overview_title": "Investment System Overview",
+      "overview_desc": "You can allocate a portion of your income to various investments that provide long-term strategic benefits. Investment reduces your immediate gold income but provides advantages that compound over time.",
+      "overview_image_alt": "Economy Tab",
+      "research_title": "Research Investment",
+      "research_intro": "Research unlocks new technologies in the tech tree. You can allocate up to 50% of your income to research.",
+      "research_rate": "<strong>Investment Rate:</strong> Adjustable from 0-50% of your income",
+      "research_speed": "<strong>Research Speed:</strong> Higher investment = faster technology unlocks",
+      "research_labs": "<strong>Research Labs:</strong> Each lab increases research speed with diminishing returns (first +40%, second +20%, halving thereafter)",
+      "research_tip": "<strong>Strategy Tip:</strong> Keep research funded to avoid falling behind in tech.",
+      "productivity_title": "Productivity Investment",
+      "productivity_intro": "Productivity represents your industrial capacity and worker efficiency. It determines how much gold each worker generates.",
+      "productivity_growth": "<strong>Growth Rate:</strong> Determined by your investment rate (portion of income not spent)",
+      "productivity_compound": "<strong>Compound Effect:</strong> Higher productivity = more gold = faster productivity growth",
+      "productivity_loss": "<strong>Loss Conditions:</strong> Can be reduced through warfare, nukes, and scorched earth",
+      "productivity_importance": "<strong>Long-term Impact:</strong> Most important economic stat for late-game dominance",
+      "productivity_tip": "<strong>Strategy Tip:</strong> Balance short-term spending with long-term productivity growth.",
+      "roads_title": "Road Investment",
+      "roads_intro": "Roads increase troop movement speed across your territory and provide economic bonuses through improved trade and logistics.",
+      "roads_rate": "<strong>Investment Rate:</strong> Adjustable from 0-100% of your income",
+      "roads_effects": "<strong>Effects:</strong> Faster movement for troops and improved connectivity for trade",
+      "roads_maintenance": "<strong>Maintenance Cost:</strong> Roads require ongoing maintenance based on network length",
+      "roads_break_even": "<strong>Break-Even Point:</strong> Shown on slider - where construction cost equals maintenance",
+      "roads_quality": "<strong>Quality:</strong> Currently constant at 100%, may vary in future updates",
+      "roads_completion": "<strong>Completion:</strong> Percentage of planned roads that are finished",
+      "roads_tip": "<strong>Strategy Tip:</strong> Invest heavily early to build network quickly, then reduce to maintenance level.",
+      "strategy_title": "Investment Strategy",
+      "strategy_intro": "Effective investment requires balancing multiple competing priorities:",
+      "strategy_early": "<strong>Early Game:</strong> Focus on productivity growth and essential techs",
+      "strategy_mid": "<strong>Mid Game:</strong> Balance roads, research, and military spending",
+      "strategy_late": "<strong>Late Game:</strong> Maximize productivity while maintaining military superiority",
+      "strategy_under_attack": "<strong>Under Attack:</strong> Reduce investments to fund immediate defense",
+      "research_strategy_title": "Research Strategy",
+      "research_strategy_early": "<strong>Early Game:</strong> Rush economy techs (Roads, Hospitals, Research Labs)",
+      "research_strategy_mid": "<strong>Mid Game:</strong> Balance military and economic techs based on threats",
+      "research_strategy_late": "<strong>Late Game:</strong> Focus on advanced weapons and unit upgrades",
+      "research_strategy_defensive": "<strong>Defensive:</strong> Prioritize SAM launchers and fighter jets if facing air attacks",
+      "research_strategy_offensive": "<strong>Offensive:</strong> Rush nuclear weapons for devastating strikes",
+      "research_strategy_naval": "<strong>Naval Maps:</strong> Prioritize submarine and warship upgrades early"
+    },
+    "tech_tree": {
+      "title": "Technology Tree",
+      "overview_title": "Tech Tree Overview",
+      "overview_desc": "The tech tree contains technologies organized into five categories: <strong>Land</strong>, <strong>Sea</strong>, <strong>Air</strong>, <strong>Nuclear</strong>, and <strong>Economy</strong>. Each technology provides unique bonuses, unlocks new units, or enables new capabilities.",
+      "overview_image_alt": "Tech Tree",
+      "how_title": "How Research Works",
+      "research_prereq": "<strong>Prerequisites:</strong> Technologies have requirements that must be researched first",
+      "research_all_of": "<strong>\"All Of\" Requirements:</strong> Red connections - all prerequisites must be completed",
+      "research_one_of": "<strong>\"One Of\" Requirements:</strong> Yellow connections - only one prerequisite needed",
+      "research_priority": "<strong>Priority Selection:</strong> Click on a tech to prioritize it (receives 50% of research)",
+      "research_progress": "<strong>Progress Display:</strong> Each tech shows completion percentage",
+      "research_completion": "<strong>Completion Indicator:</strong> Completed techs are marked with a checkmark",
+      "research_beakers": "<strong>Research Beakers:</strong> Progress is measured in \"beakers\" (research points)",
+      "how_image_alt": "Research Menu",
+      "categories_title": "Tech Categories",
+      "categories": {
+        "land": "Land",
+        "sea": "Sea",
+        "air": "Air",
+        "nuclear": "Nuclear",
+        "economy": "Economy",
+        "land_desc": "Technologies that improve ground warfare, troop strength, and territorial control.",
+        "sea_desc": "Naval technologies including submarines, warship upgrades, and maritime capabilities.",
+        "air_desc": "Aviation technologies including jet engines, bombers, fighters, and air defense.",
+        "nuclear_desc": "Nuclear weapons progression from atomic bombs to MIRVs and the Doomsday Device.",
+        "economy_desc": "Economic technologies including roads, trade, hospitals, research labs, and structure insurance."
+      },
+      "cost": "Cost: {cost} beakers",
+      "no_description": "No description available."
+    },
+    "strategy": {
+      "title": "Strategy & Tips",
+      "early_title": "Early Game Strategy (0-10 Minutes)",
+      "early_intro": "The first 10 minutes set the foundation for your entire game. Focus on expansion and economy.",
+      "early_starting_position": "<strong>Pick a Starting Position:</strong> Choose a position that allows you to expand in multiple directions. Avoid being surrounded by enemies.",
+      "early_expand": "<strong>Start Expanding Immediately:</strong> Click adjacent neutral tiles to capture territory. Don't wait - every second counts!",
+      "early_balance": "<strong>Balance Workers/Troops:</strong> Start with ~60% troops (press 1 or 2 to adjust). Too many workers = weak expansion. Too many troops = low income.",
+      "early_city": "<strong>Build Your First City:</strong> Once you have enough gold, build a City to increase your population cap.",
+      "early_research": "<strong>Allocate Research Funding:</strong> Open Economy tab and set research to 10-20%. Early tech advantage is crucial.",
+      "early_keep_expanding": "<strong>Keep Expanding:</strong> Continuously capture neutral territory. More land = more resources = faster growth.",
+      "early_watch_borders": "<strong>Watch Your Borders:</strong> Pay attention to nearby players. If someone is expanding aggressively toward you, prepare for conflict.",
+      "mid_title": "Mid Game Transitions (10-30 Minutes)",
+      "mid_intro": "Shift from pure expansion to strategic development and military buildup.",
+      "mid_diversify": "<strong>Diversify Structures:</strong> Build Ports (trade), Hospitals (troop recovery), Research Labs (faster tech), and Factories (more gold).",
+      "mid_research_priority": "<strong>Research Priority:</strong> Focus on economy techs first (Roads, Hospitals, Research Labs), then military techs based on threats.",
+      "mid_alliances": "<strong>Form Alliances:</strong> Ally with neighbors to secure borders and focus expansion in other directions.",
+      "mid_naval_air": "<strong>Build Naval/Air Power:</strong> If you have coastline, build Ports. Research Jet Engines for air superiority.",
+      "mid_productivity": "<strong>Productivity Investment:</strong> Keep some gold uninvested to grow productivity - this compounds over time.",
+      "mid_roads": "<strong>Road Network:</strong> Invest in roads to speed up troop movement across your empire.",
+      "late_title": "Late Game Dominance (30+ Minutes)",
+      "late_intro": "Push for victory through overwhelming force or strategic strikes.",
+      "late_weapons": "<strong>Advanced Weapons:</strong> Research and build nuclear weapons if you have the infrastructure.",
+      "late_air": "<strong>Air Superiority:</strong> Bombers can cripple enemy infrastructure. Fighter jets protect against enemy air attacks.",
+      "late_defense": "<strong>Defensive Depth:</strong> Build SAM Launchers and Defense Posts to protect key territories.",
+      "late_economy": "<strong>Economic Snowball:</strong> High productivity + multiple Factories = massive gold income for military spam.",
+      "late_coordination": "<strong>Coordinate Attacks:</strong> Use multiple attack vectors (ground, naval, air) simultaneously to overwhelm defenses.",
+      "late_doomsday": "<strong>Watch for Doomsday:</strong> If an enemy is losing badly, they might activate a Doomsday Device. Be prepared.",
+      "mistakes_title": "Common Beginner Mistakes",
+      "mistake_research": "<strong>Ignoring Research:</strong> Players who don't invest in research fall behind in tech and lose to advanced units.",
+      "mistake_balance": "<strong>All Workers or All Troops:</strong> You need balance. 100% workers = no expansion and vulnerable to attacks. 100% troops = no income.",
+      "mistake_overextend": "<strong>Overextending Territory:</strong> Expanding too thin makes you vulnerable. Consolidate before pushing further.",
+      "mistake_defense": "<strong>Neglecting Defense:</strong> Build Defense Posts and keep troops defending your borders, not just attacking.",
+      "mistake_diplomacy": "<strong>Ignoring Diplomacy:</strong> Making enemies on all sides is a recipe for defeat. Ally strategically.",
+      "mistake_trade": "<strong>Forgetting About Trade Ships:</strong> Ports automatically deploy trade ships - protect them for passive income.",
+      "advanced_title": "Advanced Tactics",
+      "advanced_productivity_title": "Productivity Snowballing",
+      "advanced_productivity_intro": "The most powerful long-term strategy. Productivity compounds massively over time.",
+      "advanced_productivity_step1": "Keep 20-30% of your income uninvested (not spent on research, roads, or buildings)",
+      "advanced_productivity_step2": "This saved income automatically increases your productivity",
+      "advanced_productivity_step3": "Higher productivity = more gold = faster productivity growth = economic dominance",
+      "advanced_productivity_step4": "Build Factories to accelerate this process",
+      "advanced_bombers_title": "Bomber Harassment",
+      "advanced_bombers_intro": "Use bombers to destroy enemy infrastructure without ground combat.",
+      "advanced_bombers_step1": "Build multiple Airfields to increase bomber range and production",
+      "advanced_bombers_step2": "Target enemy Factories, Research Labs, and Missile Silos to cripple their economy and military",
+      "advanced_bombers_step3": "Upgrade bombers for longer range, higher speed, and more damage",
+      "advanced_bombers_step4": "Watch for enemy SAM Launchers and Fighter Jets - they counter bombers",
+      "advanced_naval_title": "Naval Dominance",
+      "advanced_naval_intro": "Control the seas to dominate island maps and coastal regions.",
+      "advanced_naval_step1": "Build multiple Ports for more Warships, Submarines, and Trade Ships",
+      "advanced_naval_step2": "Submarines are stealthy - use them to hunt enemy trade ships and naval units",
+      "advanced_naval_step3": "Warships can be upgraded to shoot down aircraft (requires tech)",
+      "advanced_naval_step4": "Protect your trade ships - they generate significant passive income",
+      "advanced_nuclear_title": "Nuclear Strategy",
+      "advanced_nuclear_intro": "Nuclear weapons can turn the tide of war but require careful use.",
+      "advanced_nuclear_step1": "Build Missile Silos in secure, inland locations (hard to bomb)",
+      "advanced_nuclear_step2": "Atom Bombs are good for tactical strikes on enemy structures",
+      "advanced_nuclear_step3": "Hydrogen Bombs have larger blast radius - use for devastating area denial",
+      "advanced_nuclear_step4": "MIRVs split into multiple warheads - can target multiple locations simultaneously",
+      "advanced_nuclear_step5": "<strong>Warning:</strong> Nuking allies will break your alliance and put you at war",
+      "advanced_alliance_title": "Alliance Manipulation",
+      "advanced_alliance_intro": "Use diplomacy as a weapon to control the game's political landscape.",
+      "advanced_alliance_step1": "Ally with strong players to avoid conflict while you build up",
+      "advanced_alliance_step2": "Betray allies when they're weak or distracted by other wars",
+      "advanced_alliance_step3": "Propose alliances to players who are fighting each other to weaken both",
+      "advanced_alliance_step4": "Use the Info panel (right-click > Info) to assess player strength before engaging",
+      "map_title": "Map-Specific Tips",
+      "map_island": "<strong>Island Maps:</strong> Prioritize Ports and naval tech. Control the seas to control the map.",
+      "map_continental": "<strong>Continental Maps:</strong> Focus on ground expansion and road networks for fast troop movement.",
+      "map_large": "<strong>Large Maps:</strong> Airfields become crucial for projecting power across vast distances.",
+      "map_small": "<strong>Small Maps:</strong> Expect early conflict. Build Defense Posts and Military Academies quickly."
+    }
   }
 }

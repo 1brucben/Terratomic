@@ -1,10 +1,11 @@
 import { renderNumber, renderTroops } from "../../client/Utils";
 import { PseudoRandom } from "../PseudoRandom";
 import { ClientID } from "../Schemas";
+import { getDirectivesUnlockedByTech } from "../tech/PolicyDirectives";
 import { Category, findTech } from "../tech/ResearchTree";
 import {
   applyTechCompletionEffects,
-  revokeTechEffects,
+  roadEffectModifiers,
 } from "../tech/TechEffects";
 import {
   assertNever,
@@ -101,6 +102,10 @@ export class PlayerImpl implements Player {
   private _researchBeakers: Map<string, number> = new Map();
   // Currently selected research priority tech id
   private _researchPriority: string | null = null;
+  // Policy directive choices: directiveId -> optionId
+  private _policyChoices: Map<string, string> = new Map();
+  // Track unseen policy directives (based on newly unlocked techs)
+  private _unseenPolicyDirectives: Set<string> = new Set();
 
   private _flag: string | undefined;
   private _name: string;
@@ -129,8 +134,11 @@ export class PlayerImpl implements Player {
   private _hasSpawned = false;
   private _isDisconnected = false;
 
-  private bomberIntent: { targetPlayerID: string; structure: UnitType } | null =
-    null;
+  private bomberIntent: {
+    targetPlayerID: string;
+    structures: UnitType[];
+    preferClosest: boolean;
+  } | null = null;
   private _autoBombingEnabled: boolean = false;
   public bombersOnTarget = new Map<TileRef, number>();
 
@@ -246,6 +254,11 @@ export class PlayerImpl implements Player {
           ? Object.fromEntries(this._researchBeakers)
           : undefined,
       researchPriorityTech: this._researchPriority,
+      policyChoices:
+        this._policyChoices.size > 0
+          ? Object.fromEntries(this._policyChoices)
+          : undefined,
+      hasUnseenPolicyDirectives: this._unseenPolicyDirectives.size > 0,
     };
   }
 
@@ -340,7 +353,9 @@ export class PlayerImpl implements Player {
           type === UnitType.City ||
           type === UnitType.Port ||
           type === UnitType.Hospital ||
-          type === UnitType.Academy
+          type === UnitType.Academy ||
+          type === UnitType.ResearchLab ||
+          type === UnitType.Factory
         ) {
           // Upgraded cities, ports, hospitals, and academies count toward totals
           // (affects scaling like new build cost and display counts)
@@ -352,7 +367,19 @@ export class PlayerImpl implements Player {
       }
       if (unit.type() !== UnitType.Construction) continue;
       if (unit.constructionType() !== type) continue;
-      total++;
+      // For upgradeable structures, count the target level instead of just 1
+      if (
+        type === UnitType.City ||
+        type === UnitType.Port ||
+        type === UnitType.Hospital ||
+        type === UnitType.Academy ||
+        type === UnitType.ResearchLab ||
+        type === UnitType.Factory
+      ) {
+        total += unit.constructionTargetLevel();
+      } else {
+        total++;
+      }
     }
     return total;
   }
@@ -376,6 +403,12 @@ export class PlayerImpl implements Player {
 
     // Apply centralized side-effects upon research completion
     applyTechCompletionEffects(this, this.mg, techId);
+
+    // Check if this tech unlocks any policy directives
+    const unlockedDirectives = getDirectivesUnlockedByTech(techId);
+    for (const directive of unlockedDirectives) {
+      this._markPolicyDirectiveUnseen(directive.id);
+    }
   }
   removeResearchedTechsByCategory(category: Category): void {
     const toRemove: string[] = [];
@@ -407,7 +440,6 @@ export class PlayerImpl implements Player {
 
     for (const techId of toRemove) {
       this._researchTreeTechs.delete(techId);
-      revokeTechEffects(this, this.mg, techId);
     }
     for (const techId of progressToClear) {
       this._researchBeakers.delete(techId);
@@ -449,14 +481,62 @@ export class PlayerImpl implements Player {
     return this._researchPriority;
   }
 
+  // Policy Directive methods
+  getPolicyChoice(directiveId: string): string | null {
+    return this._policyChoices.get(directiveId) ?? null;
+  }
+  setPolicyChoice(directiveId: string, optionId: string): void {
+    this._policyChoices.set(directiveId, optionId);
+    // Mark as seen once a choice is made
+    this._unseenPolicyDirectives.delete(directiveId);
+  }
+  getAllPolicyChoices(): ReadonlyMap<string, string> {
+    return this._policyChoices;
+  }
+  hasUnseenPolicyDirectives(): boolean {
+    return this._unseenPolicyDirectives.size > 0;
+  }
+  markPolicyDirectivesSeen(): void {
+    this._unseenPolicyDirectives.clear();
+  }
+  // Internal: mark a directive as unseen (called when tech unlocks it)
+  _markPolicyDirectiveUnseen(directiveId: string): void {
+    // Only mark as unseen if no choice has been made yet
+    if (!this._policyChoices.has(directiveId)) {
+      this._unseenPolicyDirectives.add(directiveId);
+    }
+  }
+
   invalidateEffectiveUnitsCache(type: UnitType): void {
     this._effectiveUnitsCache.delete(type);
   }
 
+  /**
+   * Returns the effective unit count for a given type, factoring in health, level,
+   * and road connection bonuses (for eligible structure types).
+   *
+   * Road-connected structures receive up to +20% effectiveness, scaled by road quality.
+   * At 100% road quality = +20% bonus, at 50% = +10%, at 150% = +30%.
+   */
   effectiveUnits(type: UnitType): number {
     if (this._effectiveUnitsCache.has(type)) {
       return this._effectiveUnitsCache.get(type)!;
     }
+
+    // Structure types eligible for road connection bonus
+    const roadEligibleTypes: UnitType[] = [
+      UnitType.City,
+      UnitType.Port,
+      UnitType.Hospital,
+      UnitType.Academy,
+      UnitType.Airfield,
+      UnitType.Factory,
+      UnitType.ResearchLab,
+    ];
+
+    const isRoadEligible = roadEligibleTypes.includes(type);
+    // Get road quality once for all units of this type (quality is per-player, not per-unit)
+    const roadQuality = isRoadEligible ? this.roadNetworkQuality() : 100;
 
     const calculatedValue = this._units
       .filter((u) => u.type() === type && u.isActive())
@@ -467,7 +547,19 @@ export class PlayerImpl implements Player {
           ? Math.min(1, Number(u.health()) / Math.max(1, effectiveMax))
           : 1;
         const level = (u as any).level?.() ?? 1;
-        return sum + healthRatio * level;
+        let baseEffect = healthRatio * level;
+
+        // Apply road connection bonus for eligible types
+        if (isRoadEligible && this.mg.isStructureConnectedToRoadNetwork(u)) {
+          // Bonus scales with road quality: at 100% quality, +20% bonus
+          // roadQuality is typically 0-150, so roadQuality/100 gives 0-1.5
+          // roadEffectMul further amplifies/dampens the road bonus (e.g., Transport Priority policy)
+          const roadMods = roadEffectModifiers(this);
+          const roadBonus = 0.2 * (roadQuality / 100) * roadMods.effectMul;
+          baseEffect *= 1 + roadBonus;
+        }
+
+        return sum + baseEffect;
       }, 0);
     this._effectiveUnitsCache.set(type, calculatedValue);
     return calculatedValue;
@@ -1235,14 +1327,53 @@ export class PlayerImpl implements Player {
       }
     }
 
+    // Nuclear tech requirements
+    if (unitType === UnitType.AtomBomb) {
+      if (!this.hasUpgrade(UpgradeType.NuclearFission)) {
+        return false;
+      }
+    }
+    if (unitType === UnitType.MissileSilo) {
+      if (!this.hasUpgrade(UpgradeType.NuclearFission)) {
+        return false;
+      }
+    }
+    if (unitType === UnitType.HydrogenBomb) {
+      if (!this.hasUpgrade(UpgradeType.ThermonuclearStaging)) {
+        return false;
+      }
+    }
+    if (unitType === UnitType.MIRV) {
+      if (!this.hasUpgrade(UpgradeType.MIRVTechnology)) {
+        return false;
+      }
+    }
+    if (unitType === UnitType.DoomsdayDevice) {
+      if (!this.hasUpgrade(UpgradeType.DoomsdayDeviceResearch)) {
+        return false;
+      }
+    }
+
+    // Warship and Submarine: Level 1 are available by default, no tech requirement
+
+    // Air units: Fighter and Bomber Level 1 are available by default, no tech requirement
+
+    // SAM Launcher: Level 1 is available by default, no tech requirement
+
+    // Military Academy tech requirement (WWII Lessons Learned)
+    if (unitType === UnitType.Academy) {
+      if (!this.hasUpgrade(UpgradeType.MilitaryAcademy)) {
+        return false;
+      }
+    }
+
     // Test-specific override: Force canBuild for bombers if enabled in TestConfig
     if (
       this.mg.config().forceCanBuildBomberInTests?.() &&
       unitType === UnitType.Bomber
     ) {
-      // Assuming game.ref(1,1) is a valid airfield tile for the attacker in tests
-      // This bypasses the normal canBuild checks for bombers in tests
-      return this.mg.ref(1, 1);
+      // Return the target tile (airfield location) for bomber spawn in tests
+      return targetTile;
     }
 
     if (this.mg.config().isUnitDisabled(unitType)) {
@@ -1271,6 +1402,7 @@ export class PlayerImpl implements Player {
         return this.warshipSpawn(targetTile);
       case UnitType.Shell:
       case UnitType.SAMMissile:
+      case UnitType.AABullet:
         return targetTile;
       case UnitType.TransportShip:
         return canBuildTransportShip(this.mg, this, targetTile);
@@ -1661,13 +1793,18 @@ export class PlayerImpl implements Player {
     return airfields;
   }
   public setBomberIntent(
-    intent: { targetPlayerID: string; structure: UnitType } | null,
+    intent: {
+      targetPlayerID: string;
+      structures: UnitType[];
+      preferClosest: boolean;
+    } | null,
   ): void {
     this.bomberIntent = intent;
   }
   public getBomberIntent(): {
     targetPlayerID: string;
-    structure: UnitType;
+    structures: UnitType[];
+    preferClosest: boolean;
   } | null {
     return this.bomberIntent;
   }

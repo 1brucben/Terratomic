@@ -20,15 +20,21 @@ import shieldIcon from "../../../../resources/images/ShieldIconWhite.svg";
 import submarineIcon from "../../../../resources/images/submarine.svg";
 import { translateText } from "../../../client/Utils";
 import { EventBus } from "../../../core/EventBus";
-import { aggregateStructureBuildCost } from "../../../core/game/Costs";
+import {
+  aggregateStructureBuildCost,
+  computeBomberUpgradeCost,
+} from "../../../core/game/Costs";
 import { Gold, UnitType, UpgradeType } from "../../../core/game/Game";
 import { GameView } from "../../../core/game/GameView";
 import {
+  isUnitAvailable,
   isUpgradeableStructure,
   isUpgradeableUnit,
-  maxStructureLevel,
   maxUnitLevel,
+  playerMaxStructureLevel,
+  playerMaxUnitLevel,
 } from "../../../core/game/Upgradeables";
+import { ToggleBomberUpgradeModeEvent } from "../../events/ToggleBomberUpgradeModeEvent";
 import { ToggleUpgradeModeEvent } from "../../events/ToggleUpgradeModeEvent";
 import { displayKey, renderNumber } from "../../Utils";
 import { UIState } from "../UIState";
@@ -186,13 +192,13 @@ export class BuildMenu extends LitElement {
   structureLevels: Record<string, number> = {};
 
   @state()
-  private filteredBuildTable: BuildItemDisplay[][] = buildTable;
+  private filteredBuildTable: BuildItemDisplay[][] = [];
 
   @state()
   private hotkeyMap: Map<UnitType, string> = new Map();
 
   @state()
-  private _lastSubmarineUpgradeState: boolean = false;
+  private _lastUpgradeCount: number = -1;
 
   // Per-unit icon scale for build menu thumbnails
   private static readonly ICON_SCALE: Partial<Record<UnitType, number>> = {
@@ -232,12 +238,18 @@ export class BuildMenu extends LitElement {
   }
 
   protected willUpdate(changed: Map<string, unknown>): void {
-    // Check if submarine upgrade state changed - lightweight check before render
+    // Check if any upgrade state changed by counting total upgrades
     const player = this.game?.myPlayer();
     if (player) {
-      const hasSubUpgrade = player.hasUpgrade(UpgradeType.SubmarineResearch);
-      if (hasSubUpgrade !== this._lastSubmarineUpgradeState) {
-        this._lastSubmarineUpgradeState = hasSubUpgrade;
+      // Count all upgrades that affect buildability
+      let upgradeCount = 0;
+      for (const upgrade of Object.values(UpgradeType)) {
+        if (player.hasUpgrade(upgrade)) {
+          upgradeCount++;
+        }
+      }
+      if (upgradeCount !== this._lastUpgradeCount) {
+        this._lastUpgradeCount = upgradeCount;
         this.recomputeFilteredTable();
       }
     }
@@ -250,6 +262,7 @@ export class BuildMenu extends LitElement {
       buildMIRV: "Digit7",
       buildFighterJet: "Digit8",
       buildWarship: "Digit9",
+      buildSubmarine: "Digit0",
       buildCity: "KeyY",
       buildPort: "KeyU",
       buildAirfield: "KeyI",
@@ -269,6 +282,7 @@ export class BuildMenu extends LitElement {
       [keybinds.buildMIRV]: UnitType.MIRV,
       [keybinds.buildFighterJet]: UnitType.FighterJet,
       [keybinds.buildWarship]: UnitType.Warship,
+      [keybinds.buildSubmarine]: UnitType.Submarine,
       [keybinds.buildCity]: UnitType.City,
       [keybinds.buildPort]: UnitType.Port,
       [keybinds.buildAirfield]: UnitType.Airfield,
@@ -308,12 +322,7 @@ export class BuildMenu extends LitElement {
     if (this.game?.myPlayer()) {
       const player = this.game.myPlayer()!;
       this.filteredBuildTable = current.map((row) =>
-        row.filter((item) => {
-          if (item.unitType === UnitType.Submarine) {
-            return player.hasUpgrade(UpgradeType.SubmarineResearch);
-          }
-          return true;
-        }),
+        row.filter((item) => isUnitAvailable(player, item.unitType)),
       );
     } else {
       this.filteredBuildTable = current;
@@ -540,31 +549,39 @@ export class BuildMenu extends LitElement {
     // Structures: use configured structure multiplier
     if (isUpgradeableStructure(item.unitType)) {
       const desired = this._desiredStructureLevel(item.unitType);
-      if (desired <= 1) return base;
-      const multiplier = this.game
-        .config()
-        .structureUpgradeCostMultiplier(item.unitType);
-      return aggregateStructureBuildCost(
-        this.game.config(),
-        this.game.myPlayer()!,
-        item.unitType,
-        desired,
-        multiplier,
-      );
+      let structureCost =
+        desired <= 1
+          ? base
+          : aggregateStructureBuildCost(
+              this.game.config(),
+              this.game.myPlayer()!,
+              item.unitType,
+              desired,
+              this.game.config().structureUpgradeCostMultiplier(item.unitType),
+            );
+      // Add bomber upgrade cost for airfields
+      if (item.unitType === UnitType.Airfield) {
+        const bomberLevel = this._desiredUnitLevel(UnitType.Bomber);
+        structureCost += computeBomberUpgradeCost(
+          this.game.config(),
+          this.game.myPlayer()!,
+          bomberLevel,
+          desired,
+        );
+      }
+      return structureCost;
     }
-    // Units: apply configured per-step multiplier for upgradeable combat units
+    // Units: use hardcoded costs from UnitUpgrades (aggregateStructureBuildCost handles this)
     if (isUpgradeableUnit(item.unitType)) {
       const desired = this._desiredUnitLevel(item.unitType);
       if (desired <= 1) return base;
-      const multiplier = this.game
-        .config()
-        .unitUpgradeCostMultiplier(item.unitType);
+      // aggregateStructureBuildCost detects upgradeable units and uses hardcoded costs
       return aggregateStructureBuildCost(
         this.game.config(),
         this.game.myPlayer()!,
         item.unitType,
         desired,
-        multiplier,
+        0, // multiplier ignored for upgradeable units
       );
     }
     return base;
@@ -584,7 +601,10 @@ export class BuildMenu extends LitElement {
       const key = String(type);
       const val = obj?.[key];
       if (typeof val !== "number" || val < 1) return 1;
-      return Math.min(maxStructureLevel(type), val);
+      // Use player-specific max level based on researched techs
+      const player = this.game?.myPlayer();
+      const maxLevel = player ? playerMaxStructureLevel(player, type) : 1;
+      return Math.min(maxLevel, val);
     } catch (_) {
       return 1;
     }
@@ -598,7 +618,12 @@ export class BuildMenu extends LitElement {
       const key = String(type);
       const val = obj?.[key];
       if (typeof val !== "number" || val < 1) return 1;
-      return Math.min(maxUnitLevel(type), val);
+      // Use player-specific max level based on researched techs
+      const player = this.game?.myPlayer();
+      const cap = player
+        ? playerMaxUnitLevel(player, type)
+        : maxUnitLevel(type);
+      return Math.min(cap, val);
     } catch (_) {
       return 1;
     }
@@ -617,6 +642,11 @@ export class BuildMenu extends LitElement {
     if (this.uiState?.upgradeMode) {
       this.uiState.upgradeMode = false;
       this.eventBus?.emit(new ToggleUpgradeModeEvent(false));
+    }
+    // Disable bomber upgrade mode on build action
+    if (this.uiState?.bomberUpgradeMode) {
+      this.uiState.bomberUpgradeMode = false;
+      this.eventBus?.emit(new ToggleBomberUpgradeModeEvent(false));
     }
     if (this.uiState.pendingBuildUnitType === item.unitType) {
       this.uiState.pendingBuildUnitType = null;

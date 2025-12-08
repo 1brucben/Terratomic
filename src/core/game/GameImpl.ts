@@ -1,4 +1,5 @@
 import { Config } from "../configuration/Config";
+import { AttackExecution } from "../execution/AttackExecution";
 import { AllPlayersStats, ClientID, Winner } from "../Schemas";
 import { simpleHash } from "../Util";
 import { AllianceImpl } from "./AllianceImpl";
@@ -7,6 +8,7 @@ import { CargoManager } from "./CargoManager";
 import {
   Alliance,
   AllianceRequest,
+  ATTACK_SUBTICKS_PER_TICK,
   Cell,
   ColoredTeams,
   Duos,
@@ -39,6 +41,7 @@ import { PlayerImpl } from "./PlayerImpl";
 import { Road, RoadManager } from "./RoadManager";
 import { Stats } from "./Stats";
 import { StatsImpl } from "./StatsImpl";
+import { assignTeams } from "./TeamAssignment";
 import { TerraNulliusImpl } from "./TerraNulliusImpl";
 import { UnitGrid, UnitPredicate } from "./UnitGrid";
 
@@ -195,31 +198,51 @@ export class GameImpl implements Game {
 
     // Second pass: assign teams to the unassigned players
     if (unassignedPlayers.size > 0) {
-      const teamCounts = new Map<Team, number>();
-      this.playerTeams.forEach((team) => teamCounts.set(team, 0));
+      // Try clan-based assignment first for unassigned players
+      const unassignedArray = Array.from(unassignedPlayers);
+      const clanAssignments = assignTeams(unassignedArray, this.playerTeams);
 
-      // Count players already assigned to teams
-      for (const team of finalPlayerAssignments.values()) {
-        teamCounts.set(team, (teamCounts.get(team) ?? 0) + 1);
+      // Process clan assignments
+      for (const [playerInfo, teamOrKicked] of clanAssignments.entries()) {
+        if (teamOrKicked === "kicked") {
+          // Player was kicked due to team size limits, remove from unassigned
+          unassignedPlayers.delete(playerInfo);
+        } else {
+          // Player assigned by clan system
+          finalPlayerAssignments.set(playerInfo, teamOrKicked);
+          unassignedPlayers.delete(playerInfo);
+        }
       }
 
-      const selectTeamWithFewest = (): Team => {
-        let chosenTeam = this.playerTeams[0];
-        let smallest = teamCounts.get(chosenTeam) ?? Infinity;
-        for (const team of this.playerTeams) {
-          const count = teamCounts.get(team) ?? 0;
-          if (count < smallest) {
-            smallest = count;
-            chosenTeam = team;
-          }
-        }
-        return chosenTeam;
-      };
+      // For any remaining unassigned players (no clan or clan assignment failed),
+      // fall back to random assignment to balance teams
+      if (unassignedPlayers.size > 0) {
+        const teamCounts = new Map<Team, number>();
+        this.playerTeams.forEach((team) => teamCounts.set(team, 0));
 
-      for (const playerInfo of unassignedPlayers) {
-        const team = selectTeamWithFewest();
-        finalPlayerAssignments.set(playerInfo, team);
-        teamCounts.set(team, (teamCounts.get(team) ?? 0) + 1);
+        // Count players already assigned to teams
+        for (const team of finalPlayerAssignments.values()) {
+          teamCounts.set(team, (teamCounts.get(team) ?? 0) + 1);
+        }
+
+        const selectTeamWithFewest = (): Team => {
+          let chosenTeam = this.playerTeams[0];
+          let smallest = teamCounts.get(chosenTeam) ?? Infinity;
+          for (const team of this.playerTeams) {
+            const count = teamCounts.get(team) ?? 0;
+            if (count < smallest) {
+              smallest = count;
+              chosenTeam = team;
+            }
+          }
+          return chosenTeam;
+        };
+
+        for (const playerInfo of unassignedPlayers) {
+          const team = selectTeamWithFewest();
+          finalPlayerAssignments.set(playerInfo, team);
+          teamCounts.set(team, (teamCounts.get(team) ?? 0) + 1);
+        }
       }
     }
 
@@ -406,13 +429,37 @@ export class GameImpl implements Game {
 
   executeNextTick(): GameUpdates {
     this.updates = this.createGameUpdatesMap();
+
+    // Process attack executions multiple times per tick for smoother territory changes
+    const attackExecs: Execution[] = [];
+    const otherExecs: Execution[] = [];
+
     this.execs.forEach((e) => {
       if (
         (!this.inSpawnPhase() || e.activeDuringSpawnPhase()) &&
         e.isActive()
       ) {
-        e.tick(this._ticks);
+        // Separate attack executions from others - use instanceof to survive minification
+        if (e instanceof AttackExecution) {
+          attackExecs.push(e);
+        } else {
+          otherExecs.push(e);
+        }
       }
+    });
+
+    // Process attack executions multiple times per tick
+    for (let subtick = 0; subtick < ATTACK_SUBTICKS_PER_TICK; subtick++) {
+      attackExecs.forEach((e) => {
+        if (e.isActive()) {
+          e.tick(this._ticks);
+        }
+      });
+    }
+
+    // Process other executions once per tick
+    otherExecs.forEach((e) => {
+      e.tick(this._ticks);
     });
     const inited: Execution[] = [];
     const unInited: Execution[] = [];
@@ -581,6 +628,11 @@ export class GameImpl implements Game {
   // Expose computed road network quality [0..100]
   public getRoadNetworkQualityForPlayer(playerId: PlayerID): number {
     return this.roadManager.getRoadNetworkQualityForPlayer(playerId);
+  }
+
+  // Check if a structure is connected to the road network
+  public isStructureConnectedToRoadNetwork(unit: Unit): boolean {
+    return this.roadManager.isStructureConnectedToRoadNetwork(unit);
   }
 
   private maybeAssignTeam(player: PlayerInfo): Team | null {
@@ -791,7 +843,12 @@ export class GameImpl implements Game {
     });
   }
 
-  public bomberExplosion(tile: TileRef, radius: number, owner: Player): void {
+  public bomberExplosion(
+    tile: TileRef,
+    radius: number,
+    damage: number,
+    owner: Player,
+  ): void {
     const r2 = radius * radius;
     this.forEachTile((t) => {
       if (this.euclideanDistSquared(tile, t) <= r2) {
@@ -803,7 +860,7 @@ export class GameImpl implements Game {
           if (owner.isFriendly(uowner)) continue;
 
           if (isStructureType(u.type())) {
-            u.modifyHealth(-250);
+            u.modifyHealth(-damage);
           } else {
             u.delete(true, owner);
           }

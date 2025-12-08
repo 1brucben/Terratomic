@@ -7,6 +7,7 @@ import {
   PlayerInfo,
   PlayerType,
   UnitType,
+  UpgradeType,
 } from "../../../src/core/game/Game";
 import { PseudoRandom } from "../../../src/core/PseudoRandom";
 import { setup } from "../../util/Setup";
@@ -51,8 +52,13 @@ describe("SAM smart targeting integration (additional)", () => {
     attacker = game.player(attacker_info.id);
     defender = game.player(defender_info.id);
 
+    // Grant nuclear upgrade so attacker can build missile silo and nukes
+    attacker.addUpgrade(UpgradeType.NuclearFission);
+
     // Ensure attacker has a missile silo to launch nukes
     constructionExecution(game, attacker, 7, 7, UnitType.MissileSilo);
+
+    // Air units and SAM Level 1 are available by default at game start
   });
 
   test("nuke trajectory available for smart interception", () => {

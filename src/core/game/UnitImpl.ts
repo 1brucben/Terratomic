@@ -10,7 +10,6 @@ import {
   Unit,
   UnitInfo,
   UnitType,
-  UpgradeType,
   isStructureType,
 } from "./Game";
 import { GameImpl } from "./GameImpl";
@@ -29,6 +28,7 @@ export class UnitImpl implements Unit {
   private _reachedTarget = false;
   private _lastSetSafeFromPirates: number; // Only for trade ships
   private _constructionType: UnitType | undefined;
+  private _constructionTargetLevel: number = 1; // Target level for construction units
   private _lastOwner: PlayerImpl | null = null;
   private _troops: number;
   private _cooldownStartTick: Tick | null = null;
@@ -66,6 +66,12 @@ export class UnitImpl implements Unit {
   // Port-specific: pending trade ship construction due tick (legacy single) and multiple concurrent builds
   private _pendingTradeShipDueTick: Tick | null = null; // deprecated after multi-build
   private _pendingTradeShipDueTicks: Tick[] = [];
+  // Bomber-specific: source airfield for respawning
+  private _sourceAirfield: Unit | undefined;
+  // Airfield-specific: last bomber takeoff tick
+  private _lastBomberTakeoffTick: number = -1000;
+  // Airfield-specific: bomber upgrade level
+  private _bomberLevel: number = 1;
 
   constructor(
     private _type: UnitType,
@@ -90,12 +96,17 @@ export class UnitImpl implements Unit {
       "patrolTile" in params ? (params.patrolTile ?? undefined) : undefined;
     this._targetUnit =
       "targetUnit" in params ? (params.targetUnit ?? undefined) : undefined;
-    if (
-      isStructureType(this._type) &&
-      this._owner.hasUpgrade(UpgradeType.StructureInsurance)
-    ) {
-      this._insuredBy = this._owner;
-    }
+    this._sourceAirfield =
+      "sourceAirfield" in params
+        ? (params.sourceAirfield ?? undefined)
+        : undefined;
+    // TEMPORARILY DISABLED: Structure insurance
+    // if (
+    //   isStructureType(this._type) &&
+    //   this._owner.hasUpgrade(UpgradeType.StructureInsurance)
+    // ) {
+    //   this._insuredBy = this._owner;
+    // }
 
     switch (this._type) {
       case UnitType.Warship:
@@ -166,6 +177,11 @@ export class UnitImpl implements Unit {
       maxHealth: this.hasHealth() ? this.effectiveMaxHealth() : undefined,
       level: this._level > 1 ? this._level : undefined,
       constructionType: this._constructionType,
+      constructionTargetLevel:
+        this._type === UnitType.Construction &&
+        this._constructionTargetLevel > 1
+          ? this._constructionTargetLevel
+          : undefined,
       targetUnitId: this._targetUnit?.id() ?? undefined,
       targetTile: this.targetTile() ?? undefined,
       // Provide both for transition; cooldownEndsAt is the unified field
@@ -203,6 +219,10 @@ export class UnitImpl implements Unit {
         this._pendingTradeShipDueTicks.length > 0
           ? [...this._pendingTradeShipDueTicks]
           : undefined,
+      bomberLevel:
+        this._type === UnitType.Airfield && this._bomberLevel > 1
+          ? this._bomberLevel
+          : undefined,
     };
   }
 
@@ -232,6 +252,19 @@ export class UnitImpl implements Unit {
   }
   health(): number {
     return Number(this._health);
+  }
+
+  setHealth(health: bigint): void {
+    this._health = health;
+    // Ensure health doesn't exceed max
+    const maxHealth = toInt(this.effectiveMaxHealth());
+    if (this._health > maxHealth) {
+      this._health = maxHealth;
+    }
+    // Ensure health doesn't go below 0
+    if (this._health < 0n) {
+      this._health = 0n;
+    }
   }
   hasHealth(): boolean {
     return this.info().maxHealth !== undefined;
@@ -382,6 +415,16 @@ export class UnitImpl implements Unit {
         this.mg.addUpdate(this.toUpdate());
         return;
       }
+      case UnitType.Airfield: {
+        this._level += 1;
+        this._bonusMaxHealth += 1000;
+        const healed = Number(this._health) + 1000;
+        const capped = Math.min(healed, this.effectiveMaxHealth());
+        this._health = toInt(capped);
+        this._owner.invalidateEffectiveUnitsCache(UnitType.Airfield);
+        this.mg.addUpdate(this.toUpdate());
+        return;
+      }
       default:
         // Unsupported structure types: no-op for now
         return;
@@ -431,12 +474,13 @@ export class UnitImpl implements Unit {
     this._owner = newOwner;
     this._owner.invalidateEffectiveUnitsCache(this.type());
     this._owner._units.push(this);
-    if (
-      isStructureType(this._type) &&
-      this._owner.hasUpgrade(UpgradeType.StructureInsurance)
-    ) {
-      this._insuredBy = this._owner;
-    }
+    // TEMPORARILY DISABLED: Structure insurance
+    // if (
+    //   isStructureType(this._type) &&
+    //   this._owner.hasUpgrade(UpgradeType.StructureInsurance)
+    // ) {
+    //   this._insuredBy = this._owner;
+    // }
     this.mg.addUpdate(this.toUpdate());
     this.mg.displayMessage(
       `Your ${this.type()} was captured by ${newOwner.displayName()}`,
@@ -564,6 +608,21 @@ export class UnitImpl implements Unit {
       throw new Error(`Cannot set construction type on ${this.type()}`);
     }
     this._constructionType = type;
+    this.mg.addUpdate(this.toUpdate());
+  }
+
+  constructionTargetLevel(): number {
+    if (this.type() !== UnitType.Construction) {
+      throw new Error(`Cannot get construction target level on ${this.type()}`);
+    }
+    return this._constructionTargetLevel;
+  }
+
+  setConstructionTargetLevel(level: number): void {
+    if (this.type() !== UnitType.Construction) {
+      throw new Error(`Cannot set construction target level on ${this.type()}`);
+    }
+    this._constructionTargetLevel = level;
     this.mg.addUpdate(this.toUpdate());
   }
 
@@ -741,5 +800,36 @@ export class UnitImpl implements Unit {
   }
   cargoGold(): bigint {
     return this._cargoGold;
+  }
+
+  sourceAirfield(): Unit | undefined {
+    return this._sourceAirfield;
+  }
+
+  setSourceAirfield(airfield: Unit | undefined): void {
+    this._sourceAirfield = airfield;
+  }
+
+  isAtSourceAirfield(): boolean {
+    if (this._type !== UnitType.Bomber) return false;
+    if (!this._sourceAirfield) return false;
+    return this.tile() === this._sourceAirfield.tile();
+  }
+
+  lastBomberTakeoffTick(): number {
+    return this._lastBomberTakeoffTick;
+  }
+
+  setLastBomberTakeoffTick(tick: number): void {
+    this._lastBomberTakeoffTick = tick;
+  }
+
+  bomberLevel(): number {
+    return this._bomberLevel;
+  }
+
+  setBomberLevel(level: number): void {
+    this._bomberLevel = level;
+    this.mg.addUpdate(this.toUpdate());
   }
 }

@@ -1,15 +1,14 @@
-import { getTechMeta } from "./TechEffects";
-
 export type Category = "Land" | "Sea" | "Air" | "Nuclear" | "Economy";
 
+/**
+ * Core tech node for tree structure - metadata (name, description) is in TechEffects.ts
+ */
 export interface TechNode {
   id: string;
-  name: string;
   category: Category;
   level: number; // 1..5 top to bottom
   requiresAllOf?: string[]; // all these must be researched
   requiresOneOf?: string[]; // at least one of these researched
-  description?: string; // Optional hover description
   cost: number; // beakers to complete
 }
 
@@ -25,88 +24,181 @@ const mkId = (cat: Category, lvl: number) => `${cat}-${lvl}`;
 
 const baseLevels: TechNode[] = (() => {
   const nodes: TechNode[] = [];
-  for (let lvl = 1; lvl <= 5; lvl++) {
-    for (const cat of ["Land", "Sea", "Air", "Nuclear", "Economy"] as const) {
-      const id = mkId(cat, lvl);
-      const meta = getTechMeta(id, { strict: false });
-      const node: TechNode = {
-        id,
-        name: meta?.name ?? `${cat} Tech ${lvl}`,
-        category: cat,
-        level: lvl,
-        description: meta?.description,
-        requiresAllOf: lvl > 1 ? [mkId(cat, lvl - 1)] : undefined,
-        cost: costForLevel(lvl),
-      };
-      nodes.push(node);
-    }
-  }
+  // All categories now have explicit definitions
   return nodes;
 })();
 
-// Parallel/branching techs as per current UI
-const extras: TechNode[] = [
+// Nuclear branch techs (explicit definitions)
+const nuclearTechs: TechNode[] = [
+  { id: "Nuclear-1", category: "Nuclear", level: 1, cost: costForLevel(1) },
   {
-    id: "Land-2B",
-    name: getTechMeta("Land-2B", { strict: false })?.name ?? "Scorched Earth",
-    category: "Land",
+    id: "Nuclear-2",
+    category: "Nuclear",
     level: 2,
-    requiresAllOf: ["Land-1"],
-    description:
-      getTechMeta("Land-2B", { strict: false })?.description ??
-      "Unlocks the Scorched Earth decision, letting you raze roads and reset economic techs.",
+    requiresAllOf: ["Nuclear-1"],
     cost: costForLevel(2),
   },
   {
-    id: "Air-2B",
-    name: "Paratroopers",
-    category: "Air",
-    level: 2,
-    requiresAllOf: ["Air-1"],
-    description:
-      "Unlocks Paratroopers, allowing you to launch surprise attacks from the sky. Requires an Airfield.",
-    cost: costForLevel(2),
-  },
-  {
-    id: "Sea-4B",
-    name: getTechMeta("Sea-4B", { strict: false })?.name ?? "Sea Tech 4B",
-    category: "Sea",
-    level: 4,
-    requiresAllOf: ["Sea-3"],
-    description: getTechMeta("Sea-4B", { strict: false })?.description,
-    cost: costForLevel(4),
-  },
-  {
-    id: "Economy-3B",
-    name:
-      getTechMeta("Economy-3B", { strict: false })?.name ?? "Economy Tech 3B",
-    category: "Economy",
+    id: "Nuclear-3",
+    category: "Nuclear",
     level: 3,
-    requiresAllOf: ["Economy-2"],
-    description: getTechMeta("Economy-3B", { strict: false })?.description,
+    requiresAllOf: ["Nuclear-2"],
     cost: costForLevel(3),
+  },
+  {
+    id: "Nuclear-4",
+    category: "Nuclear",
+    level: 4,
+    requiresAllOf: ["Nuclear-3"],
+    cost: costForLevel(4),
   },
 ];
 
-// Compose full tree and tweak special prerequisites
-const tree: TechNode[] = (() => {
-  const t = [...baseLevels, ...extras];
-  // Nuclear-5 requires Nuclear-4 only (remove cross-category remnants)
-  const n5 = t.find((x) => x.id === "Nuclear-5");
-  if (n5) n5.requiresAllOf = ["Nuclear-4"];
-  // Sea-5 can require one of Sea-4 or Sea-4B
-  const sea5 = t.find((x) => x.id === "Sea-5");
-  if (sea5) {
-    sea5.requiresAllOf = undefined;
-    sea5.requiresOneOf = ["Sea-4", "Sea-4B"];
-  }
-  const air3 = t.find((x) => x.id === "Air-3");
-  if (air3) {
-    air3.requiresAllOf = undefined;
-    air3.requiresOneOf = ["Air-2", "Air-2B"];
-  }
-  return t;
-})();
+// Sea branch techs (explicit definitions) - Simplified linear tree
+const seaTechs: TechNode[] = [
+  // Level 1 - Early Missile Navy (unlocks Warship L2, Sub L2)
+  { id: "Sea-1", category: "Sea", level: 1, cost: costForLevel(1) },
+  // Level 2 - Submarine Silent Service Modernization (unlocks Sub L3)
+  {
+    id: "Sea-2",
+    category: "Sea",
+    level: 2,
+    requiresAllOf: ["Sea-1"],
+    cost: costForLevel(2),
+  },
+  // Level 3 - SSBN Programs (unlocks SSBNs)
+  {
+    id: "Sea-3",
+    category: "Sea",
+    level: 3,
+    requiresAllOf: ["Sea-2"],
+    cost: costForLevel(3),
+  },
+  // Level 4 - Modern Fleet Sensor & SAM Integration (unlocks Warship L3, Ship SAM)
+  {
+    id: "Sea-4",
+    category: "Sea",
+    level: 4,
+    requiresAllOf: ["Sea-3"],
+    cost: costForLevel(4),
+  },
+];
+
+// Land branch techs (explicit definitions) - Simplified linear tree
+const landTechs: TechNode[] = [
+  // Level 1 - Post-WW2 Ground Forces Modernization (unlocks Military Academy, AA Guns)
+  { id: "Land-1", category: "Land", level: 1, cost: costForLevel(1) },
+  // Level 2 - Mechanized Warfare Doctrine (unlocks Scorched Earth, policy directive)
+  {
+    id: "Land-2",
+    category: "Land",
+    level: 2,
+    requiresAllOf: ["Land-1"],
+    cost: costForLevel(2),
+  },
+  // Level 3 - Air-Defense Grid Expansion (unlocks SAM Level 2)
+  {
+    id: "Land-3",
+    category: "Land",
+    level: 3,
+    requiresAllOf: ["Land-2"],
+    cost: costForLevel(3),
+  },
+  // Level 4 - Integrated SAM & Battlefield Command Systems (unlocks SAM Level 3)
+  {
+    id: "Land-4",
+    category: "Land",
+    level: 4,
+    requiresAllOf: ["Land-3"],
+    cost: costForLevel(4),
+  },
+  // Level 5 - Night Vision, Thermal Imaging & Digital C3I (policy directive)
+  {
+    id: "Land-5",
+    category: "Land",
+    level: 5,
+    requiresAllOf: ["Land-4"],
+    cost: costForLevel(5),
+  },
+];
+
+// Air branch techs (explicit definitions) - Simplified linear tree
+const airTechs: TechNode[] = [
+  // Level 1 - Early Jet Aviation Framework (unlocks Paratroopers)
+  { id: "Air-1", category: "Air", level: 1, cost: costForLevel(1) },
+  // Level 2 - Supersonic Airframe Development (unlocks Fighter L2, Bomber L2)
+  {
+    id: "Air-2",
+    category: "Air",
+    level: 2,
+    requiresAllOf: ["Air-1"],
+    cost: costForLevel(2),
+  },
+  // Level 3 - Pulse-Doppler Radar & BVR Combat (unlocks Fighter L3, Naval Strike)
+  {
+    id: "Air-3",
+    category: "Air",
+    level: 3,
+    requiresAllOf: ["Air-2"],
+    cost: costForLevel(3),
+  },
+  // Level 4 - Fly-By-Wire Platforms & Advanced Maneuverability (unlocks Fighter L4, Bomber L3)
+  {
+    id: "Air-4",
+    category: "Air",
+    level: 4,
+    requiresAllOf: ["Air-3"],
+    cost: costForLevel(4),
+  },
+];
+
+// Economy branch techs (explicit definitions) - Linear 5-level tree
+const economyTechs: TechNode[] = [
+  // Level 1 - National Reconstruction Program (1950s): Roads, Hospitals, +20% infrastructure effectiveness, +20% road effects
+  { id: "Economy-1", category: "Economy", level: 1, cost: costForLevel(1) },
+  // Level 2 - National Research & Industrial Foundations (1960s): Research Labs, policy directive
+  {
+    id: "Economy-2",
+    category: "Economy",
+    level: 2,
+    requiresAllOf: ["Economy-1"],
+    cost: costForLevel(2),
+  },
+  // Level 3 - Trade Policy Framework (1970s): policy directive (Open Trade vs Autarky)
+  {
+    id: "Economy-3",
+    category: "Economy",
+    level: 3,
+    requiresAllOf: ["Economy-2"],
+    cost: costForLevel(3),
+  },
+  // Level 4 - National Infrastructure Modernization (1980s): +20% infrastructure effectiveness, -20% maintenance, +10% construction speed
+  {
+    id: "Economy-4",
+    category: "Economy",
+    level: 4,
+    requiresAllOf: ["Economy-3"],
+    cost: costForLevel(4),
+  },
+  // Level 5 - Digital Administration & Economic Coordination Systems (Early 1990s): policy directive
+  {
+    id: "Economy-5",
+    category: "Economy",
+    level: 5,
+    requiresAllOf: ["Economy-4"],
+    cost: costForLevel(5),
+  },
+];
+
+// Compose full tree
+const tree: TechNode[] = [
+  ...baseLevels,
+  ...nuclearTechs,
+  ...seaTechs,
+  ...landTechs,
+  ...economyTechs,
+  ...airTechs,
+];
 
 export function getTechNodes(): ReadonlyArray<TechNode> {
   return tree;

@@ -1,8 +1,8 @@
 import * as PIXI from "pixi.js";
-import { Theme } from "../../../core/configuration/Config";
-import { PlayerView } from "../../../core/game/GameView";
-import { AnimatedSpriteLoader } from "../AnimatedSpriteLoader";
-import { Fx, FxType } from "./Fx";
+import type { Theme } from "../../../core/configuration/Config";
+import type { PlayerView } from "../../../core/game/GameView";
+import type { AnimatedSpriteLoader } from "../AnimatedSpriteLoader";
+import type { Fx, FxType } from "./Fx";
 
 function fadeInOut(
   t: number,
@@ -108,7 +108,7 @@ export class SpriteFx implements Fx {
       return false;
     }
 
-    const msPerFrame = (this.sprite as any).msPerFrame || 100;
+    const msPerFrame = (this.sprite as any).msPerFrame ?? 100;
     this.animationTime += delta;
 
     const frameIndex = Math.floor(this.animationTime / msPerFrame);

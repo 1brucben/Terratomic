@@ -1,3 +1,4 @@
+import { infrastructureEffectivenessModifiers } from "../tech/TechEffects";
 import { Game, Player, PlayerID, Unit, UnitType } from "./Game";
 import { TileRef } from "./GameMap";
 import { PriorityQueue } from "./PriorityQueue";
@@ -798,8 +799,11 @@ export class RoadManager {
         creditedLength *
         qualityFactor_forMaint_c;
       const newInvestment = Math.max(0, investedPerTick - maintenancePerTick);
+      // Apply infrastructure effectiveness modifier from researched techs
+      const infraMods = infrastructureEffectivenessModifiers(player);
+      const effectiveInvestment = newInvestment * infraMods.effectivenessMul;
       const costPerPixel = BASE_COST * prodGuard; // guard tiny/zero
-      const pxPerTick = newInvestment / costPerPixel;
+      const pxPerTick = effectiveInvestment / costPerPixel;
       // Record net build speed in pixels per second for UI consumption
       const pxPerSecond = Math.max(0, pxPerTick * 10);
       this.roadNetPxPerSecond.set(
@@ -1657,6 +1661,14 @@ export class RoadManager {
 
   public getConnectedNodes(player: Player): Unit[] {
     return this.nodesByOwner.get(player.id()) ?? [];
+  }
+
+  /**
+   * Check if a structure is actually connected to the road network
+   * (i.e., has at least one completed road to another structure).
+   */
+  public isStructureConnectedToRoadNetwork(unit: Unit): boolean {
+    return this.structureGraph.isConnected(unit);
   }
 
   public destroyPlayerRoads(player: Player): void {

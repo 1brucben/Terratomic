@@ -124,7 +124,11 @@ export class LangSelector extends LitElement {
   }
 
   private loadLanguage(lang: string): Record<string, string> {
-    const language = this.languageMap[lang] ?? {};
+    let language = this.languageMap[lang] ?? {};
+    // Handle ESM default export if present
+    if (language.default) {
+      language = language.default;
+    }
     const flat = flattenTranslations(language);
     return flat;
   }
@@ -200,7 +204,7 @@ export class LangSelector extends LitElement {
     this.showModal = false;
   }
 
-  private applyTranslation() {
+  public applyTranslation(): void {
     const components = [
       "single-player-modal",
       "host-lobby-modal",
@@ -219,6 +223,8 @@ export class LangSelector extends LitElement {
       "user-setting",
       "o-modal",
       "o-button",
+      "news-button",
+      "lang-selector",
     ];
 
     document.title = this.translateText("main.title") ?? document.title;
@@ -232,6 +238,13 @@ export class LangSelector extends LitElement {
         return;
       }
       element.textContent = text;
+    });
+
+    document.querySelectorAll("[data-i18n-title]").forEach((el) => {
+      const key = el.getAttribute("data-i18n-title");
+      if (key) {
+        el.setAttribute("title", this.translateText(key));
+      }
     });
 
     components.forEach((tag) => {
@@ -301,7 +314,7 @@ export class LangSelector extends LitElement {
           transition-colors duration-300
           flex items-center gap-2 justify-center
           "
-          class="text-center appearance-none w-full bg-blue-100 dark:bg-gray-700 hover:bg-blue-200 dark:hover:bg-gray-600 text-blue-900 dark:text-gray-100 p-3 sm:p-4 lg:p-5 font-medium text-sm sm:text-base lg:text-lg rounded-md border-none cursor-pointer transition-colors duration-300 flex items-center gap-2 justify-center"
+          title="${this.translateText("select_lang.tooltip")}"
         >
           <img
             id="lang-flag"

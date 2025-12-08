@@ -1,4 +1,4 @@
-import { LitElement, html } from "lit";
+import { LitElement, html, nothing } from "lit";
 import { customElement, query, state } from "lit/decorators.js";
 import randomMap from "../../resources/images/RandomMap.webp";
 import { formatStartingGold, translateText } from "../client/Utils";
@@ -13,10 +13,11 @@ import {
   UnitType,
   mapCategories,
 } from "../core/game/Game";
+import type { TeamCountConfig } from "../core/Schemas";
 import {
+  GoldMultiplierValues,
   PeaceTimerDuration,
   StartingGoldValues,
-  TeamCountConfig,
 } from "../core/Schemas";
 import { generateID } from "../core/Util";
 import "./components/baseComponents/Button";
@@ -24,15 +25,20 @@ import "./components/baseComponents/Modal";
 import "./components/Difficulties";
 import { DifficultyDescription } from "./components/Difficulties";
 import "./components/Maps";
-import { FlagInput } from "./FlagInput";
-import { JoinLobbyEvent } from "./Main";
-import { UsernameInput } from "./UsernameInput";
+import type { FlagInput } from "./FlagInput";
+import type { JoinLobbyEvent } from "./Main";
+import type { UsernameInput } from "./UsernameInput";
 import { renderUnitTypeOptions } from "./utilities/RenderUnitTypeOptions";
 
 type StartingGoldOption = (typeof StartingGoldValues)[number];
 const startingGoldList = [...StartingGoldValues] as number[];
 const isStartingGoldOption = (value: number): value is StartingGoldOption =>
   startingGoldList.includes(value);
+
+type GoldMultiplierOption = (typeof GoldMultiplierValues)[number];
+const goldMultiplierList = [...GoldMultiplierValues] as number[];
+const isGoldMultiplierOption = (value: number): value is GoldMultiplierOption =>
+  goldMultiplierList.includes(value);
 
 @customElement("single-player-modal")
 export class SinglePlayerModal extends LitElement {
@@ -55,6 +61,7 @@ export class SinglePlayerModal extends LitElement {
   @state() private selectedPeaceTimerDuration: PeaceTimerDuration =
     PeaceTimerDuration.None;
   @state() private startingGold: StartingGoldOption = StartingGoldValues[0];
+  @state() private goldMultiplier: GoldMultiplierOption = 1;
 
   @state() private disabledUnits: UnitType[] = [];
   @state() private showUnitSettings = true; // Open by default
@@ -536,7 +543,10 @@ export class SinglePlayerModal extends LitElement {
 
                 <!-- Bot Slider -->
                 <div class="mb-4 px-2">
-                  <div class="flex justify-between text-sm text-gray-300 mb-1">
+                  <div
+                    class="flex justify-between text-sm text-gray-300 mb-1"
+                    data-i18n-title="single_modal.bots_tooltip"
+                  >
                     <span>${translateText("single_modal.bots")}</span>
                     <span class="font-bold">${this.bots}</span>
                   </div>
@@ -548,19 +558,45 @@ export class SinglePlayerModal extends LitElement {
                     .value=${String(this.bots)}
                     @input=${this.handleBotsChange}
                     style="--slider-progress: ${sliderPercent}%"
+                    data-i18n-title="single_modal.bots_tooltip"
                   />
                 </div>
 
                 <!-- Dropdowns with Labels -->
-                <div class="grid grid-cols-2 gap-4 mb-3">
+                <div class="grid grid-cols-3 gap-4 mb-3">
                   <div class="flex flex-col">
-                    <div class="text-sm text-gray-300 mb-1 font-bold">
+                    <div
+                      class="text-sm text-gray-300 mb-1 font-bold"
+                      data-i18n-title="gold_multiplier.tooltip"
+                    >
+                      ${translateText("gold_multiplier.label")}
+                    </div>
+                    <select
+                      class="sp-select"
+                      @change=${this.handleGoldMultiplierChange}
+                      .value=${String(this.goldMultiplier)}
+                      data-i18n-title="gold_multiplier.tooltip"
+                    >
+                      ${GoldMultiplierValues.map(
+                        (v) =>
+                          html`<option value=${v}>
+                            ${v}x${v === 1 ? " (default)" : ""}
+                          </option>`,
+                      )}
+                    </select>
+                  </div>
+                  <div class="flex flex-col">
+                    <div
+                      class="text-sm text-gray-300 mb-1 font-bold"
+                      data-i18n-title="starting_gold.tooltip"
+                    >
                       ${translateText("starting_gold.label")}
                     </div>
                     <select
                       class="sp-select"
                       @change=${this.handleStartingGoldChange}
                       .value=${String(this.startingGold)}
+                      data-i18n-title="starting_gold.tooltip"
                     >
                       ${StartingGoldValues.map(
                         (v) =>
@@ -571,13 +607,17 @@ export class SinglePlayerModal extends LitElement {
                     </select>
                   </div>
                   <div class="flex flex-col">
-                    <div class="text-sm text-gray-300 mb-1 font-bold">
+                    <div
+                      class="text-sm text-gray-300 mb-1 font-bold"
+                      data-i18n-title="host_modal.peace_timer_tooltip"
+                    >
                       ${translateText("host_modal.peace_timer")}
                     </div>
                     <select
                       class="sp-select"
                       @change=${this.handlePeaceTimerChange}
                       .value=${String(this.selectedPeaceTimerDuration)}
+                      data-i18n-title="host_modal.peace_timer_tooltip"
                     >
                       ${Object.values(PeaceTimerDuration)
                         .filter((v) => typeof v === "number")
@@ -606,31 +646,37 @@ export class SinglePlayerModal extends LitElement {
                     this.disableNPCs,
                     "single_modal.disable_nations",
                     this.handleDisableNPCsChange,
+                    "single_modal.disable_nations_tooltip",
                   )}
                   ${this.renderToggle(
                     this.instantBuild,
                     "single_modal.instant_build",
                     this.handleInstantBuildChange,
+                    "single_modal.instant_build_tooltip",
                   )}
                   ${this.renderToggle(
                     this.instantResearchHumanOnly,
                     "single_modal.instant_research",
                     this.handleInstantResearchHumanOnlyChange,
+                    "single_modal.instant_research_tooltip",
                   )}
                   ${this.renderToggle(
                     this.researchAllTechs,
                     "single_modal.research_all_techs",
                     (e: any) => (this.researchAllTechs = e.target.checked),
+                    "single_modal.research_all_techs_tooltip",
                   )}
                   ${this.renderToggle(
                     this.infiniteGold,
                     "single_modal.infinite_gold",
                     this.handleInfiniteGoldChange,
+                    "single_modal.infinite_gold_tooltip",
                   )}
                   ${this.renderToggle(
                     this.infiniteTroops,
                     "single_modal.infinite_troops",
                     this.handleInfiniteTroopsChange,
+                    "single_modal.infinite_troops_tooltip",
                   )}
                 </div>
               </div>
@@ -708,9 +754,13 @@ export class SinglePlayerModal extends LitElement {
     checked: boolean,
     labelKey: string,
     onChange: (e: any) => void,
+    tooltipKey?: string,
   ) {
     return html`
-      <label class="sp-btn ${checked ? "selected" : ""}">
+      <label
+        class="sp-btn ${checked ? "selected" : ""}"
+        data-i18n-title=${tooltipKey ?? nothing}
+      >
         <div class="sp-check"></div>
         <input
           type="checkbox"
@@ -721,6 +771,16 @@ export class SinglePlayerModal extends LitElement {
         <span class="sp-btn-label">${translateText(labelKey)}</span>
       </label>
     `;
+  }
+
+  updated() {
+    // Apply translations to tooltips after rendering
+    this.querySelectorAll("[data-i18n-title]").forEach((el) => {
+      const key = el.getAttribute("data-i18n-title");
+      if (key) {
+        el.setAttribute("title", translateText(key));
+      }
+    });
   }
 
   createRenderRoot() {
@@ -783,6 +843,14 @@ export class SinglePlayerModal extends LitElement {
       return;
     }
     this.startingGold = value;
+  }
+
+  private handleGoldMultiplierChange(e: Event) {
+    const value = parseFloat((e.target as HTMLSelectElement).value);
+    if (isNaN(value) || !isGoldMultiplierOption(value)) {
+      return;
+    }
+    this.goldMultiplier = value;
   }
 
   private handlePeaceTimerChange(e: Event) {
@@ -874,6 +942,7 @@ export class SinglePlayerModal extends LitElement {
                 .filter((ut): ut is UnitType => ut !== undefined),
               peaceTimerDurationMinutes: this.selectedPeaceTimerDuration,
               startingGold: this.startingGold,
+              goldMultiplier: this.goldMultiplier,
             },
           },
         } satisfies JoinLobbyEvent,

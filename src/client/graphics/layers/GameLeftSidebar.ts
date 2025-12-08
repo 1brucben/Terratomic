@@ -108,7 +108,16 @@ export class GameLeftSidebar extends LitElement implements Layer {
             `
           : null}
         <div class="flex items-center gap-2 space-x-2 text-white mb-2">
-          <div class="w-6 h-6 cursor-pointer" @click=${this.toggleLeaderboard}>
+          <div
+            class="w-6 h-6 cursor-pointer"
+            @click=${this.toggleLeaderboard}
+            title=${this.isLeaderboardShow
+              ? null
+              : translateText("leaderboard.show")}
+            aria-label=${this.isLeaderboardShow
+              ? null
+              : translateText("leaderboard.show")}
+          >
             ${this.isLeaderboardShow
               ? html` <leaderboard-solid-icon></leaderboard-solid-icon>`
               : html` <leaderboard-regular-icon></leaderboard-regular-icon>`}

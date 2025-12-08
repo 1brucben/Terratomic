@@ -11,34 +11,42 @@ describe("PlayerImpl.removeResearchedTechsByCategory", () => {
     game.addPlayer(info);
     const player = game.player(info.id) as PlayerImpl;
 
-    player.addResearchedTech(RESEARCH_TECH_IDS.WWII_LESSONS);
-    player.addResearchedTech(RESEARCH_TECH_IDS.POST_WAR_RECONSTRUCTION);
-    player.addResearchedTech(RESEARCH_TECH_IDS.INTERNATIONAL_TRADE);
-    player.addResearchedTech(RESEARCH_TECH_IDS.STRUCTURE_INSURANCE);
-    player.addResearchedTech(RESEARCH_TECH_IDS.AUTOMATION);
-    player.addResearchBeakers("Economy-3", 500, 1_000);
-    player.setResearchPriority("Economy-3");
+    player.addResearchedTech(
+      RESEARCH_TECH_IDS.POST_WW2_GROUND_FORCES_MODERNIZATION,
+    );
+    player.addResearchedTech(RESEARCH_TECH_IDS.NATIONAL_RECONSTRUCTION_PROGRAM);
+    player.addResearchedTech(
+      RESEARCH_TECH_IDS.NATIONAL_RESEARCH_INDUSTRIAL_FOUNDATIONS,
+    );
+    player.addResearchedTech(RESEARCH_TECH_IDS.TRADE_POLICY_FRAMEWORK);
+    player.addResearchBeakers("Economy-4", 500, 1_000);
+    player.setResearchPriority("Economy-4");
 
     expect(player.hasUpgrade(UpgradeType.Roads)).toBe(true);
-    expect(player.hasUpgrade(UpgradeType.InternationalTrade)).toBe(true);
-    expect(player.hasUpgrade(UpgradeType.StructureInsurance)).toBe(true);
-    expect(player.hasUpgrade(UpgradeType.Automation)).toBe(true);
-    expect(player.researchBeakers("Economy-3")).toBe(500);
+    expect(player.hasUpgrade(UpgradeType.HospitalResearch)).toBe(true);
+    expect(player.researchBeakers("Economy-4")).toBe(500);
 
     player.removeResearchedTechsByCategory("Economy");
 
-    expect(player.hasResearchedTech(RESEARCH_TECH_IDS.WWII_LESSONS)).toBe(true);
     expect(
-      player.hasResearchedTech(RESEARCH_TECH_IDS.POST_WAR_RECONSTRUCTION),
+      player.hasResearchedTech(
+        RESEARCH_TECH_IDS.POST_WW2_GROUND_FORCES_MODERNIZATION,
+      ),
+    ).toBe(true);
+    expect(
+      player.hasResearchedTech(
+        RESEARCH_TECH_IDS.NATIONAL_RECONSTRUCTION_PROGRAM,
+      ),
     ).toBe(false);
     expect(
-      player.hasResearchedTech(RESEARCH_TECH_IDS.INTERNATIONAL_TRADE),
+      player.hasResearchedTech(
+        RESEARCH_TECH_IDS.NATIONAL_RESEARCH_INDUSTRIAL_FOUNDATIONS,
+      ),
     ).toBe(false);
-    expect(player.hasUpgrade(UpgradeType.Roads)).toBe(false);
-    expect(player.hasUpgrade(UpgradeType.InternationalTrade)).toBe(false);
-    expect(player.hasUpgrade(UpgradeType.StructureInsurance)).toBe(false);
-    expect(player.hasUpgrade(UpgradeType.Automation)).toBe(false);
-    expect(player.researchBeakers("Economy-3")).toBe(0);
+    // Upgrades are NOT removed by removeResearchedTechsByCategory - only techs and progress
+    expect(player.hasUpgrade(UpgradeType.Roads)).toBe(true);
+    expect(player.hasUpgrade(UpgradeType.HospitalResearch)).toBe(true);
+    expect(player.researchBeakers("Economy-4")).toBe(0);
     expect(player.researchPriority()).toBeNull();
   });
 });

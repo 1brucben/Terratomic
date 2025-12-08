@@ -1,6 +1,7 @@
 import { LitElement, html } from "lit";
 import { customElement, state } from "lit/decorators.js";
 import { UserSettings } from "../core/game/UserSettings";
+import { translateText } from "./Utils";
 
 @customElement("sound-button")
 export class SoundButton extends LitElement {
@@ -35,10 +36,10 @@ export class SoundButton extends LitElement {
   render() {
     return html`
       <button
-        title="Toggle Sound"
+        title=${translateText("sound_button.toggle_sound")}
         class="flex items-center justify-center w-10 h-10 rounded-full border-none bg-black/40 text-white cursor-pointer text-2xl transition hover:bg-black/60"
         @click=${() => this.toggleMuted()}
-        aria-label=${this.muted ? "Unmute sound" : "Mute sound"}
+        aria-label=${this.muted ? "Unmute Sound" : "Mute Sound"}
       >
         ${this.muted ? "🔇" : "🔊"}
       </button>
