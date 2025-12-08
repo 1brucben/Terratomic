@@ -13,19 +13,13 @@ export const RESEARCH_TECH_IDS = {
   // Air techs - Level 4
   FLY_BY_WIRE_PLATFORMS: "Air-4",
   // Sea techs - Level 1
-  EARLY_COLD_WAR_CRUISERS: "Sea-0",
-  DIESEL_ELECTRIC_SUBS: "Sea-1",
+  EARLY_MISSILE_NAVY: "Sea-1",
   // Sea techs - Level 2
-  FIRST_MISSILE_CRUISERS: "Sea-2A",
-  NUCLEAR_ATTACK_SUBMARINES: "Sea-2B",
-  BALLISTIC_MISSILE_SUBMARINES: "Sea-2C",
+  SUBMARINE_SILENT_SERVICE: "Sea-2",
   // Sea techs - Level 3
-  ADVANCED_MISSILE_CRUISERS: "Sea-3A",
-  ADVANCED_NUCLEAR_ATTACK_SUBS: "Sea-3B",
-  NAVAL_SAM_SYSTEMS: "Sea-3C",
+  SSBN_PROGRAMS: "Sea-3",
   // Sea techs - Level 4
-  AEGIS_WARSHIP_SYSTEMS: "Sea-4A",
-  QUIETING_ACOUSTIC_STEALTH: "Sea-4B",
+  MODERN_FLEET_SENSOR_SAM: "Sea-4",
   // Land techs - Level 1
   POST_WW2_GROUND_FORCES_MODERNIZATION: "Land-1",
   // Land techs - Level 2

@@ -91,98 +91,30 @@ export type TechDefinition = {
 
 // Unified registry containing both metadata and effects per tech
 export const TECHS: Readonly<Record<string, TechDefinition>> = Object.freeze({
-  // Sea techs - Level 1
-  [RESEARCH_TECH_IDS.EARLY_COLD_WAR_CRUISERS]: {
+  // Sea techs - Level 1: Early Missile Navy
+  [RESEARCH_TECH_IDS.EARLY_MISSILE_NAVY]: {
     meta: {
-      name: "Early Cold War Cruisers",
+      name: "Early Missile Navy",
       description:
-        "Enables Level 1 Warships. Post-war cruiser designs with improved armament and fire control systems.",
-    },
-    effects: {
-      onComplete: (player) => {
-        if (!player.hasUpgrade?.(UpgradeType.WarshipLevel1)) {
-          player.addUpgrade?.(UpgradeType.WarshipLevel1);
-        }
-      },
-    },
-  },
-  [RESEARCH_TECH_IDS.DIESEL_ELECTRIC_SUBS]: {
-    meta: {
-      name: "Diesel-Electric Subs",
-      description:
-        "Enables Level 1 Submarines. Conventional submarines with improved stealth and endurance.",
-    },
-    effects: {
-      onComplete: (player) => {
-        if (!player.hasUpgrade?.(UpgradeType.SubmarineLevel1)) {
-          player.addUpgrade?.(UpgradeType.SubmarineLevel1);
-        }
-      },
-    },
-  },
-  // Sea techs - Level 2
-  [RESEARCH_TECH_IDS.FIRST_MISSILE_CRUISERS]: {
-    meta: {
-      name: "First-Missile Cruisers",
-      description:
-        "Enables Level 2 Warships. Guided missile cruisers with long-range anti-ship capabilities.",
+        "Develop guided missile technology for naval warfare. Unlocks Warship Level 2, Submarine Level 2.",
     },
     effects: {
       onComplete: (player) => {
         if (!player.hasUpgrade?.(UpgradeType.WarshipLevel2)) {
           player.addUpgrade?.(UpgradeType.WarshipLevel2);
         }
-      },
-    },
-  },
-  [RESEARCH_TECH_IDS.NUCLEAR_ATTACK_SUBMARINES]: {
-    meta: {
-      name: "Nuclear Attack Submarines",
-      description:
-        "Enables Level 2 Submarines. Nuclear-powered attack submarines with unlimited range and improved speed.",
-    },
-    effects: {
-      onComplete: (player) => {
         if (!player.hasUpgrade?.(UpgradeType.SubmarineLevel2)) {
           player.addUpgrade?.(UpgradeType.SubmarineLevel2);
         }
       },
     },
   },
-  [RESEARCH_TECH_IDS.BALLISTIC_MISSILE_SUBMARINES]: {
+  // Sea techs - Level 2: Submarine Silent Service Modernization
+  [RESEARCH_TECH_IDS.SUBMARINE_SILENT_SERVICE]: {
     meta: {
-      name: "Ballistic Missile Submarines",
+      name: "Submarine Silent Service Modernization",
       description:
-        "Allows Submarines to launch Atomic Bombs. Nuclear-powered ballistic missile submarines for strategic deterrence.",
-    },
-    effects: {
-      onComplete: (player) => {
-        if (!player.hasUpgrade?.(UpgradeType.NuclearSubmarineResearch)) {
-          player.addUpgrade?.(UpgradeType.NuclearSubmarineResearch);
-        }
-      },
-    },
-  },
-  // Sea techs - Level 3
-  [RESEARCH_TECH_IDS.ADVANCED_MISSILE_CRUISERS]: {
-    meta: {
-      name: "Advanced Missile Cruisers",
-      description:
-        "Enables Level 3 Warships. Modern guided missile cruisers with advanced combat systems.",
-    },
-    effects: {
-      onComplete: (player) => {
-        if (!player.hasUpgrade?.(UpgradeType.WarshipLevel3)) {
-          player.addUpgrade?.(UpgradeType.WarshipLevel3);
-        }
-      },
-    },
-  },
-  [RESEARCH_TECH_IDS.ADVANCED_NUCLEAR_ATTACK_SUBS]: {
-    meta: {
-      name: "Advanced Nuclear Attack Subs",
-      description:
-        "Enables Level 3 Submarines. Next-generation nuclear attack submarines with improved stealth and weapons.",
+        "Advanced quieting and acoustic stealth for submarines. Unlocks Submarine Level 3.",
     },
     effects: {
       onComplete: (player) => {
@@ -192,39 +124,37 @@ export const TECHS: Readonly<Record<string, TechDefinition>> = Object.freeze({
       },
     },
   },
-  [RESEARCH_TECH_IDS.NAVAL_SAM_SYSTEMS]: {
+  // Sea techs - Level 3: SSBN Programs
+  [RESEARCH_TECH_IDS.SSBN_PROGRAMS]: {
     meta: {
-      name: "Naval SAM Systems",
+      name: "SSBN Programs",
       description:
-        "Equips Warships with an anti-air (AA) missile system to engage nearby enemy aircraft. Does not intercept nuclear missiles.",
+        "Ballistic missile submarine programs for strategic deterrence. Unlocks SSBNs (Submarines can launch nuclear weapons).",
     },
     effects: {
       onComplete: (player) => {
-        if (!player.hasUpgrade?.(UpgradeType.WarshipAntiAir)) {
-          player.addUpgrade?.(UpgradeType.WarshipAntiAir);
+        if (!player.hasUpgrade?.(UpgradeType.NuclearSubmarineResearch)) {
+          player.addUpgrade?.(UpgradeType.NuclearSubmarineResearch);
         }
       },
     },
   },
-  // Sea techs - Level 4
-  [RESEARCH_TECH_IDS.AEGIS_WARSHIP_SYSTEMS]: {
+  // Sea techs - Level 4: Modern Fleet Sensor & SAM Integration
+  [RESEARCH_TECH_IDS.MODERN_FLEET_SENSOR_SAM]: {
     meta: {
-      name: "Aegis Warship Systems",
+      name: "Modern Fleet Sensor & SAM Integration",
       description:
-        "Advanced integrated naval weapons system with multi-target tracking and engagement capabilities.",
+        "Advanced sensor suites and integrated air defense systems for the fleet. Unlocks Warship Level 3, Ship SAM Systems.",
     },
     effects: {
-      // Placeholder - no effect for now
-    },
-  },
-  [RESEARCH_TECH_IDS.QUIETING_ACOUSTIC_STEALTH]: {
-    meta: {
-      name: "Quieting and Acoustic Stealth",
-      description:
-        "Advanced noise reduction and acoustic signature management for improved submarine stealth.",
-    },
-    effects: {
-      // Placeholder - no effect for now
+      onComplete: (player) => {
+        if (!player.hasUpgrade?.(UpgradeType.WarshipLevel3)) {
+          player.addUpgrade?.(UpgradeType.WarshipLevel3);
+        }
+        if (!player.hasUpgrade?.(UpgradeType.WarshipAntiAir)) {
+          player.addUpgrade?.(UpgradeType.WarshipAntiAir);
+        }
+      },
     },
   },
   [RESEARCH_TECH_IDS.POST_WW2_GROUND_FORCES_MODERNIZATION]: {

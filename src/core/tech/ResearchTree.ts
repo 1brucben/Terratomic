@@ -54,68 +54,32 @@ const nuclearTechs: TechNode[] = [
   },
 ];
 
-// Sea branch techs (explicit definitions)
+// Sea branch techs (explicit definitions) - Simplified linear tree
 const seaTechs: TechNode[] = [
-  // Level 1 - Two parallel starting techs
-  { id: "Sea-0", category: "Sea", level: 1, cost: costForLevel(1) },
+  // Level 1 - Early Missile Navy (unlocks Warship L2, Sub L2)
   { id: "Sea-1", category: "Sea", level: 1, cost: costForLevel(1) },
-  // Level 2
+  // Level 2 - Submarine Silent Service Modernization (unlocks Sub L3)
   {
-    id: "Sea-2A",
-    category: "Sea",
-    level: 2,
-    requiresAllOf: ["Sea-0"],
-    cost: costForLevel(2),
-  },
-  {
-    id: "Sea-2B",
+    id: "Sea-2",
     category: "Sea",
     level: 2,
     requiresAllOf: ["Sea-1"],
     cost: costForLevel(2),
   },
+  // Level 3 - SSBN Programs (unlocks SSBNs)
   {
-    id: "Sea-2C",
-    category: "Sea",
-    level: 2,
-    requiresAllOf: ["Sea-1"],
-    cost: costForLevel(2),
-  },
-  // Level 3
-  {
-    id: "Sea-3A",
+    id: "Sea-3",
     category: "Sea",
     level: 3,
-    requiresAllOf: ["Sea-2A"],
+    requiresAllOf: ["Sea-2"],
     cost: costForLevel(3),
   },
+  // Level 4 - Modern Fleet Sensor & SAM Integration (unlocks Warship L3, Ship SAM)
   {
-    id: "Sea-3B",
-    category: "Sea",
-    level: 3,
-    requiresAllOf: ["Sea-2B"],
-    cost: costForLevel(3),
-  },
-  {
-    id: "Sea-3C",
-    category: "Sea",
-    level: 3,
-    requiresAllOf: ["Sea-2A"],
-    cost: costForLevel(3),
-  },
-  // Level 4
-  {
-    id: "Sea-4A",
+    id: "Sea-4",
     category: "Sea",
     level: 4,
-    requiresAllOf: ["Sea-3A"],
-    cost: costForLevel(4),
-  },
-  {
-    id: "Sea-4B",
-    category: "Sea",
-    level: 4,
-    requiresAllOf: ["Sea-3B"],
+    requiresAllOf: ["Sea-3"],
     cost: costForLevel(4),
   },
 ];

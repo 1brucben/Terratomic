@@ -135,9 +135,6 @@ export class FakeHumanExecution implements Execution {
         return;
       }
       this.player.addUpgrade(UpgradeType.InternationalTrade);
-      // Grant sea tech upgrades for bots
-      this.player.addUpgrade(UpgradeType.WarshipLevel1);
-      this.player.addUpgrade(UpgradeType.SubmarineLevel1);
 
       // Set research slider to 20% and set road investment to 20% at game start.
       // Do NOT set any research priority here so the AI leaves research priority null.

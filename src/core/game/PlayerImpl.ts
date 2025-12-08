@@ -1354,19 +1354,7 @@ export class PlayerImpl implements Player {
       }
     }
 
-    // Warship tech requirement (Early Cold War Cruisers)
-    if (unitType === UnitType.Warship) {
-      if (!this.hasUpgrade(UpgradeType.WarshipLevel1)) {
-        return false;
-      }
-    }
-
-    // Submarine tech requirement (Diesel-Electric Subs)
-    if (unitType === UnitType.Submarine) {
-      if (!this.hasUpgrade(UpgradeType.SubmarineLevel1)) {
-        return false;
-      }
-    }
+    // Warship and Submarine: Level 1 are available by default, no tech requirement
 
     // Air units: Fighter and Bomber Level 1 are available by default, no tech requirement
 

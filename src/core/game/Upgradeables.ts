@@ -60,10 +60,10 @@ export function maxUnitLevel(type: UnitType): number {
 // Pulse-Doppler Radar = level 3, Fly-By-Wire = level 4.
 // For Bomber: Level 1 by default, Supersonic Airframe = level 2,
 // Fly-By-Wire = level 3.
-// For Warship: Early Cold War Cruisers = level 1, First-Missile Cruisers = level 2,
-// Advanced Missile Cruisers = level 3.
-// For Submarine: Diesel-Electric Subs = level 1, Nuclear Attack Submarines = level 2,
-// Advanced Nuclear Attack Subs = level 3.
+// For Warship: Level 1 by default, Early Missile Navy = level 2,
+// Modern Fleet Sensor & SAM = level 3.
+// For Submarine: Level 1 by default, Early Missile Navy = level 2,
+// Submarine Silent Service = level 3.
 export function playerMaxUnitLevel(player: HasUpgrade, type: UnitType): number {
   const globalMax = maxUnitLevel(type);
 
@@ -92,10 +92,8 @@ export function playerMaxUnitLevel(player: HasUpgrade, type: UnitType): number {
       return Math.min(3, globalMax);
     if (player.hasUpgrade(UpgradeType.WarshipLevel2))
       return Math.min(2, globalMax);
-    if (player.hasUpgrade(UpgradeType.WarshipLevel1))
-      return Math.min(1, globalMax);
-    // No warship tech - can't build warships
-    return 0;
+    // Warship Level 1 is available by default at game start
+    return 1;
   }
 
   if (type === UnitType.Submarine) {
@@ -103,10 +101,8 @@ export function playerMaxUnitLevel(player: HasUpgrade, type: UnitType): number {
       return Math.min(3, globalMax);
     if (player.hasUpgrade(UpgradeType.SubmarineLevel2))
       return Math.min(2, globalMax);
-    if (player.hasUpgrade(UpgradeType.SubmarineLevel1))
-      return Math.min(1, globalMax);
-    // No submarine tech - can't build submarines
-    return 0;
+    // Submarine Level 1 is available by default at game start
+    return 1;
   }
 
   // For other unit types, return global max
@@ -146,9 +142,9 @@ export function tryParseUnitType(value: string): UnitType | null {
 export function isUnitAvailable(player: HasUpgrade, type: UnitType): boolean {
   switch (type) {
     case UnitType.Warship:
-      return player.hasUpgrade(UpgradeType.WarshipLevel1);
     case UnitType.Submarine:
-      return player.hasUpgrade(UpgradeType.SubmarineLevel1);
+      // Warship and Submarine Level 1 are available by default at game start
+      return true;
     case UnitType.Airfield:
     case UnitType.FighterJet:
     case UnitType.Bomber:
