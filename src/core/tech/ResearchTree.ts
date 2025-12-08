@@ -158,67 +158,32 @@ const landTechs: TechNode[] = [
   },
 ];
 
-// Parallel/branching techs as per current UI
-const extras: TechNode[] = [
-  // Air tech tree - Level 1
-  { id: "Air-0", category: "Air", level: 1, cost: costForLevel(1) },
-  // Air tech tree - Level 2 (three techs)
+// Air branch techs (explicit definitions) - Simplified linear tree
+const airTechs: TechNode[] = [
+  // Level 1 - Early Jet Aviation Framework (unlocks Paratroopers)
+  { id: "Air-1", category: "Air", level: 1, cost: costForLevel(1) },
+  // Level 2 - Supersonic Airframe Development (unlocks Fighter L2, Bomber L2)
   {
-    id: "Air-2A",
+    id: "Air-2",
     category: "Air",
     level: 2,
-    requiresAllOf: ["Air-0"],
+    requiresAllOf: ["Air-1"],
     cost: costForLevel(2),
   },
+  // Level 3 - Pulse-Doppler Radar & BVR Combat (unlocks Fighter L3, Naval Strike)
   {
-    id: "Air-2B",
-    category: "Air",
-    level: 2,
-    requiresAllOf: ["Air-0"],
-    cost: costForLevel(2),
-  },
-  {
-    id: "Air-2C",
-    category: "Air",
-    level: 2,
-    requiresAllOf: ["Air-0"],
-    cost: costForLevel(2),
-  },
-  // Air tech tree - Level 3 (three techs)
-  {
-    id: "Air-3A",
+    id: "Air-3",
     category: "Air",
     level: 3,
-    requiresAllOf: ["Air-2A"],
+    requiresAllOf: ["Air-2"],
     cost: costForLevel(3),
   },
+  // Level 4 - Fly-By-Wire Platforms & Advanced Maneuverability (unlocks Fighter L4, Bomber L3)
   {
-    id: "Air-3B",
-    category: "Air",
-    level: 3,
-    requiresAllOf: ["Air-2A"],
-    cost: costForLevel(3),
-  },
-  {
-    id: "Air-3C",
-    category: "Air",
-    level: 3,
-    requiresAllOf: ["Air-2B"],
-    cost: costForLevel(3),
-  },
-  // Air tech tree - Level 4 (two techs)
-  {
-    id: "Air-4A",
+    id: "Air-4",
     category: "Air",
     level: 4,
-    requiresAllOf: ["Air-3A"],
-    cost: costForLevel(4),
-  },
-  {
-    id: "Air-4B",
-    category: "Air",
-    level: 4,
-    requiresAllOf: ["Air-3C"],
+    requiresAllOf: ["Air-3"],
     cost: costForLevel(4),
   },
 ];
@@ -281,7 +246,7 @@ const tree: TechNode[] = [
   ...seaTechs,
   ...landTechs,
   ...economyTechs,
-  ...extras,
+  ...airTechs,
 ];
 
 export function getTechNodes(): ReadonlyArray<TechNode> {

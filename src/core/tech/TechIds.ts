@@ -5,18 +5,13 @@
  */
 export const RESEARCH_TECH_IDS = {
   // Air techs - Level 1
-  JET_ENGINES: "Air-0",
+  EARLY_JET_AVIATION_FRAMEWORK: "Air-1",
   // Air techs - Level 2
-  SUPERSONIC_FLIGHT: "Air-2A",
-  TURBOJET_BOMBERS: "Air-2B",
-  AIRBORNE_OPERATIONS: "Air-2C",
+  SUPERSONIC_AIRFRAME_DEVELOPMENT: "Air-2",
   // Air techs - Level 3
-  PULSE_DOPPLER_RADAR: "Air-3A",
-  NAVAL_STRIKE_TARGETING: "Air-3B",
-  SUPERSONIC_BOMBERS: "Air-3C",
+  PULSE_DOPPLER_RADAR_BVR: "Air-3",
   // Air techs - Level 4
-  FLY_BY_WIRE_SYSTEMS: "Air-4A",
-  PRECISION_GUIDED_MUNITIONS: "Air-4B",
+  FLY_BY_WIRE_PLATFORMS: "Air-4",
   // Sea techs - Level 1
   EARLY_COLD_WAR_CRUISERS: "Sea-0",
   DIESEL_ELECTRIC_SUBS: "Sea-1",

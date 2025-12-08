@@ -58,11 +58,7 @@ describe("SAM smart targeting integration (additional)", () => {
     // Ensure attacker has a missile silo to launch nukes
     constructionExecution(game, attacker, 7, 7, UnitType.MissileSilo);
 
-    // Grant air tech so attacker can build bombers
-    attacker.addUpgrade(UpgradeType.JetEngines);
-
-    // Grant SAM tech so defender can build SAM launchers
-    defender.addUpgrade(UpgradeType.SAMLevel1);
+    // Air units and SAM Level 1 are available by default at game start
   });
 
   test("nuke trajectory available for smart interception", () => {

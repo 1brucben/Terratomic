@@ -1368,16 +1368,7 @@ export class PlayerImpl implements Player {
       }
     }
 
-    // Air tech requirements (Jet Engines)
-    if (
-      unitType === UnitType.Airfield ||
-      unitType === UnitType.FighterJet ||
-      unitType === UnitType.Bomber
-    ) {
-      if (!this.hasUpgrade(UpgradeType.JetEngines)) {
-        return false;
-      }
-    }
+    // Air units: Fighter and Bomber Level 1 are available by default, no tech requirement
 
     // SAM Launcher: Level 1 is available by default, no tech requirement
 

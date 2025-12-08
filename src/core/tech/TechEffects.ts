@@ -424,52 +424,12 @@ export const TECHS: Readonly<Record<string, TechDefinition>> = Object.freeze({
       // Policy directive effects are applied via getPolicyChoice
     },
   },
-  [RESEARCH_TECH_IDS.JET_ENGINES]: {
+  // Air techs - Level 1: Early Jet Aviation Framework
+  [RESEARCH_TECH_IDS.EARLY_JET_AVIATION_FRAMEWORK]: {
     meta: {
-      name: "Jet Engines",
-      description: "Enables: Fighters, Bombers, Airfields",
-    },
-    effects: {
-      onComplete: (player) => {
-        if (!player.hasUpgrade?.(UpgradeType.JetEngines)) {
-          player.addUpgrade?.(UpgradeType.JetEngines);
-        }
-      },
-    },
-  },
-  [RESEARCH_TECH_IDS.SUPERSONIC_FLIGHT]: {
-    meta: {
-      name: "Supersonic Flight",
+      name: "Early Jet Aviation Framework",
       description:
-        "Enables Level 2 Fighters. Advanced supersonic aircraft with improved speed and maneuverability.",
-    },
-    effects: {
-      onComplete: (player) => {
-        if (!player.hasUpgrade?.(UpgradeType.FighterLevel2)) {
-          player.addUpgrade?.(UpgradeType.FighterLevel2);
-        }
-      },
-    },
-  },
-  [RESEARCH_TECH_IDS.TURBOJET_BOMBERS]: {
-    meta: {
-      name: "Turbojet Bombers",
-      description:
-        "Enables Level 2 Bombers. Advanced bomber technology improving bomber effectiveness and capabilities.",
-    },
-    effects: {
-      onComplete: (player) => {
-        if (!player.hasUpgrade?.(UpgradeType.BomberLevel2)) {
-          player.addUpgrade?.(UpgradeType.BomberLevel2);
-        }
-      },
-    },
-  },
-  [RESEARCH_TECH_IDS.AIRBORNE_OPERATIONS]: {
-    meta: {
-      name: "Airborne Operations",
-      description:
-        "Unlocks Paratroopers, allowing you to launch surprise attacks from the sky. Requires an Airfield.",
+        "Establish jet aviation infrastructure and doctrine. Unlocks Paratroopers.",
     },
     effects: {
       onComplete: (player) => {
@@ -479,72 +439,58 @@ export const TECHS: Readonly<Record<string, TechDefinition>> = Object.freeze({
       },
     },
   },
-  // Air techs - Level 3
-  [RESEARCH_TECH_IDS.PULSE_DOPPLER_RADAR]: {
+  // Air techs - Level 2: Supersonic Airframe Development
+  [RESEARCH_TECH_IDS.SUPERSONIC_AIRFRAME_DEVELOPMENT]: {
     meta: {
-      name: "Pulse-Doppler Radar",
+      name: "Supersonic Airframe Development",
       description:
-        "Enables Level 3 Fighters. Advanced radar technology for improved aircraft detection and tracking.",
+        "Develop supersonic aircraft designs. Unlocks Fighter Level 2, Bomber Level 2.",
+    },
+    effects: {
+      onComplete: (player) => {
+        if (!player.hasUpgrade?.(UpgradeType.FighterLevel2)) {
+          player.addUpgrade?.(UpgradeType.FighterLevel2);
+        }
+        if (!player.hasUpgrade?.(UpgradeType.BomberLevel2)) {
+          player.addUpgrade?.(UpgradeType.BomberLevel2);
+        }
+      },
+    },
+  },
+  // Air techs - Level 3: Pulse-Doppler Radar & BVR Combat
+  [RESEARCH_TECH_IDS.PULSE_DOPPLER_RADAR_BVR]: {
+    meta: {
+      name: "Pulse-Doppler Radar & BVR Combat",
+      description:
+        "Advanced radar and beyond-visual-range combat systems. Unlocks Fighter Level 3, Naval Strike Capability.",
     },
     effects: {
       onComplete: (player) => {
         if (!player.hasUpgrade?.(UpgradeType.FighterLevel3)) {
           player.addUpgrade?.(UpgradeType.FighterLevel3);
         }
-      },
-    },
-  },
-  [RESEARCH_TECH_IDS.NAVAL_STRIKE_TARGETING]: {
-    meta: {
-      name: "Naval Strike Targeting",
-      description:
-        "Equips Fighter Jets with advanced targeting systems to engage and destroy enemy naval units.",
-    },
-    effects: {
-      onComplete: (player) => {
         if (!player.hasUpgrade?.(UpgradeType.FighterJetNavalTargeting)) {
           player.addUpgrade?.(UpgradeType.FighterJetNavalTargeting);
         }
       },
     },
   },
-  [RESEARCH_TECH_IDS.SUPERSONIC_BOMBERS]: {
+  // Air techs - Level 4: Fly-By-Wire Platforms & Advanced Maneuverability
+  [RESEARCH_TECH_IDS.FLY_BY_WIRE_PLATFORMS]: {
     meta: {
-      name: "Supersonic Bombers",
+      name: "Fly-By-Wire Platforms & Advanced Maneuverability",
       description:
-        "Enables Level 3 Bombers. High-speed bomber aircraft capable of evading enemy defenses.",
-    },
-    effects: {
-      onComplete: (player) => {
-        if (!player.hasUpgrade?.(UpgradeType.BomberLevel3)) {
-          player.addUpgrade?.(UpgradeType.BomberLevel3);
-        }
-      },
-    },
-  },
-  // Air techs - Level 4
-  [RESEARCH_TECH_IDS.FLY_BY_WIRE_SYSTEMS]: {
-    meta: {
-      name: "Fly-By-Wire Systems",
-      description:
-        "Enables Level 4 Fighters. Digital flight control systems for enhanced aircraft maneuverability and stability.",
+        "Digital flight control systems for maximum aircraft performance. Unlocks Fighter Level 4, Bomber Level 3.",
     },
     effects: {
       onComplete: (player) => {
         if (!player.hasUpgrade?.(UpgradeType.FighterLevel4)) {
           player.addUpgrade?.(UpgradeType.FighterLevel4);
         }
+        if (!player.hasUpgrade?.(UpgradeType.BomberLevel3)) {
+          player.addUpgrade?.(UpgradeType.BomberLevel3);
+        }
       },
-    },
-  },
-  [RESEARCH_TECH_IDS.PRECISION_GUIDED_MUNITIONS]: {
-    meta: {
-      name: "Precision-Guided Munitions",
-      description:
-        "Smart bombs and missiles with pinpoint accuracy for strategic targets.",
-    },
-    effects: {
-      // Placeholder - add specific upgrade when needed
     },
   },
   [RESEARCH_TECH_IDS.NUCLEAR_FISSION]: {

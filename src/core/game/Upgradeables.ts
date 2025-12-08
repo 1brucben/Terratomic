@@ -56,10 +56,10 @@ export function maxUnitLevel(type: UnitType): number {
 }
 
 // Return maximum upgrade level for a player based on their researched techs.
-// For FighterJet: Jet Engines = level 1, Supersonic Flight = level 2,
-// Pulse-Doppler Radar = level 3, Fly-By-Wire Systems = level 4.
-// For Bomber: Jet Engines = level 1, Turbojet Bombers = level 2,
-// Supersonic Bombers = level 3.
+// For FighterJet: Level 1 by default, Supersonic Airframe = level 2,
+// Pulse-Doppler Radar = level 3, Fly-By-Wire = level 4.
+// For Bomber: Level 1 by default, Supersonic Airframe = level 2,
+// Fly-By-Wire = level 3.
 // For Warship: Early Cold War Cruisers = level 1, First-Missile Cruisers = level 2,
 // Advanced Missile Cruisers = level 3.
 // For Submarine: Diesel-Electric Subs = level 1, Nuclear Attack Submarines = level 2,
@@ -74,7 +74,7 @@ export function playerMaxUnitLevel(player: HasUpgrade, type: UnitType): number {
       return Math.min(3, globalMax);
     if (player.hasUpgrade(UpgradeType.FighterLevel2))
       return Math.min(2, globalMax);
-    // Jet Engines (required to build fighters) gives level 1
+    // Fighter Level 1 is available by default at game start
     return 1;
   }
 
@@ -83,7 +83,7 @@ export function playerMaxUnitLevel(player: HasUpgrade, type: UnitType): number {
       return Math.min(3, globalMax);
     if (player.hasUpgrade(UpgradeType.BomberLevel2))
       return Math.min(2, globalMax);
-    // Jet Engines (required to build bombers) gives level 1
+    // Bomber Level 1 is available by default at game start
     return 1;
   }
 
@@ -152,7 +152,8 @@ export function isUnitAvailable(player: HasUpgrade, type: UnitType): boolean {
     case UnitType.Airfield:
     case UnitType.FighterJet:
     case UnitType.Bomber:
-      return player.hasUpgrade(UpgradeType.JetEngines);
+      // Fighter and Bomber Level 1 are available by default at game start
+      return true;
     case UnitType.AtomBomb:
     case UnitType.MissileSilo:
       return player.hasUpgrade(UpgradeType.NuclearFission);

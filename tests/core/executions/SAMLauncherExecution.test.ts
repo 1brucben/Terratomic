@@ -81,10 +81,7 @@ describe("SAM", () => {
 
     constructionExecution(game, attacker, 7, 7, UnitType.MissileSilo);
 
-    // Grant SAM tech so defenders can build SAM launchers
-    defender.addUpgrade(UpgradeType.SAMLevel1);
-    middle_defender.addUpgrade(UpgradeType.SAMLevel1);
-    far_defender.addUpgrade(UpgradeType.SAMLevel1);
+    // SAM Level 1 is available by default at game start
   });
 
   test("one sam should take down one nuke", async () => {
