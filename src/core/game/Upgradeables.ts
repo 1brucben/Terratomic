@@ -125,9 +125,8 @@ export function playerMaxStructureLevel(
   if (type === UnitType.SAMLauncher) {
     if (player.hasUpgrade(UpgradeType.SAMLevel3)) return Math.min(3, globalMax);
     if (player.hasUpgrade(UpgradeType.SAMLevel2)) return Math.min(2, globalMax);
-    if (player.hasUpgrade(UpgradeType.SAMLevel1)) return Math.min(1, globalMax);
-    // No SAM tech researched - can't build SAM launchers
-    return 0;
+    // SAM Level 1 is available by default at game start
+    return Math.min(1, globalMax);
   }
 
   // For other structures, return global max
@@ -164,7 +163,8 @@ export function isUnitAvailable(player: HasUpgrade, type: UnitType): boolean {
     case UnitType.DoomsdayDevice:
       return player.hasUpgrade(UpgradeType.DoomsdayDeviceResearch);
     case UnitType.SAMLauncher:
-      return player.hasUpgrade(UpgradeType.SAMLevel1);
+      // SAM Level 1 is available by default at game start
+      return true;
     case UnitType.Academy:
       return player.hasUpgrade(UpgradeType.MilitaryAcademy);
     case UnitType.Hospital:

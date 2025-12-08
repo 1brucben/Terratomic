@@ -120,54 +120,41 @@ const seaTechs: TechNode[] = [
   },
 ];
 
-// Land branch techs (explicit definitions)
+// Land branch techs (explicit definitions) - Simplified linear tree
 const landTechs: TechNode[] = [
-  // Level 1 - Post-WW2 Modernization (unlocks Military Academy)
+  // Level 1 - Post-WW2 Ground Forces Modernization (unlocks Military Academy, AA Guns)
   { id: "Land-1", category: "Land", level: 1, cost: costForLevel(1) },
-  // Level 2 - Two parallel paths
+  // Level 2 - Mechanized Warfare Doctrine (unlocks Scorched Earth, policy directive)
   {
-    id: "Land-2A",
+    id: "Land-2",
     category: "Land",
     level: 2,
     requiresAllOf: ["Land-1"],
     cost: costForLevel(2),
   },
+  // Level 3 - Air-Defense Grid Expansion (unlocks SAM Level 2)
   {
-    id: "Land-2B",
-    category: "Land",
-    level: 2,
-    requiresAllOf: ["Land-1"],
-    cost: costForLevel(2),
-  },
-  // Level 3 - Each follows its own path
-  {
-    id: "Land-3A",
+    id: "Land-3",
     category: "Land",
     level: 3,
-    requiresAllOf: ["Land-2A"],
+    requiresAllOf: ["Land-2"],
     cost: costForLevel(3),
   },
+  // Level 4 - Integrated SAM & Battlefield Command Systems (unlocks SAM Level 3)
   {
-    id: "Land-3B",
-    category: "Land",
-    level: 3,
-    requiresAllOf: ["Land-2B"],
-    cost: costForLevel(3),
-  },
-  // Level 4 - Each follows its own path
-  {
-    id: "Land-4A",
+    id: "Land-4",
     category: "Land",
     level: 4,
-    requiresAllOf: ["Land-3A"],
+    requiresAllOf: ["Land-3"],
     cost: costForLevel(4),
   },
+  // Level 5 - Night Vision, Thermal Imaging & Digital C3I (policy directive)
   {
-    id: "Land-4B",
+    id: "Land-5",
     category: "Land",
-    level: 4,
-    requiresAllOf: ["Land-3B"],
-    cost: costForLevel(4),
+    level: 5,
+    requiresAllOf: ["Land-4"],
+    cost: costForLevel(5),
   },
 ];
 

@@ -227,11 +227,11 @@ export const TECHS: Readonly<Record<string, TechDefinition>> = Object.freeze({
       // Placeholder - no effect for now
     },
   },
-  [RESEARCH_TECH_IDS.POST_WW2_MODERNIZATION]: {
+  [RESEARCH_TECH_IDS.POST_WW2_GROUND_FORCES_MODERNIZATION]: {
     meta: {
-      name: "Post-WW2 Modernization",
+      name: "Post-WW2 Ground Forces Modernization",
       description:
-        "Doctrine refined by hard-won experience improves offensive capabilities and tactical efficiency. Effects: Enables Military Academy, City AA. Enemy takes +5% more losses when you attack them. Your offensive speed +5%.",
+        "Doctrine refined by hard-won experience improves offensive capabilities and tactical efficiency. Effects: Enables Military Academy, AA Guns. +5% offensive speed. Casualty Effects (20%): +10% enemy losses when you attack, -10% your losses when defending.",
     },
     effects: {
       onComplete: (player, game) => {
@@ -245,7 +245,10 @@ export const TECHS: Readonly<Record<string, TechDefinition>> = Object.freeze({
         }
       },
       attack: (mods) => {
-        mods.defenderLossMul *= 1.05; // enemy (defender) takes 5% more losses when we attack
+        mods.defenderLossMul *= 1.1; // enemy (defender) takes 10% more losses when we attack
+      },
+      defense: (mods) => {
+        mods.defenderLossMul *= 0.9; // we take 10% less losses when defending
       },
       attackSpeed: (mods) => {
         mods.speedMul *= 1.05; // 5% faster offensive speed
@@ -347,47 +350,26 @@ export const TECHS: Readonly<Record<string, TechDefinition>> = Object.freeze({
       // Effects to be added later
     },
   },
-  // Land Level 2 techs
+  // Land Level 2 tech - Mechanized Warfare Doctrine (1960s)
   [RESEARCH_TECH_IDS.MECHANIZED_WARFARE_DOCTRINE]: {
     meta: {
       name: "Mechanized Warfare Doctrine",
       description:
-        "Develop doctrine for mechanized infantry and armored operations. Effects: Unlocks Scorched Earth. Policy Directive: Mobile Infantry Emphasis (+10% offensive speed) or Armored Breakthrough Emphasis (-10% losses when attacking).",
+        "Develop doctrine for mechanized infantry and armored operations. Effects: Unlocks Scorched Earth. +5% offensive speed. Policy Directive (20%): Mobile Infantry Tactics (-10% your losses attacking, +10% enemy losses when they attack you) or Armored Breakthrough Doctrine (+10% enemy losses when you attack, -10% your losses when defending).",
     },
     effects: {
-      // Policy directive effects are applied via getPolicyChoice
-    },
-  },
-  [RESEARCH_TECH_IDS.SAM_DEPLOYMENT]: {
-    meta: {
-      name: "Surface-to-Air Missile Deployment",
-      description:
-        "Deploy first-generation SAM systems (SA-2 Guideline, Nike Hercules, S-75). Effects: Enables SAM Level 1.",
-    },
-    effects: {
-      onComplete: (player) => {
-        if (!player.hasUpgrade?.(UpgradeType.SAMLevel1)) {
-          player.addUpgrade?.(UpgradeType.SAMLevel1);
-        }
+      attackSpeed: (mods) => {
+        mods.speedMul *= 1.05; // 5% faster offensive speed
       },
-    },
-  },
-  // Land Level 3 techs
-  [RESEARCH_TECH_IDS.MAIN_BATTLE_TANK_STANDARDIZATION]: {
-    meta: {
-      name: "Main Battle Tank Standardization",
-      description:
-        "Adopt standardized MBT designs (T-62, T-72, M60, Leopard 1) for improved maintenance and battlefield coordination. Policy Directive: Survivability Focus (-10% losses defending) or Offensive Armor Focus (-10% losses attacking).",
-    },
-    effects: {
       // Policy directive effects are applied via getPolicyChoice
     },
   },
-  [RESEARCH_TECH_IDS.ADVANCED_SAM_SYSTEMS]: {
+  // Land Level 3 tech - Air-Defense Grid Expansion (1970s)
+  [RESEARCH_TECH_IDS.AIR_DEFENSE_GRID_EXPANSION]: {
     meta: {
-      name: "Advanced SAM Systems",
+      name: "Air-Defense Grid Expansion",
       description:
-        "Deploy mobile SAM batteries (SA-6, Hawk, early TELARs). Effects: Enables SAM Level 2.",
+        "Expand air defense networks with improved SAM coverage. Effects: Enables SAM Level 2. +5% offensive speed. Casualty Effects (20%): +15% enemy losses when they attack you, -5% your losses when defending.",
     },
     effects: {
       onComplete: (player) => {
@@ -395,24 +377,21 @@ export const TECHS: Readonly<Record<string, TechDefinition>> = Object.freeze({
           player.addUpgrade?.(UpgradeType.SAMLevel2);
         }
       },
+      defense: (mods) => {
+        mods.attackerLossMul *= 1.15; // enemy takes 15% more losses when they attack us
+        mods.defenderLossMul *= 0.95; // we take 5% less losses when defending
+      },
+      attackSpeed: (mods) => {
+        mods.speedMul *= 1.05; // 5% faster offensive speed
+      },
     },
   },
-  // Land Level 4 techs
-  [RESEARCH_TECH_IDS.NIGHT_VISION_BATTLEFIELD_SENSORS]: {
+  // Land Level 4 tech - Integrated SAM & Battlefield Command Systems (1980s)
+  [RESEARCH_TECH_IDS.INTEGRATED_SAM_BATTLEFIELD_COMMAND]: {
     meta: {
-      name: "Night Vision & Battlefield Sensors",
+      name: "Integrated SAM & Battlefield Command Systems",
       description:
-        "Equip forces with infrared and thermal imaging for 24-hour combat capability. Policy Directive: High-Speed Night Maneuvers (+10% offensive speed) or Precision Night Engagements (+10% enemy losses when attacking).",
-    },
-    effects: {
-      // Policy directive effects are applied via getPolicyChoice
-    },
-  },
-  [RESEARCH_TECH_IDS.INTEGRATED_C3I_SAM_NETWORKS]: {
-    meta: {
-      name: "Integrated C3I & Advanced SAM Networks",
-      description:
-        "Integrate SA-10, Patriot-era SAM platforms with C3I systems. Effects: Enables SAM Level 3, +5% enemy losses when you attack, +5% enemy losses when they attack you.",
+        "Integrate SA-10, Patriot-era SAM platforms with C3I systems. Effects: Enables SAM Level 3. +5% offensive speed. Casualty Effects (20%): +10% enemy losses when they attack you, -10% your losses when attacking.",
     },
     effects: {
       onComplete: (player) => {
@@ -420,12 +399,29 @@ export const TECHS: Readonly<Record<string, TechDefinition>> = Object.freeze({
           player.addUpgrade?.(UpgradeType.SAMLevel3);
         }
       },
-      attack: (mods) => {
-        mods.defenderLossMul *= 1.05; // enemy takes 5% more losses when we attack
-      },
       defense: (mods) => {
-        mods.attackerLossMul *= 1.05; // enemy takes 5% more losses when they attack us
+        mods.attackerLossMul *= 1.1; // enemy takes 10% more losses when they attack us
       },
+      attack: (mods) => {
+        mods.attackerLossMul *= 0.9; // we take 10% less losses when attacking
+      },
+      attackSpeed: (mods) => {
+        mods.speedMul *= 1.05; // 5% faster offensive speed
+      },
+    },
+  },
+  // Land Level 5 tech - Night Vision, Thermal Imaging & Digital C3I (Early 1990s)
+  [RESEARCH_TECH_IDS.NIGHT_VISION_THERMAL_C3I]: {
+    meta: {
+      name: "Night Vision, Thermal Imaging & Digital C3I",
+      description:
+        "Equip forces with night vision, thermal imaging, and digital command systems for 24-hour combat capability. Effects: +5% offensive speed. Policy Directive (20%): High-Tempo Maneuver Warfare (+10% enemy losses when you attack, -10% your losses when attacking) or Precision Defensive Fire Doctrine (+10% enemy losses when they attack you, -10% your losses when defending).",
+    },
+    effects: {
+      attackSpeed: (mods) => {
+        mods.speedMul *= 1.05; // 5% faster offensive speed
+      },
+      // Policy directive effects are applied via getPolicyChoice
     },
   },
   [RESEARCH_TECH_IDS.JET_ENGINES]: {
@@ -691,6 +687,9 @@ export function defenseCasualtyModifiers(defender: {
       );
       if (option?.effects.defenderLossMul) {
         mods.defenderLossMul *= option.effects.defenderLossMul;
+      }
+      if (option?.effects.attackerLossMulOnDefense) {
+        mods.attackerLossMul *= option.effects.attackerLossMulOnDefense;
       }
     }
   }

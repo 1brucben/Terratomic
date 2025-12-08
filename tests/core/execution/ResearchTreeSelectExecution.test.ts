@@ -50,13 +50,13 @@ describe("ResearchTreeSelectExecution", () => {
   it("adds researched tech ID to the player's set", () => {
     const exec = new ResearchTreeSelectExecution(
       mockPlayer as any,
-      RESEARCH_TECH_IDS.POST_WW2_MODERNIZATION,
+      RESEARCH_TECH_IDS.POST_WW2_GROUND_FORCES_MODERNIZATION,
     );
     exec.init(mockGame as any, 0);
     exec.tick(0);
 
     expect(mockPlayer.addResearchedTech as jest.Mock).toHaveBeenCalledWith(
-      RESEARCH_TECH_IDS.POST_WW2_MODERNIZATION,
+      RESEARCH_TECH_IDS.POST_WW2_GROUND_FORCES_MODERNIZATION,
     );
   });
 

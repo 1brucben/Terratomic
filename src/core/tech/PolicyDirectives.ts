@@ -12,8 +12,7 @@ export const POLICY_DIRECTIVE_IDS = {
   INFRASTRUCTURE_PRIORITIZATION: "policy_infrastructure",
   NATIONAL_ECONOMIC_COORDINATION: "policy_economic_coordination",
   MECHANIZED_WARFARE_DOCTRINE: "policy_mechanized_warfare",
-  MAIN_BATTLE_TANK_STANDARDIZATION: "policy_mbt_standardization",
-  NIGHT_VISION_BATTLEFIELD_SENSORS: "policy_night_vision",
+  NIGHT_VISION_THERMAL_C3I: "policy_night_vision_thermal",
 } as const;
 
 export type PolicyDirectiveId =
@@ -52,6 +51,8 @@ export interface PolicyEffects {
   defenderLossMul?: number;
   // Multiplier for enemy (defender) losses when you attack (e.g., 1.1 = +10% enemy losses)
   enemyLossMulOnAttack?: number;
+  // Multiplier for attacker (enemy) losses when you defend (e.g., 1.1 = +10% enemy losses when they attack you)
+  attackerLossMulOnDefense?: number;
   // Multiplier for maintenance cost reduction (e.g., 0.90 = -10% maintenance)
   // TODO: Commented out until maintenance is implemented
   // maintenanceCostMul?: number;
@@ -188,68 +189,51 @@ export const POLICY_DIRECTIVES: Readonly<
     options: [
       {
         id: "mobile_infantry",
-        name: "Mobile Infantry Emphasis",
-        description: "+10% offensive speed",
+        name: "Mobile Infantry Tactics",
+        description:
+          "-10% your losses when attacking, +10% enemy losses when they attack you",
         effects: {
-          attackSpeedMul: 1.1,
+          attackerLossMul: 0.9,
+          attackerLossMulOnDefense: 1.1,
         },
       },
       {
         id: "armored_breakthrough",
-        name: "Armored Breakthrough Emphasis",
-        description: "-10% losses when attacking",
+        name: "Armored Breakthrough Doctrine",
+        description:
+          "+10% enemy losses when you attack, -10% your losses when defending",
         effects: {
-          attackerLossMul: 0.9,
-        },
-      },
-    ],
-  },
-  [POLICY_DIRECTIVE_IDS.MAIN_BATTLE_TANK_STANDARDIZATION]: {
-    id: POLICY_DIRECTIVE_IDS.MAIN_BATTLE_TANK_STANDARDIZATION,
-    name: "Main Battle Tank Standardization",
-    description:
-      "Choose your armor doctrine emphasis for standardized MBT operations.",
-    unlockedByTech: RESEARCH_TECH_IDS.MAIN_BATTLE_TANK_STANDARDIZATION,
-    options: [
-      {
-        id: "survivability_focus",
-        name: "Survivability Focus",
-        description: "-10% losses when defending",
-        effects: {
+          enemyLossMulOnAttack: 1.1,
           defenderLossMul: 0.9,
         },
       },
+    ],
+  },
+  [POLICY_DIRECTIVE_IDS.NIGHT_VISION_THERMAL_C3I]: {
+    id: POLICY_DIRECTIVE_IDS.NIGHT_VISION_THERMAL_C3I,
+    name: "Night Vision, Thermal Imaging & Digital C3I",
+    description:
+      "Choose your night combat doctrine with thermal imaging and digital command systems.",
+    unlockedByTech: RESEARCH_TECH_IDS.NIGHT_VISION_THERMAL_C3I,
+    options: [
       {
-        id: "offensive_armor",
-        name: "Offensive Armor Focus",
-        description: "-10% losses when attacking",
+        id: "high_tempo_maneuver",
+        name: "High-Tempo Maneuver Warfare",
+        description:
+          "+10% enemy losses when you attack, -10% your losses when attacking",
         effects: {
+          enemyLossMulOnAttack: 1.1,
           attackerLossMul: 0.9,
         },
       },
-    ],
-  },
-  [POLICY_DIRECTIVE_IDS.NIGHT_VISION_BATTLEFIELD_SENSORS]: {
-    id: POLICY_DIRECTIVE_IDS.NIGHT_VISION_BATTLEFIELD_SENSORS,
-    name: "Night Vision & Battlefield Sensors",
-    description:
-      "Choose your night combat doctrine with infrared and thermal imaging.",
-    unlockedByTech: RESEARCH_TECH_IDS.NIGHT_VISION_BATTLEFIELD_SENSORS,
-    options: [
       {
-        id: "high_speed_night",
-        name: "High-Speed Night Maneuvers",
-        description: "+10% offensive speed",
+        id: "precision_defensive",
+        name: "Precision Defensive Fire Doctrine",
+        description:
+          "+10% enemy losses when they attack you, -10% your losses when defending",
         effects: {
-          attackSpeedMul: 1.1,
-        },
-      },
-      {
-        id: "precision_night",
-        name: "Precision Night Engagements",
-        description: "+10% enemy losses when you attack",
-        effects: {
-          enemyLossMulOnAttack: 1.1,
+          attackerLossMulOnDefense: 1.1,
+          defenderLossMul: 0.9,
         },
       },
     ],
