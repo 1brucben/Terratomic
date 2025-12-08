@@ -415,7 +415,7 @@ export const TECHS: Readonly<Record<string, TechDefinition>> = Object.freeze({
   [RESEARCH_TECH_IDS.NUCLEAR_FISSION]: {
     meta: {
       name: "Nuclear Fission",
-      description: "Enables: Atom Bomb",
+      description: "Enables: Atom Bomb, Missile Silo",
     },
     effects: {
       onComplete: (player) => {
