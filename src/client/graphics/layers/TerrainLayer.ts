@@ -4,6 +4,7 @@ import { TransformHandler } from "../TransformHandler";
 import { Layer } from "./Layer";
 
 export class TerrainLayer implements Layer {
+  layerName = "TerrainLayer";
   private canvas: HTMLCanvasElement;
   private context: CanvasRenderingContext2D;
   private imageData: ImageData;

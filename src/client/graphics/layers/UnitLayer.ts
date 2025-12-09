@@ -57,6 +57,7 @@ const UNIT_LAYER_TYPES = new Set<UnitType>([
 ]);
 
 export class UnitLayer implements Layer {
+  layerName = "UnitLayer";
   private canvas: HTMLCanvasElement;
   private context: CanvasRenderingContext2D;
   private transportShipTrailCanvas: HTMLCanvasElement;

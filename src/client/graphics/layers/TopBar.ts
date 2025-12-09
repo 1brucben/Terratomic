@@ -7,6 +7,7 @@ import { Layer } from "./Layer";
 
 @customElement("top-bar")
 export class TopBar extends LitElement implements Layer {
+  layerName = "TopBar";
   public game: GameView;
   private isVisible = false;
   private _population = 0;

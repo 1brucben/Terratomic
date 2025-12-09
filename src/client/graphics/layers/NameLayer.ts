@@ -35,6 +35,7 @@ class RenderInfo {
 }
 
 export class NameLayer implements Layer {
+  layerName = "NameLayer";
   private canvas: HTMLCanvasElement;
   private lastChecked = 0;
   private renderCheckRate = 100;

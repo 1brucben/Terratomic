@@ -53,6 +53,7 @@ import type { Layer } from "./Layer";
 
 @customElement("control-panel2")
 export class ControlPanel2 extends LitElement implements Layer {
+  layerName = "ControlPanel2";
   public game: GameView;
   public eventBus: EventBus;
   public uiState: UIState;

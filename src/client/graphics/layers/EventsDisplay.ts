@@ -73,6 +73,7 @@ interface GameEvent {
 
 @customElement("events-display")
 export class EventsDisplay extends LitElement implements Layer {
+  layerName = "EventsDisplay";
   public eventBus: EventBus;
   public game: GameView;
 

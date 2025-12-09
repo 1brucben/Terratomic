@@ -9,6 +9,7 @@ import { Layer } from "./Layer";
 
 @customElement("research-toggle-button")
 export class ResearchToggleButton extends LitElement implements Layer {
+  layerName = "ResearchToggleButton";
   public game: GameView;
   public eventBus: EventBus;
 

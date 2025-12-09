@@ -16,6 +16,7 @@ import type { TransformHandler } from "../TransformHandler";
 import type { Layer } from "./Layer";
 
 export class TerritoryLayer implements Layer {
+  layerName = "TerritoryLayer";
   private canvas: HTMLCanvasElement;
   private context: CanvasRenderingContext2D;
   private imageData: ImageData;

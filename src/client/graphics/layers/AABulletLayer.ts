@@ -17,6 +17,7 @@ interface BulletSprite {
  * Uses GPU acceleration for smooth rendering of many small projectiles.
  */
 export class AABulletLayer implements Layer {
+  layerName = "AABulletLayer";
   private renderer: PIXI.Renderer;
   private stage: PIXI.Container;
   private bulletContainer: PIXI.Container;

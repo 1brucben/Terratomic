@@ -22,6 +22,7 @@ const EXIT_ANIMATION_MS = 200;
 
 @customElement("tech-unlock-notification")
 export class TechUnlockNotification extends LitElement implements Layer {
+  layerName = "TechUnlockNotification";
   @property({ attribute: false })
   public game!: GameView;
 

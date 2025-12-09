@@ -11,6 +11,7 @@ import { Layer } from "./Layer";
 
 @customElement("win-modal")
 export class WinModal extends LitElement implements Layer {
+  layerName = "WinModal";
   public game: GameView;
   public eventBus: EventBus;
   private static stylesApplied = false;

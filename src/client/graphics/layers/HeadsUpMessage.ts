@@ -6,6 +6,7 @@ import { Layer } from "./Layer";
 
 @customElement("heads-up-message")
 export class HeadsUpMessage extends LitElement implements Layer {
+  layerName = "HeadsUpMessage";
   public game: GameView;
 
   @state()

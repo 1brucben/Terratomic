@@ -25,6 +25,7 @@ const PROGRESSBAR_HEIGHT = 3; // Height of a bar
  * such as selection boxes, health bars, etc.
  */
 export class UILayer implements Layer {
+  layerName = "UILayer";
   private canvas: HTMLCanvasElement;
   private context: CanvasRenderingContext2D | null;
   private theme: Theme | null = null;

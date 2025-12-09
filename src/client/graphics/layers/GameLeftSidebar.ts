@@ -12,6 +12,7 @@ import { Layer } from "./Layer";
 
 @customElement("game-left-sidebar")
 export class GameLeftSidebar extends LitElement implements Layer {
+  layerName = "GameLeftSidebar";
   @state()
   private isLeaderboardShow = false;
   @state()

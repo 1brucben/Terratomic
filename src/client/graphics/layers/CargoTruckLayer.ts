@@ -8,6 +8,7 @@ import { TransformHandler } from "../TransformHandler";
 import { Layer } from "./Layer";
 
 export class CargoTruckLayer implements Layer {
+  layerName = "CargoTruckLayer";
   private canvas: HTMLCanvasElement;
   private ctx: CanvasRenderingContext2D;
   private trucks = new Map<number, SerializedCargoTruck>();

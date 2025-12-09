@@ -19,6 +19,7 @@ interface FxInfo {
 }
 
 export class FxLayer implements Layer {
+  layerName = "FxLayer";
   private renderer: PIXI.Renderer;
   private stage: PIXI.Container;
   private pixicanvas: HTMLCanvasElement;

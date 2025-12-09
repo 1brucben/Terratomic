@@ -17,6 +17,7 @@ interface TeamEntry {
 
 @customElement("team-stats")
 export class TeamStats extends LitElement implements Layer {
+  layerName = "TeamStats";
   public game: GameView;
   public eventBus: EventBus;
 

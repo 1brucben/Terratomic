@@ -84,6 +84,7 @@ const STRUCTURE_BG_SHAPES: Partial<Record<UnitType, BgShape>> = {
 };
 
 export class StructureLayer implements Layer {
+  layerName = "StructureLayer";
   private pixicanvas: HTMLCanvasElement;
   private stage: PIXI.Container;
   private labelContainer: PIXI.Container; // UI overlay for hover labels

@@ -49,6 +49,7 @@ const secondsToHms = (d: number): string => {
 
 @customElement("options-menu")
 export class OptionsMenu extends LitElement implements Layer {
+  layerName = "OptionsMenu";
   public game: GameView;
   public eventBus: EventBus;
   private userSettings: UserSettings = new UserSettings();

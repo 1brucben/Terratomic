@@ -38,6 +38,7 @@ export class GoToUnitEvent implements GameEvent {
 
 @customElement("leader-board")
 export class Leaderboard extends LitElement implements Layer {
+  layerName = "Leaderboard";
   public game: GameView | null = null;
   public eventBus: EventBus | null = null;
 

@@ -8,6 +8,7 @@ import { Layer } from "./Layer";
 
 @customElement("attack-warning-overlay")
 export class AttackWarningOverlay extends LitElement implements Layer {
+  layerName = "AttackWarningOverlay";
   public game: GameView;
   public eventBus: EventBus;
 

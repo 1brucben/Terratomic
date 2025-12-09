@@ -4,6 +4,7 @@ import { TransformHandler } from "../TransformHandler";
 import { Layer } from "./Layer";
 
 export class SpawnTimer implements Layer {
+  layerName = "SpawnTimer";
   private ratios = [0];
   private colors = ["rgba(0, 128, 255, 0.7)", "rgba(0, 0, 0, 0.5)"];
 

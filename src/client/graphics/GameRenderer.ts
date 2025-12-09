@@ -400,7 +400,7 @@ export class GameRenderer {
       layer.renderLayer?.(this.context);
       const layerEnd = performance.now();
       PerformanceMetrics.getInstance().updateLayerDuration(
-        layer.constructor.name,
+        (layer as Layer).layerName ?? layer.constructor.name,
         layerEnd - layerStart,
       );
     }

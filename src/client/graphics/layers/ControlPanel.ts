@@ -19,6 +19,7 @@ export class ToggleBuildPanelEvent implements GameEvent {
 
 @customElement("control-panel")
 export class ControlPanel extends LitElement implements Layer {
+  layerName = "ControlPanel";
   public game: GameView;
   public eventBus: EventBus;
   public uiState: UIState;

@@ -6,6 +6,7 @@ import { TransformHandler } from "../TransformHandler";
 import { Layer } from "./Layer";
 
 export class DevHud implements Layer {
+  layerName = "DevHud";
   private userSettings: UserSettings;
   private metrics: PerformanceMetrics;
   private game: GameView;

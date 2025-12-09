@@ -16,6 +16,7 @@ import { Layer } from "./Layer";
  * - Subtle transparency and glow to fit the game's aesthetic
  */
 export class RangeOverlayLayer implements Layer {
+  layerName = "RangeOverlayLayer";
   private lastMouse: { x: number; y: number } | null = null;
   private hovered: UnitView | null = null;
   private halos: Array<{

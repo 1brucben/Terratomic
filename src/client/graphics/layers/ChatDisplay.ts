@@ -21,6 +21,7 @@ interface ChatEvent {
 
 @customElement("chat-display")
 export class ChatDisplay extends LitElement implements Layer {
+  layerName = "ChatDisplay";
   public eventBus: EventBus;
   public game: GameView;
 

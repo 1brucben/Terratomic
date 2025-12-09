@@ -38,6 +38,7 @@ function distSortUnitWorld(coord: { x: number; y: number }, game: GameView) {
 
 @customElement("player-info-overlay")
 export class PlayerInfoOverlay extends LitElement implements Layer {
+  layerName = "PlayerInfoOverlay";
   @property({ type: Object })
   public game!: GameView;
 

@@ -31,6 +31,7 @@ import { Layer } from "./Layer";
 
 @customElement("player-panel")
 export class PlayerPanel extends LitElement implements Layer {
+  layerName = "PlayerPanel";
   public g: GameView;
   public eventBus: EventBus;
   public emojiTable: EmojiTable;

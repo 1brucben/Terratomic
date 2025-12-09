@@ -50,6 +50,7 @@ enum Slot {
 }
 
 export class RadialMenu implements Layer {
+  layerName = "RadialMenu";
   private clickedCell: Cell | null = null;
   private lastClosed: number = 0;
 

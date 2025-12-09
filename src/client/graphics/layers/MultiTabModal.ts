@@ -9,6 +9,7 @@ import { Layer } from "./Layer";
 
 @customElement("multi-tab-modal")
 export class MultiTabModal extends LitElement implements Layer {
+  layerName = "MultiTabModal";
   public game: GameView;
 
   private detector: MultiTabDetector;

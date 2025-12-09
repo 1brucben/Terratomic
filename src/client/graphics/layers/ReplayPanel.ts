@@ -13,6 +13,7 @@ import { Layer } from "./Layer";
 
 @customElement("replay-panel")
 export class ReplayPanel extends LitElement implements Layer {
+  layerName = "ReplayPanel";
   public game: GameView | undefined;
   public eventBus: EventBus | undefined;
 

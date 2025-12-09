@@ -4,4 +4,5 @@ export interface Layer {
   renderLayer?: (context: CanvasRenderingContext2D) => void;
   shouldTransform?: () => boolean;
   redraw?: () => void;
+  layerName?: string; // Optional explicit name for perf tracking
 }

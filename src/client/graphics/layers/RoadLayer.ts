@@ -5,6 +5,7 @@ import { TransformHandler } from "../TransformHandler";
 import { Layer } from "./Layer";
 
 export class RoadLayer implements Layer {
+  layerName = "RoadLayer";
   // Map of canonical segment key -> [tile1, tile2]
   private segments = new Map<string, [TileRef, TileRef]>();
   // Cache tileRef -> world pixel coordinates to avoid repeated GameView.x/y calls

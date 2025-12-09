@@ -11,6 +11,7 @@ import { Layer } from "./Layer";
  * Drawn in screen-space (no transform) so it sticks to the pointer.
  */
 export class PointerCoordsLayer implements Layer {
+  layerName = "PointerCoordsLayer";
   private lastScreenX: number | null = null;
   private lastScreenY: number | null = null;
 
