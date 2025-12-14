@@ -225,6 +225,44 @@ export async function startWorker() {
     }),
   );
 
+  app.post(
+    "/api/lobby/:id/messages",
+    gatekeeper.httpHandler(LimiterType.Post, async (req, res) => {
+      const lobbyId = req.params.id;
+      log.info(`Received lobby message POST for lobby ${lobbyId}`, {
+        body: req.body,
+      });
+      const game = gm.game(lobbyId);
+
+      if (!game) {
+        log.info(`lobby ${lobbyId} not found for message`);
+        return res.status(404).json({ error: "Game not found" });
+      }
+
+      // Validate request body
+      const MessageSchema = z.object({
+        clientID: ID,
+        username: z.string().min(1).max(50),
+        text: z.string().max(300),
+      });
+
+      const result = MessageSchema.safeParse(req.body);
+      if (!result.success) {
+        const error = z.prettifyError(result.error);
+        log.warn(`Invalid lobby message body`, { error });
+        return res.status(400).json({ error });
+      }
+
+      const { clientID, username, text } = result.data;
+
+      // Add the message (GameServer will validate chat is enabled)
+      log.info(`Adding lobby message`, { lobbyId, clientID, username, text });
+      game.addLobbyMessage(clientID, username, text);
+
+      res.status(200).json({ success: true });
+    }),
+  );
+
   app.get(
     "/api/archived_game/:id",
     gatekeeper.httpHandler(LimiterType.Get, async (req, res) => {
