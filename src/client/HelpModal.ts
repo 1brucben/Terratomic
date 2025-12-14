@@ -391,13 +391,6 @@ export class HelpModal extends LitElement {
         icon: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>`,
       },
       {
-        titleKey: "ui_guide.command_center_trade_title",
-        descKey: "ui_guide.command_center_trade_desc",
-        img: "/images/HelpModalScreenshots/CC-Trade.png",
-        altKey: "ui_guide.command_center_trade_alt",
-        icon: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 21c.6.5 1.2 1 2.5 1 2.5 0 2.5-2 5-2 1.3 0 1.9.5 2.5 1 .6.5 1.2 1 2.5 1 2.5 0 2.5-2 5-2 1.3 0 1.9.5 2.5 1"/><path d="M19.38 20A11.6 11.6 0 0 0 21 14l-9-4-9 4c0 2.9.9 5.8 2.5 8"/><path d="M12 10V4"/><path d="M8 8v2"/><path d="M16 8v2"/></svg>`,
-      },
-      {
         titleKey: "ui_guide.command_center_diplomacy_title",
         descKey: "ui_guide.command_center_diplomacy_desc",
         img: "/images/HelpModalScreenshots/CC-Diplomacy.png",
