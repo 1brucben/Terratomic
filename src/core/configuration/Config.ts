@@ -236,6 +236,12 @@ export interface Config {
   submarineLevelMaxHealth(level: number): number;
   // Submarine: per-level damage range
   submarineDamageRange(level: number): { min: number; max: number };
+  // Artillery: per-level max health
+  artilleryLevelMaxHealth(level: number): number;
+  // Artillery: per-level damage range
+  artilleryDamageRange(level: number): { min: number; max: number };
+  artilleryPatrolRange(): number;
+  artilleryShellAttackRate(): number;
   warshipAARange(): number;
   warshipAACooldown(): number;
   warshipAAScanInterval(): number;

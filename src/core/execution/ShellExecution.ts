@@ -93,6 +93,12 @@ export class ShellExecution implements Execution {
       const roll = this.random.nextInt(0, 5);
       const step = (range.max - range.min) / 5;
       return Math.round(range.min + roll * step);
+    } else if (this.ownerUnit.type() === UnitType.Artillery) {
+      const level = this.ownerUnit.level ? this.ownerUnit.level() : 1;
+      const range = this.mg.config().artilleryDamageRange(level);
+      const roll = this.random.nextInt(0, 5);
+      const step = (range.max - range.min) / 5;
+      return Math.round(range.min + roll * step);
     }
 
     // Default: shell damage based on base value and 5-step multiplier

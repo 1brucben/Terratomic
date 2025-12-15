@@ -39,6 +39,7 @@ import {
   PlayerType,
   Relation,
   Team,
+  TerrainType,
   TerraNullius,
   Tick,
   Unit,
@@ -1493,6 +1494,8 @@ export class PlayerImpl implements Player {
       case UnitType.Submarine:
       case UnitType.Warship:
         return this.warshipSpawn(targetTile);
+      case UnitType.Artillery:
+        return this.artillerySpawn(targetTile);
       case UnitType.Shell:
       case UnitType.SAMMissile:
       case UnitType.AABullet:
@@ -1596,6 +1599,44 @@ export class PlayerImpl implements Player {
       return false;
     }
     return waterNeighbors[0];
+  }
+
+  artillerySpawn(tile: TileRef): TileRef | false {
+    console.log(
+      `[PlayerImpl.artillerySpawn] Called for ${this.name()} at tile ${tile}`,
+    );
+    if (this.mg.isOcean(tile)) {
+      console.log(
+        `[PlayerImpl.artillerySpawn] Target tile is ocean, cannot spawn`,
+      );
+      return false;
+    }
+    const spawns = this.units(UnitType.Factory).sort(
+      (a, b) =>
+        this.mg.manhattanDist(a.tile(), tile) -
+        this.mg.manhattanDist(b.tile(), tile),
+    );
+    if (spawns.length === 0) {
+      return false;
+    }
+    const closestFactory = spawns[0];
+    const landNeighbors = this.mg
+      .neighbors(closestFactory.tile())
+      .filter(
+        (t) =>
+          !this.mg.isOcean(t) && this.mg.terrainType(t) !== TerrainType.Barrier,
+      );
+    console.log(
+      `[PlayerImpl.artillerySpawn] Found ${landNeighbors.length} land neighbors near factory ${closestFactory.id()}`,
+    );
+    if (landNeighbors.length === 0) {
+      // Factory has no adjacent pathable land
+      return false;
+    }
+    console.log(
+      `[PlayerImpl.artillerySpawn] Returning spawn tile ${landNeighbors[0]}`,
+    );
+    return landNeighbors[0];
   }
 
   landBasedStructureSpawn(

@@ -1,4 +1,4 @@
-import { Game, Gold, Player, UnitType } from "../game/Game";
+import { Game, Gold, Player, TerrainType, UnitType } from "../game/Game";
 import { TileRef } from "../game/GameMap";
 import { PseudoRandom } from "../PseudoRandom";
 import { ConstructionExecution } from "./ConstructionExecution";
@@ -84,6 +84,7 @@ export class UnitCreationHelper {
     return (
       this.maybeSpawnStructure(UnitType.Airfield, 1) ||
       this.maybeSpawnNavalUnit() ||
+      this.maybeSpawnArtillery() ||
       this.maybeSpawnSAMLauncher() ||
       this.maybeSpawnStructure(UnitType.MissileSilo, 1) ||
       this.maybeSpawnDefensePost()
@@ -257,6 +258,61 @@ export class UnitCreationHelper {
       }
     }
     return false;
+  }
+
+  private maybeSpawnArtillery(): boolean {
+    const artilleryCount = this.player.units(UnitType.Artillery).length;
+
+    const factories = this.player.units(UnitType.Factory);
+    if (factories.length > 0 && artilleryCount === 0) {
+      if (this.player.gold() > this.cost(UnitType.Artillery)) {
+        const factory = this.random.randElement(factories);
+        const targetTile = this.landUnitSpawnTile(factory.tile());
+        if (targetTile === null) {
+          return false;
+        }
+        const canBuild = this.player.canBuild(UnitType.Artillery, targetTile);
+        if (canBuild === false) {
+          return false;
+        }
+        this.mg.addExecution(
+          new ConstructionExecution(
+            this.player,
+            UnitType.Artillery,
+            targetTile,
+          ),
+        );
+        return true;
+      }
+    }
+    return false;
+  }
+
+  private landUnitSpawnTile(factoryTile: TileRef): TileRef | null {
+    const radius = 100;
+    for (let attempts = 0; attempts < 50; attempts++) {
+      const randX = this.random.nextInt(
+        this.mg.x(factoryTile) - radius,
+        this.mg.x(factoryTile) + radius,
+      );
+      const randY = this.random.nextInt(
+        this.mg.y(factoryTile) - radius,
+        this.mg.y(factoryTile) + radius,
+      );
+      if (!this.mg.isValidCoord(randX, randY)) {
+        continue;
+      }
+      const tile = this.mg.ref(randX, randY);
+      // Must be land and not barrier
+      if (
+        this.mg.isOcean(tile) ||
+        this.mg.terrainType(tile) === TerrainType.Barrier
+      ) {
+        continue;
+      }
+      return tile;
+    }
+    return null;
   }
 
   private navalUnitSpawnTile(portTile: TileRef): TileRef | null {

@@ -45,6 +45,14 @@ export type WarshipLevelData = UnitLevelData;
 /** Submarine level data (uses base UnitLevelData, no additional stats) */
 export type SubmarineLevelData = UnitLevelData;
 
+/** Extended artillery level data with artillery-specific stats */
+export interface ArtilleryLevelData extends UnitLevelData {
+  /** Target acquisition range at this level */
+  targetRange: number;
+  /** Movement speed (ticks between moves) at this level */
+  moveInterval: number;
+}
+
 // ============================================================================
 // BOMBER UPGRADES (3 levels)
 // Bombers have no base cost (spawned from airfields)
@@ -188,6 +196,44 @@ export const SUBMARINE_UPGRADES: readonly SubmarineLevelData[] = [
 ] as const;
 
 // ============================================================================
+// ARTILLERY UPGRADES (3 levels)
+// Base cost: 500,000
+// ============================================================================
+
+export const ARTILLERY_UPGRADES: readonly ArtilleryLevelData[] = [
+  // Level 1 (base)
+  {
+    cost: 500_000n,
+    maintenance: 0n,
+    maxHealth: 1000,
+    damageMin: 12,
+    damageMax: 22,
+    targetRange: 40,
+    moveInterval: 4, // moves every 4 ticks (75% slower)
+  },
+  // Level 2
+  {
+    cost: 600_000n,
+    maintenance: 0n,
+    maxHealth: 1250,
+    damageMin: 17,
+    damageMax: 27,
+    targetRange: 50,
+    moveInterval: 3, // moves every 3 ticks (66% slower)
+  },
+  // Level 3
+  {
+    cost: 700_000n,
+    maintenance: 0n,
+    maxHealth: 1500,
+    damageMin: 22,
+    damageMax: 32,
+    targetRange: 60,
+    moveInterval: 2, // moves every 2 ticks (50% slower)
+  },
+] as const;
+
+// ============================================================================
 // HELPER FUNCTIONS
 // ============================================================================
 
@@ -207,6 +253,8 @@ export function getUnitUpgradeData(
       return WARSHIP_UPGRADES;
     case UnitType.Submarine:
       return SUBMARINE_UPGRADES;
+    case UnitType.Artillery:
+      return ARTILLERY_UPGRADES;
     default:
       return undefined;
   }
@@ -281,4 +329,20 @@ export function getWarshipLevelData(level: number): WarshipLevelData {
 export function getSubmarineLevelData(level: number): SubmarineLevelData {
   const idx = Math.max(0, Math.min(level - 1, SUBMARINE_UPGRADES.length - 1));
   return SUBMARINE_UPGRADES[idx];
+}
+
+/**
+ * Get artillery-specific upgrade data.
+ */
+export function getArtilleryLevelData(level: number): ArtilleryLevelData {
+  const idx = Math.max(0, Math.min(level - 1, ARTILLERY_UPGRADES.length - 1));
+  return ARTILLERY_UPGRADES[idx];
+}
+
+/**
+ * Get the maximum spawn/redirect distance for artillery based on level.
+ * Level 1: 60 tiles, Level 2: 75 tiles, Level 3: 90 tiles
+ */
+export function getArtilleryMaxDistance(level: number): number {
+  return level >= 3 ? 90 : level === 2 ? 75 : 60;
 }

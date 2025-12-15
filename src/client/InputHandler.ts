@@ -113,11 +113,17 @@ export class CenterCameraEvent implements GameEvent {
 
 import { UnitType } from "../core/game/Game";
 import { GameView } from "../core/game/GameView";
+import { getArtilleryMaxDistance } from "../core/game/UnitUpgrades";
+import {
+  isUpgradeableUnit,
+  maxStructureLevel,
+  maxUnitLevel,
+} from "../core/game/Upgradeables";
 import { ToggleBomberUpgradeModeEvent } from "./events/ToggleBomberUpgradeModeEvent";
 import { ToggleUpgradeModeEvent } from "./events/ToggleUpgradeModeEvent";
 import { TransformHandler } from "./graphics/TransformHandler";
 import { UIState } from "./graphics/UIState";
-import { BuildUnitIntentEvent } from "./Transport";
+import { ArtilleryOutOfRangeEvent, BuildUnitIntentEvent } from "./Transport";
 
 // Post-impact nuke halo event (world tile coordinates)
 export class NukeImpactEvent implements GameEvent {
@@ -410,6 +416,14 @@ export class InputHandler {
 
       if (this.game.isValidCoord(cell.x, cell.y)) {
         const tile = this.game.ref(cell.x, cell.y);
+
+        if (
+          unitType === UnitType.Artillery &&
+          !this.validateArtilleryBuildDistance(tile)
+        ) {
+          return;
+        }
+
         this.eventBus.emit(new BuildUnitIntentEvent(unitType, tile));
       }
     }
@@ -499,6 +513,14 @@ export class InputHandler {
         this.uiState.bomberUpgradeMode = false;
         this.eventBus.emit(new ToggleBomberUpgradeModeEvent(false));
       }
+
+      if (
+        this.uiState.pendingBuildUnitType === UnitType.Artillery &&
+        !this.validateArtilleryBuildDistance(tile, true)
+      ) {
+        return;
+      }
+
       this.eventBus.emit(
         new BuildUnitIntentEvent(this.uiState.pendingBuildUnitType, tile),
       );
@@ -633,6 +655,64 @@ export class InputHandler {
       x: (pointerEvents[0].clientX + pointerEvents[1].clientX) / 2,
       y: (pointerEvents[0].clientY + pointerEvents[1].clientY) / 2,
     };
+  }
+
+  private readArtilleryTargetLevel(): number {
+    let targetLevel = 1;
+    try {
+      if (isUpgradeableUnit(UnitType.Artillery)) {
+        const rawUnits = localStorage.getItem("unitUpgradeSettings.levels");
+        if (rawUnits) {
+          const obj = JSON.parse(rawUnits) as Record<string, number>;
+          const val = obj?.[String(UnitType.Artillery)];
+          if (typeof val === "number" && val > 1) {
+            targetLevel = Math.min(maxUnitLevel(UnitType.Artillery), val);
+          }
+        }
+      } else {
+        const rawStruct = localStorage.getItem("buildSettings.levels");
+        if (rawStruct) {
+          const obj = JSON.parse(rawStruct) as Record<string, number>;
+          const val = obj?.[String(UnitType.Artillery)];
+          if (typeof val === "number" && val > 1) {
+            targetLevel = Math.min(maxStructureLevel(UnitType.Artillery), val);
+          }
+        }
+      }
+    } catch {
+      targetLevel = 1;
+    }
+    return targetLevel;
+  }
+
+  private validateArtilleryBuildDistance(
+    tile: TileRef,
+    clearPendingIfInvalid: boolean = false,
+  ): boolean {
+    const myPlayer = this.game.myPlayer();
+    if (!myPlayer) return true;
+
+    const factories = myPlayer.units(UnitType.Factory);
+    if (factories.length === 0) return true;
+
+    let minDistSq = Infinity;
+    for (const factory of factories) {
+      const distSq = this.game.euclideanDistSquared(factory.tile(), tile);
+      if (distSq < minDistSq) minDistSq = distSq;
+    }
+
+    const targetLevel = this.readArtilleryTargetLevel();
+    const maxDist = getArtilleryMaxDistance(targetLevel);
+
+    if (minDistSq > maxDist * maxDist) {
+      this.eventBus.emit(new ArtilleryOutOfRangeEvent(targetLevel, maxDist));
+      if (clearPendingIfInvalid && !this.uiState.multibuildEnabled) {
+        this.uiState.pendingBuildUnitType = null;
+      }
+      return false;
+    }
+
+    return true;
   }
 
   destroy() {

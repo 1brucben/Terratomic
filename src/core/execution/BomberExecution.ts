@@ -391,6 +391,7 @@ export class BomberExecution implements Execution {
 
     const range = this.mg.config().bomberTargetRange(this.getBomberLevel());
     const priority: UnitType[] = [
+      UnitType.Artillery,
       UnitType.SAMLauncher,
       UnitType.Airfield,
       UnitType.MissileSilo,

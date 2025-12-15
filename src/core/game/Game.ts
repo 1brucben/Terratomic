@@ -176,6 +176,7 @@ export enum UnitType {
   FighterJet = "Fighter Jet", // Represents a Fighter Jet unit.
   DoomsdayDevice = "Doomsday Device",
   AABullet = "AA Bullet", // City anti-aircraft bullet for targeting planes
+  Artillery = "Artillery", // Land-based artillery unit
 }
 
 export enum UpgradeType {
@@ -264,6 +265,10 @@ export interface UnitParamsMap {
   };
 
   [UnitType.Submarine]: {
+    patrolTile: TileRef;
+  };
+
+  [UnitType.Artillery]: {
     patrolTile: TileRef;
   };
 

@@ -34,6 +34,7 @@ export const UPGRADEABLE_UNITS: ReadonlySet<UnitType> = new Set<UnitType>([
   UnitType.FighterJet,
   UnitType.Submarine,
   UnitType.Bomber, // Bomber level affects airfield construction cost
+  UnitType.Artillery,
 ]);
 
 export function isStackableStructure(type: UnitType): boolean {
@@ -80,6 +81,7 @@ export function maxUnitLevel(type: UnitType): number {
       return 4;
     case UnitType.Warship:
     case UnitType.Submarine:
+    case UnitType.Artillery:
     case UnitType.Bomber:
       return 3;
     default:

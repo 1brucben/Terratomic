@@ -229,6 +229,20 @@ export class MoveFighterJetIntentEvent implements GameEvent {
   ) {}
 }
 
+export class MoveArtilleryIntentEvent implements GameEvent {
+  constructor(
+    public readonly unitId: number,
+    public readonly tile: TileRef,
+  ) {}
+}
+
+export class ArtilleryOutOfRangeEvent implements GameEvent {
+  constructor(
+    public readonly level: number,
+    public readonly maxDistance: number,
+  ) {}
+}
+
 export class SendBomberIntentEvent implements GameEvent {
   constructor(
     public readonly targetID: PlayerID | null, // who to attack
@@ -372,6 +386,9 @@ export class Transport {
     });
     this.eventBus.on(MoveFighterJetIntentEvent, (e) => {
       this.onMoveFighterJetEvent(e);
+    });
+    this.eventBus.on(MoveArtilleryIntentEvent, (e) => {
+      this.onMoveArtilleryEvent(e);
     });
     this.eventBus.on(SendKickPlayerIntentEvent, (e) =>
       this.onSendKickPlayerIntent(e),
@@ -757,6 +774,9 @@ export class Transport {
       bomberLevel = undefined;
     }
 
+    console.log(
+      `[Transport] Sending build_unit intent for ${event.unit} at tile ${event.tile}, stackCount=${stackCount}`,
+    );
     this.sendIntent({
       type: "build_unit",
       clientID: this.lobbyConfig.clientID,
@@ -889,6 +909,16 @@ export class Transport {
       tile: event.tile,
     });
   }
+
+  private onMoveArtilleryEvent(event: MoveArtilleryIntentEvent) {
+    this.sendIntent({
+      type: "move_artillery",
+      clientID: this.lobbyConfig.clientID,
+      unitId: event.unitId,
+      tile: event.tile,
+    });
+  }
+
   private onSendBomberIntent(event: SendBomberIntentEvent) {
     this.sendIntent({
       type: "bomber_intent",

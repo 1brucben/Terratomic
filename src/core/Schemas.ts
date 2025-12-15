@@ -53,6 +53,7 @@ export type Intent =
   | MoveWarshipIntent
   | MoveSubmarineIntent
   | MoveFighterJetIntent
+  | MoveArtilleryIntent
   | BomberIntent
   | ParatrooperAttackIntent
   | CancelParatrooperIntent
@@ -94,6 +95,7 @@ export type ResearchTreeSelectIntent = z.infer<
 export type MoveWarshipIntent = z.infer<typeof MoveWarshipIntentSchema>;
 export type MoveSubmarineIntent = z.infer<typeof MoveSubmarineIntentSchema>;
 export type MoveFighterJetIntent = z.infer<typeof MoveFighterJetIntentSchema>;
+export type MoveArtilleryIntent = z.infer<typeof MoveArtilleryIntentSchema>;
 export type BomberIntent = z.infer<typeof BomberIntentSchema>;
 export type SetAutoBombingIntent = z.infer<typeof SetAutoBombingIntentSchema>;
 export type ParatrooperAttackIntent = z.infer<
@@ -465,6 +467,12 @@ export const MoveFighterJetIntentSchema = BaseIntentSchema.extend({
   tile: z.number(),
 });
 
+export const MoveArtilleryIntentSchema = BaseIntentSchema.extend({
+  type: z.literal("move_artillery"),
+  unitId: z.number(),
+  tile: z.number(),
+});
+
 export const BomberIntentSchema = BaseIntentSchema.extend({
   type: z.literal("bomber_intent"),
   targetID: ID.nullable(), // who to attack
@@ -534,6 +542,7 @@ const IntentSchema = z.discriminatedUnion("type", [
   MoveWarshipIntentSchema,
   MoveSubmarineIntentSchema,
   MoveFighterJetIntentSchema,
+  MoveArtilleryIntentSchema,
   BomberIntentSchema,
   ParatrooperAttackIntentSchema,
   CancelParatrooperIntentSchema,

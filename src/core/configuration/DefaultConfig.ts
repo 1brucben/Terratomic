@@ -23,6 +23,7 @@ import {
 import { TileRef } from "../game/GameMap";
 import { PlayerView } from "../game/GameView";
 import {
+  getArtilleryLevelData,
   getBomberLevelData,
   getFighterLevelData,
   getSubmarineLevelData,
@@ -550,6 +551,15 @@ export class DefaultConfig implements Config {
     return { min: data.damageMin, max: data.damageMax };
   }
 
+  // Artillery per-level stats
+  artilleryLevelMaxHealth(level: number): number {
+    return getArtilleryLevelData(level).maxHealth;
+  }
+  artilleryDamageRange(level: number): { min: number; max: number } {
+    const data = getArtilleryLevelData(level);
+    return { min: data.damageMin, max: data.damageMax };
+  }
+
   // Paratroopers/Air attack
   paratrooperMaxNumber(): number {
     return 3;
@@ -811,6 +821,15 @@ export class DefaultConfig implements Config {
               : 500_000n,
           territoryBound: false,
           maxHealth: 750,
+        };
+      case UnitType.Artillery:
+        return {
+          cost: (p: Player) =>
+            p.type() === PlayerType.Human && this.infiniteGold()
+              ? 0n
+              : 500_000n,
+          territoryBound: false,
+          maxHealth: 1000,
         };
       case UnitType.Paratrooper:
         return {
@@ -1290,6 +1309,14 @@ export class DefaultConfig implements Config {
 
   defensePostTargettingRange(): number {
     return 75;
+  }
+
+  artilleryPatrolRange(): number {
+    return 35;
+  }
+
+  artilleryShellAttackRate(): number {
+    return 20;
   }
 
   allianceExtensionPromptOffset(): number {

@@ -24,6 +24,7 @@ import {
 } from "../game/Upgradeables";
 import { constructionSpeedModifiers } from "../tech/TechEffects";
 import { AirfieldExecution } from "./AirfieldExecution";
+import { ArtilleryExecution } from "./ArtilleryExecution";
 import { DefensePostExecution } from "./DefensePostExecution";
 import { FighterJetExecution } from "./FighterJetExecution";
 import { MirvExecution } from "./MIRVExecution";
@@ -204,6 +205,14 @@ export class ConstructionExecution implements Execution {
       case UnitType.FighterJet:
         this.mg.addExecution(
           new FighterJetExecution(
+            { owner: player, patrolTile: this.tile },
+            this.desiredTechLevel,
+          ),
+        );
+        break;
+      case UnitType.Artillery:
+        this.mg.addExecution(
+          new ArtilleryExecution(
             { owner: player, patrolTile: this.tile },
             this.desiredTechLevel,
           ),

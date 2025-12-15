@@ -247,6 +247,7 @@ export class PlayerInfoOverlay extends LitElement implements Layer {
       [UnitType.Factory]: "/images/factoryicon.png",
       [UnitType.Port]: "/images/PortIcon.svg",
       [UnitType.Warship]: "/images/BattleshipIconWhite.svg",
+      [UnitType.Artillery]: "/images/artillary-battery.png",
       [UnitType.MissileSilo]: "/images/MissileSiloIconWhite.svg",
       [UnitType.SAMLauncher]: "/images/SamLauncherIconWhite.svg",
       [UnitType.Airfield]: "/images/AirfieldIcon.svg",

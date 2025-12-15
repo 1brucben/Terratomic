@@ -1,5 +1,6 @@
 import { LitElement, css, html } from "lit";
 import { customElement, property, state } from "lit/decorators.js";
+import artilleryIcon from "../../../../proprietary/images/artillery-battery.png";
 import doomsdayDeviceIcon from "../../../../proprietary/images/doomsdayicon.png";
 import researchLabIcon from "../../../../proprietary/images/researchlab.png";
 import airfieldIcon from "../../../../resources/images/AirfieldIcon.svg";
@@ -90,6 +91,13 @@ const buildTable: BuildItemDisplay[][] = [
       icon: submarineIcon,
       description: "build_menu.desc.submarine",
       key: "unit_type.submarine",
+      countable: true,
+    },
+    {
+      unitType: UnitType.Artillery,
+      icon: artilleryIcon,
+      description: "build_menu.desc.artillery",
+      key: "unit_type.artillery",
       countable: true,
     },
     {
@@ -523,6 +531,8 @@ export class BuildMenu extends LitElement {
       case UnitType.HydrogenBomb:
       case UnitType.MIRV:
         return player.unitsOwned(UnitType.MissileSilo) > 0;
+      case UnitType.Artillery:
+        return player.unitsOwned(UnitType.Factory) > 0;
       default:
         return true;
     }

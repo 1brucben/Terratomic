@@ -30,6 +30,7 @@ import {
   UnitIncomingUpdate,
 } from "../../../core/game/GameUpdates";
 import {
+  ArtilleryOutOfRangeEvent,
   CancelAttackIntentEvent,
   CancelBoatIntentEvent,
   CancelParatrooperIntentEvent,
@@ -175,7 +176,12 @@ export class EventsDisplay extends LitElement implements Layer {
     this.outgoingBoats = [];
   }
 
-  init() {}
+  init() {
+    // Listen for artillery out-of-range notifications
+    this.eventBus?.on(ArtilleryOutOfRangeEvent, (e) =>
+      this.onArtilleryOutOfRangeEvent(e),
+    );
+  }
 
   tick() {
     this.active = true;
@@ -1231,6 +1237,17 @@ export class EventsDisplay extends LitElement implements Layer {
             </div>
           `}
     `;
+  }
+
+  private onArtilleryOutOfRangeEvent(event: ArtilleryOutOfRangeEvent) {
+    const keyLevel =
+      event.maxDistance >= 90 ? 3 : event.maxDistance >= 75 ? 2 : 1;
+    this.addEvent({
+      description: translateText(`messages.artillery_out_of_range_${keyLevel}`),
+      type: MessageType.UNIT_DESTROYED,
+      createdAt: this.game.ticks(),
+      priority: 10,
+    });
   }
 
   createRenderRoot() {
