@@ -1,4 +1,4 @@
-export type Category = "Land" | "Sea" | "Air" | "Nuclear" | "Economy";
+export type Category = "Land" | "Sea" | "Air" | "Nuclear";
 
 /**
  * Core tech node for tree structure - metadata (name, description) is in TechEffects.ts
@@ -28,7 +28,7 @@ const baseLevels: TechNode[] = (() => {
   return nodes;
 })();
 
-// Nuclear branch techs (explicit definitions)
+// Nuclear branch techs (explicit definitions) - 4 levels
 const nuclearTechs: TechNode[] = [
   { id: "Nuclear-1", category: "Nuclear", level: 1, cost: costForLevel(1) },
   {
@@ -45,6 +45,7 @@ const nuclearTechs: TechNode[] = [
     requiresAllOf: ["Nuclear-2"],
     cost: costForLevel(3),
   },
+  // Level 4 - TBD (placeholder for future tech)
   {
     id: "Nuclear-4",
     category: "Nuclear",
@@ -54,11 +55,11 @@ const nuclearTechs: TechNode[] = [
   },
 ];
 
-// Sea branch techs (explicit definitions) - Simplified linear tree
+// Sea branch techs (explicit definitions) - 4 levels
 const seaTechs: TechNode[] = [
-  // Level 1 - Early Missile Navy (unlocks Warship L2, Sub L2)
+  // Level 1 - Missile Navy (unlocks Warship L2, Sub L2)
   { id: "Sea-1", category: "Sea", level: 1, cost: costForLevel(1) },
-  // Level 2 - Submarine Silent Service Modernization (unlocks Sub L3)
+  // Level 2 - Advanced Fleet (unlocks Warship L3, Ship Anti-Air)
   {
     id: "Sea-2",
     category: "Sea",
@@ -66,7 +67,7 @@ const seaTechs: TechNode[] = [
     requiresAllOf: ["Sea-1"],
     cost: costForLevel(2),
   },
-  // Level 3 - SSBN Programs (unlocks SSBNs)
+  // Level 3 - Nuclear Submarines (unlocks Subs can launch nukes)
   {
     id: "Sea-3",
     category: "Sea",
@@ -74,7 +75,7 @@ const seaTechs: TechNode[] = [
     requiresAllOf: ["Sea-2"],
     cost: costForLevel(3),
   },
-  // Level 4 - Modern Fleet Sensor & SAM Integration (unlocks Warship L3, Ship SAM)
+  // Level 4 - TBD (placeholder for future tech)
   {
     id: "Sea-4",
     category: "Sea",
@@ -84,11 +85,13 @@ const seaTechs: TechNode[] = [
   },
 ];
 
-// Land branch techs (explicit definitions) - Simplified linear tree
+// Land branch techs (explicit definitions) - 4 levels
+// Reordered: Land-1 now Roads & Hospitals (moved from former Economy),
+// and existing Land techs shift up one level.
 const landTechs: TechNode[] = [
-  // Level 1 - Post-WW2 Ground Forces Modernization (unlocks Military Academy, AA Guns)
+  // Level 1 - Roads & Hospitals (previously Economy-1)
   { id: "Land-1", category: "Land", level: 1, cost: costForLevel(1) },
-  // Level 2 - Mechanized Warfare Doctrine (unlocks Scorched Earth, policy directive)
+  // Level 2 - Military Academy
   {
     id: "Land-2",
     category: "Land",
@@ -96,7 +99,7 @@ const landTechs: TechNode[] = [
     requiresAllOf: ["Land-1"],
     cost: costForLevel(2),
   },
-  // Level 3 - Air-Defense Grid Expansion (unlocks SAM Level 2)
+  // Level 3 - SAM Systems
   {
     id: "Land-3",
     category: "Land",
@@ -104,7 +107,7 @@ const landTechs: TechNode[] = [
     requiresAllOf: ["Land-2"],
     cost: costForLevel(3),
   },
-  // Level 4 - Integrated SAM & Battlefield Command Systems (unlocks SAM Level 3)
+  // Level 4 - Doomsday Device
   {
     id: "Land-4",
     category: "Land",
@@ -112,21 +115,13 @@ const landTechs: TechNode[] = [
     requiresAllOf: ["Land-3"],
     cost: costForLevel(4),
   },
-  // Level 5 - Night Vision, Thermal Imaging & Digital C3I (policy directive)
-  {
-    id: "Land-5",
-    category: "Land",
-    level: 5,
-    requiresAllOf: ["Land-4"],
-    cost: costForLevel(5),
-  },
 ];
 
-// Air branch techs (explicit definitions) - Simplified linear tree
+// Air branch techs (explicit definitions) - 4 levels
 const airTechs: TechNode[] = [
-  // Level 1 - Early Jet Aviation Framework (unlocks Paratroopers)
+  // Level 1 - Paratroopers (unlocks Paratroopers, Fighter L2)
   { id: "Air-1", category: "Air", level: 1, cost: costForLevel(1) },
-  // Level 2 - Supersonic Airframe Development (unlocks Fighter L2, Bomber L2)
+  // Level 2 - Advanced Jets (unlocks Fighter L3, Bomber L2)
   {
     id: "Air-2",
     category: "Air",
@@ -134,7 +129,7 @@ const airTechs: TechNode[] = [
     requiresAllOf: ["Air-1"],
     cost: costForLevel(2),
   },
-  // Level 3 - Pulse-Doppler Radar & BVR Combat (unlocks Fighter L3, Naval Strike)
+  // Level 3 - Naval Strike (unlocks Fighter L4, Bomber L3, Naval Strike)
   {
     id: "Air-3",
     category: "Air",
@@ -142,7 +137,7 @@ const airTechs: TechNode[] = [
     requiresAllOf: ["Air-2"],
     cost: costForLevel(3),
   },
-  // Level 4 - Fly-By-Wire Platforms & Advanced Maneuverability (unlocks Fighter L4, Bomber L3)
+  // Level 4 - TBD (placeholder for future tech)
   {
     id: "Air-4",
     category: "Air",
@@ -152,51 +147,12 @@ const airTechs: TechNode[] = [
   },
 ];
 
-// Economy branch techs (explicit definitions) - Linear 5-level tree
-const economyTechs: TechNode[] = [
-  // Level 1 - National Reconstruction Program (1950s): Roads, Hospitals, +20% infrastructure effectiveness, +20% road effects
-  { id: "Economy-1", category: "Economy", level: 1, cost: costForLevel(1) },
-  // Level 2 - National Research & Industrial Foundations (1960s): Research Labs, policy directive
-  {
-    id: "Economy-2",
-    category: "Economy",
-    level: 2,
-    requiresAllOf: ["Economy-1"],
-    cost: costForLevel(2),
-  },
-  // Level 3 - Trade Policy Framework (1970s): policy directive (Open Trade vs Autarky)
-  {
-    id: "Economy-3",
-    category: "Economy",
-    level: 3,
-    requiresAllOf: ["Economy-2"],
-    cost: costForLevel(3),
-  },
-  // Level 4 - National Infrastructure Modernization (1980s): +20% infrastructure effectiveness, -20% maintenance, +10% construction speed
-  {
-    id: "Economy-4",
-    category: "Economy",
-    level: 4,
-    requiresAllOf: ["Economy-3"],
-    cost: costForLevel(4),
-  },
-  // Level 5 - Digital Administration & Economic Coordination Systems (Early 1990s): policy directive
-  {
-    id: "Economy-5",
-    category: "Economy",
-    level: 5,
-    requiresAllOf: ["Economy-4"],
-    cost: costForLevel(5),
-  },
-];
-
 // Compose full tree
 const tree: TechNode[] = [
   ...baseLevels,
   ...nuclearTechs,
   ...seaTechs,
   ...landTechs,
-  ...economyTechs,
   ...airTechs,
 ];
 

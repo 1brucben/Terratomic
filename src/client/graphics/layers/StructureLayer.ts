@@ -22,6 +22,7 @@ import { getUnitUpgradeCost } from "../../../core/game/UnitUpgrades";
 import {
   isUpgradeableStructure,
   playerMaxStructureLevel,
+  playerMaxStructureTechLevel,
   playerMaxUnitLevel,
 } from "../../../core/game/Upgradeables";
 import { ToggleBomberUpgradeModeEvent } from "../../events/ToggleBomberUpgradeModeEvent";
@@ -564,16 +565,16 @@ export class StructureLayer implements Layer {
       this.ensureStructureLevels(unit);
       const record = this.structureLevels.get(unit.id());
       if (record) {
-        // Sync primary level from server value.
+        // Sync primary from server stack count.
         const prevLevel = record.primary;
-        const serverLevel = unit.level();
-        record.primary = serverLevel;
-        // If the hovered structure's level changed, refresh the label immediately.
+        const serverStackCount = unit.stackCount?.() ?? 1;
+        record.primary = serverStackCount;
+        // If the hovered structure's stack count changed, refresh the label immediately.
         if (this.hoveredStructure && this.hoveredStructure.id() === unit.id()) {
           this.updateLabels();
         }
-        // If level changed and we're in upgrade mode, re-render texture so highlight state updates
-        if (prevLevel !== serverLevel && this.upgradeMode) {
+        // If stack count changed and we're in upgrade mode, re-render texture so highlight state updates
+        if (prevLevel !== serverStackCount && this.upgradeMode) {
           // Refresh texture so highlight state updates based on new level
           const target = this.renders.find((r) => r.unit.id() === unit.id());
           if (target) {
@@ -1043,18 +1044,37 @@ export class StructureLayer implements Layer {
       !this.structureLevels.has(id) &&
       unit.type() !== UnitType.Construction
     ) {
-      // Initialize with server level (typically 1 unless upgraded before client joined)
+      // Initialize with stack count (for display) instead of level
       // For airfields, set secondary to bomber upgrade level
-      const secondary =
-        unit.type() === UnitType.Airfield ? unit.bomberLevel() : 0;
-      this.structureLevels.set(id, { primary: unit.level(), secondary });
+      // For SAMs, set secondary to SAM tech level
+      let secondary = 0;
+      if (unit.type() === UnitType.Airfield) {
+        secondary = unit.bomberLevel();
+      } else if (unit.type() === UnitType.SAMLauncher) {
+        const player = this.game.myPlayer();
+        if (player && unit.owner().id() === player.id()) {
+          secondary = playerMaxStructureTechLevel(player, UnitType.SAMLauncher);
+        }
+      }
+      this.structureLevels.set(id, {
+        primary: unit.stackCount?.() ?? 1,
+        secondary,
+      });
     } else if (this.structureLevels.has(id)) {
-      // Keep in sync with authoritative server level each tick/render cycle
+      // Keep in sync with authoritative server stack count each tick/render cycle
       const rec = this.structureLevels.get(id)!;
-      rec.primary = unit.level();
+      rec.primary = unit.stackCount?.() ?? 1;
       // For airfields, update secondary to bomber upgrade level
       if (unit.type() === UnitType.Airfield) {
         rec.secondary = unit.bomberLevel();
+      } else if (unit.type() === UnitType.SAMLauncher) {
+        const player = this.game.myPlayer();
+        if (player && unit.owner().id() === player.id()) {
+          rec.secondary = playerMaxStructureTechLevel(
+            player,
+            UnitType.SAMLauncher,
+          );
+        }
       }
     }
   }

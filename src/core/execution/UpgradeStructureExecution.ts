@@ -59,6 +59,9 @@ export class UpgradeStructureExecution implements Execution {
       return;
     }
     this.player.removeGold(upgradeCost);
+    // Increment stack count first, then apply HP bonus
+    const currentStack = this.unit.stackCount?.() ?? 1;
+    (this.unit as UnitImpl).setStackCount(currentStack + 1);
     (this.unit as UnitImpl).upgradeStructure();
     this._isActive = false;
     return;

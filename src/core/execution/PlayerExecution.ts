@@ -202,11 +202,12 @@ export class PlayerExecution implements Execution {
     );
     if (available.length === 0) return;
 
-    // Allocation: 50% to priority, 50% split among remaining; if no valid priority, split evenly
-    const priorityId: string | null =
-      (this.player as any).researchPriority?.() ?? null;
-    const priorityInSet =
-      priorityId !== null && available.some((n) => n.id === priorityId);
+    // Get all priorities and check which are available
+    const allPriorities: Set<string> =
+      (this.player as any).researchPriorities?.() ?? new Set();
+    const availablePriorities = available.filter((n) =>
+      allPriorities.has(n.id),
+    );
 
     const k = this.config.researchK();
     const bMin = this.config.researchBeakerMin();
@@ -260,16 +261,20 @@ export class PlayerExecution implements Execution {
     };
 
     const alloc: Record<string, number> = {};
-    if (priorityId && !priorityInSet) {
-      // Priority target not available: allocate 60% to the frontier of its missing prereqs
-      const pathSet = buildMissingPrereqPath(priorityId);
-      const frontier = available.filter((n) => pathSet.has(n.id));
+    if (allPriorities.size > 0 && availablePriorities.length === 0) {
+      // Has priorities but none available: allocate 60% to the frontier of their missing prereqs
+      const allPathSets = new Set<string>();
+      for (const priorityId of allPriorities) {
+        const pathSet = buildMissingPrereqPath(priorityId);
+        pathSet.forEach((id) => allPathSets.add(id));
+      }
+      const frontier = available.filter((n) => allPathSets.has(n.id));
       if (frontier.length > 0) {
         const priorityShare = 0.6 * xTotal;
         const shareFrontier = priorityShare / frontier.length;
         for (const n of frontier)
           alloc[n.id] = (alloc[n.id] ?? 0) + shareFrontier;
-        const others = available.filter((n) => !pathSet.has(n.id));
+        const others = available.filter((n) => !allPathSets.has(n.id));
         const remaining = xTotal - priorityShare;
         const shareOthers = others.length > 0 ? remaining / others.length : 0;
         for (const n of others) alloc[n.id] = (alloc[n.id] ?? 0) + shareOthers;
@@ -278,14 +283,22 @@ export class PlayerExecution implements Execution {
         const share = xTotal / available.length;
         for (const n of available) alloc[n.id] = share;
       }
-    } else if (priorityInSet && available.length > 1) {
+    } else if (
+      availablePriorities.length > 0 &&
+      available.length > availablePriorities.length
+    ) {
+      // Some priorities available: 60% split among priorities, 40% among others
       const priorityShare = 0.6 * xTotal;
-      alloc[priorityId!] = (alloc[priorityId!] ?? 0) + priorityShare;
-      const others = available.filter((n) => n.id !== priorityId);
+      const sharePriority = priorityShare / availablePriorities.length;
+      for (const n of availablePriorities) {
+        alloc[n.id] = sharePriority;
+      }
+      const others = available.filter((n) => !allPriorities.has(n.id));
       const share =
         others.length > 0 ? (xTotal - priorityShare) / others.length : 0;
       for (const n of others) alloc[n.id] = (alloc[n.id] ?? 0) + share;
     } else {
+      // No priorities or all available are prioritized: even split
       const share = xTotal / available.length;
       for (const n of available) alloc[n.id] = share;
     }

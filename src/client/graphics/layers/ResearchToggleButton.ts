@@ -19,9 +19,6 @@ export class ResearchToggleButton extends LitElement implements Layer {
   @state()
   private _isModalOpen = false;
 
-  @state()
-  private _hasUnseenPolicyDirectives = false;
-
   private modalRef: ResearchTreeModal | null = null;
 
   createRenderRoot() {
@@ -40,12 +37,6 @@ export class ResearchToggleButton extends LitElement implements Layer {
     );
     if (shouldShow !== this._isVisible) {
       this._isVisible = shouldShow;
-      this.requestUpdate();
-    }
-    // Check for unseen policy directives
-    const hasUnseen = player?.hasUnseenPolicyDirectives?.() ?? false;
-    if (hasUnseen !== this._hasUnseenPolicyDirectives) {
-      this._hasUnseenPolicyDirectives = hasUnseen;
       this.requestUpdate();
     }
     this.updateModalState();
@@ -188,9 +179,6 @@ export class ResearchToggleButton extends LitElement implements Layer {
           @click=${this.toggleModal}
           style="position: relative;"
         >
-          ${this._hasUnseenPolicyDirectives
-            ? html`<span class="policy-notification-badge">!</span>`
-            : ""}
           ${["R", "E", "S", "E", "A", "R", "C", "H"].map(
             (letter) => html`<span>${letter}</span>`,
           )}

@@ -151,6 +151,10 @@ export interface UnitUpdate {
   ghostExpiresAt?: Tick;
   // Structure upgrade level (>=1). Cities increase level by 1 per upgrade.
   level?: number;
+  // Stack count (>=1). Number of stacked instances for stackable structures.
+  stackCount?: number;
+  // Missile silo specific: remaining launches before cooldown (for stacked silos)
+  launchesRemaining?: number;
   // Trade-ship specific, for precise UI without heuristics
   tradeRouteStartOwnerID?: number; // smallID of start port owner
   tradeRouteEndOwnerID?: number; // smallID of end port owner
@@ -232,8 +236,10 @@ export interface PlayerUpdate {
   researchTreeTechs: string[];
   // Research progress (beakers) per tech id (optional; omitted if none)
   researchTreeBeakers?: Record<string, number>;
-  // Currently selected research priority tech id (optional)
+  // Currently selected research priority tech id (optional, legacy single priority)
   researchPriorityTech?: string | null;
+  // All selected research priority tech ids (optional; omitted if none)
+  researchPriorities?: string[];
   // Policy directive choices: directiveId -> optionId (optional; omitted if none)
   policyChoices?: Record<string, string>;
   // Whether the player has unseen policy directives to review

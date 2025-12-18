@@ -1,4 +1,3 @@
-import { renderNumber } from "../../client/Utils";
 import { simpleHash, toInt, withinInt } from "../Util";
 import {
   AllUnitParams,
@@ -16,6 +15,7 @@ import { GameImpl } from "./GameImpl";
 import { TileRef } from "./GameMap";
 import { GameUpdateType, UnitUpdate } from "./GameUpdates";
 import { PlayerImpl } from "./PlayerImpl";
+import { maxStackCount } from "./Upgradeables";
 
 export class UnitImpl implements Unit {
   private _active = true;
@@ -36,6 +36,8 @@ export class UnitImpl implements Unit {
   private _returning: boolean = false;
   private _patrolTile: TileRef | undefined;
   private _level: number = 1;
+  private _stackCount: number = 1; // Number of stacked instances (for stackable structures)
+  private _launchesRemaining: number | null = null; // For stacked silos: remaining launches before cooldown
   private _bonusMaxHealth: number = 0; // Extra max health from upgrades (e.g. city upgrades)
   private _targetable: boolean = true;
   private _accumulatedRegen: number = 0;
@@ -100,13 +102,6 @@ export class UnitImpl implements Unit {
       "sourceAirfield" in params
         ? (params.sourceAirfield ?? undefined)
         : undefined;
-    // TEMPORARILY DISABLED: Structure insurance
-    // if (
-    //   isStructureType(this._type) &&
-    //   this._owner.hasUpgrade(UpgradeType.StructureInsurance)
-    // ) {
-    //   this._insuredBy = this._owner;
-    // }
 
     switch (this._type) {
       case UnitType.Warship:
@@ -176,6 +171,11 @@ export class UnitImpl implements Unit {
       health: this.hasHealth() ? Number(this._health) : undefined,
       maxHealth: this.hasHealth() ? this.effectiveMaxHealth() : undefined,
       level: this._level > 1 ? this._level : undefined,
+      stackCount: this._stackCount > 1 ? this._stackCount : undefined,
+      launchesRemaining:
+        this._type === UnitType.MissileSilo && this._launchesRemaining !== null
+          ? this._launchesRemaining
+          : undefined,
       constructionType: this._constructionType,
       constructionTargetLevel:
         this._type === UnitType.Construction &&
@@ -292,6 +292,16 @@ export class UnitImpl implements Unit {
     return this._level;
   }
 
+  stackCount(): number {
+    return this._stackCount;
+  }
+
+  setStackCount(count: number): void {
+    const cap = maxStackCount(this._type);
+    this._stackCount = Math.max(1, Math.min(cap, count));
+    this.mg.addUpdate(this.toUpdate());
+  }
+
   // Port-specific accessor/mutator for scheduled trade ship construction (single legacy)
   setPendingTradeShipDueTick(due: Tick | null): void {
     if (this._pendingTradeShipDueTick !== due) {
@@ -337,11 +347,12 @@ export class UnitImpl implements Unit {
         return;
       }
       case UnitType.MissileSilo: {
-        // Cap silo upgrades at level 3
-        if (this._level >= 3) {
-          return;
-        }
+        // No cap for silo stacking
         this._level += 1;
+        // Reset launches remaining to allow more launches
+        if (this._launchesRemaining !== null) {
+          this._launchesRemaining += 1;
+        }
         this._bonusMaxHealth += 250;
         const healed = Number(this._health) + 250;
         const capped = Math.min(healed, this.effectiveMaxHealth());
@@ -352,10 +363,6 @@ export class UnitImpl implements Unit {
         return;
       }
       case UnitType.SAMLauncher: {
-        // Cap SAM upgrades at level 3
-        if (this._level >= 3) {
-          return;
-        }
         this._level += 1;
         // Small durability boost per upgrade, aligned with MissileSilo behavior
         this._bonusMaxHealth += 250;
@@ -439,23 +446,6 @@ export class UnitImpl implements Unit {
   }
 
   setOwner(newOwner: PlayerImpl): void {
-    if (this._insuredBy) {
-      const baseCost = this.info().cost(this._insuredBy);
-      if (baseCost > 0n) {
-        const num = BigInt(this.mg.config().structureInsuranceRefundNum());
-        const den = BigInt(this.mg.config().structureInsuranceRefundDen());
-        const refundAmount = (baseCost * num) / den;
-        this._insuredBy.addGold(refundAmount);
-        this.mg.displayMessage(
-          "messages.insurance_refund_conquest",
-          MessageType.INSURANCE_REFUND,
-          this._insuredBy.id(),
-          refundAmount,
-          { amount: renderNumber(refundAmount) },
-        );
-      }
-    }
-    this._insuredBy = null;
     switch (this._type) {
       case UnitType.Warship:
       case UnitType.FighterJet:
@@ -525,23 +515,6 @@ export class UnitImpl implements Unit {
     if (!this.isActive()) {
       throw new Error(`cannot delete ${this} not active`);
     }
-    if (this._insuredBy) {
-      const baseCost = this.info().cost(this._insuredBy);
-      if (baseCost > 0n) {
-        const num = BigInt(this.mg.config().structureInsuranceRefundNum());
-        const den = BigInt(this.mg.config().structureInsuranceRefundDen());
-        const refundAmount = (baseCost * num) / den;
-        this._insuredBy.addGold(refundAmount);
-        this.mg.displayMessage(
-          "messages.insurance_refund",
-          MessageType.INSURANCE_REFUND,
-          this._insuredBy.id(),
-          refundAmount,
-          { amount: renderNumber(refundAmount) },
-        );
-      }
-    }
-    this._insuredBy = null;
     this._owner._units = this._owner._units.filter((b) => b !== this);
     this._active = false;
     this.mg.addUpdate(this.toUpdate());
@@ -648,17 +621,39 @@ export class UnitImpl implements Unit {
   }
 
   launch(duration?: Tick): void {
+    // For stacked missile silos and SAMs: allow multiple launches before cooldown
+    if (
+      (this.type() === UnitType.MissileSilo ||
+        this.type() === UnitType.SAMLauncher) &&
+      this._stackCount > 1
+    ) {
+      // Initialize launches remaining on first launch
+      if (this._launchesRemaining === null) {
+        this._launchesRemaining = this._stackCount - 1; // First launch uses one
+        this.mg.addUpdate(this.toUpdate());
+        return; // Don't start cooldown yet
+      }
+      // If we have remaining launches, use one
+      if (this._launchesRemaining > 0) {
+        this._launchesRemaining--;
+        this.mg.addUpdate(this.toUpdate());
+        if (this._launchesRemaining > 0) {
+          return; // Still have more launches, don't start cooldown
+        }
+        // Fall through to start cooldown when all launches used
+      }
+      // Reset launches for next cycle
+      this._launchesRemaining = null;
+    }
+
     this._cooldownStartTick = this.mg.ticks();
     if (duration !== undefined) {
       this._cooldownDuration = duration;
     } else {
       // Choose default by unit type
       if (this.type() === UnitType.MissileSilo) {
-        // Reduce cooldown by 20% per upgrade level beyond 1: L1=100%, L2=80%, L3=60%
-        const base = this.mg.config().SiloCooldown();
-        const levelsAboveOne = Math.max(0, this._level - 1);
-        const multiplier = Math.max(0, 1 - 0.2 * levelsAboveOne);
-        this._cooldownDuration = Math.floor(base * multiplier);
+        // Use base cooldown - stacking doesn't affect cooldown duration
+        this._cooldownDuration = this.mg.config().SiloCooldown();
       } else if (this.type() === UnitType.SAMLauncher) {
         this._cooldownDuration = this.mg.config().SAMNukeCooldown();
       } else if (this.type() === UnitType.City) {
@@ -684,7 +679,7 @@ export class UnitImpl implements Unit {
     ) {
       if (this.hasHealth()) {
         const healthPercentage =
-          Number(this.health()) / (this.info().maxHealth ?? 1);
+          Number(this.health()) / this.effectiveMaxHealth();
         if (healthPercentage > 0) {
           cooldownDuration /= healthPercentage;
         }

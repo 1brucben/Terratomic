@@ -250,13 +250,7 @@ export class StatisticsModal extends LitElement {
             ]
           : [];
 
-        const categories: Category[] = [
-          "Land",
-          "Sea",
-          "Air",
-          "Nuclear",
-          "Economy",
-        ];
+        const categories: Category[] = ["Land", "Sea", "Air", "Nuclear"];
         const nodes = getTechNodes();
         const techsByCategory: Array<[string, string]> = sel
           ? categories.map((cat) => {

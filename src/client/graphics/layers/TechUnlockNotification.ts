@@ -87,10 +87,11 @@ export class TechUnlockNotification extends LitElement implements Layer {
       const meta = getTechMeta(techId, { strict: false });
       if (!meta) continue;
       this.seenTechs.add(techId);
+      const body = meta.shortDescription ?? meta.description ?? "";
       this.enqueue({
         id: techId,
         name: meta.name ?? techId,
-        description: meta.description ?? "",
+        description: body,
       });
     }
     for (const techId of filtered) this.seenTechs.add(techId);

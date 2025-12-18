@@ -5,7 +5,9 @@ interface HasUpgrade {
   hasUpgrade(type: UpgradeType): boolean;
 }
 
-export const UPGRADEABLE_STRUCTURES: ReadonlySet<UnitType> = new Set<UnitType>([
+// STACKABLE structures: can have multiple "instances" in one tile (user-controlled stack count)
+// Stacking adds HP and counts as multiple buildings.
+export const STACKABLE_STRUCTURES: ReadonlySet<UnitType> = new Set<UnitType>([
   UnitType.City,
   UnitType.Port,
   UnitType.Airfield,
@@ -17,7 +19,16 @@ export const UPGRADEABLE_STRUCTURES: ReadonlySet<UnitType> = new Set<UnitType>([
   UnitType.SAMLauncher,
 ]);
 
-// Units that can be upgraded
+// TECH-UPGRADEABLE structures: level is determined by researched techs (auto-applied)
+// SAM and Airfield have tech-based upgrade levels that affect their capabilities.
+export const TECH_UPGRADEABLE_STRUCTURES: ReadonlySet<UnitType> =
+  new Set<UnitType>([UnitType.SAMLauncher, UnitType.Airfield]);
+
+// Legacy alias for backwards compatibility
+export const UPGRADEABLE_STRUCTURES: ReadonlySet<UnitType> =
+  STACKABLE_STRUCTURES;
+
+// Units that can be upgraded via tech
 export const UPGRADEABLE_UNITS: ReadonlySet<UnitType> = new Set<UnitType>([
   UnitType.Warship,
   UnitType.FighterJet,
@@ -25,19 +36,40 @@ export const UPGRADEABLE_UNITS: ReadonlySet<UnitType> = new Set<UnitType>([
   UnitType.Bomber, // Bomber level affects airfield construction cost
 ]);
 
+export function isStackableStructure(type: UnitType): boolean {
+  return STACKABLE_STRUCTURES.has(type);
+}
+
+export function isTechUpgradeableStructure(type: UnitType): boolean {
+  return TECH_UPGRADEABLE_STRUCTURES.has(type);
+}
+
 export function isUpgradeableStructure(type: UnitType): boolean {
-  return UPGRADEABLE_STRUCTURES.has(type);
+  return STACKABLE_STRUCTURES.has(type);
 }
 
 export function isUpgradeableUnit(type: UnitType): boolean {
   return UPGRADEABLE_UNITS.has(type);
 }
 
+const MAX_STACK_COUNT = 25;
+
+// Maximum TECH upgrade level for structures (SAM, Airfield)
+// This is NOT the stack count - it's the quality tier from research.
+export function maxStructureTechLevel(type: UnitType): number {
+  if (type === UnitType.SAMLauncher) return 3;
+  if (type === UnitType.Airfield) return 3; // Based on bomber level
+  return 1;
+}
+
+// Maximum stack count for stackable structures
+export function maxStackCount(type: UnitType): number {
+  return isStackableStructure(type) ? MAX_STACK_COUNT : 1;
+}
+
+// Legacy function - returns max stack count (25 for all stackable structures)
 export function maxStructureLevel(type: UnitType): number {
-  if (type === UnitType.MissileSilo || type === UnitType.SAMLauncher) {
-    return 3;
-  }
-  return isUpgradeableStructure(type) ? 99 : 1;
+  return isStackableStructure(type) ? MAX_STACK_COUNT : 1;
 }
 
 // Return maximum upgrade level for upgradeable combat units.
@@ -109,24 +141,45 @@ export function playerMaxUnitLevel(player: HasUpgrade, type: UnitType): number {
   return globalMax;
 }
 
-// Return maximum upgrade level for a structure based on player's researched techs.
-// For SAMLauncher: Surface-to-Air Missiles = level 1, Radar-Guided SAMs = level 2,
-// Strategic SAM Systems = level 3.
+// Return maximum level for a structure based on stacking capability.
+// All stackable structures (including SAM, Airfield, MissileSilo) can stack up to 25.
+// Note: SAM and Airfield have separate tech upgrades (SAMLevel1-3, BomberLevel1-3)
+// that affect the quality/stats, but stacking is independent.
 export function playerMaxStructureLevel(
+  _player: HasUpgrade,
+  type: UnitType,
+): number {
+  // All stackable structures can go up to 25 stacks
+  if (isUpgradeableStructure(type)) {
+    return MAX_STACK_COUNT;
+  }
+
+  // Non-stackable structures have max level 1
+  return 1;
+}
+
+// Return the maximum TECH level for a structure based on player's researched techs.
+// For SAMLauncher: 1-3 based on SAM upgrades.
+// For Airfield: 1-3 based on bomber upgrades.
+// This is for quality/stats upgrades, NOT stacking.
+export function playerMaxStructureTechLevel(
   player: HasUpgrade,
   type: UnitType,
 ): number {
-  const globalMax = maxStructureLevel(type);
-
   if (type === UnitType.SAMLauncher) {
-    if (player.hasUpgrade(UpgradeType.SAMLevel3)) return Math.min(3, globalMax);
-    if (player.hasUpgrade(UpgradeType.SAMLevel2)) return Math.min(2, globalMax);
-    // SAM Level 1 is available by default at game start
-    return Math.min(1, globalMax);
+    if (player.hasUpgrade(UpgradeType.SAMLevel3)) return 3;
+    if (player.hasUpgrade(UpgradeType.SAMLevel2)) return 2;
+    return 1;
   }
 
-  // For other structures, return global max
-  return globalMax;
+  if (type === UnitType.Airfield) {
+    if (player.hasUpgrade(UpgradeType.BomberLevel3)) return 3;
+    if (player.hasUpgrade(UpgradeType.BomberLevel2)) return 2;
+    return 1;
+  }
+
+  // Non-tech-upgradeable structures always have tech level 1
+  return 1;
 }
 
 // Resolve a UnitType value from a stored string value (String(UnitType.X))
@@ -142,9 +195,14 @@ export function tryParseUnitType(value: string): UnitType | null {
 export function isUnitAvailable(player: HasUpgrade, type: UnitType): boolean {
   switch (type) {
     case UnitType.Warship:
-    case UnitType.Submarine:
-      // Warship and Submarine Level 1 are available by default at game start
+      // Warship Level 1 is available by default at game start
       return true;
+    case UnitType.Submarine:
+      // Diesel Sub unlocks with Sea Level 1 (Submarine research)
+      return (
+        player.hasUpgrade(UpgradeType.SubmarineResearch) ||
+        player.hasUpgrade(UpgradeType.SubmarineLevel1)
+      );
     case UnitType.Airfield:
     case UnitType.FighterJet:
     case UnitType.Bomber:
@@ -167,7 +225,8 @@ export function isUnitAvailable(player: HasUpgrade, type: UnitType): boolean {
     case UnitType.Hospital:
       return player.hasUpgrade(UpgradeType.HospitalResearch);
     case UnitType.ResearchLab:
-      return player.hasUpgrade(UpgradeType.ResearchLabResearch);
+      // Research Lab is available without a tech gate
+      return true;
     default:
       return true;
   }

@@ -831,12 +831,6 @@ export class DefaultConfig implements Config {
         assertNever(type);
     }
   }
-  scorchedEarthActivationCost(player: Player | PlayerView): Gold {
-    if (player.type() === PlayerType.Human && this.infiniteGold()) {
-      return 0n;
-    }
-    return 3_000_000n;
-  }
   defaultDonationAmount(sender: Player): number {
     return Math.floor(sender.troops() / 3);
   }
@@ -1342,12 +1336,6 @@ export class DefaultConfig implements Config {
   }
   urbanPlanningPopulationBonusDen(): number {
     return 4;
-  }
-  structureInsuranceRefundNum(): number {
-    return 1;
-  }
-  structureInsuranceRefundDen(): number {
-    return 3;
   }
   // --- Structure upgrade cost multipliers ---
   structureUpgradeCostMultiplier(type: UnitType): number {

@@ -184,14 +184,12 @@ export function computeStatValue(
     case "Land Techs":
     case "Sea Techs":
     case "Air Techs":
-    case "Nuclear Techs":
-    case "Economy Techs": {
+    case "Nuclear Techs": {
       const labelToCat: Record<string, Category> = {
         "Land Techs": "Land",
         "Sea Techs": "Sea",
         "Air Techs": "Air",
         "Nuclear Techs": "Nuclear",
-        "Economy Techs": "Economy",
       };
       const cat = labelToCat[label];
       const nodes = getTechNodes();

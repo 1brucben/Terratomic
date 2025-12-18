@@ -181,22 +181,15 @@ export enum UnitType {
 export enum UpgradeType {
   Roads = "Roads",
 
-  // Land Upgrades
-  ScorchedEarth = "ScorchedEarth",
-
   // Economy Upgrades
   InternationalTrade = "InternationalTrade",
-  // TEMPORARILY DISABLED: StructureInsurance = "StructureInsurance",
   HospitalResearch = "HospitalResearch",
   ResearchLabResearch = "ResearchLabResearch",
 
   // Water Upgrades
   SubmarineResearch = "SubmarineResearch",
   NuclearSubmarineResearch = "NuclearSubmarineResearch",
-  WaterUpgrade1 = "WaterUpgrade1",
-  WaterUpgrade2 = "WaterUpgrade2",
   WarshipAntiAir = "WarshipAntiAir",
-  WaterUpgrade3 = "WaterUpgrade3",
   // Warship level upgrades (Early Cold War Cruisers gives level 1)
   WarshipLevel1 = "WarshipLevel1",
   WarshipLevel2 = "WarshipLevel2",
@@ -210,7 +203,6 @@ export enum UpgradeType {
   JetEngines = "JetEngines",
   AirUpgrade1 = "AirUpgrade1",
   CityAntiAir = "CityAntiAir",
-  AirUpgrade3 = "AirUpgrade3",
   FighterJetNavalTargeting = "FighterJetNavalTargeting",
   // Fighter level upgrades (Jet Engines gives level 1 by default)
   FighterLevel2 = "FighterLevel2",
@@ -232,11 +224,6 @@ export enum UpgradeType {
   ThermonuclearStaging = "ThermonuclearStaging",
   MIRVTechnology = "MIRVTechnology",
   DoomsdayDeviceResearch = "DoomsdayDeviceResearch",
-
-  // Dummy Economy Upgrades
-  EconomyUpgrade1 = "EconomyUpgrade1",
-  EconomyUpgrade2 = "EconomyUpgrade2",
-  EconomyUpgrade3 = "EconomyUpgrade3",
 }
 
 const _structureTypes: ReadonlySet<UnitType> = new Set([
@@ -572,7 +559,8 @@ export interface Unit {
   isPeriodicallyVisible(): boolean;
 
   // Upgrades
-  level(): number; // Current upgrade level (>=1)
+  level(): number; // Current upgrade/tech level (>=1) - for SAM/Airfield this is the tech tier
+  stackCount(): number; // Number of stacked instances (>=1) - for all structures
   upgradeStructure(): void; // Applies structure-specific upgrade effects (currently City only)
   effectiveMaxHealth(): number; // Base max health + bonuses from upgrades
 }
@@ -693,13 +681,6 @@ export interface Player {
   hasResearchedTech(techId: string): boolean;
   addResearchedTech(techId: string): void;
   removeResearchedTechsByCategory(category: Category): void;
-
-  // Policy Directives (player choices linked to research)
-  getPolicyChoice(directiveId: string): string | null;
-  setPolicyChoice(directiveId: string, optionId: string): void;
-  getAllPolicyChoices(): ReadonlyMap<string, string>;
-  hasUnseenPolicyDirectives(): boolean;
-  markPolicyDirectivesSeen(): void;
 
   captureUnit(unit: Unit): void;
 
@@ -980,7 +961,6 @@ export enum MessageType {
   SENT_TROOPS_TO_PLAYER,
   RECEIVED_TROOPS_FROM_PLAYER,
   CHAT,
-  INSURANCE_REFUND,
   WARN,
   PEACE_TIMER_BLOCKED,
   DOOMSDAY_DEVICE_ACTIVATED,
@@ -1030,7 +1010,6 @@ export const MESSAGE_TYPE_CATEGORIES: Record<MessageType, MessageCategory> = {
   [MessageType.SENT_TROOPS_TO_PLAYER]: MessageCategory.TRADE,
   [MessageType.RECEIVED_TROOPS_FROM_PLAYER]: MessageCategory.TRADE,
   [MessageType.CHAT]: MessageCategory.CHAT,
-  [MessageType.INSURANCE_REFUND]: MessageCategory.FINANCIAL,
   [MessageType.DOOMSDAY_DEVICE_ACTIVATED]: MessageCategory.ATTACK,
 } as const;
 

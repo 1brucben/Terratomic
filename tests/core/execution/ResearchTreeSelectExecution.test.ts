@@ -34,7 +34,7 @@ describe("ResearchTreeSelectExecution", () => {
     // Simulate PlayerImpl side-effects when research completes
     (mockPlayer.addResearchedTech as jest.Mock).mockImplementation(
       (id: string) => {
-        if (id === RESEARCH_TECH_IDS.NATIONAL_RECONSTRUCTION_PROGRAM) {
+        if (id === RESEARCH_TECH_IDS.LAND_ROADS_HOSPITALS) {
           const alreadyHas = (mockPlayer.hasUpgrade as jest.Mock)(
             UpgradeType.Roads,
           );
@@ -60,10 +60,10 @@ describe("ResearchTreeSelectExecution", () => {
     );
   });
 
-  it("grants Roads and reconnects when Economy-1 is selected", () => {
+  it("grants Roads and reconnects when Land-1 is selected", () => {
     const exec = new ResearchTreeSelectExecution(
       mockPlayer as any,
-      RESEARCH_TECH_IDS.NATIONAL_RECONSTRUCTION_PROGRAM,
+      RESEARCH_TECH_IDS.LAND_ROADS_HOSPITALS,
     );
     exec.init(mockGame as any, 0);
     exec.tick(0);
@@ -78,7 +78,7 @@ describe("ResearchTreeSelectExecution", () => {
     (mockPlayer.hasUpgrade as jest.Mock).mockReturnValue(true);
     const exec = new ResearchTreeSelectExecution(
       mockPlayer as any,
-      RESEARCH_TECH_IDS.NATIONAL_RECONSTRUCTION_PROGRAM,
+      RESEARCH_TECH_IDS.LAND_ROADS_HOSPITALS,
     );
     exec.init(mockGame as any, 0);
     exec.tick(0);

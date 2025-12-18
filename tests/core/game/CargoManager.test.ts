@@ -46,7 +46,7 @@ describe("CargoManager", () => {
     }
 
     // Grant Roads via research tech so RoadManager reconnects nodes immediately
-    player.addResearchedTech(RESEARCH_TECH_IDS.NATIONAL_RECONSTRUCTION_PROGRAM);
+    player.addResearchedTech(RESEARCH_TECH_IDS.LAND_ROADS_HOSPITALS);
 
     // Let roads form
     for (let i = 0; i < 200; i++) {

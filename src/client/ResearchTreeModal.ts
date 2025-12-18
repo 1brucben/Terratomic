@@ -1,21 +1,18 @@
 import { html, LitElement, type PropertyValues } from "lit";
 import { customElement, property, query, state } from "lit/decorators.js";
-import flaskIcon from "../../proprietary/images/flask.png";
+import airIcon from "../../resources/icons/research/air.svg";
+import landIcon from "../../resources/icons/research/land.svg";
+import nuclearIcon from "../../resources/icons/research/nuclear.svg";
+import seaIcon from "../../resources/icons/research/sea.svg";
 import { EventBus } from "../core/EventBus";
-import { UpgradeType } from "../core/game/Game";
-import { GameView, PlayerView } from "../core/game/GameView";
-import {
-  getAllPolicyDirectives,
-  getUnlockedDirectives,
-  type PolicyDirective,
-} from "../core/tech/PolicyDirectives";
+import { GameView } from "../core/game/GameView";
 import {
   getTechNodes,
   isTechAvailable as serverIsTechAvailable,
   type Category,
   type TechNode,
 } from "../core/tech/ResearchTree";
-import { getTechMeta, RESEARCH_TECH_IDS } from "../core/tech/TechEffects";
+import { getTechMeta } from "../core/tech/TechEffects";
 import "./components/baseComponents/Modal";
 import {
   INVESTMENT_REQUEST_EVENT,
@@ -25,26 +22,22 @@ import {
   type InvestmentSyncDetail,
 } from "./events/InvestmentEvents";
 import { CloseViewEvent } from "./InputHandler";
-import {
-  SendMarkPolicyDirectivesSeenIntentEvent,
-  SendPolicyDirectiveSelectIntentEvent,
-  SendResearchTreeSelectIntentEvent,
-  SendScorchedEarthIntentEvent,
-} from "./Transport";
-import { renderNumber, translateText } from "./Utils";
-
-type ResearchTab = Category | "Overview" | "Policy Directives";
+import { getDetailedTechTooltip } from "./TechTooltips";
+import { SendResearchTreeSelectIntentEvent } from "./Transport";
 
 /** Helper to get display name/description from TechEffects */
 function getTechDisplay(tech: TechNode): {
   name: string;
+  shortDescription?: string;
   description?: string;
 } {
   const meta = getTechMeta(tech.id, { strict: false });
-  return { name: meta?.name ?? tech.id, description: meta?.description };
+  return {
+    name: meta?.name ?? tech.id,
+    shortDescription: meta?.shortDescription ?? meta?.description,
+    description: meta?.description,
+  };
 }
-
-// Category and TechNode are imported from core so client stays in sync
 
 @customElement("research-tree-modal")
 export class ResearchTreeModal extends LitElement {
@@ -54,44 +47,19 @@ export class ResearchTreeModal extends LitElement {
   };
 
   @property({ type: Boolean }) visible: boolean = false;
-  // Injected from parent so we can read upgrades and send intents
   @property({ attribute: false }) game!: GameView;
   @property({ attribute: false }) eventBus!: EventBus;
 
-  // Local polling while modal is open to keep UI in sync with game state
   private refreshTimer: number | null = null;
-
   private techs: TechNode[] = [...getTechNodes()];
-  private categories: Category[] = Array.from(
-    new Set(this.techs.map((t) => t.category)),
-  ) as Category[];
-  private readonly tabOrder: ResearchTab[] = [
-    "Land",
-    "Sea",
-    "Air",
-    "Nuclear",
-    "Economy",
-    "Policy Directives",
-    "Overview",
-  ];
-
-  @state()
-  private activeTab: ResearchTab = "Land";
-
-  @state()
-  private roadInvestmentRate = 0;
+  // Fixed category ordering: Land, Sea, Air, Nuclear
+  private categories: Category[] = ["Land", "Sea", "Air", "Nuclear"];
 
   @state()
   private researchInvestmentRate = 0;
 
   @state()
-  private lockRoad = false;
-
-  @state()
   private lockResearch = false;
-
-  @state()
-  private roadInvestmentEnabled = false;
 
   connectedCallback(): void {
     super.connectedCallback();
@@ -108,12 +76,10 @@ export class ResearchTreeModal extends LitElement {
   open() {
     this.modalEl?.open();
     this.requestInvestmentSync();
-    // Perform a full layout pass on the next frame after opening
-    requestAnimationFrame(() => this.updateLayout());
-    // Start a light refresh loop to reflect game state (gold/upgrades) while open
     this.refreshTimer ??= window.setInterval(() => this.requestUpdate(), 500);
     this.eventBus.on(CloseViewEvent, this.close);
   }
+
   close = () => {
     this.modalEl?.close();
     if (this.refreshTimer !== null) {
@@ -122,148 +88,98 @@ export class ResearchTreeModal extends LitElement {
     }
     this.eventBus.off(CloseViewEvent, this.close);
   };
+
   show() {
     this.visible = true;
     this.open();
   }
+
   hide() {
     this.visible = false;
     this.close();
   }
 
-  // Placeholder tree removed: client uses server-authoritative tree
-
   private isAvailable(id: string, researched: Set<string>): boolean {
     return serverIsTechAvailable(id, researched);
   }
-
-  // No mapping to existing UpgradeType; research tree is separate
 
   private researchedIDsFromGame(): Set<string> {
     const res = new Set<string>();
     const me = this.game?.myPlayer?.();
     if (!me) return res;
-    // Use new per-match researched techs
     for (const t of this.techs) if (me.hasResearchedTech(t.id)) res.add(t.id);
     return res;
   }
 
   private onTechClick(id: string) {
     if (!this.game || !this.eventBus) return;
-    const tech = this.techs.find((t) => t.id === id)!;
     const me = this.game.myPlayer();
     if (!me) return;
 
     const researched = this.researchedIDsFromGame();
-    // Allow prioritizing even if unavailable; still ignore already researched
-    if (me.hasResearchedTech?.(id)) return; // already researched
+    if (me.hasResearchedTech?.(id)) return;
 
-    // Clicking sets this as the current research priority (server handles distribution)
+    // Find the clicked tech to get its level and category
+    const clickedTech = this.techs.find((t) => t.id === id);
+    if (!clickedTech) return;
+
+    const priorities = me.researchPriorities?.() ?? new Set<string>();
+
+    // If this tech is being prioritized (not toggled off)
+    const willBePrioritized = !priorities.has(id);
+
+    if (willBePrioritized) {
+      // Remove priorities from same-level techs in other categories
+      for (const tech of this.techs) {
+        if (
+          tech.level === clickedTech.level &&
+          tech.category !== clickedTech.category &&
+          priorities.has(tech.id)
+        ) {
+          this.eventBus.emit(new SendResearchTreeSelectIntentEvent(tech.id));
+        }
+      }
+    }
+
     this.eventBus.emit(new SendResearchTreeSelectIntentEvent(id));
     this.requestUpdate();
   }
 
-  private onActivateScorchedEarth(event: Event): void {
-    event.stopPropagation();
-    event.preventDefault();
+  private prioritizeCategory(category: Category) {
     if (!this.game || !this.eventBus) return;
     const me = this.game.myPlayer();
-    if (!me || this.game.inSpawnPhase()) return;
-    if (me.hasUpgrade?.(UpgradeType.ScorchedEarth)) return;
-    this.eventBus.emit(new SendScorchedEarthIntentEvent());
-  }
+    if (!me) return;
 
-  private renderScorchedEarthAction(
-    tech: TechNode,
-    me: PlayerView | null,
-    isResearched: boolean,
-  ) {
-    // Show Scorched Earth button on Mechanized Warfare Doctrine (Land-2) when researched
-    if (
-      tech.id !== RESEARCH_TECH_IDS.MECHANIZED_WARFARE_DOCTRINE ||
-      !me ||
-      !isResearched
-    ) {
-      return "";
-    }
-    const config = this.game?.config?.();
-    if (!config) return "";
-    const activationCost = config.scorchedEarthActivationCost(me);
-    const gold = me.gold();
-    const hasUpgrade = me.hasUpgrade(UpgradeType.ScorchedEarth);
-    const disabled =
-      hasUpgrade || this.game?.inSpawnPhase?.() || gold < activationCost;
-    const tooltip = hasUpgrade
-      ? "Scorched Earth already active."
-      : gold < activationCost
-        ? "Earn more gold to activate Scorched Earth."
-        : "Activate to raze your road network.";
-    return html`
-      <button
-        class="tech-action"
-        @click=${(ev: Event) => this.onActivateScorchedEarth(ev)}
-        ?disabled=${disabled}
-        title=${tooltip}
-      >
-        ${hasUpgrade
-          ? "Scorched Earth Active"
-          : `Scorched Earth (${renderNumber(activationCost)} gold)`}
-      </button>
-    `;
-  }
+    // First, clear all priorities from other categories
+    const allTechs = this.techs;
+    const researched = this.researchedIDsFromGame();
+    const priorities = me.researchPriorities?.() ?? new Set<string>();
 
-  private renderLegend() {
-    return html`
-      <div class="legend">
-        <span><span class="swatch swatch-required"></span>Required</span>
-        <span><span class="swatch swatch-oneof"></span>Requires one of</span>
-        <span><span class="swatch swatch-researched"></span>Researched</span>
-        <span class="legend-note">Unmet requirements are grayed out</span>
-      </div>
-    `;
-  }
-
-  private getOrderedTabs(): ResearchTab[] {
-    const available = new Set(this.categories);
-    const ordered = this.tabOrder.filter((cat) => {
-      if (cat === "Overview" || cat === "Policy Directives") return true;
-      return available.has(cat);
-    });
-    if (!ordered.includes("Overview") && available.size > 0)
-      ordered.push("Overview");
-    return ordered.length ? ordered : [...available];
-  }
-
-  private getActiveCategory(): Category | null {
-    if (this.activeTab === "Overview") return null;
-    const tabs = this.getOrderedTabs();
-    if (!tabs.length) return null;
-    return tabs.includes(this.activeTab)
-      ? (this.activeTab as Category)
-      : (tabs[0] as Category);
-  }
-
-  private onTabClick(cat: ResearchTab) {
-    if (cat === this.activeTab) return;
-    this.activeTab = cat;
-
-    // Mark policy directives as seen when viewing the tab
-    if (cat === "Policy Directives" && this.eventBus) {
-      const me = this.game?.myPlayer?.();
-      if (me?.hasUnseenPolicyDirectives?.()) {
-        this.eventBus.emit(new SendMarkPolicyDirectivesSeenIntentEvent());
+    // Remove priorities from techs in other categories
+    for (const tech of allTechs) {
+      if (tech.category !== category && priorities.has(tech.id)) {
+        this.eventBus.emit(new SendResearchTreeSelectIntentEvent(tech.id));
       }
     }
+
+    // Now prioritize all techs in this category that aren't already prioritized
+    const categoryTechs = this.techs.filter((t) => t.category === category);
+
+    for (const tech of categoryTechs) {
+      if (!researched.has(tech.id) && !priorities.has(tech.id)) {
+        this.eventBus.emit(new SendResearchTreeSelectIntentEvent(tech.id));
+      }
+    }
+
+    // Force UI update after a short delay to show changes
+    setTimeout(() => this.requestUpdate(), 50);
   }
 
   private handleInvestmentSync = (event: Event) => {
     const { detail } = event as CustomEvent<InvestmentSyncDetail>;
     if (!detail) return;
-    this.roadInvestmentRate = detail.road;
     this.researchInvestmentRate = detail.research;
-    this.lockRoad = detail.lockRoad;
     this.lockResearch = detail.lockResearch;
-    this.roadInvestmentEnabled = detail.roadEnabled;
   };
 
   private requestInvestmentSync() {
@@ -278,582 +194,67 @@ export class ResearchTreeModal extends LitElement {
     );
   }
 
-  private handleInvestmentInput(slider: "road" | "research", event: Event) {
-    const input = event.target as HTMLInputElement;
-    const value = Math.max(
-      0,
-      Math.min(1, (parseInt(input.value || "0", 10) || 0) / 100),
-    );
-    const currentValue =
-      slider === "road" ? this.roadInvestmentRate : this.researchInvestmentRate;
-    const locked = slider === "road" ? this.lockRoad : this.lockResearch;
-    const enabled = slider === "road" ? this.canUseRoadSlider() : true;
-    if (locked || !enabled) {
-      input.value = Math.round(currentValue * 100).toString();
-      return;
-    }
-    this.dispatchInvestmentRequest({ type: "set", slider, value });
-  }
-
-  private handleInvestmentToggle(slider: "road" | "research") {
-    if (slider === "road" && !this.canUseRoadSlider()) return;
-    this.dispatchInvestmentRequest({ type: "toggle-lock", slider });
-  }
-
-  private canUseRoadSlider(): boolean {
-    if (this.roadInvestmentEnabled) return true;
-    const me = this.game?.myPlayer?.();
-    return me?.hasUpgrade?.(UpgradeType.Roads) ?? false;
-  }
-
-  private renderRoadSlider(me: PlayerView | null) {
-    const hasRoads = this.canUseRoadSlider();
-    const displayValue = hasRoads ? this.roadInvestmentRate : 0;
-    const percent = Math.round(displayValue * 100);
-    const quality = me?.roadNetworkQuality?.() ?? 100;
-    const completion = me?.roadNetworkCompletion?.() ?? 100;
-    const tooltipKey = hasRoads
-      ? this.lockRoad
-        ? "research_tree.investment.slider_locked"
-        : "research_tree.investment.slider_unlocked"
-      : "research_tree.investment.road_disabled";
-    const tooltip = translateText(tooltipKey);
-    const breakEvenMarker = this.renderRoadBreakEvenMarker(me, hasRoads);
-    return html`
-      <div
-        class="investment-slider ${hasRoads ? "" : "disabled"}"
-        translate="no"
-      >
-        <label class="investment-label">
-          <span>
-            Road investment: ${percent}% ·
-            <span style="white-space:nowrap;"
-              >Quality ${quality.toFixed(1)}%</span
-            >
-            ·
-            <span style="white-space:nowrap;"
-              >Completion: ${Math.round(completion)}%</span
-            >
-          </span>
-          ${this.lockRoad
-            ? html`<span class="lock-badge">
-                <svg class="lock-icon" viewBox="0 0 24 24">
-                  <path
-                    d="M8 10V7a4 4 0 118 0v3h1a2 2 0 012 2v8a2 2 0 01-2 2H7a2 2 0 01-2-2v-8a2 2 0 012-2h1zm2 0h4V7a2 2 0 10-4 0v3z"
-                  />
-                </svg>
-                Locked
-              </span>`
-            : ""}
-        </label>
-        <div class="investment-track-wrapper" title=${tooltip}>
-          <div class="investment-track-bg"></div>
-          <div
-            class="investment-track-fill"
-            style="width:${Math.min(100, Math.max(0, percent))}%;"
-          ></div>
-          ${breakEvenMarker}
-          <input
-            type="range"
-            min="0"
-            max="100"
-            step="1"
-            .value=${percent.toString()}
-            class="investment-input ${this.lockRoad ? "locked" : ""}"
-            ?disabled=${!hasRoads}
-            aria-label=${tooltip}
-            @input=${(e: Event) => this.handleInvestmentInput("road", e)}
-            @dblclick=${() => hasRoads && this.handleInvestmentToggle("road")}
-          />
-        </div>
-        <div class="investment-hint">${tooltip}</div>
-      </div>
-    `;
-  }
-
-  private renderRoadBreakEvenMarker(me: PlayerView | null, enabled: boolean) {
-    if (!enabled || !me) return "";
-    const config = this.game?.config?.();
-    if (!config) return "";
-    const pxPerSecond = me.roadNetPixelsPerSecond?.() ?? 0;
-    const base = config.roadConstructionBaseCost();
-    const maintMult = config.roadMaintenanceMultiplier();
-    const length = me.roadNetworkLength?.() ?? 0;
-    const quality = me.roadNetworkQuality?.() ?? 100;
-    const maintenancePerSecond =
-      (length * base * maintMult * Math.max(0.1, quality / 100)) / 60;
-    const grossPerSecond = pxPerSecond * base;
-    let breakEven = 0;
-    if (grossPerSecond > 0) breakEven = maintenancePerSecond / grossPerSecond;
-    else breakEven = maintenancePerSecond > 0 ? 1 : 0;
-    if (!Number.isFinite(breakEven)) breakEven = 0;
-    breakEven = Math.max(0, Math.min(1, breakEven));
-    if (breakEven <= 0 || breakEven >= 1) return "";
-    const leftPct = (breakEven * 100).toFixed(2);
-    return html`<div
-      class="investment-marker"
-      style="left:${leftPct}%;"
-      title=${`Break-even: ${(breakEven * 100).toFixed(0)}%`}
-    ></div>`;
-  }
-
   private renderResearchSlider() {
     const percent = Math.round(this.researchInvestmentRate * 100);
-    const lockTooltip = translateText(
-      this.lockResearch
-        ? "research_tree.investment.slider_locked"
-        : "research_tree.investment.slider_unlocked",
-    );
-    const goalTooltip = translateText("research_tree.investment.research_goal");
-    const tooltip = `${goalTooltip} ${lockTooltip}`;
+
     return html`
-      <div class="investment-slider" translate="no">
-        <label class="investment-label">
-          Research investment: ${percent}%
-          ${this.lockResearch
-            ? html`<span class="lock-badge">
-                <svg class="lock-icon" viewBox="0 0 24 24">
-                  <path
-                    d="M8 10V7a4 4 0 118 0v3h1a2 2 0 012 2v8a2 2 0 01-2 2H7a2 2 0 01-2-2v-8a2 2 0 012-2h1zm2 0h4V7a2 2 0 10-4 0v3z"
-                  />
-                </svg>
-                Locked
-              </span>`
-            : ""}
-        </label>
-        <div class="investment-track-wrapper" title=${tooltip}>
-          <div class="investment-track-bg"></div>
-          <div
-            class="investment-track-fill"
-            style="width:${Math.min(100, Math.max(0, percent * 2))}%;"
-          ></div>
+      <div class="investment-control">
+        <span class="inv-label"
+          >Investment: <span class="inv-percent">${percent}%</span></span
+        >
+        <div class="slider-wrapper">
           <input
             type="range"
             min="0"
             max="50"
             step="1"
             .value=${percent.toString()}
-            class="investment-input ${this.lockResearch ? "locked" : ""}"
-            aria-label=${tooltip}
-            @input=${(e: Event) => this.handleInvestmentInput("research", e)}
-            @dblclick=${() => this.handleInvestmentToggle("research")}
+            class="research-slider"
+            @input=${(e: Event) => this.handleInvestmentInput(e)}
           />
         </div>
-        <div class="investment-hint">${tooltip}</div>
       </div>
     `;
   }
 
-  private computePositions(): { [id: string]: DOMRect } {
-    const map: { [id: string]: DOMRect } = {};
-    const cards = this.renderRoot.querySelectorAll(
-      ".tech[data-id]",
-    ) as NodeListOf<HTMLElement>;
-    cards.forEach((el) => {
-      const id = el.dataset.id!;
-      map[id] = el.getBoundingClientRect();
-    });
-    return map;
-  }
-
-  // Orchestrate layout updates and edge redraw
-  private updateLayout() {
-    requestAnimationFrame(() => this.drawEdges());
-  }
-
-  private adjustTooltipPosition(target: HTMLElement) {
-    const tooltip = target.querySelector(".tooltip") as HTMLElement | null;
-    const container = this.renderRoot.querySelector(
-      ".tree-container",
-    ) as HTMLElement | null;
-    if (!tooltip || !container) return;
-
-    const containerRect = container.getBoundingClientRect();
-    const rect = target.getBoundingClientRect();
-    const tooltipRect = tooltip.getBoundingClientRect();
-    const tooltipHeight =
-      tooltipRect.height || tooltip.offsetHeight || tooltip.scrollHeight || 0;
-    const tooltipWidth =
-      tooltipRect.width || tooltip.offsetWidth || tooltip.scrollWidth || 0;
-    const gap = 12;
-    const spaceAbove = rect.top - containerRect.top;
-    const spaceBelow = containerRect.bottom - rect.bottom;
-
-    let position: "above" | "below" = "above";
-    if (spaceAbove < tooltipHeight + gap && spaceBelow > spaceAbove) {
-      position = "below";
-    }
-
-    tooltip.dataset.position = position;
-
-    // Clamp horizontal position so tooltips stay inside the container
-    const centerX = rect.left + rect.width / 2;
-    const margin = 20;
-    const availableWidth = Math.max(0, containerRect.width - margin * 2);
-    if (availableWidth <= 0) return;
-    const halfWidth = Math.min(tooltipWidth / 2, availableWidth / 2);
-    const minCenter = containerRect.left + margin + halfWidth;
-    const maxCenter = containerRect.right - margin - halfWidth;
-    const clampedCenter = Math.min(maxCenter, Math.max(minCenter, centerX));
-    const shift = clampedCenter - centerX;
-    tooltip.style.setProperty("--tooltip-shift", `${shift}px`);
-
-    // If still overflowing above, flip below as a final safeguard
-    if (position === "above" && spaceAbove < tooltipHeight + gap) {
-      tooltip.dataset.position = "below";
-    }
-  }
-
-  private renderAllView(
-    levels: number[],
-    researched: Set<string>,
-    categoryColors: Record<Category, string>,
-    percentages: Map<string, number>,
-  ) {
-    if (!this.categories.length) {
-      return html`<div class="empty-state">No research categories found.</div>`;
-    }
-    return html`
-      <div class="all-view-grid">
-        ${this.categories.map((cat) => {
-          const accent =
-            categoryColors[cat] ??
-            "color-mix(in srgb, var(--ui-info) 6%, transparent)";
-          return html`<div
-            class="all-column"
-            style=${`--column-accent:${accent}`}
-          >
-            <div class="all-column-title">${cat}</div>
-            ${levels.map((lvl) => {
-              const techs = this.techs.filter(
-                (t) => t.category === cat && t.level === lvl,
-              );
-              return html`<div class="compact-level">
-                <div class="compact-level-label">L${lvl}</div>
-                <div class="compact-level-techs">
-                  ${techs.length
-                    ? techs.map((tech) => {
-                        const isResearched = researched.has(tech.id);
-                        const pct = percentages.get(tech.id) ?? 0;
-                        const display = getTechDisplay(tech);
-                        return html`<div
-                          class=${`compact-tech ${isResearched ? "researched" : ""}`}
-                          title=${display.description ?? display.name}
-                          aria-label=${display.description ?? display.name}
-                        >
-                          <span class="compact-name"
-                            >${display.name} (${pct}%)</span
-                          >
-                          ${isResearched
-                            ? html`<span class="compact-check">✔</span>`
-                            : ""}
-                        </div>`;
-                      })
-                    : html`<div class="compact-tech empty">—</div>`}
-                </div>
-              </div>`;
-            })}
-          </div>`;
-        })}
-      </div>
-    `;
-  }
-
-  private renderPolicyDirectivesView() {
-    const me = this.game?.myPlayer?.();
-    if (!me) {
-      return html`
-        <div class="policy-directives-view">
-          <div class="empty-state">Loading...</div>
-        </div>
-      `;
-    }
-
-    // Get all policy directives, filter out those where a choice has already been made
-    const allDirectives = getAllPolicyDirectives();
-    const pendingDirectives = allDirectives.filter(
-      (d) => me.getPolicyChoice?.(d.id) === null,
+  private handleInvestmentInput(event: Event) {
+    const input = event.target as HTMLInputElement;
+    const value = Math.max(
+      0,
+      Math.min(1, (parseInt(input.value || "0", 10) || 0) / 100),
     );
-    const unlockedDirectives = getUnlockedDirectives((techId) =>
-      me.hasResearchedTech(techId),
-    );
-
-    // Sort so unlocked (available) directives appear first
-    const sortedDirectives = [...pendingDirectives].sort((a, b) => {
-      const aUnlocked = unlockedDirectives.some((d) => d.id === a.id);
-      const bUnlocked = unlockedDirectives.some((d) => d.id === b.id);
-      if (aUnlocked && !bUnlocked) return -1;
-      if (!aUnlocked && bUnlocked) return 1;
-      return 0;
-    });
-
-    if (pendingDirectives.length === 0) {
-      return html`
-        <div class="policy-directives-view">
-          <div class="empty-state">
-            No pending policy directives. New directives will appear here when
-            you research certain technologies.
-          </div>
-        </div>
-      `;
+    const locked = this.lockResearch;
+    if (locked) {
+      input.value = Math.round(this.researchInvestmentRate * 100).toString();
+      return;
     }
-
-    return html`
-      <div class="policy-directives-view">
-        <div class="policy-directives-intro">
-          <p>
-            Policy Directives become available when you research certain
-            technologies. Choose a policy to receive additional bonuses.
-          </p>
-        </div>
-        <div class="policy-directives-list">
-          ${sortedDirectives.map((directive) => {
-            const isUnlocked = unlockedDirectives.some(
-              (d) => d.id === directive.id,
-            );
-            const currentChoice = me.getPolicyChoice?.(directive.id) ?? null;
-            return this.renderPolicyDirective(
-              directive,
-              isUnlocked,
-              currentChoice,
-            );
-          })}
-        </div>
-      </div>
-    `;
-  }
-
-  private renderPolicyDirective(
-    directive: PolicyDirective,
-    isUnlocked: boolean,
-    currentChoice: string | null,
-  ) {
-    return html`
-      <div class="policy-directive ${isUnlocked ? "" : "locked"}">
-        <div class="policy-directive-header">
-          <h3 class="policy-directive-name">${directive.name}</h3>
-          ${!isUnlocked
-            ? html`<span class="policy-directive-locked-badge">
-                🔒 Requires:
-                ${getTechMeta(directive.unlockedByTech, { strict: false })
-                  ?.name ?? directive.unlockedByTech}
-              </span>`
-            : ""}
-        </div>
-        <p class="policy-directive-description">${directive.description}</p>
-        <div class="policy-options">
-          ${directive.options.map((option) => {
-            const isSelected = currentChoice === option.id;
-            // Disable if not unlocked OR if a choice has already been made (one-time selection)
-            const hasChoiceMade = currentChoice !== null;
-            const isDisabled = !isUnlocked || hasChoiceMade;
-            return html`
-              <button
-                class="policy-option ${isSelected
-                  ? "selected"
-                  : ""} ${isDisabled ? "disabled" : ""}"
-                ?disabled=${isDisabled}
-                @click=${() =>
-                  this.onPolicyOptionClick(directive.id, option.id)}
-              >
-                <div class="policy-option-name">${option.name}</div>
-                <div class="policy-option-description">
-                  ${option.description}
-                </div>
-                ${isSelected
-                  ? html`<span class="policy-option-selected-badge"
-                      >✓ Locked In</span
-                    >`
-                  : ""}
-              </button>
-            `;
-          })}
-        </div>
-      </div>
-    `;
-  }
-
-  private onPolicyOptionClick(directiveId: string, optionId: string) {
-    if (!this.game || !this.eventBus) return;
-    const me = this.game.myPlayer?.();
-    if (!me) return;
-
-    // Don't allow selection if any choice has already been made (one-time selection)
-    const currentChoice = me.getPolicyChoice?.(directiveId);
-    if (currentChoice !== null && currentChoice !== undefined) return;
-
-    // Emit the intent to select this policy
-    this.eventBus.emit(
-      new SendPolicyDirectiveSelectIntentEvent(directiveId, optionId),
-    );
-    this.requestUpdate();
-  }
-
-  private drawEdges() {
-    const container = this.renderRoot.querySelector(
-      ".line-layer",
-    ) as HTMLElement | null;
-    if (!container) return;
-    const svg = container.querySelector("svg");
-    if (!svg) return;
-    while (svg.firstChild) svg.removeChild(svg.firstChild);
-
-    if (this.activeTab === "Overview") return;
-    const activeCategory = this.getActiveCategory();
-    if (!activeCategory) return;
-
-    const visibleTechs = this.techs.filter(
-      (t) => t.category === activeCategory,
-    );
-    if (!visibleTechs.length) return;
-
-    const pos = this.computePositions();
-    const treeEl = this.renderRoot.querySelector(
-      ".tree-container",
-    ) as HTMLElement | null;
-    if (!treeEl) return;
-    const rootRect = treeEl.getBoundingClientRect();
-    const scrollLeft = treeEl.scrollLeft;
-    const scrollTop = treeEl.scrollTop;
-
-    const me = this.game?.myPlayer?.();
-    const researched = this.researchedIDsFromGame();
-    const priority = me?.researchPriorityTech?.() ?? null;
-
-    const byId = new Map(visibleTechs.map((n) => [n.id, n] as const));
-    const buildMissingPrereqPath = (targetId: string): Set<string> => {
-      const path = new Set<string>();
-      const seen = new Set<string>();
-      const dfs = (tid: string) => {
-        if (seen.has(tid)) return;
-        seen.add(tid);
-        const node = byId.get(tid);
-        if (!node) return;
-        const reqAll = (node.requiresAllOf ?? []).filter((p) => byId.has(p));
-        const reqOne = (node.requiresOneOf ?? []).filter((p) => byId.has(p));
-        for (const r of reqAll) {
-          if (!researched.has(r)) {
-            path.add(r);
-            dfs(r);
-          }
-        }
-        if (reqOne.length > 0 && !reqOne.some((p) => researched.has(p))) {
-          const sorted = [...reqOne].sort(
-            (a, b) => (byId.get(a)?.level ?? 0) - (byId.get(b)?.level ?? 0),
-          );
-          const choice = sorted[0];
-          if (choice && !researched.has(choice)) {
-            path.add(choice);
-            dfs(choice);
-          }
-        }
-      };
-      if (targetId && byId.has(targetId)) dfs(targetId);
-      return path;
-    };
-
-    const highlightNodes = new Set<string>();
-    if (priority && byId.has(priority)) {
-      highlightNodes.add(priority);
-      const missing = buildMissingPrereqPath(priority);
-      for (const id of missing) highlightNodes.add(id);
-    }
-
-    const addLine = (fromId: string, toId: string, cls: string) => {
-      const a = pos[fromId];
-      const b = pos[toId];
-      if (!a || !b) return;
-      const x1 = a.right - rootRect.left + scrollLeft;
-      const y1 = a.top - rootRect.top + scrollTop + a.height / 2;
-      const x2 = b.left - rootRect.left + scrollLeft;
-      const y2 = b.top - rootRect.top + scrollTop + b.height / 2;
-      const midX = (x1 + x2) / 2;
-      const path = document.createElementNS(
-        "http://www.w3.org/2000/svg",
-        "path",
-      );
-      const d = `M ${x1},${y1} L ${midX},${y1} L ${midX},${y2} L ${x2},${y2}`;
-      path.setAttribute("d", d);
-      path.setAttribute("fill", "none");
-      const isHighlighted =
-        highlightNodes.has(fromId) && highlightNodes.has(toId);
-      path.setAttribute(
-        "class",
-        `edge ${cls} ${isHighlighted ? "highlight" : ""}`,
-      );
-      svg.appendChild(path);
-    };
-
-    for (const t of visibleTechs) {
-      const reqAll = (t.requiresAllOf ?? []).filter((id) => byId.has(id));
-      const reqOne = (t.requiresOneOf ?? []).filter((id) => byId.has(id));
-
-      for (const p of reqAll) addLine(p, t.id, "req");
-      for (const p of reqOne) addLine(p, t.id, "oneof");
-    }
+    this.dispatchInvestmentRequest({ type: "set", slider: "research", value });
   }
 
   protected firstUpdated(_changed: PropertyValues): void {
     super.firstUpdated(_changed);
-    setTimeout(() => this.updateLayout(), 0);
-    window.addEventListener("resize", this.handleResize);
-    // Watch scroll on the whole tree container (both axes)
-    const tree = this.renderRoot.querySelector(".tree-container");
-    tree?.addEventListener(
-      "scroll",
-      this.handleResize as any,
-      {
-        passive: true,
-      } as any,
-    );
     this.requestInvestmentSync();
   }
 
   disconnectedCallback(): void {
     super.disconnectedCallback();
-    window.removeEventListener("resize", this.handleResize);
-    // content no longer scrolls for this modal; listener removed
-    const tree = this.renderRoot.querySelector(".tree-container");
-    tree?.removeEventListener("scroll", this.handleResize as any);
     window.removeEventListener(
       INVESTMENT_SYNC_EVENT,
       this.handleInvestmentSync as EventListener,
     );
   }
 
-  private handleResize = () => {
-    this.updateLayout();
-  };
-
-  // No per-match listener needed; UI reflects game state directly
-
-  protected updated(): void {
-    // Schedule a layout update on the next animation frame
-    requestAnimationFrame(() => this.updateLayout());
-  }
-
   render() {
-    const levels = Array.from(new Set(this.techs.map((t) => t.level))).sort(
-      (a, b) => a - b,
-    );
     const researched = this.researchedIDsFromGame();
     const categoryColors: Record<Category, string> = {
-      Land: "color-mix(in srgb, var(--ui-info) 12%, transparent)",
-      Sea: "color-mix(in srgb, var(--ui-info) 10%, transparent)",
-      Air: "color-mix(in srgb, var(--ui-secondary) 12%, transparent)",
-      Nuclear: "color-mix(in srgb, var(--ui-alert) 12%, transparent)",
-      Economy: "color-mix(in srgb, var(--ui-success) 12%, transparent)",
+      Land: "#2ecc71",
+      Sea: "#3498db",
+      Air: "#9b59b6",
+      Nuclear: "#e74c3c",
     };
     const me = this.game?.myPlayer?.();
-    const priority = me?.researchPriorityTech?.() ?? null;
-    const tabs = this.getOrderedTabs();
-    const isAllView = this.activeTab === "Overview";
-    const isPolicyDirectivesView = this.activeTab === "Policy Directives";
-    const activeCategory = this.getActiveCategory();
-    const activeTechs = activeCategory
-      ? this.techs.filter((t) => t.category === activeCategory)
-      : [];
-    const activeMap = new Map(activeTechs.map((n) => [n.id, n] as const));
+    const priorities = me?.researchPriorities?.() ?? new Set<string>();
+
     const percentByTechId = (() => {
       const map = new Map<string, number>();
       for (const tech of this.techs) {
@@ -867,1212 +268,464 @@ export class ResearchTreeModal extends LitElement {
       }
       return map;
     })();
-    const highlightTrail = (() => {
-      const set = new Set<string>();
-      if (!priority || !activeCategory || !activeMap.has(priority)) return set;
-      const seen = new Set<string>();
-      const dfs = (tid: string) => {
-        if (seen.has(tid)) return;
-        seen.add(tid);
-        const node = activeMap.get(tid);
-        if (!node) return;
-        const reqAll = (node.requiresAllOf ?? []).filter((p) =>
-          activeMap.has(p),
-        );
-        const reqOne = (node.requiresOneOf ?? []).filter((p) =>
-          activeMap.has(p),
-        );
-        for (const r of reqAll) {
-          if (!researched.has(r)) {
-            set.add(r);
-            dfs(r);
-          }
-        }
-        if (reqOne.length > 0 && !reqOne.some((p) => researched.has(p))) {
-          const sorted = [...reqOne].sort(
-            (a, b) =>
-              (activeMap.get(a)?.level ?? 0) - (activeMap.get(b)?.level ?? 0),
-          );
-          const choice = sorted[0];
-          if (choice && !researched.has(choice)) {
-            set.add(choice);
-            dfs(choice);
-          }
-        }
-      };
-      set.add(priority);
-      dfs(priority);
-      return set;
-    })();
+
+    // Group techs by category for the grid layout
+    const techsByCategory = new Map<Category, TechNode[]>();
+    for (const cat of this.categories) {
+      techsByCategory.set(
+        cat,
+        this.techs.filter((t) => t.category === cat),
+      );
+    }
 
     return html`
       <o-modal
-        title=${translateText("research_tree.title")}
-        max-width="90vw"
+        title="Research"
+        max-width="95vw"
         max-height="85dvh"
-        content-overflow="hidden"
+        content-overflow="auto"
         class="ui-scale-surface"
         style="--ui-scale-origin: center;"
       >
         <style>
-          .legend {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 12px;
-            font-size: 12px;
-            color: var(--ui-text-light);
-            margin-bottom: 8px;
-          }
-          .legend .swatch {
-            width: 10px;
-            height: 10px;
-            border-radius: 2px;
-            display: inline-block;
-            margin-right: 6px;
-          }
-          .legend-note {
-            opacity: 0.7;
-          }
-          .swatch-required {
-            background: color-mix(in srgb, var(--ui-alert) 70%, transparent);
-          }
-          .swatch-oneof {
-            background: color-mix(in srgb, var(--ui-warning) 70%, transparent);
-          }
-          .swatch-researched {
-            background: var(--ui-text-muted);
-          }
-          .tab-shell {
-            display: flex;
-            flex-direction: column;
-            gap: 12px;
-          }
-          .tab-bar {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 12px;
-            padding: 8px 4px 4px;
-            border-bottom: 1px solid
-              color-mix(in srgb, var(--ui-border-muted) 35%, transparent);
-            align-items: flex-end;
-          }
-          /* Responsive padding to prevent slider overlap on smaller screens */
-          @media (max-width: 1024px) {
-            .tab-bar {
-              padding-bottom: 12px;
-            }
-          }
-          @media (max-width: 768px) {
-            .tab-bar {
-              padding-bottom: 20px;
-            }
-          }
-          .tab-buttons {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 8px;
-          }
-          .tab-button {
-            background: color-mix(
-              in srgb,
-              var(--ui-panel-shell-top) 90%,
-              transparent
-            );
-            color: var(--ui-text-accent);
-            border: 1px solid
-              color-mix(in srgb, var(--ui-border-muted) 45%, transparent);
-            border-radius: 999px;
-            padding: 6px 14px;
-            font-size: 13px;
-            text-transform: uppercase;
-            letter-spacing: 0.05em;
-            cursor: pointer;
-            transition: all 120ms ease;
-          }
-          .tab-button:hover {
-            color: var(--ui-text-light);
-            border-color: color-mix(
-              in srgb,
-              var(--ui-border-muted) 65%,
-              transparent
-            );
-          }
-          .tab-button.active {
-            color: var(--ui-text-light);
-            border-color: color-mix(in srgb, var(--ui-info) 70%, transparent);
-            background:
-              linear-gradient(
-                135deg,
-                color-mix(in srgb, var(--ui-info) 20%, transparent),
-                color-mix(in srgb, var(--ui-info) 8%, transparent)
-              ),
-              var(
-                --tab-accent,
-                color-mix(in srgb, var(--ui-panel-shell-top) 70%, transparent)
-              );
-            box-shadow: 0 0 20px
-              color-mix(in srgb, var(--ui-panel-border) 60%, transparent);
-          }
-          .tab-panel {
-            background: color-mix(
-              in srgb,
-              var(--ui-panel-shell-bottom) 92%,
-              transparent
-            );
-            border: 1px solid
-              color-mix(in srgb, var(--ui-panel-border) 90%, transparent);
-            border-radius: 14px;
-            padding: 12px;
-            box-shadow:
-              inset 0 1px 0
-                color-mix(in srgb, var(--ui-text-light) 5%, transparent),
-              0 10px 30px color-mix(in srgb, var(--ui-overlay) 65%, transparent);
-          }
-          .investment-cluster {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 16px;
-            margin-left: auto;
-            align-items: flex-start;
-            margin-top: -40px;
+          :host {
+            --ui-text-light: #ecf0f1;
+            --ui-text-accent: #bdc3c7;
+            --ui-text-muted: #95a5a6;
+            --ui-panel-shell-top: #34495e;
+            --ui-panel-shell-bottom: #2c3e50;
+            --ui-border: #465f75;
+            --ui-info: #3498db;
           }
 
-          @media (max-width: 1100px) {
-            .investment-cluster {
-              margin-top: 0;
-            }
-            /* Allow the modal content area to scroll vertically on small screens */
-            .tab-shell {
-              max-height: calc(85dvh - 40px);
-              overflow-y: auto;
-              -webkit-overflow-scrolling: touch;
-            }
-          }
-          .investment-slider {
-            min-width: 260px;
-            width: clamp(260px, 40vw, 390px);
-            color: var(--ui-text-accent);
-            font-size: 12px;
-          }
-          .investment-slider.disabled {
-            opacity: 0.5;
-          }
-          .investment-label {
-            font-size: 12px;
-            margin-bottom: 4px;
-            display: flex;
-            align-items: center;
-            gap: 6px;
-          }
-          .investment-track-wrapper {
-            position: relative;
-            height: 24px;
-          }
-          .investment-track-bg {
-            position: absolute;
-            left: 0;
-            right: 0;
-            top: 50%;
-            transform: translateY(-50%);
-            height: 6px;
-            border-radius: 999px;
-            background-color: color-mix(
-              in srgb,
-              var(--ui-panel-shell-top) 85%,
-              transparent
-            );
-          }
-          .investment-track-fill {
-            position: absolute;
-            left: 0;
-            top: 50%;
-            transform: translateY(-50%);
-            height: 6px;
-            border-radius: 999px;
-            background: linear-gradient(
-              90deg,
-              color-mix(in srgb, var(--ui-info) 85%, transparent),
-              color-mix(in srgb, var(--ui-info) 65%, transparent)
-            );
-          }
-          .investment-input {
-            position: absolute;
-            inset: 0;
-            margin: 0;
-            height: 100%;
-            background: transparent;
-            -webkit-appearance: none;
-            appearance: none;
-            outline: none;
-          }
-          .investment-input::-webkit-slider-thumb {
-            -webkit-appearance: none;
-            appearance: none;
-            width: 14px;
-            height: 14px;
-            border-radius: 50%;
-            background: color-mix(
-              in srgb,
-              var(--ui-panel-shell-top) 95%,
-              transparent
-            );
-            border: 2px solid var(--ui-panel-border);
-            cursor: pointer;
-            box-shadow: 0 0 0 1px
-              color-mix(in srgb, var(--ui-secondary) 35%, transparent) inset;
-          }
-          .investment-input::-moz-range-thumb {
-            width: 14px;
-            height: 14px;
-            border-radius: 50%;
-            background: color-mix(
-              in srgb,
-              var(--ui-panel-shell-top) 95%,
-              transparent
-            );
-            border: 2px solid var(--ui-panel-border);
-            cursor: pointer;
-            box-shadow: 0 0 0 1px
-              color-mix(in srgb, var(--ui-secondary) 35%, transparent) inset;
-          }
-          .investment-input::-webkit-slider-runnable-track,
-          .investment-input::-moz-range-track {
-            background: transparent;
-          }
-          .investment-input.locked::-webkit-slider-thumb,
-          .investment-input.locked::-moz-range-thumb {
-            border-color: var(--ui-warning);
-            box-shadow: 0 0 0 2px
-              color-mix(in srgb, var(--ui-warning) 45%, transparent) inset;
-          }
-          .investment-marker {
-            position: absolute;
-            top: 0;
-            width: 2px;
-            height: 8px;
-            background: color-mix(
-              in srgb,
-              var(--ui-text-light) 85%,
-              transparent
-            );
-            transform: translateX(-1px);
-            border-radius: 1px;
-          }
-          .investment-hint {
-            font-size: 10px;
-            opacity: 0.65;
-            margin-top: 2px;
-          }
-          .investment-meta {
-            font-size: 11px;
-            opacity: 0.75;
-            margin-top: 4px;
-            text-align: right;
-          }
-          .lock-badge {
-            display: inline-flex;
-            align-items: center;
-            gap: 4px;
-            padding: 1px 6px;
-            border-radius: 999px;
-            background: color-mix(
-              in srgb,
-              var(--ui-text-light) 8%,
-              transparent
-            );
-            border: 1px solid
-              color-mix(in srgb, var(--ui-text-light) 20%, transparent);
-            font-size: 10px;
-          }
-          .lock-icon {
-            width: 10px;
-            height: 10px;
-            fill: currentColor;
-          }
-          .tree-container {
-            position: relative;
-            overflow: auto;
-            max-height: calc(85dvh - 150px);
-            padding: 32px 8px 40px;
-            scroll-padding: 24px 12px;
-            scrollbar-width: thin;
-            scrollbar-color: var(--ui-panel-border) var(--ui-panel-border);
-          }
-          .tree-container.all-view {
-            padding: 16px 12px 20px;
-          }
-          .tree-container::-webkit-scrollbar {
-            height: 10px;
-            width: 10px;
-            background: transparent;
-          }
-          .tree-container::-webkit-scrollbar-track {
-            background: var(--ui-panel-border);
-            border-radius: 8px;
-            box-shadow: inset 0 0 6px
-              color-mix(in srgb, var(--ui-overlay) 40%, transparent);
-          }
-          .tree-container::-webkit-scrollbar-thumb {
-            background: linear-gradient(
-              180deg,
-              var(--ui-panel-border),
-              color-mix(in srgb, var(--ui-panel-shell-bottom) 75%, transparent)
-            );
-            border-radius: 8px;
-            border: 1px solid var(--ui-panel-border);
-            box-shadow: inset 0 0 4px
-              color-mix(in srgb, var(--ui-text-light) 6%, transparent);
-          }
-          .tree-container::-webkit-scrollbar-thumb:hover {
-            background: linear-gradient(
-              180deg,
-              color-mix(in srgb, var(--ui-secondary) 80%, transparent),
-              color-mix(in srgb, var(--ui-secondary) 70%, transparent)
-            );
-            border-color: color-mix(
-              in srgb,
-              var(--ui-secondary) 80%,
-              transparent
-            );
-          }
-          .tree-container::-webkit-scrollbar-corner {
-            background: var(--ui-panel-border);
-          }
-          .level-strip {
-            display: flex;
-            gap: 36px;
-            padding: 6px;
-            min-height: 220px;
-            position: relative;
-            z-index: 2;
-          }
-          .level-column {
-            flex: 0 0 auto;
-            min-width: 220px;
-            border-radius: 12px;
-            border: 1px solid
-              color-mix(in srgb, var(--ui-panel-border) 95%, transparent);
-            background:
-              linear-gradient(
-                180deg,
-                color-mix(
-                  in srgb,
-                  var(--ui-panel-shell-bottom) 98%,
-                  transparent
-                ),
-                color-mix(
-                  in srgb,
-                  var(--ui-panel-shell-bottom) 92%,
-                  transparent
-                )
-              ),
-              var(
-                --level-accent,
-                color-mix(in srgb, var(--ui-info) 6%, transparent)
-              );
-            padding: 12px;
-            box-shadow:
-              inset 0 1px 0
-                color-mix(in srgb, var(--ui-text-light) 4%, transparent),
-              0 6px 24px color-mix(in srgb, var(--ui-overlay) 75%, transparent);
-          }
-          .all-view-grid {
-            display: flex;
-            gap: 16px;
-            min-width: max-content;
-          }
-          .all-column {
-            flex: 0 0 220px;
-            background:
-              linear-gradient(
-                180deg,
-                color-mix(
-                  in srgb,
-                  var(--ui-panel-shell-bottom) 98%,
-                  transparent
-                ),
-                color-mix(
-                  in srgb,
-                  var(--ui-panel-shell-bottom) 92%,
-                  transparent
-                )
-              ),
-              var(
-                --column-accent,
-                color-mix(in srgb, var(--ui-info) 5%, transparent)
-              );
-            border: 1px solid
-              color-mix(in srgb, var(--ui-panel-border) 85%, transparent);
-            border-radius: 12px;
-            padding: 10px;
-            box-shadow:
-              inset 0 1px 0
-                color-mix(in srgb, var(--ui-text-light) 4%, transparent),
-              0 4px 16px color-mix(in srgb, var(--ui-overlay) 65%, transparent);
-          }
-          .all-column-title {
-            font-weight: 600;
-            color: var(--ui-text-light);
-            margin-bottom: 8px;
-            text-transform: uppercase;
-            letter-spacing: 0.05em;
-          }
-          .compact-level {
-            display: flex;
-            gap: 8px;
-            align-items: flex-start;
-            margin-bottom: 6px;
-          }
-          .compact-level-label {
-            font-size: 10px;
-            color: var(--ui-text-accent);
-            padding-top: 2px;
-            min-width: 22px;
-          }
-          .compact-level-techs {
+          .research-container {
             display: flex;
             flex-direction: column;
-            gap: 4px;
-            width: 100%;
+            height: 100%;
+            background-color: var(--ui-modal-content);
+            width: 50vw;
+            max-width: 95vw;
+            gap: 0;
           }
-          .compact-tech {
+
+          .header {
             display: flex;
             justify-content: space-between;
             align-items: center;
-            font-size: 11px;
-            padding: 4px 6px;
-            border-radius: 6px;
-            background: color-mix(
-              in srgb,
-              var(--ui-panel-border) 65%,
-              transparent
-            );
-            border: 1px solid
-              color-mix(in srgb, var(--ui-info) 15%, transparent);
-            color: var(--ui-text-accent);
+            background-color: var(--ui-modal-header);
+            padding: 15px;
+            border-bottom: 1px solid var(--ui-panel-border);
+            flex-shrink: 0;
           }
-          .compact-tech.researched {
-            background: color-mix(in srgb, var(--ui-success) 35%, transparent);
-            border-color: color-mix(
-              in srgb,
-              var(--ui-success) 40%,
-              transparent
-            );
+
+          .header-title {
+            font-size: 1.2em;
+            font-weight: bold;
+            color: #fff;
+            letter-spacing: 1px;
           }
-          .compact-tech.empty {
-            justify-content: center;
-            font-style: italic;
-            opacity: 0.5;
+
+          .investment-control {
+            display: flex;
+            align-items: center;
+            gap: 8px;
           }
-          .compact-name {
-            overflow: hidden;
-            text-overflow: ellipsis;
-            white-space: nowrap;
-          }
-          .compact-check {
-            color: var(--ui-success);
-            font-weight: 600;
-            margin-left: 8px;
-          }
-          .level-label {
-            font-weight: 600;
-            color: var(--ui-text-accent);
-            margin-bottom: 10px;
-            letter-spacing: 0.04em;
+
+          .inv-label {
+            font-size: 0.9em;
+            color: #bdc3c7;
+            margin-right: 5px;
             text-transform: uppercase;
           }
-          .tech-stack {
+
+          .slider-wrapper {
             display: flex;
-            flex-direction: column;
-            gap: 20px;
+            align-items: center;
+            margin-left: 12px;
+            width: 200px;
           }
-          .empty-level {
-            font-size: 12px;
-            color: var(--ui-text-muted);
-            opacity: 0.8;
-            text-align: center;
-            border: 1px dashed
-              color-mix(in srgb, var(--ui-border-muted) 40%, transparent);
-            border-radius: 8px;
-            padding: 16px 8px;
-          }
-          .empty-state {
-            padding: 24px;
-            text-align: center;
-            color: var(--ui-text-muted);
-          }
-          .tech {
-            background: linear-gradient(
-              180deg,
-              color-mix(in srgb, var(--ui-panel-shell-top) 85%, transparent),
-              color-mix(in srgb, var(--ui-panel-shell-bottom) 85%, transparent)
-            );
-            border: 1px solid
-              color-mix(in srgb, var(--ui-info) 35%, transparent);
-            border-radius: 10px;
-            padding: 10px;
-            color: var(--ui-text-accent);
-            position: relative;
-            z-index: 2;
-            cursor: pointer;
-            transition:
-              transform 0.12s ease,
-              box-shadow 0.12s ease,
-              opacity 0.2s;
-            min-height: 72px;
-            width: 100%;
-            text-align: left;
-            box-shadow:
-              0 6px 16px color-mix(in srgb, var(--ui-overlay) 65%, transparent),
-              inset 0 0 0 1px
-                color-mix(in srgb, var(--ui-text-light) 2%, transparent);
-          }
-          .tech:hover,
-          .tech:focus-visible,
-          .tech:focus-within {
-            z-index: 40;
-          }
-          .tech:hover {
-            box-shadow:
-              0 8px 18px color-mix(in srgb, var(--ui-overlay) 80%, transparent),
-              0 0 0 2px color-mix(in srgb, var(--ui-info) 45%, transparent)
-                inset;
-          }
-          .tech.locked {
-            opacity: 1;
-            cursor: pointer;
-          }
-          .tech.researched {
-            background: color-mix(
-              in srgb,
-              var(--ui-panel-shell-top) 80%,
-              transparent
-            );
-            border-color: var(--ui-panel-border);
-          }
-          .tech.researched::after {
-            content: "\\2713";
-            position: absolute;
-            top: 6px;
-            right: 8px;
-            font-weight: bold;
-            color: var(--ui-success);
-            text-shadow: 0 1px 0
-              color-mix(in srgb, var(--ui-overlay) 50%, transparent);
-          }
-          .tech-wrapper {
-            display: flex;
-            flex-direction: column;
-            gap: 6px;
-            width: 100%;
-          }
-          .tech-action {
-            background: color-mix(in srgb, var(--ui-alert) 18%, transparent);
-            border: 1px solid
-              color-mix(in srgb, var(--ui-alert) 45%, transparent);
-            border-radius: 6px;
-            color: color-mix(
-              in srgb,
-              var(--ui-alert) 70%,
-              var(--ui-text-light) 30%
-            );
-            font-size: 11px;
-            font-weight: 600;
-            padding: 6px 8px;
-            text-align: center;
-            cursor: pointer;
-            transition:
-              background 120ms ease,
-              border-color 120ms ease,
-              color 120ms ease;
-          }
-          .tech-action:hover:not([disabled]) {
-            background: color-mix(in srgb, var(--ui-alert) 30%, transparent);
-            border-color: color-mix(in srgb, var(--ui-alert) 60%, transparent);
-          }
-          .tech-action[disabled] {
-            opacity: 0.65;
-            cursor: not-allowed;
-          }
-          .tech.priority {
-            border-color: color-mix(in srgb, var(--ui-info) 90%, transparent);
-            box-shadow:
-              0 0 0 2px color-mix(in srgb, var(--ui-info) 35%, transparent)
-                inset,
-              0 0 10px 2px color-mix(in srgb, var(--ui-info) 25%, transparent);
-          }
-          .tech .tooltip {
-            position: absolute;
-            bottom: calc(100% + 12px);
-            left: calc(50% + var(--tooltip-shift, 0px));
-            transform: translateX(-50%);
-            background: rgba(11, 18, 32, 1);
-            color: var(--ui-text-light);
-            border: 1px solid
-              color-mix(in srgb, var(--ui-border-muted) 70%, transparent);
-            border-radius: 8px;
-            box-shadow:
-              0 10px 20px color-mix(in srgb, var(--ui-overlay) 35%, transparent),
-              inset 0 0 0 1px
-                color-mix(in srgb, var(--ui-text-light) 2%, transparent);
-            padding: 8px 10px;
-            font-size: 12px;
-            line-height: 1.25;
-            max-width: 280px;
-            width: max-content;
-            z-index: 20;
-            opacity: 0;
-            visibility: hidden;
-            transition: opacity 120ms ease;
-            pointer-events: none;
-            white-space: normal;
-          }
-          .tech .tooltip[data-position="below"] {
-            top: calc(100% + 12px);
-            bottom: auto;
-            left: calc(50% + var(--tooltip-shift, 0px));
-            transform: translateX(-50%);
-          }
-          .tech .tooltip::after {
-            content: "";
-            position: absolute;
-            left: calc(50% + var(--tooltip-shift, 0px));
-            bottom: -6px;
-            transform: translateX(-50%);
-            border-width: 6px;
-            border-style: solid;
-            border-color: transparent transparent rgba(11, 18, 32, 1)
-              transparent;
-            filter: drop-shadow(
-              0 1px 0
-                color-mix(in srgb, var(--ui-border-muted) 90%, transparent)
-            );
-          }
-          .tech .tooltip[data-position="below"]::after {
-            top: -6px;
-            bottom: auto;
-            border-color: rgba(11, 18, 32, 1) transparent transparent
-              transparent;
-            filter: drop-shadow(
-              0 -1px 0
-                color-mix(in srgb, var(--ui-border-muted) 90%, transparent)
-            );
-          }
-          .tech:hover .tooltip {
-            opacity: 1;
-            visibility: visible;
-          }
-          .progress-track {
+
+          .research-slider {
             width: 100%;
             height: 6px;
-            background: color-mix(
-              in srgb,
-              var(--ui-secondary) 25%,
-              transparent
-            );
-            border: 1px solid
-              color-mix(in srgb, var(--ui-secondary) 35%, transparent);
-            border-radius: 6px;
-            overflow: hidden;
-            margin: 6px 0 4px;
+            -webkit-appearance: none;
+            appearance: none;
+            background: #465f75;
+            border-radius: 5px;
+            outline: none;
+            cursor: pointer;
           }
-          .progress-fill {
-            height: 100%;
-            background: linear-gradient(
-              90deg,
-              color-mix(in srgb, var(--ui-info) 90%, transparent) 0%,
-              color-mix(in srgb, var(--ui-info) 70%, transparent) 100%
-            );
-            box-shadow:
-              0 0 10px color-mix(in srgb, var(--ui-info) 55%, transparent),
-              0 0 16px color-mix(in srgb, var(--ui-info) 35%, transparent),
-              inset 0 0 4px
-                color-mix(in srgb, var(--ui-text-light) 10%, transparent);
+
+          .research-slider::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 16px;
+            height: 16px;
+            border-radius: 50%;
+            background: #3498db;
+            cursor: pointer;
+            border: 2px solid #2c3e50;
+            box-shadow: 0 0 6px rgba(52, 152, 219, 0.5);
           }
-          .progress-fill.priority {
-            background: linear-gradient(
-              90deg,
-              color-mix(in srgb, var(--ui-info) 90%, transparent) 0%,
-              color-mix(in srgb, var(--ui-info) 70%, transparent) 100%
-            );
-            box-shadow:
-              0 0 14px color-mix(in srgb, var(--ui-info) 75%, transparent),
-              0 0 26px color-mix(in srgb, var(--ui-info) 60%, transparent),
-              0 0 32px color-mix(in srgb, var(--ui-info) 50%, transparent),
-              inset 0 0 6px
-                color-mix(in srgb, var(--ui-text-light) 16%, transparent),
-              inset 0 0 0 1px
-                color-mix(in srgb, var(--ui-text-light) 12%, transparent);
+
+          .research-slider::-moz-range-thumb {
+            width: 16px;
+            height: 16px;
+            border-radius: 50%;
+            background: #3498db;
+            cursor: pointer;
+            border: 2px solid #2c3e50;
+            box-shadow: 0 0 6px rgba(52, 152, 219, 0.5);
           }
-          .cost-inline {
-            display: inline-flex;
-            align-items: flex-end;
-            gap: 6px;
-            font-size: 12px;
-            color: var(--ui-text-accent);
-            opacity: 0.95;
-            margin: 2px 0 4px;
+
+          .research-slider::-webkit-slider-runnable-track {
+            background: linear-gradient(to right, #3498db, #3498db) no-repeat;
+            background-size: calc((var(--value, 0) / 50) * 100%) 100%;
+            background-color: #465f75;
           }
-          .cost-inline img {
-            width: 14px;
-            height: 14px;
-            transform: translateY(-1px);
-            opacity: 0.95;
+
+          .categories-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 2px;
+            background-color: var(--ui-panel-border);
+            padding: 2px;
+            flex: 1;
+            overflow: auto;
           }
-          .pill {
-            font-size: 10px;
-            border-radius: 999px;
-            padding: 2px 6px;
-            display: inline-block;
-            margin-right: 6px;
+
+          @media (max-width: 900px) {
+            .categories-grid {
+              grid-template-columns: 1fr;
+            }
           }
-          .pill-req {
-            background: color-mix(in srgb, var(--ui-alert) 18%, transparent);
-            color: color-mix(
-              in srgb,
-              var(--ui-alert) 70%,
-              var(--ui-text-light) 30%
-            );
-            border: 1px solid
-              color-mix(in srgb, var(--ui-alert) 45%, transparent);
-          }
-          .pill-oneof {
-            background: color-mix(in srgb, var(--ui-warning) 14%, transparent);
-            color: color-mix(
-              in srgb,
-              var(--ui-warning) 70%,
-              var(--ui-text-light) 30%
-            );
-            border: 1px solid
-              color-mix(in srgb, var(--ui-warning) 35%, transparent);
-          }
-          .pill-priority {
-            background: color-mix(in srgb, var(--ui-info) 18%, transparent);
-            color: var(--ui-text-accent);
-            border: 1px solid
-              color-mix(in srgb, var(--ui-info) 45%, transparent);
-          }
-          .line-layer {
-            position: absolute;
-            inset: 0;
-            pointer-events: none;
-            z-index: 1;
-          }
-          .line-layer svg {
-            width: 100%;
-            height: 100%;
-            overflow: visible;
-          }
-          .edge {
-            stroke-width: 2;
-          }
-          .edge.req {
-            stroke: color-mix(in srgb, var(--ui-alert) 85%, transparent);
-          }
-          .edge.oneof {
-            stroke: color-mix(in srgb, var(--ui-warning) 85%, transparent);
-            stroke-dasharray: 6 4;
-          }
-          .edge.highlight {
-            stroke-width: 3;
-            filter: drop-shadow(
-              0 0 4px color-mix(in srgb, var(--ui-info) 45%, transparent)
-            );
-          }
-          /* Policy Directives styles */
-          .policy-directives-view {
-            padding: 16px;
-          }
-          .policy-directives-intro {
-            margin-bottom: 20px;
-            color: var(--ui-text-accent);
-            font-size: 13px;
-            line-height: 1.5;
-          }
-          .policy-directives-list {
+
+          .category {
+            padding: 12px;
+            background-color: var(--ui-panel-shell-top);
             display: flex;
             flex-direction: column;
-            gap: 24px;
+            gap: 10px;
           }
-          .policy-directive {
-            background: color-mix(
-              in srgb,
-              var(--ui-panel-shell-bottom) 95%,
-              transparent
-            );
-            border: 1px solid
-              color-mix(in srgb, var(--ui-panel-border) 85%, transparent);
-            border-radius: 12px;
-            padding: 16px;
-            transition: opacity 0.2s;
-          }
-          .policy-directive.locked {
-            opacity: 0.6;
-          }
-          .policy-directive-header {
-            display: flex;
-            align-items: center;
-            gap: 12px;
-            margin-bottom: 8px;
-          }
-          .policy-directive-name {
-            font-size: 16px;
-            font-weight: 600;
-            color: var(--ui-text-light);
-            margin: 0;
-          }
-          .policy-directive-locked-badge {
-            font-size: 11px;
-            padding: 3px 8px;
-            border-radius: 999px;
-            background: color-mix(in srgb, var(--ui-warning) 20%, transparent);
-            color: var(--ui-warning);
-            border: 1px solid
-              color-mix(in srgb, var(--ui-warning) 40%, transparent);
-          }
-          .policy-directive-description {
-            font-size: 13px;
-            color: var(--ui-text-accent);
-            margin: 0 0 16px 0;
-            line-height: 1.4;
-          }
-          .policy-options {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 12px;
-          }
-          .policy-option {
-            flex: 1;
-            min-width: 200px;
-            max-width: 350px;
-            background: color-mix(
-              in srgb,
-              var(--ui-panel-shell-top) 90%,
-              transparent
-            );
-            border: 2px solid
-              color-mix(in srgb, var(--ui-border-muted) 50%, transparent);
-            border-radius: 10px;
-            padding: 14px;
-            cursor: pointer;
-            text-align: left;
-            transition: all 0.15s ease;
-            position: relative;
-          }
-          .policy-option:hover:not(.disabled) {
-            border-color: color-mix(in srgb, var(--ui-info) 60%, transparent);
-            background: color-mix(in srgb, var(--ui-info) 8%, transparent);
-          }
-          .policy-option.selected {
-            border-color: var(--ui-success);
-            background: color-mix(in srgb, var(--ui-success) 15%, transparent);
-            box-shadow: 0 0 12px
-              color-mix(in srgb, var(--ui-success) 25%, transparent);
-          }
-          .policy-option.disabled {
-            cursor: not-allowed;
-            opacity: 0.5;
-          }
-          .policy-option-name {
-            font-size: 14px;
-            font-weight: 600;
-            color: var(--ui-text-light);
-            margin-bottom: 6px;
-          }
-          .policy-option-description {
-            font-size: 12px;
-            color: var(--ui-text-accent);
-            line-height: 1.4;
-          }
-          .policy-option-selected-badge {
-            position: absolute;
-            top: 8px;
-            right: 10px;
-            font-size: 11px;
-            font-weight: 600;
-            color: var(--ui-success);
-          }
-          .tab-notification-badge {
-            position: absolute;
-            top: -2px;
-            right: -2px;
-            width: 14px;
-            height: 14px;
-            background: #ffc107;
-            border: 1px solid #000;
-            border-radius: 50%;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 10px;
+
+          .category-header {
+            font-size: 1.05em;
             font-weight: bold;
-            color: #000;
-            padding-left: 1px;
-            animation: pulse-tab-badge 1.5s ease-in-out infinite;
+            margin-bottom: 4px;
+            text-transform: uppercase;
+            letter-spacing: 0.4px;
+            display: flex;
+            align-items: center;
+            gap: 6px;
           }
-          @keyframes pulse-tab-badge {
-            0%,
-            100% {
-              transform: scale(1);
-            }
-            50% {
-              transform: scale(1.1);
-            }
+
+          .category-icon {
+            width: 24px;
+            height: 24px;
+            background-color: currentColor;
+            -webkit-mask-size: contain;
+            mask-size: contain;
+            -webkit-mask-repeat: no-repeat;
+            mask-repeat: no-repeat;
+            -webkit-mask-position: center;
+            mask-position: center;
+          }
+
+          .tech-row {
+            display: flex;
+            align-items: center;
+            background: var(--ui-table-row-bg);
+            padding: 6px;
+            border-radius: 4px;
+            border: 1px solid var(--ui-panel-border);
+            gap: 8px;
+            cursor: pointer;
+            transition: all 0.2s;
+          }
+
+          .tech-row:hover {
+            background: var(--ui-table-row-hover);
+          }
+
+          .tech-row.researched {
+            opacity: 0.7;
+          }
+
+          .tech-row.locked {
+            opacity: 0.5;
+            cursor: not-allowed;
+          }
+
+          .tech-info {
+            width: 160px;
+            flex-shrink: 0;
+            display: flex;
+            flex-direction: column;
+            gap: 2px;
+          }
+
+          .tech-name {
+            font-size: 0.95em;
+            font-weight: 600;
+            color: var(--ui-text-default);
+          }
+
+          .tech-desc {
+            font-size: 0.75em;
+            color: var(--ui-text-muted);
+          }
+
+          .progress-container {
+            flex-grow: 1;
+            height: 8px;
+            background-color: var(--ui-slider-track);
+            border-radius: 5px;
+            overflow: hidden;
+            border: 1px solid var(--ui-panel-border);
+            margin: 0 4px;
+          }
+
+          .progress-bar {
+            height: 100%;
+            transition: width 0.3s;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.2) inset;
+          }
+
+          .progress-text {
+            position: absolute;
+            right: 5px;
+            top: 50%;
+            transform: translateY(-50%);
+            font-size: 9px;
+            color: #fff;
+            text-shadow: 0 1px 2px rgba(0, 0, 0, 0.8);
+            font-family: monospace;
+          }
+
+          .priority-btn {
+            background: none;
+            border: 1px solid var(--ui-border-muted);
+            color: var(--ui-text-muted);
+            cursor: pointer;
+            padding: 4px 10px;
+            border-radius: 4px;
+            font-size: 0.8em;
+            font-weight: 600;
+            white-space: nowrap;
+            transition: all 0.2s;
+            flex-shrink: 0;
+          }
+
+          .priority-btn:hover:not(:disabled) {
+            background: var(--ui-secondary);
+            color: var(--ui-text-default);
+            border-color: var(--ui-text-light);
+          }
+
+          .priority-btn.active {
+            background: #f39c12;
+            color: #fff;
+            border-color: #e67e22;
+            box-shadow: 0 0 8px rgba(243, 156, 18, 0.4);
+          }
+
+          .priority-btn:disabled {
+            cursor: not-allowed;
+            opacity: 0.8;
+          }
+
+          .priority-btn.locked-prioritized {
+            background: #f39c12;
+            color: #fff;
+            border-color: #e67e22;
+            opacity: 0.7;
+          }
+
+          .category-prioritize-btn {
+            background: none;
+            border: 1px solid var(--ui-border-muted);
+            color: var(--ui-text-muted);
+            cursor: pointer;
+            padding: 4px 10px;
+            border-radius: 4px;
+            font-size: 0.8em;
+            font-weight: 600;
+            margin-left: auto;
+            transition: all 0.2s;
+            white-space: nowrap;
+          }
+
+          .category-prioritize-btn:hover {
+            background: var(--ui-secondary);
+            color: var(--ui-text-default);
+            border-color: var(--ui-text-light);
+          }
+
+          .category-prioritize-btn.active {
+            background: #f39c12;
+            color: #fff;
+            border-color: #e67e22;
+            box-shadow: 0 0 8px rgba(243, 156, 18, 0.4);
+          }
+
+          .bar-sea {
+            background-color: #3498db;
+          }
+          .bar-land {
+            background-color: #27ae60;
+          }
+          .bar-air {
+            background-color: #8e44ad;
+          }
+          .bar-nuclear {
+            background-color: #c0392b;
+          }
+
+          .cat-sea {
+            color: #3498db;
+            text-shadow: 0 0 10px rgba(52, 152, 219, 0.2);
+          }
+          .cat-land {
+            color: #2ecc71;
+            text-shadow: 0 0 10px rgba(46, 204, 113, 0.2);
+          }
+          .cat-air {
+            color: #9b59b6;
+            text-shadow: 0 0 10px rgba(155, 89, 182, 0.2);
+          }
+          .cat-nuclear {
+            color: #e74c3c;
+            text-shadow: 0 0 10px rgba(231, 76, 60, 0.2);
           }
         </style>
-        ${this.renderLegend()}
-        <div class="tab-shell">
-          <div class="tab-bar">
-            <div class="tab-buttons" role="tablist">
-              ${tabs.map((cat) => {
-                const isAllTab = cat === "Overview";
-                const isPolicyTab = cat === "Policy Directives";
-                const isActive = isAllTab
-                  ? isAllView
-                  : isPolicyTab
-                    ? isPolicyDirectivesView
-                    : cat === activeCategory;
-                const tabTooltip = translateText(
-                  `research_tree.tab_tooltip.${cat.toLowerCase().replace(" ", "_")}`,
-                );
-                const showPolicyBadge =
-                  isPolicyTab && me?.hasUnseenPolicyDirectives?.();
-                return html`<button
-                  type="button"
-                  class="tab-button ${isActive ? "active" : ""}"
-                  role="tab"
-                  aria-selected=${String(isActive)}
-                  aria-label=${tabTooltip}
-                  title=${tabTooltip}
-                  style=${`position: relative; ${
-                    isActive
-                      ? `--tab-accent:${isAllTab ? "color-mix(in srgb, var(--ui-border-muted) 25%, transparent)" : (categoryColors[cat as Category] ?? "transparent")}`
-                      : ""
-                  }`}
-                  @click=${() => this.onTabClick(cat)}
-                >
-                  ${cat}
-                  ${showPolicyBadge
-                    ? html`<span class="tab-notification-badge">!</span>`
-                    : ""}
-                </button>`;
-              })}
-            </div>
-            <div class="investment-cluster">${this.renderResearchSlider()}</div>
+
+        <div class="research-container">
+          <div class="header">
+            <div class="header-title">Research</div>
+            ${this.renderResearchSlider()}
           </div>
-          <div class="tab-panel" role="tabpanel">
-            <div
-              class="tree-container ${isAllView || isPolicyDirectivesView
-                ? "all-view"
-                : ""}"
-            >
-              ${isPolicyDirectivesView
-                ? this.renderPolicyDirectivesView()
-                : isAllView
-                  ? this.renderAllView(
-                      levels,
-                      researched,
-                      categoryColors,
-                      percentByTechId,
-                    )
-                  : activeCategory
-                    ? html`<div
-                        class="level-strip"
-                        style=${`--level-accent:${categoryColors[activeCategory] ?? "transparent"}`}
+
+          <div class="categories-grid">
+            ${this.categories.map((cat) => {
+              const techs = techsByCategory.get(cat) ?? [];
+              const catClass = `cat-${cat.toLowerCase()}`;
+
+              const icons: Record<string, string> = {
+                Land: landIcon,
+                Sea: seaIcon,
+                Air: airIcon,
+                Nuclear: nuclearIcon,
+              };
+              const iconSrc = icons[cat];
+
+              // Check if all non-researched techs in category are prioritized
+              const nonResearchedTechs = techs.filter(
+                (t) => !researched.has(t.id),
+              );
+              const allPrioritized =
+                nonResearchedTechs.length > 0 &&
+                nonResearchedTechs.every((t) => priorities.has(t.id));
+
+              return html`
+                <div class="category">
+                  <div class="category-header ${catClass}">
+                    ${iconSrc
+                      ? html`<div
+                          class="category-icon"
+                          style="-webkit-mask-image: url('${iconSrc}'); mask-image: url('${iconSrc}')"
+                        ></div>`
+                      : ""}
+                    ${cat.toUpperCase()}
+                    <button
+                      class="category-prioritize-btn ${allPrioritized
+                        ? "active"
+                        : ""}"
+                      @click=${() => this.prioritizeCategory(cat)}
+                      title="Prioritize all ${cat} techs"
+                    >
+                      ${allPrioritized ? "⭐ Prioritized" : "☆ Prioritize"}
+                    </button>
+                  </div>
+                  ${techs.map((tech) => {
+                    const available = this.isAvailable(tech.id, researched);
+                    const isResearched = researched.has(tech.id);
+                    const pct = percentByTechId.get(tech.id) ?? 0;
+                    const isPriority = priorities.has(tech.id);
+                    const display = getTechDisplay(tech);
+                    const tooltip = getDetailedTechTooltip(tech.id);
+
+                    const rowClass = [
+                      "tech-row",
+                      isResearched ? "researched" : "",
+                      !available && !isResearched ? "locked" : "",
+                    ]
+                      .filter(Boolean)
+                      .join(" ");
+
+                    const barClass = `bar-${cat.toLowerCase()}`;
+
+                    // Locked techs show as prioritized (yellow) if they're set as priority
+                    const btnClass = [
+                      "priority-btn",
+                      isPriority && available
+                        ? "active"
+                        : isPriority && !available
+                          ? "locked-prioritized"
+                          : "",
+                    ]
+                      .filter(Boolean)
+                      .join(" ");
+
+                    return html`
+                      <div
+                        class="${rowClass}"
+                        @click=${() => this.onTechClick(tech.id)}
+                        title=${tooltip}
                       >
-                        ${levels
-                          .filter((lvl) =>
-                            this.techs.some(
-                              (t) =>
-                                t.level === lvl &&
-                                t.category === activeCategory,
-                            ),
-                          )
-                          .map((lvl) => {
-                            const techsForLevel = this.techs.filter(
-                              (t) =>
-                                t.level === lvl &&
-                                t.category === activeCategory,
-                            );
-                            return html`<div class="level-column">
-                              <div class="level-label">Tech Level ${lvl}</div>
-                              <div class="tech-stack">
-                                ${techsForLevel.map((tech) => {
-                                  const available = this.isAvailable(
-                                    tech.id,
-                                    researched,
-                                  );
-                                  const isResearched = researched.has(tech.id);
-                                  const clickable = !isResearched;
-                                  const inHighlight = highlightTrail.has(
-                                    tech.id,
-                                  );
-                                  const classes = [
-                                    "tech",
-                                    available ? "" : "locked",
-                                    isResearched ? "researched" : "",
-                                    inHighlight ? "priority" : "",
-                                  ]
-                                    .filter(Boolean)
-                                    .join(" ");
-                                  const action = this.renderScorchedEarthAction(
-                                    tech,
-                                    me ?? null,
-                                    isResearched,
-                                  );
-                                  return html`<div class="tech-wrapper">
-                                    ${(() => {
-                                      const display = getTechDisplay(tech);
-                                      return html`<button
-                                        class=${classes}
-                                        data-id=${tech.id}
-                                        @click=${() =>
-                                          this.onTechClick(tech.id)}
-                                        @mouseenter=${(ev: Event) =>
-                                          this.adjustTooltipPosition(
-                                            ev.currentTarget as HTMLElement,
-                                          )}
-                                        @focus=${(ev: Event) =>
-                                          this.adjustTooltipPosition(
-                                            ev.currentTarget as HTMLElement,
-                                          )}
-                                        title=${""}
-                                        ?disabled=${!clickable}
-                                      >
-                                        <div class="tooltip">
-                                          <div
-                                            style="font-weight:600;margin-bottom:4px;"
-                                          >
-                                            ${display.name}
-                                          </div>
-                                          ${display.description
-                                            ? html`<div
-                                                style="opacity:.9;margin-bottom:6px;"
-                                              >
-                                                ${display.description}
-                                              </div>`
-                                            : ""}
-                                          ${(() => {
-                                            const meLocal =
-                                              this.game?.myPlayer?.();
-                                            const b =
-                                              meLocal?.researchBeakers?.(
-                                                tech.id,
-                                              ) ?? 0;
-                                            const pct = Math.min(
-                                              100,
-                                              Math.floor(
-                                                (b / (tech.cost || 1)) * 100,
-                                              ),
-                                            );
-                                            return html`<div
-                                              style="font-size:11px;opacity:.9;"
-                                            >
-                                              <div
-                                                class="cost-inline"
-                                                translate="no"
-                                              >
-                                                <span
-                                                  >Cost:
-                                                  ${tech.cost.toLocaleString()}</span
-                                                >
-                                                <img
-                                                  src=${flaskIcon}
-                                                  alt="research cost"
-                                                />
-                                              </div>
-                                              ${isResearched
-                                                ? html`<div>
-                                                    Status: Completed
-                                                  </div>`
-                                                : html`<div>
-                                                    Progress:
-                                                    ${b.toLocaleString()} /
-                                                    ${tech.cost.toLocaleString()}
-                                                    (${pct}%)
-                                                  </div>`}
-                                            </div>`;
-                                          })()}
-                                        </div>
-                                        <div
-                                          style="font-weight:600; margin-bottom:6px;"
-                                        >
-                                          ${display.name}
-                                        </div>
-                                        <div class="cost-inline" translate="no">
-                                          <span
-                                            >${tech.cost.toLocaleString()}</span
-                                          >
-                                          <img
-                                            src=${flaskIcon}
-                                            alt="research cost"
-                                          />
-                                        </div>
-                                        ${!isResearched && me
-                                          ? (() => {
-                                              const b =
-                                                me.researchBeakers?.(tech.id) ??
-                                                0;
-                                              const pct = Math.min(
-                                                100,
-                                                Math.floor(
-                                                  (b / (tech.cost || 1)) * 100,
-                                                ),
-                                              );
-                                              return b > 0
-                                                ? html`<div
-                                                    class="progress-track"
-                                                  >
-                                                    <div
-                                                      class="progress-fill ${priority ===
-                                                      tech.id
-                                                        ? "priority"
-                                                        : ""}"
-                                                      style="width:${pct}%"
-                                                    ></div>
-                                                  </div>`
-                                                : "";
-                                            })()
-                                          : ""}
-                                        <div>
-                                          ${tech.requiresAllOf?.length
-                                            ? html`<span class="pill pill-req"
-                                                >Requires:
-                                                ${tech.requiresAllOf
-                                                  .length}</span
-                                              >`
-                                            : ""}
-                                          ${tech.requiresOneOf?.length
-                                            ? html`<span class="pill pill-oneof"
-                                                >One of:
-                                                ${tech.requiresOneOf
-                                                  .length}</span
-                                              >`
-                                            : ""}
-                                          ${priority === tech.id &&
-                                          !isResearched
-                                            ? html`<span
-                                                class="pill pill-priority"
-                                                >Priority</span
-                                              >`
-                                            : ""}
-                                        </div>
-                                      </button>`;
-                                    })()}
-                                    ${action}
-                                  </div>`;
-                                })}
-                              </div>
-                            </div>`;
-                          })}
-                      </div>`
-                    : html`<div class="empty-state">
-                        No research categories found.
-                      </div>`}
-              ${!isAllView && !isPolicyDirectivesView
-                ? html`<div class="line-layer"><svg></svg></div>`
-                : ""}
-            </div>
+                        <div class="tech-info">
+                          <div class="tech-name">${display.name}</div>
+                          <div class="tech-desc">
+                            ${display.shortDescription ?? ""}
+                          </div>
+                        </div>
+                        <div
+                          class="progress-container"
+                          style="position: relative;"
+                        >
+                          <div
+                            class="progress-bar ${barClass}"
+                            style="width: ${pct}%"
+                          ></div>
+                          ${pct > 0 && pct < 100
+                            ? html`<span class="progress-text">${pct}%</span>`
+                            : ""}
+                        </div>
+                        <button
+                          class="${btnClass}"
+                          ?disabled=${isResearched}
+                          @click=${(e: Event) => {
+                            e.stopPropagation();
+                            if (!isResearched) {
+                              this.onTechClick(tech.id);
+                            }
+                          }}
+                        >
+                          ${isResearched
+                            ? "✓ Done"
+                            : !available && isPriority
+                              ? "🔒 Locked"
+                              : !available
+                                ? "🔒 Locked"
+                                : isPriority
+                                  ? "⭐ Prioritized"
+                                  : "☆ Prioritize"}
+                        </button>
+                      </div>
+                    `;
+                  })}
+                </div>
+              `;
+            })}
           </div>
         </div>
       </o-modal>
