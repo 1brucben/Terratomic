@@ -5,7 +5,6 @@ import airAttackIcon from "../../../../resources/images/AirAttackIconWhite.svg";
 import airfieldIcon from "../../../../resources/images/AirfieldIcon.svg";
 import allianceIcon from "../../../../resources/images/AllianceIconWhite.svg";
 import boatIcon from "../../../../resources/images/BoatIconWhite.svg";
-import disabledIcon from "../../../../resources/images/DisabledIcon.svg";
 import infoIcon from "../../../../resources/images/InfoIcon.svg";
 import swordIcon from "../../../../resources/images/SwordIconWhite.svg";
 import traitorIcon from "../../../../resources/images/TraitorIconWhite.svg";
@@ -77,7 +76,7 @@ export class RadialMenu implements Layer {
         disabled: true,
         action: () => {},
         color: null,
-        icon: null,
+        icon: boatIcon,
       },
     ],
     [
@@ -87,7 +86,7 @@ export class RadialMenu implements Layer {
         disabled: true,
         action: () => {},
         color: null,
-        icon: null,
+        icon: airAttackIcon,
       },
     ],
     [
@@ -97,7 +96,7 @@ export class RadialMenu implements Layer {
         disabled: true,
         action: () => {},
         color: null,
-        icon: null,
+        icon: airfieldIcon,
       },
     ],
     [
@@ -107,10 +106,19 @@ export class RadialMenu implements Layer {
         disabled: true,
         action: () => {},
         color: null,
-        icon: null,
+        icon: infoIcon,
       },
     ],
-    [Slot.Ally, { name: "ally", disabled: true, action: () => {} }],
+    [
+      Slot.Ally,
+      {
+        name: "ally",
+        disabled: true,
+        action: () => {},
+        color: null,
+        icon: allianceIcon,
+      },
+    ],
     [
       Slot.Peace,
       {
@@ -129,7 +137,14 @@ export class RadialMenu implements Layer {
   private readonly centerButtonSize = 30;
   private readonly iconSize = 32;
   private readonly centerIconSize = 48;
-  private readonly disabledColor = d3.rgb(128, 128, 128).toString();
+  // When disabled, keep the hue but darken it slightly so the icon stays visible.
+  private darkenColor(color: string): string {
+    const parsed = d3.color(color);
+    if (!parsed) return d3.rgb(80, 80, 80).toString();
+    // darker(0.6) keeps the original hue while making it visibly inactive
+    const darker = (parsed as any).darker?.(0.6);
+    return (darker ?? parsed).toString();
+  }
   // Scale factor specifically for the Peace (dove) icon relative to iconSize
   private readonly peaceIconScale = 1.2;
 
@@ -202,12 +217,14 @@ export class RadialMenu implements Layer {
       .append("path")
       .attr("d", arc)
       .attr("fill", (d) =>
-        d.data.disabled ? this.disabledColor : d.data.color,
+        d.data.disabled
+          ? this.darkenColor(d.data.color ?? "#444")
+          : d.data.color,
       )
       .attr("stroke", "#ffffff")
       .attr("stroke-width", "2")
       .style("cursor", (d) => (d.data.disabled ? "not-allowed" : "pointer"))
-      .style("opacity", (d) => (d.data.disabled ? 0.5 : 1))
+      .style("opacity", (d) => (d.data.disabled ? 0.7 : 1))
       .attr("data-name", (d) => d.data.name)
       .on("mouseover", function (event, d) {
         if (!d.data.disabled) {
@@ -688,14 +705,17 @@ export class RadialMenu implements Layer {
   private updateMenuItemState(item: any) {
     const menuItem = this.menuElement.select(`path[data-name="${item.name}"]`);
     menuItem
-      .attr("fill", item.disabled ? this.disabledColor : item.color)
+      .attr(
+        "fill",
+        item.disabled ? this.darkenColor(item.color ?? "#444") : item.color,
+      )
       .style("cursor", item.disabled ? "not-allowed" : "pointer")
-      .style("opacity", item.disabled ? 0.5 : 1);
+      .style("opacity", item.disabled ? 0.7 : 1);
 
     this.menuElement
       .select(`image[data-name="${item.name}"]`)
-      .attr("xlink:href", item.disabled ? disabledIcon : item.icon)
-      .attr("fill", item.disabled ? "#999999" : "white");
+      .attr("xlink:href", item.icon)
+      .style("opacity", item.disabled ? 0.7 : 1);
   }
 
   private onCenterButtonHover(isHovering: boolean) {
