@@ -107,6 +107,7 @@ export class WarshipExecution implements Execution {
         UnitType.Warship,
         UnitType.TradeShip,
         UnitType.Submarine,
+        UnitType.Artillery,
       ],
     );
     const potentialTargets: { unit: Unit; distSquared: number }[] = [];
@@ -189,6 +190,18 @@ export class WarshipExecution implements Execution {
       if (
         unitA.type() !== UnitType.Submarine &&
         unitB.type() === UnitType.Submarine
+      )
+        return 1;
+
+      // Then Artillery (coastal land-based threat)
+      if (
+        unitA.type() === UnitType.Artillery &&
+        unitB.type() !== UnitType.Artillery
+      )
+        return -1;
+      if (
+        unitA.type() !== UnitType.Artillery &&
+        unitB.type() === UnitType.Artillery
       )
         return 1;
 
