@@ -332,8 +332,12 @@ export class BuildMenu extends LitElement {
   }
 
   static styles = css`
+    * {
+      box-sizing: border-box;
+    }
     :host {
       display: block;
+      width: 100%;
     }
     .build-menu-prompt {
       display: flex;
@@ -345,47 +349,34 @@ export class BuildMenu extends LitElement {
       text-align: center;
     }
     .build-menu {
-      background-color: transparent;
-      padding: 0px;
-      display: flex;
-      flex-direction: column;
-      align-items: flex-start;
-      max-width: 95vw;
-      max-height: 95vh;
-      overflow-y: auto;
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 4px;
+      width: 100%;
     }
     .build-row {
-      display: flex;
-      justify-content: left;
-      flex-wrap: wrap;
-      width: 100%;
+      display: contents;
     }
     .build-button {
       position: relative;
-      width: 120px;
-      height: 50px;
+      height: 44px;
       border: 2px solid var(--ui-panel-border);
-      /* Darker idle surface to improve separation */
       background: var(--ui-primary);
-      color: var(--ui-text-accent); /* submarine palette light blue */
+      color: var(--ui-text-accent);
       border-radius: 6px;
-      box-shadow:
-        inset 0 0 10px rgba(0, 0, 0, 0.5),
-        0 2px 6px rgba(0, 0, 0, 0.4);
       cursor: pointer;
-      transition: all 0.3s ease;
+      transition: all 0.15s ease;
       display: flex;
       flex-direction: row;
-      justify-content: flex-start;
       align-items: center;
-      margin: 4px;
-      padding: 5px;
-      gap: 8px;
+      padding: 0 6px;
+      gap: 6px;
+      overflow: hidden;
     }
     .build-button:not(:disabled):hover {
-      background-color: var(--ui-secondary); /* deeper navy on hover */
+      background-color: var(--ui-secondary);
       transform: scale(1.02);
-      border-color: var(--ui-secondary); /* blue accent border */
+      border-color: var(--ui-secondary);
       box-shadow:
         inset 0 0 10px rgba(0, 0, 0, 0.5),
         0 2px 8px rgba(0, 0, 0, 0.6);
@@ -395,11 +386,9 @@ export class BuildMenu extends LitElement {
         to bottom,
         var(--ui-secondary-hover),
         var(--ui-secondary)
-      ); /* pressed navy */
+      );
       transform: scale(0.98);
-      box-shadow:
-        inset 0 0 10px rgba(0, 0, 0, 0.7),
-        0 1px 3px rgba(0, 0, 0, 0.3);
+      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
     }
     .build-button:disabled {
       background-color: var(--ui-primary-disabled);
@@ -415,102 +404,98 @@ export class BuildMenu extends LitElement {
       color: var(--ui-text-muted);
     }
     .selected-for-build {
-      border-color: var(--ui-secondary-hover); /* blue selection accent */
+      border-color: var(--ui-secondary-hover);
+      background-color: var(--ui-secondary);
       box-shadow: 0 0 10px rgba(50, 98, 155, 0.65);
     }
     .build-icon {
-      width: 28px;
-      height: 28px;
+      width: 24px;
+      height: 24px;
       flex-shrink: 0;
+      object-fit: contain;
+      filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.3));
     }
     .build-item-details {
       display: flex;
       flex-direction: column;
       align-items: flex-start;
-      gap: 2px;
+      justify-content: center;
+      flex: 1;
+      min-width: 0;
+      gap: 1px;
     }
     .build-name {
-      font-size: 11px;
-      font-weight: bold;
-      text-align: left;
-      line-height: 1.2;
-      color: var(--ui-text-accent); /* brighten primary label */
-      font-family: monospace;
-    }
-    .build-description {
-      font-size: 0.6rem;
-      line-height: 1.2;
+      font-size: 10px;
+      font-weight: 600;
+      color: var(--ui-text-accent);
+      white-space: nowrap;
       overflow: hidden;
       text-overflow: ellipsis;
-      display: -webkit-box;
-      -webkit-line-clamp: 2;
-      -webkit-box-orient: vertical;
-      word-break: break-word;
-      max-height: 2.4em;
-      color: var(--ui-text-muted); /* muted info */
+      max-width: 100%;
+      line-height: 1.2;
     }
     .build-cost {
       font-size: 10px;
+      font-family: monospace;
       white-space: nowrap;
-      text-align: left;
-      color: var(--ui-text-accent); /* readable cost color */
+      color: #fbbf24;
+      display: flex;
+      align-items: center;
+      gap: 2px;
+      line-height: 1.2;
+    }
+    .build-description {
+      display: none;
+    }
+    .build-stats {
+      display: flex;
+      flex-direction: column;
+      align-items: flex-end;
+      gap: 1px;
+      flex-shrink: 0;
+    }
+    .build-count {
+      font-size: 11px;
+      font-weight: bold;
+      color: rgba(255, 255, 255, 0.9);
+      background: rgba(0, 0, 0, 0.3);
+      padding: 1px 5px;
+      border-radius: 3px;
+      font-family: monospace;
+    }
+    .build-stack {
+      display: none;
+    }
+    .build-stack-badge {
+      position: absolute;
+      top: 2px;
+      right: 2px;
+      font-size: 10px;
+      color: #fff;
+      font-family: monospace;
+      font-weight: bold;
+      background: #1d4ed8;
+      padding: 1px 5px;
+      border-radius: 3px;
+      border: 1px solid #3b82f6;
+      z-index: 2;
+      text-shadow: 0 1px 1px rgba(0, 0, 0, 0.5);
     }
     .build-count-chip {
-      position: absolute;
-      top: -5px;
-      right: -5px;
-      background-color: var(--ui-panel-shell-bottom);
-      color: var(--ui-text-light);
-      padding: 1px 5px;
-      border-radius: 10px;
-      font-size: 9px;
-      border: 1px solid var(--ui-border-muted);
+      display: none;
     }
     .build-level-chip {
-      position: absolute;
-      top: -5px;
-      left: -5px;
-      background-color: var(--ui-panel-shell-bottom);
-      color: var(--ui-text-light);
-      padding: 1px 5px;
-      border-radius: 10px;
-      font-size: 9px;
-      border: 1px solid var(--ui-border-muted);
+      display: none;
     }
     .build-hotkey {
       position: absolute;
       bottom: 2px;
       right: 4px;
-      color: var(--ui-text-muted); /* subtle hint color */
+      color: rgba(255, 255, 255, 0.5);
       font-size: 9px;
-    }
-    .build-button:not(:disabled):hover > .build-count-chip {
-      background-color: var(--ui-panel-shell-top);
-      border-color: var(--ui-border-muted);
-    }
-    .build-button:not(:disabled):hover > .build-level-chip {
-      background-color: var(--ui-panel-shell-top);
-      border-color: var(--ui-border-muted);
-    }
-    .build-button:not(:disabled):active > .build-count-chip {
-      background-color: var(--ui-panel-shell-bottom);
-    }
-    .build-button:not(:disabled):active > .build-level-chip {
-      background-color: var(--ui-panel-shell-bottom);
-    }
-    .build-button:disabled > .build-count-chip {
-      background-color: var(--ui-surface-dark);
-      border-color: var(--ui-border-muted);
-      cursor: not-allowed;
-    }
-    .build-button:disabled > .build-level-chip {
-      background-color: var(--ui-surface-dark);
-      border-color: var(--ui-border-muted);
-      cursor: not-allowed;
-    }
-    .build-count {
-      font-weight: bold;
-      font-size: 10px;
+      font-weight: 600;
+      pointer-events: none;
+      text-shadow: 0 1px 2px rgba(0, 0, 0, 0.8);
     }
   `;
 
@@ -799,37 +784,31 @@ export class BuildMenu extends LitElement {
                     <div class="build-hotkey">
                       ${this.hotkeyMap.get(item.unitType)}
                     </div>
-                    <img
-                      class="build-icon"
-                      src=${item.icon}
-                      alt=${baseName}
-                      style="width:${this.iconPixelSize(
-                        item.unitType,
-                      )}px;height:${this.iconPixelSize(item.unitType)}px;"
-                    />
+                    ${desiredStack > 1
+                      ? html`<span class="build-stack-badge"
+                          >×${desiredStack}</span
+                        >`
+                      : ""}
+                    <img class="build-icon" src=${item.icon} alt=${baseName} />
                     <div class="build-item-details">
                       <span class="build-name">${displayName}</span>
                       <span class="build-cost" translate="no">
                         ${renderNumber(price)}
                         <img
                           src=${goldCoinIcon}
-                          alt="gold"
-                          width="12"
-                          height="12"
-                          style="vertical-align: middle;"
+                          alt=""
+                          width="10"
+                          height="10"
                         />
                       </span>
                     </div>
-                    ${desiredStack > 1
-                      ? html`<div class="build-level-chip" title="Stack count">
-                          ×${desiredStack}
-                        </div>`
-                      : ""}
-                    ${item.countable
-                      ? html`<div class="build-count-chip">
-                          <span class="build-count">${this.count(item)}</span>
-                        </div>`
-                      : ""}
+                    <div class="build-stats">
+                      ${item.countable
+                        ? html`<span class="build-count"
+                            >${this.count(item)}</span
+                          >`
+                        : ""}
+                    </div>
                   </button>
                 `;
               })}

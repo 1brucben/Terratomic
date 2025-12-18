@@ -4,12 +4,8 @@ import multiBuildIcon from "../../../../resources/images/MultiBuildIcon.svg";
 import upgradeArrowIcon from "../../../../resources/images/UpgradeArrowIcon.svg";
 import type { EventBus } from "../../../core/EventBus";
 import type { Gold, PlayerID } from "../../../core/game/Game";
-import { PlayerType, UnitType, UpgradeType } from "../../../core/game/Game";
-import type {
-  GameView,
-  PlayerView,
-  UnitView,
-} from "../../../core/game/GameView";
+import { UnitType, UpgradeType } from "../../../core/game/Game";
+import type { GameView } from "../../../core/game/GameView";
 import {
   isUnitAvailable,
   maxStructureLevel,
@@ -34,7 +30,6 @@ import { AttackRatioEvent } from "../../InputHandler";
 import "../../StatisticsModal"; // ensure statistics modal is registered
 import {
   SendBomberIntentEvent,
-  SendEmbargoIntentEvent,
   SendSetInvestmentRateEvent,
   SendSetResearchInvestmentEvent,
   SendSetRoadInvestmentEvent,
@@ -100,7 +95,7 @@ export class ControlPanel2 extends LitElement implements Layer {
   private init_: boolean = false;
 
   @state()
-  private activeTab: "Build" | "Attack" | "Economy" | "Trade" = "Build";
+  private activeTab: "Build" | "Attack" | "Economy" = "Build";
 
   @state()
   private _hasAirfields: boolean = false;
@@ -125,6 +120,18 @@ export class ControlPanel2 extends LitElement implements Layer {
 
   @state()
   private _uiSelectedStructures: UnitType[] = [];
+
+  // Cache for trade demand to prevent flickering tooltips
+  @state()
+  private _tradeDemandCache: {
+    label: string;
+    color: string;
+    queueLen: number;
+    availableShips: number;
+    myShipCount: number;
+    tooltip: string;
+    timestamp: number;
+  } | null = null;
 
   private unitIconMap: { [key: string]: string } = {
     City: "/images/CityIconWhite.svg",
@@ -857,7 +864,7 @@ export class ControlPanel2 extends LitElement implements Layer {
     return el;
   }
 
-  private _changeTab(tab: "Build" | "Attack" | "Economy" | "Trade") {
+  private _changeTab(tab: "Build" | "Attack" | "Economy") {
     this.activeTab = tab;
     if (this.uiState.pendingBuildUnitType) {
       this.uiState.pendingBuildUnitType = null;
@@ -1111,16 +1118,6 @@ export class ControlPanel2 extends LitElement implements Layer {
           >
             Economy
           </button>
-          <button
-            class="py-2 px-4 text-center font-ocr uppercase cp2-tab ${this
-              .activeTab === "Trade"
-              ? "active"
-              : ""}"
-            @click=${() => this._changeTab("Trade")}
-            data-i18n-title="control_panel2.trade_tab_tooltip"
-          >
-            Trade
-          </button>
           <div class="ml-auto flex items-center">
             <button
               class="cp2-tab flex items-center justify-center mx-1"
@@ -1137,127 +1134,107 @@ export class ControlPanel2 extends LitElement implements Layer {
           </div>
         </div>
 
-        <div class="tab-content flex-grow overflow-y-auto max-w-full pr-4 pt-2">
-          ${this.activeTab === "Build"
-            ? html` <div class="flex items-center mb-2 gap-4 ml-1"></div> `
-            : ""}
+        <div class="tab-content flex-grow overflow-hidden max-w-full pr-4 pt-0">
           ${this.activeTab === "Build"
             ? html`
-                <div class="flex items-center mb-2 gap-4 ml-1">
+                <!-- Toolbar Row -->
+                <div class="build-toolbar">
                   <button
-                    class="upgrade-structures-button ${this._multibuildEnabled
-                      ? "selected"
+                    class="toolbar-btn ${this._multibuildEnabled
+                      ? "active"
                       : ""}"
-                    title="Place multiple structures without re-selecting"
+                    title="Multi-Build: Place multiple structures without re-selecting"
                     @click=${this._handleMultibuildToggle}
                   >
-                    <img
-                      class="upgrade-icon"
-                      src=${multiBuildIcon}
-                      alt="Multi-Build"
-                    />
-                    <span>Multi-Build Structures</span>
+                    <img src=${multiBuildIcon} alt="" class="toolbar-icon" />
+                    <span>Multi-Build</span>
                   </button>
                   <button
-                    class="upgrade-structures-button ${this.uiState.upgradeMode
-                      ? "selected"
+                    class="toolbar-btn ${this.uiState.upgradeMode
+                      ? "active"
                       : ""}"
-                    title="Click structures to add stacks (+1 per click)"
+                    title="Stack Mode: Click existing structures to add stacks"
                     @click=${() => {
                       const enabled = !this.uiState.upgradeMode;
                       this.uiState.upgradeMode = enabled;
                       this.eventBus.emit(new ToggleUpgradeModeEvent(enabled));
-                      // Disable mass production if stacking is enabled
                       if (enabled && this._multibuildEnabled) {
                         this._multibuildEnabled = false;
                         this.uiState.multibuildEnabled = false;
                       }
-                      // Disable bomber upgrade mode if stacking is enabled
                       if (enabled && this.uiState.bomberUpgradeMode) {
                         this.uiState.bomberUpgradeMode = false;
                         this.eventBus.emit(
                           new ToggleBomberUpgradeModeEvent(false),
                         );
                       }
-                      // Clear pending build selection when stacking is enabled
                       if (enabled) {
                         this.uiState.pendingBuildUnitType = null;
                       }
                       this.requestUpdate();
                     }}
                   >
-                    <img
-                      class="upgrade-icon"
-                      src=${upgradeArrowIcon}
-                      alt="Stack"
-                    />
-                    <span>Stack Structures</span>
+                    <img src=${upgradeArrowIcon} alt="" class="toolbar-icon" />
+                    <span>Stack Mode</span>
                   </button>
-                  <div class="relative inline-block">
-                    <div
-                      class="flex items-center h-[36px] px-3"
-                      style="
-                        border: 2px solid var(--ui-panel-border);
-                        background: var(--ui-primary);
-                        border-radius: 6px;
-                        box-shadow: inset 0 0 10px rgba(0, 0, 0, 0.5), 0 2px 6px rgba(0, 0, 0, 0.4);
-                        white-space: nowrap;
-                      "
-                      title="Select a structure below to set its stack count"
+                  <div
+                    class="toolbar-stack-control"
+                    title="Set stack count for selected structure"
+                  >
+                    <span class="stack-label">Stack:</span>
+                    <button
+                      class="stack-btn"
+                      ?disabled=${!this.uiState.pendingBuildUnitType}
+                      @click=${() => {
+                        if (!this.uiState.pendingBuildUnitType) return;
+                        const type = this.uiState.pendingBuildUnitType;
+                        const current = this._structureLevels[type] || 1;
+                        const next = Math.max(1, current - 1);
+                        this._structureLevels = {
+                          ...this._structureLevels,
+                          [type]: next,
+                        };
+                        localStorage.setItem(
+                          "buildSettings.stackCount",
+                          JSON.stringify(this._structureLevels),
+                        );
+                      }}
                     >
-                      <span
-                        style="font-size: 11px; margin-right: 8px; font-weight: bold; color: var(--ui-text-accent);"
-                      >
-                        ${this.uiState.pendingBuildUnitType
-                          ? `Stack ×${this._structureLevels[this.uiState.pendingBuildUnitType] || 1}`
-                          : "Select a structure..."}
-                      </span>
-                      <button
-                        class="w-6 h-6 flex items-center justify-center bg-[#4c516d] hover:bg-[#5a617c] text-white rounded mr-1 font-bold disabled:opacity-50 disabled:cursor-not-allowed"
-                        ?disabled=${!this.uiState.pendingBuildUnitType}
-                        @click=${() => {
-                          if (!this.uiState.pendingBuildUnitType) return;
-                          const type = this.uiState.pendingBuildUnitType;
-                          const current = this._structureLevels[type] || 1;
-                          const max = maxStructureLevel(type);
-                          const next = Math.min(max, current + 1);
-                          this._structureLevels = {
-                            ...this._structureLevels,
-                            [type]: next,
-                          };
-                          localStorage.setItem(
-                            "buildSettings.stackCount",
-                            JSON.stringify(this._structureLevels),
-                          );
-                        }}
-                      >
-                        +
-                      </button>
-                      <button
-                        class="w-6 h-6 flex items-center justify-center bg-[#4c516d] hover:bg-[#5a617c] text-white rounded font-bold disabled:opacity-50 disabled:cursor-not-allowed"
-                        ?disabled=${!this.uiState.pendingBuildUnitType}
-                        @click=${() => {
-                          if (!this.uiState.pendingBuildUnitType) return;
-                          const type = this.uiState.pendingBuildUnitType;
-                          const current = this._structureLevels[type] || 1;
-                          const next = Math.max(1, current - 1);
-                          this._structureLevels = {
-                            ...this._structureLevels,
-                            [type]: next,
-                          };
-                          localStorage.setItem(
-                            "buildSettings.stackCount",
-                            JSON.stringify(this._structureLevels),
-                          );
-                        }}
-                      >
-                        -
-                      </button>
-                    </div>
+                      −
+                    </button>
+                    <span class="stack-value">
+                      ${this.uiState.pendingBuildUnitType
+                        ? `${this._structureLevels[this.uiState.pendingBuildUnitType] || 1}`
+                        : "1"}
+                    </span>
+                    <button
+                      class="stack-btn"
+                      ?disabled=${!this.uiState.pendingBuildUnitType}
+                      @click=${() => {
+                        if (!this.uiState.pendingBuildUnitType) return;
+                        const type = this.uiState.pendingBuildUnitType;
+                        const current = this._structureLevels[type] || 1;
+                        const max = maxStructureLevel(type);
+                        const next = Math.min(max, current + 1);
+                        this._structureLevels = {
+                          ...this._structureLevels,
+                          [type]: next,
+                        };
+                        localStorage.setItem(
+                          "buildSettings.stackCount",
+                          JSON.stringify(this._structureLevels),
+                        );
+                      }}
+                    >
+                      +
+                    </button>
                   </div>
+                  <div class="toolbar-spacer"></div>
+                  ${this._renderTradeDemand()}
                 </div>
+                <!-- Build Grid -->
                 <build-menu
-                  style="width: 100%; display: block;"
+                  style="display: block; width: 100%;"
                   .game=${this.game}
                   .eventBus=${this.eventBus}
                   .uiState=${this.uiState}
@@ -1268,20 +1245,17 @@ export class ControlPanel2 extends LitElement implements Layer {
             : ""}
           ${this.activeTab === "Attack"
             ? html`
-                <div class="flex items-center mb-2 gap-4 ml-1">
+                <!-- Toolbar Row -->
+                <div class="build-toolbar">
                   <button
-                    class="upgrade-structures-button ${this._multibuildEnabled
-                      ? "selected"
+                    class="toolbar-btn ${this._multibuildEnabled
+                      ? "active"
                       : ""}"
-                    title="Multi-Build Units"
+                    title="Multi-Build: Place multiple units without re-selecting"
                     @click=${this._handleMultibuildToggle}
                   >
-                    <img
-                      class="upgrade-icon"
-                      src=${multiBuildIcon}
-                      alt="Multi-Build"
-                    />
-                    <span>Multi-Build Units</span>
+                    <img src=${multiBuildIcon} alt="" class="toolbar-icon" />
+                    <span>Multi-Build</span>
                   </button>
                 </div>
                 <build-menu
@@ -1687,195 +1661,189 @@ export class ControlPanel2 extends LitElement implements Layer {
                 </div>
               `
             : ""}
-          ${this.activeTab === "Trade" ? this._renderTradeTab() : ""} ${""}
         </div>
       </div>
     `;
   }
 
-  private _renderTradeTab() {
+  private _renderTradeDemand() {
     const me = this.game.myPlayer();
     if (!me) return html``;
-    const ships = me.units(UnitType.TradeShip).filter((u) => u.isActive());
-    const ports = me.units(UnitType.Port).filter((p) => p.isActive());
-    const ticks = this.game.ticks();
-    const delay = this.game.config().tradeShipReplacementDelayTicks();
-    // Multi-build: gather all pending construction due ticks across ports
-    const pendingEntries: Array<{ port: UnitView; due: number }> = [];
-    for (const p of ports) {
-      const arr: number[] = (p as any).pendingTradeShipDueTicks?.() ?? [];
-      for (const due of arr) {
-        if (due > ticks) pendingEntries.push({ port: p, due });
-      }
-    }
-    pendingEntries.sort((a, b) => a.due - b.due);
-    const pendingRows = pendingEntries.map(({ port, due }, idx) => {
-      const remaining = due - ticks;
-      const pct = Math.min(
-        100,
-        Math.max(0, Math.round(((delay - remaining) / delay) * 100)),
-      );
-      return html`<div
-        class="py-1 px-2 border-b"
-        style="border-color: var(--ui-panel-border)"
-      >
-        <div class="mb-1 text-gray-300">
-          Cargo Ship #${idx + 1} (Port #${port.id()}) constructing…
-        </div>
-        <div class="progress-track" style="height:6px;">
-          <div class="progress-fill" style="width:${pct}%;"></div>
-        </div>
-      </div>`;
-    });
 
-    const mapHeight = this.game.height();
-    const rows = ships.map((ship) => {
-      const tile = ship.tile();
-      const x = this.game.x(tile);
-      const topOriginY = this.game.y(tile);
-      const y = mapHeight - 1 - topOriginY; // display with bottom-left origin
-      const status = this._computeTradeShipStatus(ship);
-      return html`
-        <div
-          class="flex items-center justify-between py-1 px-2 border-b"
-          style="border-color: var(--ui-panel-border)"
-        >
-          <div class="truncate">
-            <span class="text-blue-200">Ship #${ship.id()}</span>
-            <span class="text-gray-400 ml-2">${status}</span>
-          </div>
-          <div class="text-gray-300 font-mono">(${x}, ${y})</div>
-        </div>
-      `;
-    });
+    // Hide trade demand if player has no ports (trading not yet available)
+    const myPorts = me.units(UnitType.Port).filter((u) => u.isActive());
+    if (myPorts.length === 0) return html``;
 
-    // Compute demand indicator (global: all cargo ships, not just mine)
-    const allTradeShips = this.game
+    // Count MY trade ships (not global)
+    const myTradeShips = me
       .units(UnitType.TradeShip)
       .filter((u) => u.isActive());
-    const totalShips = allTradeShips.length;
-    const availableShips = allTradeShips.filter((s) => {
+    const myShipCount = myTradeShips.length;
+
+    // If I have no trade ships, show "No Ships"
+    if (myShipCount === 0) {
+      const icon = html`<svg
+        xmlns="http://www.w3.org/2000/svg"
+        width="16"
+        height="16"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        stroke-width="2"
+        stroke-linecap="round"
+        stroke-linejoin="round"
+        class="text-gray-400"
+      >
+        <path
+          d="M2 21c.6.5 1.2 1 2.5 1 2.5 0 2.5-2 5-2 1.3 0 1.9.5 2.5 1 .6.5 1.2 1 2.5 1 2.5 0 2.5-2 5-2 1.3 0 1.9.5 2.5 1"
+        />
+        <path d="M19.38 20A11.6 11.6 0 0 0 21 14l-9-4-9 4c0 2.9.9 5.8 2.5 8" />
+        <path d="M12 10V4" />
+        <path d="M8 8v2" />
+        <path d="M16 8v2" />
+      </svg>`;
+      return html`
+        <div
+          class="trade-demand-indicator"
+          title="Build trade ships to fulfill trade routes"
+        >
+          ${icon}
+          <span style="opacity: 0.7;">Trade Demand:</span>
+          <span class="trade-demand-value" style="color: var(--ui-text-muted);">
+            No Ships
+          </span>
+        </div>
+      `;
+    }
+
+    // Count ships available (idle at my ports)
+    const availableShips = myTradeShips.filter((s) => {
       const isReturning = s.returning();
       const phase = s.tradePhase();
       const hasTarget = s.targetUnitId() !== undefined;
       const dockOwner = s.dockedAtPortOwner();
-      return !isReturning && phase === null && !hasTarget && dockOwner !== null;
+      // Available = at my port, not assigned, not in transit
+      return (
+        !isReturning &&
+        phase === null &&
+        !hasTarget &&
+        dockOwner?.smallID() === me.smallID()
+      );
     }).length;
+
     const queueLen = me.tradeDemandQueueLength();
-    const denom = Math.max(1, totalShips);
-    const queuedPct = queueLen / denom;
-    const availablePct = availableShips / denom;
-    let demandLabel = "Medium";
-    let demandColor = "var(--ui-text-default)";
-    if (queuedPct > 0.5) {
-      demandLabel = "Very High";
-      demandColor = "var(--ui-alert)";
-    } else if (queuedPct > 0.25) {
-      demandLabel = "High";
-      demandColor = "var(--ui-warning)";
-    } else if (availablePct > 0.5) {
-      demandLabel = "Very Low";
-      demandColor = "var(--ui-info)";
-    } else if (availablePct > 0.25) {
-      demandLabel = "Low";
-      demandColor = "var(--ui-success)";
-    } else {
-      demandLabel = "Medium";
-      demandColor = "var(--ui-text-default)";
+
+    // Only update cache if values changed significantly (reduce re-render flicker)
+    const now = Date.now();
+    const cacheValid =
+      this._tradeDemandCache !== null &&
+      this._tradeDemandCache.queueLen === queueLen &&
+      this._tradeDemandCache.availableShips === availableShips &&
+      this._tradeDemandCache.myShipCount === myShipCount &&
+      now - this._tradeDemandCache.timestamp < 2000; // 2 second cache
+
+    if (cacheValid) {
+      const cached = this._tradeDemandCache!;
+      const icon = html`<svg
+        xmlns="http://www.w3.org/2000/svg"
+        width="16"
+        height="16"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        stroke-width="2"
+        stroke-linecap="round"
+        stroke-linejoin="round"
+        class="text-gray-400"
+      >
+        <path
+          d="M2 21c.6.5 1.2 1 2.5 1 2.5 0 2.5-2 5-2 1.3 0 1.9.5 2.5 1 .6.5 1.2 1 2.5 1 2.5 0 2.5-2 5-2 1.3 0 1.9.5 2.5 1"
+        />
+        <path d="M19.38 20A11.6 11.6 0 0 0 21 14l-9-4-9 4c0 2.9.9 5.8 2.5 8" />
+        <path d="M12 10V4" />
+        <path d="M8 8v2" />
+        <path d="M16 8v2" />
+      </svg>`;
+      return html`
+        <div class="trade-demand-indicator" title="${cached.tooltip}">
+          ${icon}
+          <span style="opacity: 0.7;">Trade Demand:</span>
+          <span
+            class="trade-demand-value"
+            style="color: ${cached.color}; filter: drop-shadow(0 0 2px ${cached.color}80);"
+          >
+            ${cached.label}
+          </span>
+        </div>
+      `;
     }
 
-    return html`
-      <div class="w-full">
-        <div class="flex items-center justify-between mb-2">
-          <h3 class="military-heading">Cargo Ships</h3>
-          <div
-            class="text-sm"
-            title="Demand is based on queued routes vs total ships and available ships"
-          >
-            <span
-              class="px-2 py-0.5 rounded-full border"
-              style="border-color: var(--ui-panel-border); color: ${demandColor};"
-            >
-              Trade Demand: ${demandLabel}
-            </span>
-          </div>
-        </div>
-        ${pendingRows.length > 0
-          ? html`<div class="mb-2">
-              <h4 class="text-gray-200 text-sm mb-1">Under Construction</h4>
-              <style>
-                /* Reuse research progress bar styling */
-                .progress-track {
-                  width: 100%;
-                  background: color-mix(
-                    in srgb,
-                    var(--ui-secondary) 25%,
-                    transparent
-                  );
-                  border: 1px solid
-                    color-mix(in srgb, var(--ui-secondary) 35%, transparent);
-                  border-radius: 6px;
-                  overflow: hidden;
-                  margin: 0;
-                }
-                .progress-fill {
-                  height: 100%;
-                  background: linear-gradient(
-                    90deg,
-                    color-mix(in srgb, var(--ui-info) 90%, transparent) 0%,
-                    color-mix(in srgb, var(--ui-info) 70%, transparent) 100%
-                  );
-                  box-shadow:
-                    0 0 10px color-mix(in srgb, var(--ui-info) 55%, transparent),
-                    0 0 16px color-mix(in srgb, var(--ui-info) 35%, transparent),
-                    inset 0 0 4px
-                      color-mix(in srgb, var(--ui-text-light) 10%, transparent);
-                }
-              </style>
-              <div class="divide-y">${pendingRows}</div>
-            </div>`
-          : ""}
-        ${ships.length > 0
-          ? html`<div class="divide-y">${rows}</div>`
-          : ships.length === 0 && pendingRows.length === 0
-            ? html`<div class="text-gray-400">No active cargo ships.</div>`
-            : ""}
+    // Compare queue vs MY ships (not global)
+    const queueRatio = queueLen / Math.max(1, myShipCount);
+    const availableRatio = availableShips / Math.max(1, myShipCount);
 
-        <!-- Embargo Management Buttons -->
-        <div
-          class="mt-4 pt-3 border-t"
-          style="border-color: var(--ui-panel-border)"
+    let demandLabel = "Medium";
+    let demandColor = "var(--ui-text-default)";
+
+    // High demand = lots of routes waiting, need more ships
+    if (queueRatio > 2) {
+      demandLabel = "Very High";
+      demandColor = "var(--ui-alert)";
+    } else if (queueRatio > 1) {
+      demandLabel = "High";
+      demandColor = "var(--ui-warning)";
+    } else if (availableRatio > 0.5) {
+      // Low demand = most ships idle, surplus capacity
+      demandLabel = "Low";
+      demandColor = "var(--ui-success)";
+    } else if (queueLen === 0 && availableShips > 0) {
+      demandLabel = "Very Low";
+      demandColor = "var(--ui-info)";
+    }
+
+    // Update cache
+    const tooltipText = `Trade Demand: ${queueLen} routes waiting, ${availableShips}/${myShipCount} ships available`;
+    this._tradeDemandCache = {
+      label: demandLabel,
+      color: demandColor,
+      queueLen,
+      availableShips,
+      myShipCount,
+      tooltip: tooltipText,
+      timestamp: now,
+    };
+
+    const icon = html`<svg
+      xmlns="http://www.w3.org/2000/svg"
+      width="16"
+      height="16"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      stroke-width="2"
+      stroke-linecap="round"
+      stroke-linejoin="round"
+      class="text-gray-400"
+    >
+      <path
+        d="M2 21c.6.5 1.2 1 2.5 1 2.5 0 2.5-2 5-2 1.3 0 1.9.5 2.5 1 .6.5 1.2 1 2.5 1 2.5 0 2.5-2 5-2 1.3 0 1.9.5 2.5 1"
+      />
+      <path d="M19.38 20A11.6 11.6 0 0 0 21 14l-9-4-9 4c0 2.9.9 5.8 2.5 8" />
+      <path d="M12 10V4" />
+      <path d="M8 8v2" />
+      <path d="M16 8v2" />
+    </svg>`;
+
+    return html`
+      <div class="trade-demand-indicator" title="${tooltipText}">
+        ${icon}
+        <span style="opacity: 0.7;">Trade Demand:</span>
+        <span
+          class="trade-demand-value"
+          style="color: ${demandColor}; filter: drop-shadow(0 0 2px ${demandColor}80);"
         >
-          <h4 class="text-gray-200 text-sm mb-2">Embargo Management</h4>
-          <div class="flex gap-2">
-            <button
-              class="embargo-btn flex-1 px-3 py-2 text-sm font-semibold rounded border-2 transition-all"
-              style="
-                border-color: var(--ui-panel-border);
-                background: var(--ui-primary);
-                color: var(--ui-text-accent);
-                box-shadow: inset 0 0 10px rgba(0, 0, 0, 0.5), 0 2px 6px rgba(0, 0, 0, 0.4);
-              "
-              data-i18n-title="control_panel2.embargo_all_tooltip"
-              @click=${this._handleEmbargoAll}
-            >
-              Embargo All
-            </button>
-            <button
-              class="embargo-btn flex-1 px-3 py-2 text-sm font-semibold rounded border-2 transition-all"
-              style="
-                border-color: var(--ui-panel-border);
-                background: var(--ui-primary);
-                color: var(--ui-text-accent);
-                box-shadow: inset 0 0 10px rgba(0, 0, 0, 0.5), 0 2px 6px rgba(0, 0, 0, 0.4);
-              "
-              data-i18n-title="control_panel2.remove_all_embargos_tooltip"
-              @click=${this._handleRemoveAllEmbargos}
-            >
-              Remove All Embargos
-            </button>
-          </div>
-        </div>
+          ${demandLabel}
+        </span>
       </div>
     `;
   }
@@ -1883,84 +1851,6 @@ export class ControlPanel2 extends LitElement implements Layer {
   private renderDiplomacyTab() {
     // Diplomacy tab removed - relations now shown via NameLayer icons
     return html``;
-  }
-
-  private _handleEmbargoAll() {
-    const me = this.game.myPlayer();
-    if (!me) return;
-
-    const players = this.game
-      .players()
-      .filter(
-        (p) =>
-          p.isAlive() &&
-          p.id() !== me.id() &&
-          (p.type() === PlayerType.Human || p.type() === PlayerType.FakeHuman),
-      );
-
-    for (const player of players) {
-      if (!me.hasEmbargoAgainst(player)) {
-        this.eventBus.emit(new SendEmbargoIntentEvent(player, "start"));
-      }
-    }
-  }
-
-  private _handleRemoveAllEmbargos() {
-    const me = this.game.myPlayer();
-    if (!me) return;
-
-    const players = this.game
-      .players()
-      .filter(
-        (p) =>
-          p.isAlive() &&
-          p.id() !== me.id() &&
-          (p.type() === PlayerType.Human || p.type() === PlayerType.FakeHuman),
-      );
-
-    for (const player of players) {
-      if (me.hasEmbargoAgainst(player)) {
-        this.eventBus.emit(new SendEmbargoIntentEvent(player, "stop"));
-      }
-    }
-  }
-
-  private _computeTradeShipStatus(ship: UnitView): string {
-    // Debug ship status logging removed
-    const ownerName = (pv: PlayerView | null) => pv?.displayName() ?? "Unknown";
-    const dockOwner = ship.dockedAtPortOwner();
-    const startOwner = ship.tradeRouteStartOwner();
-    const endOwner = ship.tradeRouteEndOwner();
-    const targetId = ship.targetUnitId();
-    const targetUnit =
-      targetId !== undefined ? this.game.unit(targetId) : undefined;
-
-    if (dockOwner && !ship.returning() && targetId === undefined) {
-      return `in port owned by ${ownerName(dockOwner)}`;
-    }
-
-    if (ship.returning()) {
-      if (targetUnit && targetUnit.type() === UnitType.Port) {
-        return `returning to port owned by ${ownerName(targetUnit.owner())}`;
-      }
-      return "returning to port";
-    }
-
-    const phase = ship.tradePhase();
-
-    if (phase === "toStart") {
-      return `traveling to start port owned by ${ownerName(startOwner)}`;
-    }
-    if (phase === "toEnd") {
-      if (startOwner || endOwner) {
-        return `trading between ${ownerName(startOwner)} and ${ownerName(endOwner)}`;
-      }
-      if (targetUnit && targetUnit.type() === UnitType.Port) {
-        return `traveling to port owned by ${ownerName(targetUnit.owner())}`;
-      }
-    }
-
-    return "at sea";
   }
 }
 
@@ -2058,6 +1948,116 @@ style.textContent = `
     object-fit: contain;
     pointer-events: none;
     display: block;
+  }
+  /* Build Tab Toolbar */
+  .build-toolbar {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 0;
+    border-bottom: 1px solid var(--ui-border-muted);
+    margin-bottom: 6px;
+  }
+  .toolbar-btn {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    padding: 4px 10px;
+    border: 1px solid var(--ui-border-muted);
+    background: var(--ui-panel-shell-top);
+    color: var(--ui-text-accent);
+    border-radius: 4px;
+    font-size: 11px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.15s ease;
+  }
+  .toolbar-btn:hover {
+    background: var(--ui-panel-shell-bottom);
+    border-color: var(--ui-secondary-hover);
+  }
+  .toolbar-btn.active {
+    background: var(--ui-secondary);
+    border-color: var(--ui-secondary-hover);
+    box-shadow: 0 0 6px rgba(50, 98, 155, 0.4);
+  }
+  .toolbar-icon {
+    width: 16px;
+    height: 16px;
+    object-fit: contain;
+  }
+  .toolbar-stack-control {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    padding: 2px 6px;
+    background: rgba(0, 0, 0, 0.2);
+    border-radius: 4px;
+    border: 1px solid var(--ui-border-muted);
+  }
+  .stack-label {
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--ui-text-muted);
+    margin-right: 2px;
+  }
+  .stack-btn {
+    width: 22px;
+    height: 22px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--ui-panel-shell-top);
+    border: none;
+    border-radius: 3px;
+    color: var(--ui-text-accent);
+    font-size: 14px;
+    font-weight: bold;
+    cursor: pointer;
+    transition: background 0.15s;
+  }
+  .stack-btn:hover:not(:disabled) {
+    background: var(--ui-secondary);
+  }
+  .stack-btn:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+  }
+  .stack-value {
+    min-width: 28px;
+    text-align: center;
+    font-size: 12px;
+    font-weight: bold;
+    color: var(--ui-text-accent);
+    font-family: monospace;
+  }
+  .toolbar-spacer {
+    flex: 1;
+  }
+  .trade-demand-indicator {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 4px 10px;
+    background: rgba(0, 0, 0, 0.2);
+    border: 1px solid var(--ui-border-muted);
+    border-radius: 4px;
+    font-size: 10px;
+    color: var(--ui-text-muted);
+    pointer-events: auto;
+    position: relative;
+  }
+  .trade-demand-indicator svg {
+    width: 14px;
+    height: 14px;
+    opacity: 0.7;
+  }
+  .trade-demand-value {
+    font-weight: bold;
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+    transition: none;
   }
   .embargo-btn:hover {
     background-color: var(--ui-secondary) !important;
