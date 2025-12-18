@@ -605,6 +605,12 @@ label.option-card:hover {
     cover;
 }
 
+#helpModal .artillery-icon {
+  mask: url("../../proprietary/images/artillery-battery.png") no-repeat center /
+    cover;
+  background-size: contain;
+}
+
 @media screen and (max-width: 768px) {
   #helpModal .modal-content {
     max-height: 90vh;

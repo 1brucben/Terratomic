@@ -1033,6 +1033,13 @@
           "desc": "'<strong>'Requirement:'</strong>' Port<br />Generates gold by trading between your ports and other players' ports (not between your own ports). Passive income source. '<strong>'Tip:'</strong>' Protect trade routes from pirates and enemy submarines."
         }
       },
+      "land": {
+        "title": "Land Units",
+        "artillery": {
+          "name": "Artillery",
+          "desc": "'<strong>'Requirement:'</strong>' Factory<br />Land-based heavy artillery that patrols territory and bombards enemy structures within range. Spawns from nearest Factory. '<strong>'Range:'</strong>' 60/75/90 tiles (levels 1/2/3). '<strong>'Upgrades:'</strong>' Higher levels increase range, damage, and durability. '<strong>'Tip:'</strong>' Excellent for softening enemy defenses before ground assault."
+        }
+      },
       "air": {
         "title": "Air Units",
         "bomber": {

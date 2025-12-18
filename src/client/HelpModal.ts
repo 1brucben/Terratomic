@@ -882,6 +882,15 @@ export class HelpModal extends LitElement {
       },
     ];
 
+    const landUnits = [
+      {
+        nameKey: "units.land.artillery.name",
+        iconClass: "artillery-icon",
+        hotkey: "4",
+        descKey: "units.land.artillery.desc",
+      },
+    ];
+
     const airUnits = [
       {
         nameKey: "units.air.bomber.name",
@@ -967,6 +976,25 @@ export class HelpModal extends LitElement {
             </thead>
             <tbody class="text-left">
               ${renderUnitRows(navalUnits)}
+            </tbody>
+          </table>
+        </div>
+
+        <div class="help-subsection">
+          <div class="text-xl font-bold mb-3 mt-6">
+            ${this.t("units.land.title")}
+          </div>
+          <table class="help-table">
+            <thead>
+              <tr>
+                <th>${this.t("labels.name")}</th>
+                <th class="icon-col">${this.t("labels.icon")}</th>
+                <th>${this.t("labels.hotkey")}</th>
+                <th>${this.t("labels.description")}</th>
+              </tr>
+            </thead>
+            <tbody class="text-left">
+              ${renderUnitRows(landUnits)}
             </tbody>
           </table>
         </div>
