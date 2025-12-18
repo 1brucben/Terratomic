@@ -2,6 +2,7 @@ import * as d3 from "d3";
 import doveIcon from "../../../../proprietary/images/dove.png";
 import warIcon from "../../../../proprietary/images/waricon.png";
 import airAttackIcon from "../../../../resources/images/AirAttackIconWhite.svg";
+import airfieldIcon from "../../../../resources/images/AirfieldIcon.svg";
 import allianceIcon from "../../../../resources/images/AllianceIconWhite.svg";
 import boatIcon from "../../../../resources/images/BoatIconWhite.svg";
 import disabledIcon from "../../../../resources/images/DisabledIcon.svg";
@@ -28,6 +29,7 @@ import {
   SendAllianceRequestIntentEvent,
   SendAttackIntentEvent,
   SendBoatAttackIntentEvent,
+  SendBomberIntentEvent,
   SendBreakAllianceIntentEvent,
   SendDeclareWarIntentEvent,
   SendParatrooperAttackIntentEvent,
@@ -47,6 +49,7 @@ enum Slot {
   Ally,
   Peace,
   AirAttack,
+  Bomber,
 }
 
 export class RadialMenu implements Layer {
@@ -81,6 +84,16 @@ export class RadialMenu implements Layer {
       Slot.AirAttack,
       {
         name: "airAttack",
+        disabled: true,
+        action: () => {},
+        color: null,
+        icon: null,
+      },
+    ],
+    [
+      Slot.Bomber,
+      {
+        name: "bomber",
         disabled: true,
         action: () => {},
         color: null,
@@ -476,9 +489,68 @@ export class RadialMenu implements Layer {
       });
     }
 
+    if (this.shouldShowBomber(myPlayer, tile)) {
+      this.activateMenuElement(Slot.Bomber, "#FF6B35", airfieldIcon, () => {
+        if (this.clickedCell === null) return;
+        const targetPlayer = this.g.owner(tile) as PlayerView;
+        // Target all structure types with closest-first priority
+        const allStructures = [
+          UnitType.City,
+          UnitType.DefensePost,
+          UnitType.SAMLauncher,
+          UnitType.MissileSilo,
+          UnitType.Port,
+          UnitType.Airfield,
+          UnitType.Hospital,
+          UnitType.Academy,
+          UnitType.ResearchLab,
+          UnitType.Factory,
+          UnitType.DoomsdayDevice,
+        ];
+        this.eventBus.emit(
+          new SendBomberIntentEvent(targetPlayer.id(), allStructures, true),
+        );
+      });
+    }
+
     if (!this.g.hasOwner(tile)) {
       return;
     }
+  }
+
+  private shouldShowBomber(player: PlayerView, tile: TileRef): boolean {
+    // Check if player has at least one active airfield
+    if (player.units(UnitType.Airfield).length === 0) {
+      return false;
+    }
+    // Check if tile is land
+    if (!this.g.isLand(tile)) {
+      return false;
+    }
+    // Check if tile is owned by an enemy
+    const owner = this.g.owner(tile);
+    if (owner === player || !owner.isPlayer()) {
+      return false;
+    }
+    // Check if player is at war with owner
+    if (!player.isAtWarWith?.(owner as PlayerView)) {
+      return false;
+    }
+    // Check if any airfield can reach this tile
+    const airfields = player.units(UnitType.Airfield);
+    for (const airfield of airfields) {
+      if (!airfield.isActive()) continue;
+      const range = this.g
+        .config()
+        .bomberTargetRange(airfield.bomberLevel?.() ?? 1);
+      const dist = Math.sqrt(
+        this.g.euclideanDistSquared(airfield.tile(), tile),
+      );
+      if (dist <= range) {
+        return true;
+      }
+    }
+    return false;
   }
 
   private shouldShowAirAttack(player: PlayerView, tile: TileRef): boolean {

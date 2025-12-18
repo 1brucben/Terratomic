@@ -39,7 +39,6 @@ import {
   SendDeclareWarIntentEvent,
   SendEmbargoIntentEvent,
   SendPeaceRequestIntentEvent,
-  SendSetAutoBombingEvent,
   SendSetInvestmentRateEvent,
   SendSetResearchInvestmentEvent,
   SendSetRoadInvestmentEvent,
@@ -105,28 +104,11 @@ export class ControlPanel2 extends LitElement implements Layer {
   private init_: boolean = false;
 
   @state()
-  private activeTab:
-    | "Build"
-    | "Attack"
-    | "Economy"
-    | "Bombers"
-    | "Trade"
-    | "Diplomacy" = "Build";
-
-  @state()
-  private _lastAirfieldCount: number = 0;
-
-  @state()
-  private _lastPlayersHash: string = "";
-
-  @state()
-  private _reachablePlayersHash: string = "";
+  private activeTab: "Build" | "Attack" | "Economy" | "Trade" | "Diplomacy" =
+    "Build";
 
   @state()
   private _hasAirfields: boolean = false;
-
-  @state()
-  private _highlightBombersTab: boolean = false;
 
   @state()
   private _currentTargetPlayerId: PlayerID | null = null;
@@ -136,15 +118,6 @@ export class ControlPanel2 extends LitElement implements Layer {
 
   @state()
   private _currentTargetPlayerName: string | null = null;
-
-  @state()
-  private _bomberPreferClosest: boolean = true;
-
-  @state()
-  private _isAutoBombingEnabled: boolean = false;
-
-  @state()
-  private _lastSelectedBomberTarget: PlayerID | null = null;
 
   @state()
   private _multibuildEnabled: boolean = false;
@@ -369,21 +342,7 @@ export class ControlPanel2 extends LitElement implements Layer {
     }
   }
 
-  private _updatePlayerHashAndRefresh() {
-    const currentPlayersHash = this.game
-      .players()
-      .map((p) => p.id())
-      .sort()
-      .join(",");
-
-    if (this._lastPlayersHash !== currentPlayersHash) {
-      this._lastPlayersHash = currentPlayersHash;
-      // Only refresh the list if the relevant tab is active
-      if (this.activeTab === "Bombers") {
-        this._refreshBomberPlayerLists();
-      }
-    }
-  }
+  private _updatePlayerHashAndRefresh() {}
 
   tick() {
     if (this.init_) {
@@ -535,27 +494,6 @@ export class ControlPanel2 extends LitElement implements Layer {
 
     // Track relevant state for dynamic updates
     const currentAirfieldCount = player.units(UnitType.Airfield).length;
-    this._hasAirfields = currentAirfieldCount > 0;
-
-    if (this.activeTab === "Bombers" && this.game.ticks() % 10 === 0) {
-      const currentReachablePlayersHash = this._getPlayersInAirfieldRange()
-        .map((p) => p.id())
-        .sort()
-        .join(",");
-
-      if (
-        this._lastAirfieldCount !== currentAirfieldCount ||
-        this._reachablePlayersHash !== currentReachablePlayersHash
-      ) {
-        this._refreshBomberPlayerLists();
-        this._lastAirfieldCount = currentAirfieldCount;
-        this._reachablePlayersHash = currentReachablePlayersHash;
-      }
-    }
-
-    if (this.activeTab === "Bombers" && !this._hasAirfields) {
-      this.activeTab = "Build"; // Changed from "Controls"
-    }
 
     this.requestUpdate();
 
@@ -773,88 +711,12 @@ export class ControlPanel2 extends LitElement implements Layer {
     return player?.hasUpgrade?.(UpgradeType.Roads) ?? false;
   }
 
-  private _getPlayersInAirfieldRange(): PlayerView[] {
-    const myPlayer = this.game.myPlayer();
-    if (!myPlayer?.isAlive()) {
-      return [];
-    }
-
-    const myAirfields = myPlayer
-      .units(UnitType.Airfield)
-      .filter((u) => u.isActive());
-    if (myAirfields.length === 0) {
-      return [];
-    }
-
-    const reachablePlayers = new Map<PlayerID, PlayerView>();
-
-    const structureIndex = this.game.getStructureIndex();
-
-    for (const airfield of myAirfields) {
-      const bomberRange = this.game
-        .config()
-        .bomberTargetRange(airfield.bomberLevel());
-      const airfieldPos = {
-        x: this.game.x(airfield.tile()),
-        y: this.game.y(airfield.tile()),
-      };
-      const nearbyStructures = structureIndex.getInRange(
-        airfieldPos.x,
-        airfieldPos.y,
-        bomberRange,
-      );
-
-      for (const structure of nearbyStructures) {
-        const owner = structure.owner();
-        if (
-          owner &&
-          owner.isPlayer() &&
-          owner.id() !== myPlayer.id() && // Prevent self-targeting
-          !myPlayer.isFriendly(owner) &&
-          owner.type() !== PlayerType.Bot
-        ) {
-          if (!reachablePlayers.has(owner.id())) {
-            reachablePlayers.set(owner.id(), owner);
-          }
-        }
-      }
-    }
-
-    return Array.from(reachablePlayers.values()).sort((a, b) =>
-      a.name().localeCompare(b.name()),
-    );
-  }
-
-  private _refreshBomberPlayerLists() {
-    this.populateBomberForm(); // Populates the main player select list
-  }
-
   updated(changedProperties: Map<string | number | symbol, unknown>) {
     if (changedProperties.has("isOpen")) {
       if (this.isOpen) {
         this.classList.remove("hidden");
       } else {
         this.classList.add("hidden");
-      }
-    }
-
-    if (this.activeTab === "Bombers") {
-      if (
-        changedProperties.has("activeTab") ||
-        changedProperties.has("_hasAirfields")
-      ) {
-        this._refreshBomberPlayerLists();
-      }
-    }
-
-    if (changedProperties.has("_hasAirfields")) {
-      const oldHasAirfields = changedProperties.get("_hasAirfields");
-      if (this._hasAirfields && !oldHasAirfields) {
-        // Airfields just became available, highlight the tab
-        this._highlightBombersTab = true;
-        setTimeout(() => {
-          this._highlightBombersTab = false;
-        }, 3000); // Highlight for 3 seconds
       }
     }
 
@@ -867,55 +729,6 @@ export class ControlPanel2 extends LitElement implements Layer {
     });
   }
 
-  populateBomberForm() {
-    const playerSelect = this.querySelector(
-      "#bomber-player-select",
-    ) as HTMLSelectElement | null;
-    if (!this.game || !playerSelect) return;
-
-    const me = this.game.myPlayer();
-    if (!me) return;
-
-    const playersToDisplay: PlayerView[] = this._getPlayersInAirfieldRange();
-
-    if (playersToDisplay.length === 0) {
-      playerSelect.innerHTML = `<option value="" disabled selected>No building in bomber reach.</option>`;
-      playerSelect.disabled = true;
-      this._lastSelectedBomberTarget = null; // Clear selection if no targets are available
-    } else {
-      const optsPlayers = playersToDisplay
-        .map((p) => `<option value="${p.id()}">${p.name()}</option>`)
-        .join("");
-      playerSelect.innerHTML = optsPlayers;
-      playerSelect.disabled = false;
-
-      const stillAValidTarget = playersToDisplay.some(
-        (p) => p.id() === this._lastSelectedBomberTarget,
-      );
-
-      if (stillAValidTarget) {
-        playerSelect.value = this._lastSelectedBomberTarget as string;
-      } else {
-        // If the last target is no longer valid, default to the first in the list and update the state
-        this._lastSelectedBomberTarget = playerSelect.value;
-      }
-    }
-  }
-
-  handleBomberIntent() {
-    const playerSelect = this.querySelector(
-      "#bomber-player-select",
-    ) as HTMLSelectElement;
-
-    if (!playerSelect || this._uiSelectedStructures.length === 0) return;
-
-    const targetID = String(playerSelect.value);
-    // Use the state variable instead of querying the DOM
-    const structures = [...this._uiSelectedStructures];
-
-    this.sendBomberIntent(targetID, structures, this._bomberPreferClosest);
-  }
-
   sendBomberIntent(
     targetID: string | null,
     structures: UnitType[] | null,
@@ -924,7 +737,6 @@ export class ControlPanel2 extends LitElement implements Layer {
     if (!this.eventBus) return;
     this._currentTargetPlayerId = targetID;
     this._currentTargetStructureTypes = structures ?? [];
-    this._bomberPreferClosest = preferClosest;
     if (targetID) {
       const targetPlayer = this.game.players().find((p) => p.id() === targetID);
       this._currentTargetPlayerName = targetPlayer ? targetPlayer.name() : null;
@@ -934,45 +746,6 @@ export class ControlPanel2 extends LitElement implements Layer {
     this.eventBus.emit(
       new SendBomberIntentEvent(targetID, structures, preferClosest),
     );
-  }
-
-  _startAutoBombing() {
-    this._isAutoBombingEnabled = true;
-    this.eventBus.emit(new SendSetAutoBombingEvent(true));
-    // Clear any manual target when auto-bombing is enabled
-    this.sendBomberIntent(null, null, true);
-  }
-
-  async _stopAutoBombing() {
-    this._isAutoBombingEnabled = false;
-    this.eventBus.emit(new SendSetAutoBombingEvent(false));
-    // Clear any manual target when auto-bombing is disabled
-    this.sendBomberIntent(null, null, true);
-
-    await this.updateComplete; // Wait for the UI to update
-
-    this._refreshBomberPlayerLists(); // NOW refresh the list
-  }
-
-  handleStructureChange(e: Event) {
-    const checkbox = e.target as HTMLInputElement;
-    const value = checkbox.value as UnitType;
-
-    if (checkbox.checked) {
-      if (!this._uiSelectedStructures.includes(value)) {
-        this._uiSelectedStructures = [...this._uiSelectedStructures, value];
-      }
-    } else {
-      this._uiSelectedStructures = this._uiSelectedStructures.filter(
-        (s) => s !== value,
-      );
-    }
-    this.requestUpdate();
-  }
-
-  private _handleBomberTargetChange(e: Event) {
-    const select = e.target as HTMLSelectElement;
-    this._lastSelectedBomberTarget = select.value;
   }
 
   private _handleMultibuildToggle() {
@@ -1090,7 +863,7 @@ export class ControlPanel2 extends LitElement implements Layer {
   }
 
   private _changeTab(
-    tab: "Build" | "Attack" | "Economy" | "Bombers" | "Trade" | "Diplomacy",
+    tab: "Build" | "Attack" | "Economy" | "Trade" | "Diplomacy",
   ) {
     this.activeTab = tab;
     if (this.uiState.pendingBuildUnitType) {
@@ -1365,20 +1138,6 @@ export class ControlPanel2 extends LitElement implements Layer {
           >
             Diplomacy
           </button>
-          ${this._hasAirfields
-            ? html`
-                <button
-                  class="py-2 px-4 text-center font-ocr uppercase cp2-tab ${this
-                    .activeTab === "Bombers"
-                    ? "active"
-                    : ""} ${this._highlightBombersTab ? "highlight-tab" : ""}"
-                  @click=${() => this._changeTab("Bombers")}
-                  data-i18n-title="control_panel2.bombers_tab_tooltip"
-                >
-                  Bombers
-                </button>
-              `
-            : ""}
           <div class="ml-auto flex items-center">
             <button
               class="cp2-tab flex items-center justify-center mx-1"
@@ -1396,284 +1155,6 @@ export class ControlPanel2 extends LitElement implements Layer {
         </div>
 
         <div class="tab-content flex-grow overflow-y-auto max-w-full pr-4 pt-2">
-          ${this.activeTab === "Bombers"
-            ? html`
-
-                <div class="flex w-full gap-2 h-full">
-                  <!-- Column 1: Targeting Configuration (2/3 width) -->
-                  <div class="w-2/3 flex flex-col gap-2">
-                    ${
-                      this._isAutoBombingEnabled
-                        ? html`
-                            <div
-                              class="flex flex-col items-center justify-center h-full text-blue-300 font-bold text-center border border-dashed border-blue-900 rounded bg-blue-900/20"
-                            >
-                              <div class="text-lg mb-2">
-                                AUTO-BOMBING ACTIVE
-                              </div>
-                              <div class="text-sm opacity-80">
-                                Bombers are automatically targeting nearby
-                                enemies.
-                              </div>
-                            </div>
-                          `
-                        : html`
-                            <div class="flex gap-2 items-end">
-                              <label class="flex-grow text-sm military-label">
-                                Target Player
-                                <select
-                                  id="bomber-player-select"
-                                  class="mt-1 block w-full p-1 text-white rounded-sm truncate text-sm"
-                                  style="background-color: var(--ui-secondary); border: 1px solid var(--ui-panel-border);"
-                                  @change=${this._handleBomberTargetChange}
-                                ></select>
-                              </label>
-
-                              <div class="flex flex-col justify-end pb-0.5">
-                                <span class="text-[10px] military-label mb-1"
-                                  >Priority</span
-                                >
-                                <div class="flex bg-gray-800 rounded p-0.5">
-                                  <label
-                                    class="flex items-center px-2 py-0.5 cursor-pointer hover:bg-gray-700 rounded transition-colors"
-                                    title="Target closest structures first"
-                                  >
-                                    <input
-                                      type="radio"
-                                      name="distance-pref"
-                                      value="closest"
-                                      ?checked=${this._bomberPreferClosest}
-                                      @change=${() => {
-                                        this._bomberPreferClosest = true;
-                                      }}
-                                      class="hidden"
-                                    />
-                                    <span
-                                      class="text-xs ${this._bomberPreferClosest
-                                        ? "text-blue-400 font-bold"
-                                        : "text-gray-400"}"
-                                      >Closest</span
-                                    >
-                                  </label>
-                                  <div class="w-px bg-gray-700 mx-0.5"></div>
-                                  <label
-                                    class="flex items-center px-2 py-0.5 cursor-pointer hover:bg-gray-700 rounded transition-colors"
-                                    title="Target furthest structures first"
-                                  >
-                                    <input
-                                      type="radio"
-                                      name="distance-pref"
-                                      value="furthest"
-                                      ?checked=${!this._bomberPreferClosest}
-                                      @change=${() => {
-                                        this._bomberPreferClosest = false;
-                                      }}
-                                      class="hidden"
-                                    />
-                                    <span
-                                      class="text-xs ${!this
-                                        ._bomberPreferClosest
-                                        ? "text-blue-400 font-bold"
-                                        : "text-gray-400"}"
-                                      >Furthest</span
-                                    >
-                                  </label>
-                                </div>
-                              </div>
-                            </div>
-
-                            <div class="flex-grow flex flex-col min-h-0">
-                              <label class="text-xs military-label mb-1"
-                                >Target Structures</label
-                              >
-                              <div
-                                class="grid grid-cols-11 gap-1.5 overflow-y-auto pr-1"
-                              >
-                                ${[
-                                  UnitType.City,
-                                  UnitType.DefensePost,
-                                  UnitType.SAMLauncher,
-                                  UnitType.MissileSilo,
-                                  UnitType.Port,
-                                  UnitType.Airfield,
-                                  UnitType.Hospital,
-                                  UnitType.Academy,
-                                  UnitType.ResearchLab,
-                                  UnitType.Factory,
-                                  UnitType.DoomsdayDevice,
-                                ].map((s) => {
-                                  const isSelected =
-                                    this._uiSelectedStructures.includes(s);
-                                  return html`
-                                    <label
-                                      class="flex flex-col items-center justify-center p-0.5 rounded cursor-pointer transition-all aspect-square ${isSelected
-                                        ? "border-[0.5px] border-white shadow-[0_0_5px_rgba(29,58,96,1.0)]"
-                                        : "border border-gray-700 hover:bg-gray-800"}"
-                                      style="${isSelected
-                                        ? "background-color: rgb(29, 58, 96);"
-                                        : ""}"
-                                      title="${s}"
-                                    >
-                                      <input
-                                        type="checkbox"
-                                        name="structure"
-                                        value="${s}"
-                                        class="hidden"
-                                        .checked=${isSelected}
-                                        @change=${this.handleStructureChange}
-                                      />
-                                      <img
-                                        src="${this.unitIconMap[s]}"
-                                        alt="${s}"
-                                        class="w-4 h-4 object-contain"
-                                      />
-                                    </label>
-                                  `;
-                                })}
-                              </div>
-                            </div>
-
-                            <!-- SET TARGET Button -->
-                            <div class="flex gap-2 items-center mt-2">
-                              <button
-                                type="button"
-                                class="military-button py-2 px-4 font-bold"
-                                @click=${this.handleBomberIntent}
-                              >
-                                SET TARGET
-                              </button>
-                              <button
-                                type="button"
-                                class="text-xs text-gray-400 hover:text-white underline"
-                                @click=${() =>
-                                  this.sendBomberIntent(null, null, true)}
-                              >
-                                Clear
-                              </button>
-                              <div class="text-xs flex-grow">
-                                ${this._currentTargetPlayerId &&
-                                this._currentTargetStructureTypes.length > 0
-                                  ? html`
-                                      <div class="flex items-center gap-2">
-                                        <span class="font-bold text-blue-300"
-                                          >${this
-                                            ._currentTargetPlayerName}</span
-                                        >
-                                        <span class="text-[10px] text-gray-400"
-                                          >${this._bomberPreferClosest
-                                            ? "Closest"
-                                            : "Furthest"}</span
-                                        >
-                                        <div class="flex gap-0.5">
-                                          ${this._currentTargetStructureTypes.map(
-                                            (structType) => html`
-                                              <img
-                                                src="${this.unitIconMap[
-                                                  structType
-                                                ]}"
-                                                class="w-3 h-3 opacity-80"
-                                              />
-                                            `,
-                                          )}
-                                        </div>
-                                      </div>
-                                    `
-                                  : html`<span class="text-gray-500 italic"
-                                      >No target set</span
-                                    >`}
-                              </div>
-                            </div>
-                          `
-                    }
-                  </div>
-
-                  <!-- Column 2: Actions & Status (1/3 width) -->
-                  <div class="w-1/3 flex flex-col gap-2 pl-2 border-l border-gray-800">
-                    <!-- Upgrade Bombers Button -->
-                    <div class="bg-gray-900/50 p-2 rounded border border-gray-800">
-                      <div class="flex items-center justify-between mb-1">
-                        <span class="text-xs font-bold text-gray-300"
-                          >Upgrade Bombers</span
-                        >
-                        <div
-                          class="w-2 h-2 rounded-full ${
-                            this.uiState.bomberUpgradeMode
-                              ? "bg-green-500 shadow-[0_0_5px_#22c55e]"
-                              : "bg-gray-600"
-                          }"
-                        ></div>
-                      </div>
-                      <button
-                        type="button"
-                        class="military-button w-full text-xs py-1.5"
-                        title="Click airfields to upgrade their bombers"
-                        @click=${() => {
-                          const enabled = !this.uiState.bomberUpgradeMode;
-                          this.uiState.bomberUpgradeMode = enabled;
-                          this.eventBus.emit(
-                            new ToggleBomberUpgradeModeEvent(enabled),
-                          );
-                          // Disable structure upgrade mode if bomber upgrade is enabled
-                          if (enabled && this.uiState.upgradeMode) {
-                            this.uiState.upgradeMode = false;
-                            this.eventBus.emit(
-                              new ToggleUpgradeModeEvent(false),
-                            );
-                          }
-                          // Clear pending build selection when upgrade is enabled
-                          if (enabled) {
-                            this.uiState.pendingBuildUnitType = null;
-                          }
-                          this.requestUpdate();
-                        }}
-                      >
-                        Upgrade Bombers
-                      </button>
-                    </div>
-
-                    <!-- Auto-Bombing Toggle -->
-                    <div class="bg-gray-900/50 p-2 rounded border border-gray-800">
-                      <div class="flex items-center justify-between mb-1">
-                        <span class="text-xs font-bold text-gray-300"
-                          >Auto-Bomb</span
-                        >
-                        <div
-                          class="w-2 h-2 rounded-full ${
-                            this._isAutoBombingEnabled
-                              ? "bg-green-500 shadow-[0_0_5px_#22c55e]"
-                              : "bg-gray-600"
-                          }"
-                        ></div>
-                      </div>
-                      ${
-                        this._isAutoBombingEnabled
-                          ? html`
-                              <button
-                                type="button"
-                                class="military-button w-full text-xs py-1.5"
-                                style="background-color: var(--alertColor); border-color: var(--alertColor);"
-                                @click=${this._stopAutoBombing}
-                              >
-                                Stop Auto
-                              </button>
-                            `
-                          : html`
-                              <button
-                                type="button"
-                                class="military-button w-full text-xs py-1.5"
-                                @click=${this._startAutoBombing}
-                                title="Automatically target nearby enemies"
-                              >
-                                Start Auto
-                              </button>
-                            `
-                      }
-                    </div>
-                  </div>
-                  </div>
-                </div>
-              `
-            : ""}
           ${this.activeTab === "Build"
             ? html` <div class="flex items-center mb-2 gap-4 ml-1"></div> `
             : ""}
