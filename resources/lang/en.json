@@ -212,7 +212,9 @@
     "teams_Duos": "Duos (teams of 2)",
     "teams_Trios": "Trios (teams of 3)",
     "teams_Quads": "Quads (teams of 4)",
-    "teams": "{num} teams"
+    "teams": "{num} teams",
+    "tech_unlocked": "Tech Unlocked",
+    "tech_unlocked_tooltip": "All technologies unlocked from the start!"
   },
   "username": {
     "enter_username": "Enter your username",
