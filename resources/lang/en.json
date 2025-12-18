@@ -293,6 +293,7 @@
       "fighter_jet": "Fast air unit for intercepting bombers and scouting.",
       "warship": "Patrols in an area, capturing enemy cargo ships and destroying their Boats and Cruisers.",
       "submarine": "Stealthy naval unit. Can launch nukes if researched. Invisible to enemies unless they have detection.",
+      "artillery": "Land-based heavy artillery that patrols an area and bombards enemy structures within range. Spawns from the nearest Factory.",
       "city": "Increases your max population. Useful when you can't expand your territory.",
       "port": "Allows building Cruisers and Submarines. Automatically sends cargo ships to trade with other players.",
       "airfield": "Automatically deploys bombers that fly out to strike enemy structures then return to base.",

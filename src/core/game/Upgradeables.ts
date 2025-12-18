@@ -139,6 +139,17 @@ export function playerMaxUnitLevel(player: HasUpgrade, type: UnitType): number {
     return 1;
   }
 
+  if (type === UnitType.Artillery) {
+    if (player.hasUpgrade(UpgradeType.ArtilleryLevel3))
+      return Math.min(3, globalMax);
+    if (player.hasUpgrade(UpgradeType.ArtilleryLevel2))
+      return Math.min(2, globalMax);
+    if (player.hasUpgrade(UpgradeType.ArtilleryResearch))
+      return Math.min(1, globalMax);
+    // Artillery not unlocked yet
+    return 0;
+  }
+
   // For other unit types, return global max
   return globalMax;
 }

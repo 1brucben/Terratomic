@@ -414,6 +414,10 @@ export class PlayerImpl implements Player {
       case UpgradeType.SubmarineLevel3:
         unitTypes.push(UnitType.Submarine);
         break;
+      case UpgradeType.ArtilleryLevel2:
+      case UpgradeType.ArtilleryLevel3:
+        unitTypes.push(UnitType.Artillery);
+        break;
       default:
         return;
     }
@@ -439,6 +443,8 @@ export class PlayerImpl implements Player {
           return this.mg.config().warshipLevelMaxHealth(targetLevel);
         case UnitType.Submarine:
           return this.mg.config().submarineLevelMaxHealth(targetLevel);
+        case UnitType.Artillery:
+          return this.mg.config().artilleryLevelMaxHealth(targetLevel);
         default:
           return this.mg.unitInfo(type).maxHealth ?? 0;
       }
@@ -1602,13 +1608,7 @@ export class PlayerImpl implements Player {
   }
 
   artillerySpawn(tile: TileRef): TileRef | false {
-    console.log(
-      `[PlayerImpl.artillerySpawn] Called for ${this.name()} at tile ${tile}`,
-    );
     if (this.mg.isOcean(tile)) {
-      console.log(
-        `[PlayerImpl.artillerySpawn] Target tile is ocean, cannot spawn`,
-      );
       return false;
     }
     const spawns = this.units(UnitType.Factory).sort(
@@ -1626,16 +1626,10 @@ export class PlayerImpl implements Player {
         (t) =>
           !this.mg.isOcean(t) && this.mg.terrainType(t) !== TerrainType.Barrier,
       );
-    console.log(
-      `[PlayerImpl.artillerySpawn] Found ${landNeighbors.length} land neighbors near factory ${closestFactory.id()}`,
-    );
     if (landNeighbors.length === 0) {
       // Factory has no adjacent pathable land
       return false;
     }
-    console.log(
-      `[PlayerImpl.artillerySpawn] Returning spawn tile ${landNeighbors[0]}`,
-    );
     return landNeighbors[0];
   }
 

@@ -118,6 +118,7 @@ import {
   isUpgradeableUnit,
   maxStructureLevel,
   maxUnitLevel,
+  playerMaxUnitLevel,
 } from "../core/game/Upgradeables";
 import { ToggleBomberUpgradeModeEvent } from "./events/ToggleBomberUpgradeModeEvent";
 import { ToggleUpgradeModeEvent } from "./events/ToggleUpgradeModeEvent";
@@ -658,14 +659,19 @@ export class InputHandler {
   }
 
   private readArtilleryTargetLevel(): number {
-    let targetLevel = 1;
+    const myPlayer = this.game.myPlayer();
+    if (!myPlayer) return 1;
+
+    // Default to player's max unlocked level
+    let targetLevel = playerMaxUnitLevel(myPlayer, UnitType.Artillery);
+
     try {
       if (isUpgradeableUnit(UnitType.Artillery)) {
         const rawUnits = localStorage.getItem("unitUpgradeSettings.levels");
         if (rawUnits) {
           const obj = JSON.parse(rawUnits) as Record<string, number>;
           const val = obj?.[String(UnitType.Artillery)];
-          if (typeof val === "number" && val > 1) {
+          if (typeof val === "number") {
             targetLevel = Math.min(maxUnitLevel(UnitType.Artillery), val);
           }
         }
@@ -674,13 +680,13 @@ export class InputHandler {
         if (rawStruct) {
           const obj = JSON.parse(rawStruct) as Record<string, number>;
           const val = obj?.[String(UnitType.Artillery)];
-          if (typeof val === "number" && val > 1) {
+          if (typeof val === "number") {
             targetLevel = Math.min(maxStructureLevel(UnitType.Artillery), val);
           }
         }
       }
     } catch {
-      targetLevel = 1;
+      // Keep default (player's max unlocked level)
     }
     return targetLevel;
   }

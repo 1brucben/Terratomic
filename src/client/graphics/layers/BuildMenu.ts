@@ -532,7 +532,10 @@ export class BuildMenu extends LitElement {
       case UnitType.MIRV:
         return player.unitsOwned(UnitType.MissileSilo) > 0;
       case UnitType.Artillery:
-        return player.unitsOwned(UnitType.Factory) > 0;
+        return (
+          player.unitsOwned(UnitType.Factory) > 0 &&
+          player.hasUpgrade(UpgradeType.ArtilleryResearch)
+        );
       default:
         return true;
     }

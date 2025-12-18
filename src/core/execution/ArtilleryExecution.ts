@@ -388,7 +388,8 @@ export class ArtilleryExecution implements Execution {
 
     const ok = (t: TileRef) => {
       if (this.mg.terrainType(t) === TerrainType.Barrier) return false;
-      if (!this.mg.isLand(t) || this.mg.isShore(t)) return true; // allow water/shore
+      // Artillery is land-only: block ocean and water tiles
+      if (this.mg.isOcean(t) || this.mg.isWater(t)) return false;
       const oid = this.mg.ownerID(t);
       if (oid === 0) return false;
       return this.allowedOwners.has(oid);

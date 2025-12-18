@@ -219,6 +219,10 @@ export enum UpgradeType {
 
   // Land Upgrades
   MilitaryAcademy = "MilitaryAcademy",
+  // Artillery upgrades (Land-2 tech unlocks Artillery)
+  ArtilleryResearch = "ArtilleryResearch",
+  ArtilleryLevel2 = "ArtilleryLevel2",
+  ArtilleryLevel3 = "ArtilleryLevel3",
 
   // Nuclear Upgrades
   NuclearFission = "NuclearFission",
