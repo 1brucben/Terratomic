@@ -187,9 +187,9 @@ export const TECHS: Readonly<Record<string, TechDefinition>> = Object.freeze({
   [RESEARCH_TECH_IDS.LAND_MILITARY_ACADEMY]: {
     meta: {
       name: "Ground Air Defense",
-      shortDescription: "City Anti-Air, Improved SAM",
+      shortDescription: "City AA, SAM+, Artillery",
       description:
-        "Establish comprehensive air defense capabilities to protect your cities and territories. Unlocks City Anti-Air (enables cities to automatically engage enemy aircraft with AA batteries) and Improved SAM (+35% range to 94.5 pixels, improved interception accuracy against bombers, fighters, and nuclear missiles).",
+        "Establish comprehensive air defense capabilities. Unlocks City Anti-Air (cities automatically engage enemy aircraft), Improved SAM (+35% range to 94.5 pixels, improved interception vs bombers/fighters/missiles), and Artillery (land-based heavy artillery that patrols and bombards enemy structures, spawns from Factories, 60 tile range).",
     },
     effects: {
       onComplete: (player, game) => {
@@ -201,6 +201,9 @@ export const TECHS: Readonly<Record<string, TechDefinition>> = Object.freeze({
         if (!player.hasUpgrade?.(UpgradeType.SAMLevel2)) {
           player.addUpgrade?.(UpgradeType.SAMLevel2);
         }
+        if (!player.hasUpgrade?.(UpgradeType.ArtilleryResearch)) {
+          player.addUpgrade?.(UpgradeType.ArtilleryResearch);
+        }
       },
     },
   },
@@ -208,9 +211,9 @@ export const TECHS: Readonly<Record<string, TechDefinition>> = Object.freeze({
   [RESEARCH_TECH_IDS.LAND_SAM_SYSTEMS]: {
     meta: {
       name: "Modern Air Defense",
-      shortDescription: "Advanced SAM, Hospitals",
+      shortDescription: "SAM++, Hospitals, Artillery+",
       description:
-        "Achieve peak defensive and medical capabilities. Unlocks Advanced SAM (+82.25% range to 127.6 pixels from base 70, maximum interception range exceeding hydrogen bomb blast radius, highest success rate against all aircraft and missiles) and Hospitals (building that increases city population growth rate, accelerating troop production and economic output).",
+        "Achieve peak defensive and medical capabilities. Unlocks Advanced SAM (+82.25% range to 127.6 pixels, maximum interception range exceeding H-bomb blast radius, highest success vs aircraft/missiles), Hospitals (increases population growth rate, accelerating troops/economy), and Artillery Level 2 (75 tile range, increased damage and health for all artillery).",
     },
     effects: {
       onComplete: (player) => {
@@ -220,6 +223,9 @@ export const TECHS: Readonly<Record<string, TechDefinition>> = Object.freeze({
         if (!player.hasUpgrade?.(UpgradeType.HospitalResearch)) {
           player.addUpgrade?.(UpgradeType.HospitalResearch);
         }
+        if (!player.hasUpgrade?.(UpgradeType.ArtilleryLevel2)) {
+          player.addUpgrade?.(UpgradeType.ArtilleryLevel2);
+        }
       },
     },
   },
@@ -227,14 +233,17 @@ export const TECHS: Readonly<Record<string, TechDefinition>> = Object.freeze({
   [RESEARCH_TECH_IDS.LAND_DOOMSDAY_DEVICE]: {
     meta: {
       name: "Military Academy",
-      shortDescription: "Academy, casualty bonus",
+      shortDescription: "Academy, Artillery++",
       description:
-        "Establish elite military training infrastructure. Unlocks the Military Academy building. Each Academy (level- and health-scaled, +road bonus when connected) increases enemy troop casualties you inflict in land battles when attacking or defending: +10% with one Academy, ~+15% with two, ~+17.5% with three, asymptotically capped at +20% global casualty output.",
+        "Establish elite military training infrastructure. Unlocks Military Academy building (increases enemy casualties in land battles: +10% with one, asymptotically capped at +20% with multiple, scaled by level/health/roads) and Artillery Level 3 (90 tile range, maximum damage and durability for all artillery).",
     },
     effects: {
       onComplete: (player) => {
         if (!player.hasUpgrade?.(UpgradeType.MilitaryAcademy)) {
           player.addUpgrade?.(UpgradeType.MilitaryAcademy);
+        }
+        if (!player.hasUpgrade?.(UpgradeType.ArtilleryLevel3)) {
+          player.addUpgrade?.(UpgradeType.ArtilleryLevel3);
         }
       },
     },

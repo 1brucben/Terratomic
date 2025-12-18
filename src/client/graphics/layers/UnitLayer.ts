@@ -13,6 +13,8 @@ import {
   UnitSelectionEvent,
 } from "../../InputHandler";
 import {
+  ArtilleryOutOfRangeEvent,
+  MoveArtilleryIntentEvent,
   MoveFighterJetIntentEvent,
   MoveSubmarineIntentEvent,
   MoveWarshipIntentEvent,
@@ -25,6 +27,7 @@ import type { UIState } from "../UIState";
 import type { Layer } from "./Layer";
 
 import { GameUpdateType } from "../../../core/game/GameUpdates";
+import { getArtilleryMaxDistance } from "../../../core/game/UnitUpgrades";
 import {
   getColoredSprite,
   isSpriteReady,
@@ -44,6 +47,7 @@ const UNIT_LAYER_TYPES = new Set<UnitType>([
   UnitType.Paratrooper,
   UnitType.Submarine,
   UnitType.Warship,
+  // Artillery is rendered by ArtilleryLayer
   UnitType.Shell,
   UnitType.SAMMissile,
   UnitType.TradeShip,
@@ -255,6 +259,28 @@ export class UnitLayer implements Layer {
       });
   }
 
+  private findArtilleryNearCell(cell: { x: number; y: number }): UnitView[] {
+    if (!this.game.isValidCoord(cell.x, cell.y)) {
+      return [];
+    }
+    const clickRef = this.game.ref(cell.x, cell.y);
+
+    return this.game
+      .units(UnitType.Artillery)
+      .filter(
+        (unit) =>
+          unit.isActive() &&
+          unit.owner() === this.game.myPlayer() &&
+          this.game.manhattanDist(unit.tile(), clickRef) <=
+            this.WARSHIP_SELECTION_RADIUS, // Reuse warship radius for artillery
+      )
+      .sort((a, b) => {
+        const distA = this.game.manhattanDist(a.tile(), clickRef);
+        const distB = this.game.manhattanDist(b.tile(), clickRef);
+        return distA - distB;
+      });
+  }
+
   private onMouseUp(event: MouseUpEvent) {
     // Convert screen coordinates to world coordinates
     const cell = this.transformHandler.screenToWorldCoordinates(
@@ -266,6 +292,7 @@ export class UnitLayer implements Layer {
     const nearbyWarships = this.findWarshipsNearCell(cell);
     const nearbySubmarines = this.findSubmarinesNearCell(cell);
     const nearbyFighterJets = this.findFighterJetsNearCell(cell);
+    const nearbyArtillery = this.findArtilleryNearCell(cell);
 
     // unit upgrade mode removed: proceed with selection/move logic only
 
@@ -289,6 +316,24 @@ export class UnitLayer implements Layer {
         this.eventBus.emit(
           new MoveSubmarineIntentEvent(this.selectedUnit.id(), clickRef),
         );
+      } else if (
+        this.selectedUnit.type() === UnitType.Artillery &&
+        !this.game.isOcean(clickRef)
+      ) {
+        // Check distance cap before sending move intent
+        const lvl = this.selectedUnit.level ? this.selectedUnit.level() : 1;
+        const maxDist = getArtilleryMaxDistance(lvl);
+        const distSq = this.game.euclideanDistSquared(
+          this.selectedUnit.tile(),
+          clickRef,
+        );
+        if (distSq > maxDist * maxDist) {
+          this.eventBus.emit(new ArtilleryOutOfRangeEvent(lvl, maxDist));
+        } else {
+          this.eventBus.emit(
+            new MoveArtilleryIntentEvent(this.selectedUnit.id(), clickRef),
+          );
+        }
       }
       // Mark click as consumed whenever a unit was selected, so other handlers don't also treat it as an attack
       event.consumed = true;
@@ -305,6 +350,9 @@ export class UnitLayer implements Layer {
       this.eventBus.emit(new UnitSelectionEvent(clickedUnit, true));
     } else if (nearbyFighterJets.length > 0) {
       const clickedUnit = nearbyFighterJets[0];
+      this.eventBus.emit(new UnitSelectionEvent(clickedUnit, true));
+    } else if (nearbyArtillery.length > 0) {
+      const clickedUnit = nearbyArtillery[0];
       this.eventBus.emit(new UnitSelectionEvent(clickedUnit, true));
     }
   }
@@ -789,6 +837,9 @@ export class UnitLayer implements Layer {
       case UnitType.Warship:
         this.handleWarShipEvent(unit, angleByUnit);
         break;
+      case UnitType.Artillery:
+        this.handleArtilleryEvent(unit, angleByUnit);
+        break;
       case UnitType.Shell:
         this.handleShellEvent(unit);
         break;
@@ -828,6 +879,13 @@ export class UnitLayer implements Layer {
     } else {
       this.drawSprite(unit, undefined, angleByUnit);
     }
+  }
+
+  private handleArtilleryEvent(
+    unit: UnitView,
+    angleByUnit?: Map<UnitView, number | null>,
+  ) {
+    // Artillery is now rendered by StructureLayer (GPU-accelerated PIXI)
   }
 
   private handleShellEvent(unit: UnitView) {

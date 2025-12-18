@@ -101,6 +101,7 @@ export class FighterJetExecution implements Execution {
       UnitType.FighterJet,
       UnitType.CargoPlane,
       UnitType.Paratrooper,
+      UnitType.Artillery,
     ];
 
     if (ownerHasUpgrade) {
@@ -131,12 +132,14 @@ export class FighterJetExecution implements Execution {
           return 3;
         case UnitType.CargoPlane:
           return 4;
-        case UnitType.TransportShip:
+        case UnitType.Artillery:
           return 5;
-        case UnitType.Warship:
+        case UnitType.TransportShip:
           return 6;
-        case UnitType.TradeShip:
+        case UnitType.Warship:
           return 7;
+        case UnitType.TradeShip:
+          return 8;
         default:
           return 99;
       }

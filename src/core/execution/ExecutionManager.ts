@@ -1,4 +1,5 @@
 import { Execution, Game, UnitType } from "../game/Game";
+import { getArtilleryMaxDistance } from "../game/UnitUpgrades";
 import { isUpgradeableStructure } from "../game/Upgradeables";
 import { PseudoRandom } from "../PseudoRandom";
 import { ClientID, GameID, Intent, Turn } from "../Schemas";
@@ -19,6 +20,7 @@ import { EmbargoExecution } from "./EmbargoExecution";
 import { EmojiExecution } from "./EmojiExecution";
 import { FakeHumanExecution } from "./FakeHumanExecution";
 import { MarkDisconnectedExecution } from "./MarkDisconnectedExecution";
+import { MoveArtilleryExecution } from "./MoveArtilleryExecution";
 import { MoveFighterJetExecution } from "./MoveFighterJetExecution";
 import { MoveSubmarineExecution } from "./MoveSubmarineExecution";
 import { MoveWarshipExecution } from "./MoveWarshipExecution";
@@ -86,6 +88,8 @@ export class Executor {
         return new MoveSubmarineExecution(player, intent.unitId, intent.tile);
       case "move_fighter_jet":
         return new MoveFighterJetExecution(player, intent.unitId, intent.tile);
+      case "move_artillery":
+        return new MoveArtilleryExecution(player, intent.unitId, intent.tile);
       case "bomber_intent":
         return new BomberTargetExecution(
           player,
@@ -148,7 +152,29 @@ export class Executor {
         return new SetResearchInvestmentExecution(player, intent.rate);
       case "embargo":
         return new EmbargoExecution(player, intent.targetID, intent.action);
-      case "build_unit":
+      case "build_unit": {
+        // Enforce distance cap for artillery construction
+        if (intent.unit === UnitType.Artillery) {
+          const nearest = player
+            .units(UnitType.Factory)
+            .sort(
+              (a, b) =>
+                this.mg.euclideanDistSquared(a.tile(), intent.tile) -
+                this.mg.euclideanDistSquared(b.tile(), intent.tile),
+            )[0];
+          if (nearest) {
+            const lvl = intent.targetLevel ?? 1;
+            const maxDist = getArtilleryMaxDistance(lvl);
+            const distSq = this.mg.euclideanDistSquared(
+              nearest.tile(),
+              intent.tile,
+            );
+            if (distSq > maxDist * maxDist) {
+              // Out of range; silently reject
+              return new NoOpExecution();
+            }
+          }
+        }
         return new ConstructionExecution(
           player,
           intent.unit,
@@ -156,6 +182,7 @@ export class Executor {
           intent.targetLevel,
           intent.bomberLevel,
         );
+      }
       case "upgrade_structure": {
         const unit = player.units().find((u) => u.id() === intent.unitId);
         if (!unit || unit.owner() !== player) return new NoOpExecution();

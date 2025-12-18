@@ -34,6 +34,7 @@ export const UPGRADEABLE_UNITS: ReadonlySet<UnitType> = new Set<UnitType>([
   UnitType.FighterJet,
   UnitType.Submarine,
   UnitType.Bomber, // Bomber level affects airfield construction cost
+  UnitType.Artillery,
 ]);
 
 export function isStackableStructure(type: UnitType): boolean {
@@ -80,6 +81,7 @@ export function maxUnitLevel(type: UnitType): number {
       return 4;
     case UnitType.Warship:
     case UnitType.Submarine:
+    case UnitType.Artillery:
     case UnitType.Bomber:
       return 3;
     default:
@@ -135,6 +137,17 @@ export function playerMaxUnitLevel(player: HasUpgrade, type: UnitType): number {
       return Math.min(2, globalMax);
     // Submarine Level 1 is available by default at game start
     return 1;
+  }
+
+  if (type === UnitType.Artillery) {
+    if (player.hasUpgrade(UpgradeType.ArtilleryLevel3))
+      return Math.min(3, globalMax);
+    if (player.hasUpgrade(UpgradeType.ArtilleryLevel2))
+      return Math.min(2, globalMax);
+    if (player.hasUpgrade(UpgradeType.ArtilleryResearch))
+      return Math.min(1, globalMax);
+    // Artillery not unlocked yet
+    return 0;
   }
 
   // For other unit types, return global max

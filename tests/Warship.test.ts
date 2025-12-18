@@ -265,4 +265,46 @@ describe("Warship", () => {
 
     expect(exec.isActive()).toBe(false);
   });
+
+  test("Warship targets coastal artillery when in range", async () => {
+    // Build a port for player1 (required for warship deployment)
+    player1.buildUnit(UnitType.Port, game.ref(coastX, 10), {});
+
+    // Build warship for player1 near the coast
+    const warship = player1.buildUnit(
+      UnitType.Warship,
+      game.ref(coastX + 2, 10),
+      {
+        patrolTile: game.ref(coastX + 2, 10),
+      },
+    );
+    game.addExecution(new WarshipExecution(warship));
+
+    // Give player2 coastal land territory
+    for (let y = 9; y < 12; y++) {
+      const tile = game.ref(coastX - 1, y);
+      if (game.isValidRef(tile) && game.isLand(tile)) {
+        game.conquer(player2, tile);
+      }
+    }
+
+    // Build artillery for player2 on coastal land (within warship range)
+    const artillery = player2.buildUnit(
+      UnitType.Artillery,
+      game.ref(coastX - 1, 10),
+      {
+        patrolTile: game.ref(coastX - 1, 10),
+      },
+    );
+
+    const initialHealth = artillery.health();
+
+    // Run ticks to allow warship to detect and target artillery
+    executeTicks(game, 25);
+
+    // Warship should target the coastal artillery
+    expect(warship.targetUnit()).toBe(artillery);
+    // Artillery should take damage from warship shells
+    expect(artillery.health()).toBeLessThan(initialHealth);
+  });
 });

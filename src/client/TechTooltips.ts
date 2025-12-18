@@ -1,4 +1,5 @@
 import {
+  ARTILLERY_UPGRADES,
   BOMBER_UPGRADES,
   FIGHTER_UPGRADES,
   SUBMARINE_UPGRADES,
@@ -29,12 +30,18 @@ export function getDetailedTechTooltip(techId: string): string {
     // --- LAND ---
     case RESEARCH_TECH_IDS.LAND_ROADS_HOSPITALS:
       return `Unlocks:\n• Roads: Increases unit movement speed, generates passive trade income per connected tile\n• Trade Routes: Trade ships establish international commerce routes for continuous gold income`;
-    case RESEARCH_TECH_IDS.LAND_MILITARY_ACADEMY:
-      return `Unlocks:\n• City Anti-Air: Cities automatically engage enemy aircraft with AA batteries\n• Improved SAM: +35% range to 94.5 pixels, improved accuracy vs bombers/fighters/missiles`;
-    case RESEARCH_TECH_IDS.LAND_SAM_SYSTEMS:
-      return `Unlocks:\n• Advanced SAM: +82.25% range to 127.6 pixels (exceeds H-bomb radius), max interception success\n• Hospitals: Increases city population growth rate (faster troop production & economy)`;
-    case RESEARCH_TECH_IDS.LAND_DOOMSDAY_DEVICE:
-      return `Unlocks:\n• Military Academy: Unlocks Academy structure; each connected Academy increases enemy troop casualties you inflict in land battles (+10% with one, ~+15% with two, up to +20% cap; applies on attack and defense)`;
+    case RESEARCH_TECH_IDS.LAND_MILITARY_ACADEMY: {
+      const a1 = ARTILLERY_UPGRADES[0];
+      return `Unlocks:\n• City Anti-Air: Cities automatically engage enemy aircraft with AA batteries\n• Improved SAM: +35% range to 94.5 pixels, improved accuracy vs bombers/fighters/missiles\n• Artillery Level 1 (${a1.maxHealth} health, ${a1.damageMin}-${a1.damageMax} damage, 60 tile range): Land-based heavy artillery spawns from Factories`;
+    }
+    case RESEARCH_TECH_IDS.LAND_SAM_SYSTEMS: {
+      const a2 = ARTILLERY_UPGRADES[1];
+      return `Unlocks:\n• Advanced SAM: +82.25% range to 127.6 pixels (exceeds H-bomb radius), max interception success\n• Hospitals: Increases city population growth rate (faster troop production & economy)\n• Artillery Level 2 (+20% health to ${a2.maxHealth}, damage ${a2.damageMin}-${a2.damageMax}, 75 tile range)`;
+    }
+    case RESEARCH_TECH_IDS.LAND_DOOMSDAY_DEVICE: {
+      const a3 = ARTILLERY_UPGRADES[2];
+      return `Unlocks:\n• Military Academy: Unlocks Academy structure; each connected Academy increases enemy troop casualties you inflict in land battles (+10% with one, ~+15% with two, up to +20% cap; applies on attack and defense)\n• Artillery Level 3 (+16.7% health to ${a3.maxHealth}, damage ${a3.damageMin}-${a3.damageMax}, 90 tile range)`;
+    }
 
     // --- AIR ---
     case RESEARCH_TECH_IDS.AIR_PARATROOPERS: {

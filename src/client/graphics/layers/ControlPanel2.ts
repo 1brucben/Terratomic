@@ -186,6 +186,7 @@ export class ControlPanel2 extends LitElement implements Layer {
     UnitType.FighterJet,
     UnitType.Warship,
     UnitType.Submarine,
+    UnitType.Artillery,
   ];
 
   private readonly StructureTypes: UnitType[] = [
@@ -837,6 +838,7 @@ export class ControlPanel2 extends LitElement implements Layer {
       UnitType.FighterJet,
       UnitType.Submarine,
       UnitType.Bomber,
+      UnitType.Artillery,
     ];
     if (typeof openFn !== "function") {
       console.warn("UnitUpgradeSettingsModal missing open() method");

@@ -36,9 +36,15 @@ export function aggregateStructureBuildCost(
   desiredLevel: number,
   multiplier: number,
 ): Gold {
-  // For upgradeable units (Bomber, Fighter, Warship, Submarine), use hardcoded total costs
+  // For upgradeable units (Bomber, Fighter, Warship, Submarine, Artillery), use hardcoded total costs
   const unitUpgrades = getUnitUpgradeData(type);
   if (unitUpgrades) {
+    // Check if player has infinite gold enabled (returns 0 for base cost)
+    const baseCost = unitInfoProvider.unitInfo(type).cost(player);
+    if (baseCost === 0n) {
+      // Infinite gold mode - all upgrade costs are also 0
+      return 0n;
+    }
     // UnitUpgrades now stores total cost at each level, just return it directly
     return getUnitLevelCost(type, desiredLevel);
   }

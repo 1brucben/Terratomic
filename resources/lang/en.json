@@ -98,6 +98,8 @@
     "build_port_desc": "Can only be built near water. Allows building Cruisers. Automatically sends cargo ships between ports of your country and other countries (except when trade is stopped), giving gold to both sides. Trade stops automatically when you attack or are attacked by a player. It resumes after 5 minutes or if you become allies. You can manually toggle trading with \"Stop trading\" or \"Start trading\".",
     "build_warship": "Cruiser",
     "build_warship_desc": "Patrols in an area, capturing enemy cargo ships and destroying their Boats (transport ships) and Cruisers. Spawns from the nearest Port and patrols the area you first clicked to build it. You can control Cruisers by attack-clicking on them (see action Attack under Hotkeys) and then attack-clicking the new area you want them to move to.",
+    "build_artillery": "Artillery",
+    "build_artillery_desc": "Land-based heavy artillery that patrols an area and bombards enemy structures within range. Spawns from the nearest Factory and patrols the area you first clicked to build it. You can redirect Artillery by attack-clicking on them and then attack-clicking the new area you want them to move to.",
     "build_silo": "Missile Silo",
     "build_silo_desc": "Allows launching missiles.",
     "build_sam": "SAM Launcher",
@@ -291,6 +293,7 @@
       "fighter_jet": "Fast air unit for intercepting bombers and scouting.",
       "warship": "Patrols in an area, capturing enemy cargo ships and destroying their Boats and Cruisers.",
       "submarine": "Stealthy naval unit. Can launch nukes if researched. Invisible to enemies unless they have detection.",
+      "artillery": "Land-based heavy artillery that patrols an area and bombards enemy structures within range. Spawns from the nearest Factory.",
       "city": "Increases your max population. Useful when you can't expand your territory.",
       "port": "Allows building Cruisers and Submarines. Automatically sends cargo ships to trade with other players.",
       "airfield": "Automatically deploys bombers that fly out to strike enemy structures then return to base.",
@@ -310,6 +313,7 @@
     "defense_post": "Defense Post",
     "port": "Port",
     "warship": "Cruiser",
+    "artillery": "Artillery",
     "submarine": "Submarine",
     "missile_silo": "Missile Silo",
     "sam_launcher": "SAM Launcher",
@@ -430,6 +434,8 @@
     "build_warship_desc": "Set the hotkey to build a Cruiser.",
     "build_submarine": "Build Submarine",
     "build_submarine_desc": "Set the hotkey to build a Submarine.",
+    "build_artillery": "Build Artillery",
+    "build_artillery_desc": "Set the hotkey to build Artillery.",
     "reset": "Reset",
     "unbind": "Unbind",
     "on": "On",
@@ -571,6 +577,7 @@
     "missile_launchers": "Missile launchers",
     "sams": "SAMs",
     "warships": "Cruisers",
+    "artillery": "Artillery",
     "fighter_jets": "Fighter Jets",
     "health": "Health",
     "attitude": "Attitude",
@@ -699,7 +706,10 @@
     "international_trade_origin": "Your cargo truck successfully delivered goods to {destinationName}. You received {goldAmount} gold.",
     "international_trade_destination": "A cargo truck from {originName} arrived. You received {goldAmount} gold.",
     "insurance_refund": "Insurance refund {amount} gold.",
-    "insurance_refund_conquest": "Insurance refund {amount} gold for conquered structure."
+    "insurance_refund_conquest": "Insurance refund {amount} gold for conquered structure.",
+    "artillery_out_of_range_1": "Artillery is out of range (max 60 tiles for level 1)",
+    "artillery_out_of_range_2": "Artillery is out of range (max 75 tiles for level 2)",
+    "artillery_out_of_range_3": "Artillery is out of range (max 90 tiles for level 3)"
   },
   "research_tree": {
     "title": "Research Tree",
@@ -1021,6 +1031,13 @@
         "trade_ship": {
           "name": "Trade Ship",
           "desc": "'<strong>'Requirement:'</strong>' Port<br />Generates gold by trading between your ports and other players' ports (not between your own ports). Passive income source. '<strong>'Tip:'</strong>' Protect trade routes from pirates and enemy submarines."
+        }
+      },
+      "land": {
+        "title": "Land Units",
+        "artillery": {
+          "name": "Artillery",
+          "desc": "'<strong>'Requirement:'</strong>' Factory<br />Land-based heavy artillery that patrols territory and bombards enemy structures within range. Spawns from nearest Factory. '<strong>'Range:'</strong>' 60/75/90 tiles (levels 1/2/3). '<strong>'Upgrades:'</strong>' Higher levels increase range, damage, and durability. '<strong>'Tip:'</strong>' Excellent for softening enemy defenses before ground assault."
         }
       },
       "air": {

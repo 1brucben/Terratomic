@@ -39,6 +39,7 @@ import {
   PlayerType,
   Relation,
   Team,
+  TerrainType,
   TerraNullius,
   Tick,
   Unit,
@@ -413,6 +414,10 @@ export class PlayerImpl implements Player {
       case UpgradeType.SubmarineLevel3:
         unitTypes.push(UnitType.Submarine);
         break;
+      case UpgradeType.ArtilleryLevel2:
+      case UpgradeType.ArtilleryLevel3:
+        unitTypes.push(UnitType.Artillery);
+        break;
       default:
         return;
     }
@@ -438,6 +443,8 @@ export class PlayerImpl implements Player {
           return this.mg.config().warshipLevelMaxHealth(targetLevel);
         case UnitType.Submarine:
           return this.mg.config().submarineLevelMaxHealth(targetLevel);
+        case UnitType.Artillery:
+          return this.mg.config().artilleryLevelMaxHealth(targetLevel);
         default:
           return this.mg.unitInfo(type).maxHealth ?? 0;
       }
@@ -1493,6 +1500,8 @@ export class PlayerImpl implements Player {
       case UnitType.Submarine:
       case UnitType.Warship:
         return this.warshipSpawn(targetTile);
+      case UnitType.Artillery:
+        return this.artillerySpawn(targetTile);
       case UnitType.Shell:
       case UnitType.SAMMissile:
       case UnitType.AABullet:
@@ -1596,6 +1605,32 @@ export class PlayerImpl implements Player {
       return false;
     }
     return waterNeighbors[0];
+  }
+
+  artillerySpawn(tile: TileRef): TileRef | false {
+    if (this.mg.isOcean(tile)) {
+      return false;
+    }
+    const spawns = this.units(UnitType.Factory).sort(
+      (a, b) =>
+        this.mg.manhattanDist(a.tile(), tile) -
+        this.mg.manhattanDist(b.tile(), tile),
+    );
+    if (spawns.length === 0) {
+      return false;
+    }
+    const closestFactory = spawns[0];
+    const landNeighbors = this.mg
+      .neighbors(closestFactory.tile())
+      .filter(
+        (t) =>
+          !this.mg.isOcean(t) && this.mg.terrainType(t) !== TerrainType.Barrier,
+      );
+    if (landNeighbors.length === 0) {
+      // Factory has no adjacent pathable land
+      return false;
+    }
+    return landNeighbors[0];
   }
 
   landBasedStructureSpawn(

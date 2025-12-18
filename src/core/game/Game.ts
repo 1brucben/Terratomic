@@ -176,6 +176,7 @@ export enum UnitType {
   FighterJet = "Fighter Jet", // Represents a Fighter Jet unit.
   DoomsdayDevice = "Doomsday Device",
   AABullet = "AA Bullet", // City anti-aircraft bullet for targeting planes
+  Artillery = "Artillery", // Land-based artillery unit
 }
 
 export enum UpgradeType {
@@ -218,6 +219,10 @@ export enum UpgradeType {
 
   // Land Upgrades
   MilitaryAcademy = "MilitaryAcademy",
+  // Artillery upgrades (Land-2 tech unlocks Artillery)
+  ArtilleryResearch = "ArtilleryResearch",
+  ArtilleryLevel2 = "ArtilleryLevel2",
+  ArtilleryLevel3 = "ArtilleryLevel3",
 
   // Nuclear Upgrades
   NuclearFission = "NuclearFission",
@@ -264,6 +269,10 @@ export interface UnitParamsMap {
   };
 
   [UnitType.Submarine]: {
+    patrolTile: TileRef;
+  };
+
+  [UnitType.Artillery]: {
     patrolTile: TileRef;
   };
 

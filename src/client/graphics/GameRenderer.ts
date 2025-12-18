@@ -6,6 +6,7 @@ import { PerformanceMetrics } from "../utilities/PerformanceMetrics";
 import { TransformHandler } from "./TransformHandler";
 import { UIState } from "./UIState";
 import { AABulletLayer } from "./layers/AABulletLayer";
+import { ArtilleryLayer } from "./layers/ArtilleryLayer";
 import { AttackWarningOverlay } from "./layers/AttackWarningOverlay";
 import { BuildMenu } from "./layers/BuildMenu";
 import { CargoTruckLayer } from "./layers/CargoTruckLayer";
@@ -265,6 +266,7 @@ export function createRenderer(
     // World-space ring overlay for Defense Posts/SAMs
     new RangeOverlayLayer(game, eventBus, transformHandler, uiState),
     structureLayer,
+    new ArtilleryLayer(game, eventBus, transformHandler),
     new UnitLayer(game, eventBus, transformHandler, uiState),
     new AABulletLayer(game, transformHandler),
     new FxLayer(game, transformHandler),
