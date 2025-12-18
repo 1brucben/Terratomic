@@ -96,6 +96,7 @@ export class MapPlaylist {
       startingGold: 0,
       goldMultiplier: 1,
       researchAllTechs: isFastMode,
+      chatEnabled: false,
     } satisfies GameConfig;
   }
 

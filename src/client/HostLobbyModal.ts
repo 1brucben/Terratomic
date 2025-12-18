@@ -20,6 +20,7 @@ import type {
   ClientInfo,
   GameConfig,
   GameInfo,
+  LobbyMessage,
   TeamCountConfig,
 } from "../core/Schemas";
 import {
@@ -31,6 +32,7 @@ import { generateID } from "../core/Util";
 import "./components/baseComponents/Modal";
 import "./components/Difficulties";
 import { DifficultyDescription } from "./components/Difficulties";
+import "./components/LobbyChatPanel";
 import "./components/Maps";
 import type { JoinLobbyEvent } from "./Main";
 import { renderUnitTypeOptions } from "./utilities/RenderUnitTypeOptions";
@@ -77,6 +79,8 @@ export class HostLobbyModal extends LitElement {
   @state() private playerTeamAssignments: Record<string, number | null> = {};
   @state() private updatingTeamForClients: Set<string> = new Set();
   @state() private showUnitSettings = false; // Closed by default for Host
+  @state() private chatEnabled: boolean = false;
+  @state() private lobbyMessages: LobbyMessage[] = [];
 
   private playersInterval: NodeJS.Timeout | null = null;
   private botsUpdateTimer: number | null = null;
@@ -97,6 +101,9 @@ export class HostLobbyModal extends LitElement {
           height: 75vh;
           overflow: hidden;
         }
+        .sp-layout.with-chat {
+          grid-template-columns: 1fr 1fr 280px; /* Add chat column */
+        }
 
         @media (max-width: 1024px) {
           .sp-layout {
@@ -105,9 +112,50 @@ export class HostLobbyModal extends LitElement {
             max-height: 85vh;
             overflow-y: auto;
           }
+          .sp-layout.with-chat {
+            grid-template-columns: 1fr;
+          }
           .sp-map-col {
             height: 40vh;
           }
+        }
+
+        /* Chat Column (Right) */
+        .sp-chat-col {
+          background: rgba(0, 0, 0, 0.2);
+          border-radius: 12px;
+          padding: 16px;
+          display: flex;
+          flex-direction: column;
+          max-height: 75vh;
+          overflow: hidden;
+        }
+        .sp-chat-col .sp-title {
+          margin-bottom: 12px;
+          flex-shrink: 0;
+        }
+        .sp-chat-col lobby-chat-panel {
+          flex: 1;
+          display: flex;
+          flex-direction: column;
+          min-height: 0;
+        }
+        .sp-chat-col .lcp-container {
+          flex: 1;
+          display: flex;
+          flex-direction: column;
+          max-height: none;
+          height: 100%;
+          min-height: 0;
+        }
+        .sp-chat-col .lcp-messages {
+          flex: 1;
+          height: auto;
+          min-height: 200px;
+          overflow-y: auto;
+        }
+        .sp-chat-col .lcp-input-row {
+          flex-shrink: 0;
         }
 
         /* Map Column (Left) */
@@ -590,7 +638,7 @@ export class HostLobbyModal extends LitElement {
         max-height="85vh"
         content-overflow="hidden"
       >
-        <div class="sp-layout">
+        <div class="sp-layout ${this.chatEnabled ? "with-chat" : ""}">
           <!-- LEFT COLUMN: Maps -->
           <div class="sp-map-col">
             <!-- Lobby ID Header -->
@@ -944,6 +992,14 @@ export class HostLobbyModal extends LitElement {
                     "host_modal.infinite_troops",
                     this.handleInfiniteTroopsChange,
                   )}
+                  ${this.renderToggle(
+                    this.chatEnabled,
+                    "host_modal.enable_chat",
+                    (e: any) => {
+                      this.chatEnabled = e.target.checked;
+                      this.putGameConfig();
+                    },
+                  )}
                 </div>
               </div>
 
@@ -1014,6 +1070,21 @@ export class HostLobbyModal extends LitElement {
             </div>
           </div>
           <!-- End Right Col -->
+
+          <!-- Chat Column (Third Col) -->
+          ${this.chatEnabled
+            ? html`<div class="sp-chat-col">
+                <div class="sp-title">${translateText("chat")}</div>
+                <lobby-chat-panel
+                  .messages=${this.lobbyMessages}
+                  .clientID=${this.lobbyCreatorClientID}
+                  .gameID=${this.lobbyId}
+                  .username=${(
+                    document.querySelector("username-input") as any
+                  )?.getCurrentUsername?.() ?? "Host"}
+                ></lobby-chat-panel>
+              </div>`
+            : nothing}
         </div>
       </o-modal>
     `;
@@ -1514,6 +1585,7 @@ export class HostLobbyModal extends LitElement {
           peaceTimerDurationMinutes: this.selectedPeaceTimerDuration,
           startingGold: this.startingGold,
           goldMultiplier: this.goldMultiplier,
+          chatEnabled: this.chatEnabled,
         } satisfies Partial<GameConfig>),
       },
     );
@@ -1628,6 +1700,9 @@ export class HostLobbyModal extends LitElement {
         if (data.gameConfig?.researchAllTechs !== undefined) {
           this.researchAllTechs = Boolean(data.gameConfig.researchAllTechs);
         }
+
+        // Update lobby messages
+        this.lobbyMessages = data.messages ?? [];
       });
   }
 

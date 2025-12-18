@@ -54,6 +54,7 @@ export class GameManager {
           gameConfig?.peaceTimerDurationMinutes ?? PeaceTimerDuration.None,
         startingGold: 0,
         goldMultiplier: gameConfig?.goldMultiplier ?? 1,
+        chatEnabled: false,
         ...gameConfig,
       },
       creatorClientID,

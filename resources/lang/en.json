@@ -243,6 +243,7 @@
     "infinite_gold_tooltip": "Never run out of gold",
     "infinite_troops": "Infinite Troops",
     "infinite_troops_tooltip": "Unlimited troop capacity",
+    "enable_chat": "Enable Lobby Chat",
     "peace_timer": "Protected Start",
     "peace_timer_tooltip": "Players cannot attack each other for this duration at game start",
     "peace_timer_none": "None",
