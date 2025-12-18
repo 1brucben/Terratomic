@@ -434,6 +434,8 @@
     "build_warship_desc": "Set the hotkey to build a Cruiser.",
     "build_submarine": "Build Submarine",
     "build_submarine_desc": "Set the hotkey to build a Submarine.",
+    "build_artillery": "Build Artillery",
+    "build_artillery_desc": "Set the hotkey to build Artillery.",
     "reset": "Reset",
     "unbind": "Unbind",
     "on": "On",
