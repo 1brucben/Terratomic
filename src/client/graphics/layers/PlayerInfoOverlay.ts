@@ -232,6 +232,7 @@ export class PlayerInfoOverlay extends LitElement implements Layer {
       UnitType.Factory,
       UnitType.Port,
       UnitType.Warship,
+      UnitType.Artillery,
       UnitType.MissileSilo,
       UnitType.SAMLauncher,
       UnitType.Airfield,
@@ -247,7 +248,7 @@ export class PlayerInfoOverlay extends LitElement implements Layer {
       [UnitType.Factory]: "/images/factoryicon.png",
       [UnitType.Port]: "/images/PortIcon.svg",
       [UnitType.Warship]: "/images/BattleshipIconWhite.svg",
-      [UnitType.Artillery]: "/images/artillary-battery.png",
+      [UnitType.Artillery]: "/images/artillery-battery.png",
       [UnitType.MissileSilo]: "/images/MissileSiloIconWhite.svg",
       [UnitType.SAMLauncher]: "/images/SamLauncherIconWhite.svg",
       [UnitType.Airfield]: "/images/AirfieldIcon.svg",
@@ -356,7 +357,7 @@ export class PlayerInfoOverlay extends LitElement implements Layer {
           </div>
 
           <!-- Right Column (Box 1 Refactored) -->
-          <div class="grid grid-cols-12 gap-1">
+          <div class="grid grid-cols-[repeat(13,minmax(0,1fr))] gap-1">
             ${unitTypes.map((unitType) => {
               const iconSrc = unitIconMap[unitType];
               if (!iconSrc) return null;
