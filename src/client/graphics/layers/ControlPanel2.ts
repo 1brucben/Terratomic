@@ -33,12 +33,8 @@ import { ToggleUpgradeModeEvent } from "../../events/ToggleUpgradeModeEvent";
 import { AttackRatioEvent } from "../../InputHandler";
 import "../../StatisticsModal"; // ensure statistics modal is registered
 import {
-  SendAllianceRequestIntentEvent,
   SendBomberIntentEvent,
-  SendBreakAllianceIntentEvent,
-  SendDeclareWarIntentEvent,
   SendEmbargoIntentEvent,
-  SendPeaceRequestIntentEvent,
   SendSetInvestmentRateEvent,
   SendSetResearchInvestmentEvent,
   SendSetRoadInvestmentEvent,
@@ -104,8 +100,7 @@ export class ControlPanel2 extends LitElement implements Layer {
   private init_: boolean = false;
 
   @state()
-  private activeTab: "Build" | "Attack" | "Economy" | "Trade" | "Diplomacy" =
-    "Build";
+  private activeTab: "Build" | "Attack" | "Economy" | "Trade" = "Build";
 
   @state()
   private _hasAirfields: boolean = false;
@@ -862,9 +857,7 @@ export class ControlPanel2 extends LitElement implements Layer {
     return el;
   }
 
-  private _changeTab(
-    tab: "Build" | "Attack" | "Economy" | "Trade" | "Diplomacy",
-  ) {
+  private _changeTab(tab: "Build" | "Attack" | "Economy" | "Trade") {
     this.activeTab = tab;
     if (this.uiState.pendingBuildUnitType) {
       this.uiState.pendingBuildUnitType = null;
@@ -1127,16 +1120,6 @@ export class ControlPanel2 extends LitElement implements Layer {
             data-i18n-title="control_panel2.trade_tab_tooltip"
           >
             Trade
-          </button>
-          <button
-            class="py-2 px-4 text-center font-ocr uppercase cp2-tab ${this
-              .activeTab === "Diplomacy"
-              ? "active"
-              : ""}"
-            @click=${() => this._changeTab("Diplomacy")}
-            data-i18n-title="control_panel2.diplomacy_tab_tooltip"
-          >
-            Diplomacy
           </button>
           <div class="ml-auto flex items-center">
             <button
@@ -1704,8 +1687,7 @@ export class ControlPanel2 extends LitElement implements Layer {
                 </div>
               `
             : ""}
-          ${this.activeTab === "Trade" ? this._renderTradeTab() : ""}
-          ${this.activeTab === "Diplomacy" ? this.renderDiplomacyTab() : ""}
+          ${this.activeTab === "Trade" ? this._renderTradeTab() : ""} ${""}
         </div>
       </div>
     `;
@@ -1899,220 +1881,8 @@ export class ControlPanel2 extends LitElement implements Layer {
   }
 
   private renderDiplomacyTab() {
-    const me = this.game.myPlayer();
-    if (!me) return html``;
-
-    const players = this.game
-      .players()
-      .filter(
-        (p) =>
-          p.isAlive() &&
-          p.id() !== me.id() &&
-          (p.type() === PlayerType.Human || p.type() === PlayerType.FakeHuman),
-      );
-
-    // Icons and colors reused from radial menu
-    const warIcon = "/images/waricon.png";
-    const peaceIcon = "/images/dove.png";
-    const allianceIcon = "/images/AllianceIconWhite.svg";
-    const traitorIcon = "/images/TraitorIconWhite.svg";
-
-    // Colors matching radial menu
-    const warColor = "#8B0000"; // dark red for declare war
-    const peaceColor = "#e5e7eb"; // light gray for peace
-    const allianceColor = "#53ac75"; // green for alliance
-    const betrayColor = "#c74848"; // red for betray
-
-    const iconBtn = (
-      src: string,
-      bgColor: string,
-      titleKey: string,
-      onClick: () => void,
-    ) => html`
-      <button
-        class="inline-flex items-center justify-center border-2 border-[var(--ui-panel-border)] rounded px-1 py-1 hover:opacity-80 hover:scale-105 transition-all"
-        style="background-color: ${bgColor};"
-        data-i18n-title=${titleKey}
-        @click=${onClick}
-      >
-        <img src=${src} style="width:16px;height:16px;object-fit:contain;" />
-      </button>
-    `;
-
-    const renderName = (p: PlayerView) => html`
-      <div class="text-sm text-gray-300 truncate" title="${p.name()}">
-        ${p.name()}
-      </div>
-    `;
-
-    const renderBtn = (btn: ReturnType<typeof html>) => html`
-      <div class="flex justify-center">${btn}</div>
-    `;
-
-    const renderEmpty = () => html`<div>&nbsp;</div>`;
-
-    // Build rows for each player
-    const rows = players.map((p) => {
-      const atWar = me.isAtWarWith(p);
-      const allied = me.isAlliedWith(p);
-      const neutral = !atWar && !allied;
-
-      // At War column cell
-      let atWarCell;
-      if (atWar) {
-        atWarCell = renderName(p);
-      } else if (neutral) {
-        atWarCell = renderBtn(
-          iconBtn(
-            warIcon,
-            warColor,
-            "control_panel2.diplomacy_declare_war_tooltip",
-            () => this.eventBus.emit(new SendDeclareWarIntentEvent(me, p)),
-          ),
-        );
-      } else if (allied) {
-        atWarCell = renderBtn(
-          iconBtn(
-            traitorIcon,
-            betrayColor,
-            "control_panel2.diplomacy_betray_tooltip",
-            () => this.eventBus.emit(new SendBreakAllianceIntentEvent(me, p)),
-          ),
-        );
-      } else {
-        atWarCell = renderEmpty();
-      }
-
-      // Allied column cell
-      let alliedCell;
-      if (allied) {
-        alliedCell = renderName(p);
-      } else {
-        // Can request alliance from both neutral and at-war players
-        alliedCell = renderBtn(
-          iconBtn(
-            allianceIcon,
-            allianceColor,
-            "control_panel2.diplomacy_request_alliance_tooltip",
-            () => this.eventBus.emit(new SendAllianceRequestIntentEvent(me, p)),
-          ),
-        );
-      }
-
-      // Neutral column cell
-      let neutralCell;
-      if (neutral) {
-        neutralCell = renderName(p);
-      } else if (atWar) {
-        neutralCell = renderBtn(
-          iconBtn(
-            peaceIcon,
-            peaceColor,
-            "control_panel2.diplomacy_request_peace_tooltip",
-            () => this.eventBus.emit(new SendPeaceRequestIntentEvent(me, p)),
-          ),
-        );
-      } else {
-        neutralCell = renderEmpty();
-      }
-
-      return html`
-        <div class="flex w-full py-1 border-b border-gray-600/50">
-          <div class="w-1/3 px-1 flex items-center justify-center">
-            ${atWarCell}
-          </div>
-          <div class="w-1/3 px-1 flex items-center justify-center">
-            ${alliedCell}
-          </div>
-          <div class="w-1/3 px-1 flex items-center justify-center">
-            ${neutralCell}
-          </div>
-        </div>
-      `;
-    });
-
-    // Bulk action handlers
-    const declareWarOnAll = () => {
-      players.forEach((p) => {
-        if (me.isAlliedWith(p)) {
-          // Break alliance first (betray), then declare war
-          this.eventBus.emit(new SendBreakAllianceIntentEvent(me, p));
-        }
-        if (!me.isAtWarWith(p)) {
-          this.eventBus.emit(new SendDeclareWarIntentEvent(me, p));
-        }
-      });
-    };
-
-    const requestAllianceWithAll = () => {
-      players.forEach((p) => {
-        if (!me.isAlliedWith(p)) {
-          this.eventBus.emit(new SendAllianceRequestIntentEvent(me, p));
-        }
-      });
-    };
-
-    const requestPeaceWithAll = () => {
-      players.forEach((p) => {
-        if (me.isAtWarWith(p)) {
-          this.eventBus.emit(new SendPeaceRequestIntentEvent(me, p));
-        }
-      });
-    };
-
-    // Small icon button for header bulk actions
-    const headerBtn = (
-      icon: string,
-      bgColor: string,
-      titleKey: string,
-      onClick: () => void,
-    ) => html`
-      <button
-        class="ml-1 inline-flex items-center justify-center w-5 h-5 rounded hover:opacity-80 hover:scale-105 transition-all"
-        style="background-color: ${bgColor};"
-        data-i18n-title=${titleKey}
-        @click=${onClick}
-      >
-        <img src=${icon} style="width:12px;height:12px;object-fit:contain;" />
-      </button>
-    `;
-
-    return html`
-      <div class="flex flex-col w-full h-full">
-        <!-- Header row -->
-        <div class="flex w-full mb-2 border-b border-gray-600/50 pb-2">
-          <div class="w-1/3 px-1 flex items-center justify-center">
-            <span class="font-bold text-gray-300">At War</span>
-            ${headerBtn(
-              warIcon,
-              warColor,
-              "control_panel2.diplomacy_war_all_tooltip",
-              declareWarOnAll,
-            )}
-          </div>
-          <div class="w-1/3 px-1 flex items-center justify-center">
-            <span class="font-bold text-gray-300">Allied</span>
-            ${headerBtn(
-              allianceIcon,
-              allianceColor,
-              "control_panel2.diplomacy_ally_all_tooltip",
-              requestAllianceWithAll,
-            )}
-          </div>
-          <div class="w-1/3 px-1 flex items-center justify-center">
-            <span class="font-bold text-gray-300">Neutral</span>
-            ${headerBtn(
-              peaceIcon,
-              peaceColor,
-              "control_panel2.diplomacy_peace_all_tooltip",
-              requestPeaceWithAll,
-            )}
-          </div>
-        </div>
-        <!-- Player rows -->
-        ${rows}
-      </div>
-    `;
+    // Diplomacy tab removed - relations now shown via NameLayer icons
+    return html``;
   }
 
   private _handleEmbargoAll() {

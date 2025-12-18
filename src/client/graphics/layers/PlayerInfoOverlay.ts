@@ -178,10 +178,23 @@ export class PlayerInfoOverlay extends LitElement implements Layer {
       let displayRelation = false;
       let relationClass = "";
       let relationName = "";
+      // Icons are not shown in overlay; text only
 
       if (myPlayer.isFriendly(player)) {
         relationClass = this.getRelationClass(Relation.Friendly);
         relationName = translateText("relation.allied");
+        displayRelation = true;
+      } else if (myPlayer.isAtWarWith(player)) {
+        relationClass = "text-red-500";
+        relationName = translateText("relation.hostile");
+        displayRelation = true;
+      } else if (
+        !myPlayer.isAlliedWith(player) &&
+        !myPlayer.isAtWarWith(player)
+      ) {
+        // Neutral
+        relationClass = "text-yellow-300";
+        relationName = translateText("relation.neutral");
         displayRelation = true;
       } else if (player.type() === PlayerType.FakeHuman) {
         const relation =
