@@ -39,10 +39,10 @@ export function aggregateStructureBuildCost(
   // For upgradeable units (Bomber, Fighter, Warship, Submarine, Artillery), use hardcoded total costs
   const unitUpgrades = getUnitUpgradeData(type);
   if (unitUpgrades) {
-    // Check if player has infinite gold enabled (returns 0 for base cost)
-    const baseCost = unitInfoProvider.unitInfo(type).cost(player);
-    if (baseCost === 0n) {
-      // Infinite gold mode - all upgrade costs are also 0
+    // Check if infinite gold is enabled for human players
+    const base = unitInfoProvider.unitInfo(type).cost(player);
+    if (base === 0n) {
+      // If base cost is 0 (infinite gold enabled), return 0 for upgrades too
       return 0n;
     }
     // UnitUpgrades now stores total cost at each level, just return it directly
@@ -74,8 +74,8 @@ type AirfieldCostProvider = {
  * Now uses hardcoded costs from UnitUpgrades instead of calculating.
  */
 export function computeBomberUpgradeCost(
-  _provider: AirfieldCostProvider,
-  _player: any,
+  provider: AirfieldCostProvider,
+  player: any,
   bomberLevel: number,
   _airfieldLevel: number = 1,
 ): Gold {
@@ -84,6 +84,12 @@ export function computeBomberUpgradeCost(
     Math.max(1, bomberLevel),
   );
   if (bLevel <= 1) return 0n;
+  // Check if infinite gold is enabled for human players via base bomber cost
+  const baseBomberCost = provider.unitInfo(UnitType.Bomber).cost(player);
+  if (baseBomberCost === 0n) {
+    // If base cost is 0 (infinite gold enabled), return 0 for upgrades too
+    return 0n;
+  }
   // Use hardcoded total cost from UnitUpgrades
   return getUnitLevelCost(UnitType.Bomber, bLevel);
 }
