@@ -412,28 +412,24 @@ export class TerritoryLayer implements Layer {
 
       // Only call putImageData if something actually changed
       if (this.isDirty && this.dirtyRect) {
-        const [topLeft, bottomRight] =
-          this.transformHandler.screenBoundingRect();
-        // Intersect dirty rect with visible viewport
-        const vx0 = Math.max(0, topLeft.x, this.dirtyRect.x0);
-        const vy0 = Math.max(0, topLeft.y, this.dirtyRect.y0);
-        const vx1 = Math.min(this._width - 1, bottomRight.x, this.dirtyRect.x1);
-        const vy1 = Math.min(
-          this._height - 1,
-          bottomRight.y,
-          this.dirtyRect.y1,
-        );
+        // Apply the dirty rect directly without viewport clipping
+        // The canvas needs to stay in sync with ImageData even for off-screen areas
+        // so that when the user zooms out, those areas are already rendered
+        const x0 = Math.max(0, this.dirtyRect.x0);
+        const y0 = Math.max(0, this.dirtyRect.y0);
+        const x1 = Math.min(this._width - 1, this.dirtyRect.x1);
+        const y1 = Math.min(this._height - 1, this.dirtyRect.y1);
 
-        const w = vx1 - vx0 + 1;
-        const h = vy1 - vy0 + 1;
+        const w = x1 - x0 + 1;
+        const h = y1 - y0 + 1;
 
         if (w > 0 && h > 0) {
           this.context.putImageData(
             this.alternativeView ? this.alternativeImageData : this.imageData,
             0,
             0,
-            vx0,
-            vy0,
+            x0,
+            y0,
             w,
             h,
           );
