@@ -135,7 +135,7 @@ export class PlayerImpl implements Player {
     structures: UnitType[];
     preferClosest: boolean;
   } | null = null;
-  private _autoBombingEnabled: boolean = false;
+  private _autoBombingEnabled: boolean = true;
   public bombersOnTarget = new Map<TileRef, number>();
 
   // Cached capital (geographic center) of player's territory

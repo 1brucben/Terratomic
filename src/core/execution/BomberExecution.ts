@@ -372,11 +372,17 @@ export class BomberExecution implements Execution {
     ) {
       const targetPlayer = this.mg.player(intent.targetPlayerID);
       if (targetPlayer && this.origOwner.isAtWarWith(targetPlayer)) {
-        return this.findTargetFromQueue(
+        const target = this.findTargetFromQueue(
           targetPlayer,
           intent.structures,
           intent.preferClosest,
         );
+        // If we found a target in manual mode, use it
+        if (target) {
+          return target;
+        }
+        // If no targets remain, clear the manual intent and fall through to auto-bombing
+        this.origOwner.setBomberIntent(null);
       }
     } // Auto-bombing mode
     if (!this.origOwner.isAutoBombingEnabled()) {
