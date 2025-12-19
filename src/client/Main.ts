@@ -34,6 +34,7 @@ import { NewsButton } from "./components/NewsButton";
 import "./components/baseComponents/Button";
 import { OButton } from "./components/baseComponents/Button";
 import "./components/baseComponents/Modal";
+import "./graphics/layers/TutorialToast";
 import { isLoggedIn } from "./jwt";
 import "./styles.css";
 import { applyUiPalette, getUiPalette } from "./theme/UiPaletteLoader";

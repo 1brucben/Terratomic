@@ -19,10 +19,36 @@ export class ResearchToggleButton extends LitElement implements Layer {
   @state()
   private _isModalOpen = false;
 
+  @state()
+  private _highlightActive = false;
+
   private modalRef: ResearchTreeModal | null = null;
 
   createRenderRoot() {
     return this; // inherit global styles / Tailwind scale adjustments
+  }
+
+  private readonly handleTutorialHighlight = (event: Event) => {
+    const detail = (event as CustomEvent<{ target: string; active: boolean }>)
+      .detail;
+    if (!detail || detail.target !== "research-tree-button") {
+      return;
+    }
+    this._highlightActive = Boolean(detail.active);
+    this.requestUpdate();
+  };
+
+  connectedCallback(): void {
+    super.connectedCallback();
+    window.addEventListener("tutorial-highlight", this.handleTutorialHighlight);
+  }
+
+  disconnectedCallback(): void {
+    window.removeEventListener(
+      "tutorial-highlight",
+      this.handleTutorialHighlight,
+    );
+    super.disconnectedCallback();
   }
 
   init() {
@@ -87,6 +113,28 @@ export class ResearchToggleButton extends LitElement implements Layer {
 
     return html`
       <style>
+        @keyframes tutorial-bg-flicker {
+          0% {
+            filter: brightness(1);
+          }
+          25% {
+            filter: brightness(1.3);
+          }
+          50% {
+            filter: brightness(1);
+          }
+          75% {
+            filter: brightness(1.3);
+          }
+          100% {
+            filter: brightness(1);
+          }
+        }
+
+        .tutorial-highlight-flicker {
+          animation: tutorial-bg-flicker 1.2s ease-in-out infinite;
+        }
+
         .research-vertical-button {
           position: fixed;
           left: 0;

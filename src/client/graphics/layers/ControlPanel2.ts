@@ -98,6 +98,12 @@ export class ControlPanel2 extends LitElement implements Layer {
   private activeTab: "Build" | "Attack" | "Economy" = "Build";
 
   @state()
+  private _highlightActive = false;
+
+  @state()
+  private _highlightEconomy = false;
+
+  @state()
   private _hasAirfields: boolean = false;
 
   @state()
@@ -228,6 +234,25 @@ export class ControlPanel2 extends LitElement implements Layer {
     this.emitInvestmentSync();
   };
 
+  private readonly handleTutorialHighlight = (event: Event) => {
+    const detail = (event as CustomEvent<{ target: string; active: boolean }>)
+      .detail;
+    if (!detail) {
+      return;
+    }
+    if (detail.target === "command-center") {
+      this._highlightActive = Boolean(detail.active);
+      this.requestUpdate();
+    } else if (detail.target === "command-center-economy") {
+      this._highlightEconomy = Boolean(detail.active);
+      // Switch to Economy tab when highlighting it
+      if (detail.active && this.activeTab !== "Economy") {
+        this._changeTab("Economy");
+      }
+      this.requestUpdate();
+    }
+  };
+
   connectedCallback(): void {
     super.connectedCallback();
     window.addEventListener(
@@ -238,6 +263,7 @@ export class ControlPanel2 extends LitElement implements Layer {
       INVESTMENT_SYNC_REQUEST_EVENT,
       this.investmentSyncRequestHandler,
     );
+    window.addEventListener("tutorial-highlight", this.handleTutorialHighlight);
   }
 
   disconnectedCallback(): void {
@@ -248,6 +274,10 @@ export class ControlPanel2 extends LitElement implements Layer {
     window.removeEventListener(
       INVESTMENT_SYNC_REQUEST_EVENT,
       this.investmentSyncRequestHandler,
+    );
+    window.removeEventListener(
+      "tutorial-highlight",
+      this.handleTutorialHighlight,
     );
     super.disconnectedCallback();
   }
@@ -1077,11 +1107,35 @@ export class ControlPanel2 extends LitElement implements Layer {
           position: relative;
           top: -1px; /* nudge up to visually center with text */
         }
+
+        @keyframes tutorial-bg-flicker {
+          0% {
+            filter: brightness(1);
+          }
+          25% {
+            filter: brightness(1.3);
+          }
+          50% {
+            filter: brightness(1);
+          }
+          75% {
+            filter: brightness(1.3);
+          }
+          100% {
+            filter: brightness(1);
+          }
+        }
+
+        .tutorial-highlight-flicker {
+          animation: tutorial-bg-flicker 1.2s ease-in-out infinite;
+        }
       </style>
       <div
         class="${this._isVisible && this.isOpen
           ? `w-full h-[260px] text-sm lg:text-m submarine-panel border-2 border-gray-700 p-2 pr-3 lg:p-4 flex flex-col transition-all duration-300 ml-2 lg:ml-0`
-          : "hidden"}"
+          : "hidden"} ${this._highlightActive
+          ? "tutorial-highlight-flicker"
+          : ""}"
         style="box-shadow: inset 0 0 18px rgba(2, 8, 20, 0.8), 0 2px 6px rgba(0, 0, 0, 0.5);"
         @contextmenu=${(e: MouseEvent) => e.preventDefault()}
       >
@@ -1271,7 +1325,12 @@ export class ControlPanel2 extends LitElement implements Layer {
             : ""}
           ${this.activeTab === "Economy"
             ? html`
-                <div class="grid grid-cols-2 gap-x-3 gap-y-1">
+                <div
+                  class="grid grid-cols-2 gap-x-3 gap-y-1 ${this
+                    ._highlightEconomy
+                    ? "tutorial-highlight-flicker"
+                    : ""}"
+                >
                   <!-- Top-Left: Production -->
                   <div class="relative">
                     <label

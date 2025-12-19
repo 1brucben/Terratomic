@@ -1,6 +1,7 @@
 import { LitElement, html } from "lit";
 import { customElement, state } from "lit/decorators.js";
 import { GameView } from "../../../core/game/GameView";
+import { UserSettings } from "../../../core/game/UserSettings";
 import { translateText } from "../../Utils";
 import { Layer } from "./Layer";
 
@@ -12,12 +13,15 @@ export class HeadsUpMessage extends LitElement implements Layer {
   @state()
   private isVisible = false;
 
+  private settings = new UserSettings();
+
   createRenderRoot() {
     return this;
   }
 
   init() {
-    this.isVisible = true;
+    // Hide if tutorials are enabled (spawn_welcome tip covers this)
+    this.isVisible = !this.settings.tutorialEnabled();
     this.requestUpdate();
   }
 

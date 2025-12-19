@@ -40,6 +40,8 @@ import { TechUnlockNotification } from "./layers/TechUnlockNotification";
 import { TerrainLayer } from "./layers/TerrainLayer";
 import { TerritoryLayer } from "./layers/TerritoryLayer";
 import { TopBar } from "./layers/TopBar";
+import { TutorialToast } from "./layers/TutorialToast";
+import { TutorialTriggers } from "./layers/TutorialTriggers";
 import { UILayer } from "./layers/UILayer";
 import { UnitLayer } from "./layers/UnitLayer";
 import { WinModal } from "./layers/WinModal";
@@ -155,6 +157,15 @@ export function createRenderer(
   }
   techUnlockNotification.eventBus = eventBus;
   techUnlockNotification.game = game;
+
+  const tutorialToast = document.querySelector(
+    "tutorial-toast",
+  ) as TutorialToast;
+  if (!(tutorialToast instanceof TutorialToast)) {
+    console.error("TutorialToast element not found in the DOM");
+  }
+  tutorialToast.eventBus = eventBus;
+  tutorialToast.game = game;
 
   const eventsDisplay = document.querySelector(
     "events-display",
@@ -298,6 +309,8 @@ export function createRenderer(
     controlPanel2,
     researchToggleButton,
     techUnlockNotification,
+    tutorialToast,
+    new TutorialTriggers(game, eventBus),
     playerInfo,
     winModel,
     optionsMenu,

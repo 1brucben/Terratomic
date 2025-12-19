@@ -9,6 +9,7 @@ import {
 import { GameView } from "../../../core/game/GameView";
 import { getTechNodes } from "../../../core/tech/ResearchTree";
 import { getTechMeta } from "../../../core/tech/TechEffects";
+import { notificationQueue } from "../../NotificationQueue";
 import { Layer } from "./Layer";
 
 type TechNotificationPayload = {
@@ -48,6 +49,15 @@ export class TechUnlockNotification extends LitElement implements Layer {
 
   init() {
     this.seedFromPlayer();
+    // Disable tech notifications entirely in "all techs unlocked" mode
+    if (!this.techNotificationsEnabled()) {
+      return;
+    }
+    notificationQueue.onShow((notification) => {
+      if (notification.type === "tech") {
+        this.showTechNotification(notification.payload);
+      }
+    });
   }
 
   shouldTransform(): boolean {
@@ -55,6 +65,13 @@ export class TechUnlockNotification extends LitElement implements Layer {
   }
 
   tick() {
+    // Short-circuit in all-tech mode to avoid processing updates
+    if (!this.techNotificationsEnabled()) {
+      if (this.activePlayerId !== null) {
+        this.resetState();
+      }
+      return;
+    }
     const player = this.game.myPlayer();
     if (!player || !player.isAlive()) {
       if (this.activePlayerId !== null) {
@@ -81,6 +98,7 @@ export class TechUnlockNotification extends LitElement implements Layer {
   }
 
   private handleResearchUpdate(updatedTechs: string[]) {
+    if (!this.techNotificationsEnabled()) return;
     const filtered = updatedTechs.filter((id) => this.allTechIds.has(id));
     for (const techId of filtered) {
       if (this.seenTechs.has(techId)) continue;
@@ -95,6 +113,14 @@ export class TechUnlockNotification extends LitElement implements Layer {
       });
     }
     for (const techId of filtered) this.seenTechs.add(techId);
+  }
+
+  private techNotificationsEnabled(): boolean {
+    try {
+      return !this.game.config().gameConfig().researchAllTechs;
+    } catch {
+      return true;
+    }
   }
 
   private seedFromPlayer() {
@@ -122,19 +148,11 @@ export class TechUnlockNotification extends LitElement implements Layer {
   }
 
   private enqueue(payload: TechNotificationPayload) {
-    this.queue.push(payload);
-    if (!this.current) {
-      this.showNext();
-    }
+    notificationQueue.enqueue("tech", payload);
   }
 
-  private showNext() {
-    const next = this.queue.shift() ?? null;
-    this.current = next;
-    if (!next) {
-      this.isVisible = false;
-      return;
-    }
+  private showTechNotification(payload: TechNotificationPayload) {
+    this.current = payload;
     this.isVisible = true;
     this.clearDismissTimer();
     this.dismissTimer = window.setTimeout(
@@ -154,7 +172,7 @@ export class TechUnlockNotification extends LitElement implements Layer {
     this.clearExitTimer();
     this.exitTimer = window.setTimeout(() => {
       this.current = null;
-      this.showNext();
+      notificationQueue.complete();
     }, EXIT_ANIMATION_MS);
   };
 

@@ -1,3 +1,9 @@
+interface TutorialState {
+  enabled: boolean;
+  seenTips: string[];
+  version: number;
+}
+
 export class UserSettings {
   get(key: string, defaultValue: boolean): boolean {
     const value = localStorage.getItem(key);
@@ -12,6 +18,20 @@ export class UserSettings {
 
   set(key: string, value: boolean) {
     localStorage.setItem(key, value ? "true" : "false");
+  }
+
+  getJSON<T>(key: string, defaultValue: T): T {
+    const value = localStorage.getItem(key);
+    if (!value) return defaultValue;
+    try {
+      return JSON.parse(value) as T;
+    } catch {
+      return defaultValue;
+    }
+  }
+
+  setJSON<T>(key: string, value: T) {
+    localStorage.setItem(key, JSON.stringify(value));
   }
 
   emojis() {
@@ -121,5 +141,46 @@ export class UserSettings {
 
   toggleDevHud() {
     this.set("settings.showDevHud", !this.showDevHud());
+  }
+
+  // Tutorial system methods
+  tutorialEnabled(): boolean {
+    return this.get("settings.tutorialEnabled", true); // Enabled by default
+  }
+
+  toggleTutorialEnabled() {
+    this.set("settings.tutorialEnabled", !this.tutorialEnabled());
+  }
+
+  getTutorialState(): TutorialState | null {
+    return this.getJSON<TutorialState | null>("settings.tutorialState", null);
+  }
+
+  setTutorialState(state: TutorialState) {
+    this.setJSON("settings.tutorialState", state);
+  }
+
+  isTutorialTipSeen(tipId: string): boolean {
+    const state = this.getTutorialState();
+    if (!state) return false;
+    return state.seenTips.includes(tipId);
+  }
+
+  markTutorialTipSeen(tipId: string) {
+    let state = this.getTutorialState();
+    state ??= { enabled: true, seenTips: [], version: 1 };
+    if (!state.seenTips.includes(tipId)) {
+      state.seenTips.push(tipId);
+      this.setTutorialState(state);
+    }
+  }
+
+  resetTutorialProgress() {
+    const state: TutorialState = {
+      enabled: true,
+      seenTips: [],
+      version: 1,
+    };
+    this.setTutorialState(state);
   }
 }

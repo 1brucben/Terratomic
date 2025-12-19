@@ -29,6 +29,32 @@ export class GameLeftSidebar extends LitElement implements Layer {
     return this;
   }
 
+  private readonly handleTutorialHighlight = (event: Event) => {
+    const detail = (event as CustomEvent<{ target: string; active: boolean }>)
+      .detail;
+    if (!detail || detail.target !== "leaderboard") {
+      return;
+    }
+    // Open leaderboard when tutorial highlights it
+    if (detail.active && !this.isLeaderboardShow) {
+      this.isLeaderboardShow = true;
+      this.requestUpdate();
+    }
+  };
+
+  connectedCallback(): void {
+    super.connectedCallback();
+    window.addEventListener("tutorial-highlight", this.handleTutorialHighlight);
+  }
+
+  disconnectedCallback(): void {
+    window.removeEventListener(
+      "tutorial-highlight",
+      this.handleTutorialHighlight,
+    );
+    super.disconnectedCallback();
+  }
+
   init() {
     this.isVisible = true;
     if (this.isTeamGame) {

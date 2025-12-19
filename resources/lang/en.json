@@ -1217,5 +1217,90 @@
       "map_large": "<strong>Large Maps:</strong> Airfields become crucial for projecting power across vast distances.",
       "map_small": "<strong>Small Maps:</strong> Expect early conflict. Build Defense Posts and Military Academies quickly."
     }
+  },
+  "tutorial": {
+    "label": "Tip",
+    "disable_all": "Disable all tips",
+    "disable_all_tooltip": "Turn off all tutorial tips (can re-enable in settings)",
+    "spawn_welcome": {
+      "title": "First Move",
+      "description": "Choose where your empire begins. Plains expand fast. Water opens trade. Pick wisely."
+    },
+    "expansion_basics": {
+      "title": "Claim Land",
+      "description": "Left-click attack neighboring tiles. Right-click tiles to access more options. Momentum matters."
+    },
+    "control_panel_sliders": {
+      "title": "Command Sliders",
+      "description": "Balance workers and troops. Control how hard you strike. Power comes from tuning these well."
+    },
+    "bot_encirclement": {
+      "title": "Total Annexation",
+      "description": "Encircle normal bots completely to seize all their land and gold instantly."
+    },
+    "command_center_intro": {
+      "title": "Command Center",
+      "description": "Build units and structures. Control your economy. This is the heart of your empire."
+    },
+    "first_city": {
+      "title": "Urban Power",
+      "description": "Cities raise population cap by 25k. Growth enables dominance."
+    },
+    "first_factory": {
+      "title": "Industrial Might",
+      "description": "Factories boost gold income and deploy Artillery for bombardment."
+    },
+    "economy_gold": {
+      "title": "Bleeding Gold",
+      "description": "Your spending is too high. Adjust your economy or expand to recover."
+    },
+    "leaderboard": {
+      "title": "Race to Victory",
+      "description": "Control 80% of the map to win. Teams need 95%. Watch the leaderboard."
+    },
+    "research_first": {
+      "title": "Shape Your Tech",
+      "description": "Open the Research Tree and decide what kind of empire you’re building."
+    },
+    "victory_condition": {
+      "title": "Endgame",
+      "description": "Victory comes from domination—or eliminating every opponent. Finish strong."
+    },
+    "attack_basics": {
+      "title": "Break Defenses",
+      "description": "Defenders have the edge. Send enough force to overwhelm them."
+    },
+    "first_port": {
+      "title": "Control the Seas",
+      "description": "Ports unlock trade income and deploy naval units to control the oceans."
+    },
+    "first_airfield": {
+      "title": "Air Superiority",
+      "description": "Airfields deploy air units to pressure enemy territory automatically."
+    },
+    "investment_research": {
+      "title": "Research Investment",
+      "description": "Invest income into research to unlock technologies sooner. Speed wins wars."
+    },
+    "investment_productivity": {
+      "title": "Long-Term Growth",
+      "description": "Invest in productivity so each worker generates more gold over time."
+    },
+    "investment_roads": {
+      "title": "Road Investment",
+      "description": "Roads boost cargo flow and strengthen your economy. Invest to build them faster."
+    },
+    "diplomacy_alliance": {
+      "title": "Alliance Request",
+      "description": "Allies cannot attack each other. Coordinate pushes and share pressure."
+    },
+    "diplomacy_peace": {
+      "title": "Peace Request",
+      "description": "Peace ends a war—if both sides agree. Sometimes survival matters more than pride."
+    },
+    "diplomacy_betrayal": {
+      "title": "Betrayal",
+      "description": "Betrayal weakens your defenses temporarily. Choose your moment carefully."
+    }
   }
 }

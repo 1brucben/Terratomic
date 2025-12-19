@@ -69,6 +69,22 @@ export class PlayerInfoOverlay extends LitElement implements Layer {
       this.onMouseEvent(e),
     );
     this._isActive = true;
+
+    // Emit height when visibility changes so toast can offset
+    this.addEventListener("transitionend", () => {
+      this.emitHeight();
+    });
+  }
+
+  private emitHeight() {
+    const el = this.querySelector(".submarine-panel") as HTMLElement | null;
+    const height =
+      this._isInfoVisible && el
+        ? Math.ceil(el.getBoundingClientRect().height)
+        : 0;
+    window.dispatchEvent(
+      new CustomEvent("player-info-height", { detail: { height } }),
+    );
   }
 
   private onMouseEvent(event: MouseMoveEvent) {

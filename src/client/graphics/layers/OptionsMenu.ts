@@ -156,6 +156,11 @@ export class OptionsMenu extends LitElement implements Layer {
     this.requestUpdate();
   }
 
+  private onToggleTutorialsButtonClick() {
+    this.userSettings.toggleTutorialEnabled();
+    this.requestUpdate();
+  }
+
   private onToggleDarkModeButtonClick() {
     this.userSettings.toggleDarkMode();
     this.requestUpdate();
@@ -317,6 +322,12 @@ export class OptionsMenu extends LitElement implements Layer {
             onClick: this.onToggleSpecialEffectsButtonClick,
             title: "Toggle Special effects",
             children: "💥: " + (this.userSettings.fxLayer() ? "On" : "Off"),
+          })}
+          ${button({
+            onClick: this.onToggleTutorialsButtonClick,
+            title: "Toggle Tutorial Tips",
+            children:
+              "💡: " + (this.userSettings.tutorialEnabled() ? "On" : "Off"),
           })}
           ${button({
             onClick: this.onToggleLobbyNotificationsButtonClick,

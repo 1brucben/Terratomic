@@ -78,6 +78,9 @@ export class ControlPanel extends LitElement implements Layer {
   @state()
   private isBuildPanelOpen = false;
 
+  @state()
+  private _highlightActive = false;
+
   private _lastPopulationIncreaseRate: number;
 
   private _popRateIsIncreasing: boolean = true;
@@ -85,6 +88,29 @@ export class ControlPanel extends LitElement implements Layer {
   private init_: boolean = false;
 
   private _ignoreNextClick = false;
+
+  private readonly handleTutorialHighlight = (event: Event) => {
+    const detail = (event as CustomEvent<{ target: string; active: boolean }>)
+      .detail;
+    if (!detail || detail.target !== "control-panel") {
+      return;
+    }
+    this._highlightActive = Boolean(detail.active);
+    this.requestUpdate();
+  };
+
+  connectedCallback(): void {
+    super.connectedCallback();
+    window.addEventListener("tutorial-highlight", this.handleTutorialHighlight);
+  }
+
+  disconnectedCallback(): void {
+    window.removeEventListener(
+      "tutorial-highlight",
+      this.handleTutorialHighlight,
+    );
+    super.disconnectedCallback();
+  }
 
   init() {
     this.attackRatio = Number(
@@ -291,6 +317,28 @@ export class ControlPanel extends LitElement implements Layer {
         }
         /* Standardize thumb rims to submarine blue (no per-slider overrides) */
 
+        @keyframes tutorial-bg-flicker {
+          0% {
+            filter: brightness(1);
+          }
+          25% {
+            filter: brightness(1.3);
+          }
+          50% {
+            filter: brightness(1);
+          }
+          75% {
+            filter: brightness(1.3);
+          }
+          100% {
+            filter: brightness(1);
+          }
+        }
+
+        .tutorial-highlight-flicker {
+          animation: tutorial-bg-flicker 1.2s ease-in-out infinite;
+        }
+
         .build-tab {
           writing-mode: vertical-rl;
           transform: none; /* Changed from rotate(180deg) */
@@ -320,7 +368,11 @@ export class ControlPanel extends LitElement implements Layer {
       ${this._isVisible
         ? html`
             <!-- Root panel shell (submarine-panel provides background/border/colors) -->
-            <div class="relative submarine-panel">
+            <div
+              class="relative submarine-panel ${this._highlightActive
+                ? "tutorial-highlight-flicker"
+                : ""}"
+            >
               <div
                 class="w-full h-[255px] text-sm lg:text-m bg-transparent border-0 shadow-inner p-2 pr-3 lg:p-4 rounded-md flex"
                 @contextmenu=${(e: MouseEvent) => e.preventDefault()}
