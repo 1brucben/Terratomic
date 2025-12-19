@@ -104,6 +104,7 @@ const baseGameConfig: GameConfig = {
   peaceTimerDurationMinutes: PeaceTimerDuration.None,
   startingGold: 0,
   goldMultiplier: 1,
+  chatEnabled: false,
 };
 
 const createLogger = (): Logger => {

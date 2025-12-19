@@ -168,12 +168,22 @@ export interface GameInfo {
   numClients?: number;
   msUntilStart?: number;
   gameConfig?: GameConfig;
+  messages?: LobbyMessage[];
 }
 export interface ClientInfo {
   clientID: ClientID;
   username: string;
   teamIndex?: number | null;
 }
+
+export interface LobbyMessage {
+  clientID: ClientID;
+  username: string;
+  isHost: boolean;
+  text: string;
+  timestamp: number;
+}
+
 export enum LogSeverity {
   Debug = "DEBUG",
   Info = "INFO",
@@ -241,6 +251,7 @@ export const GameConfigSchema = z.object({
     .union(GoldMultiplierValues.map((value) => z.literal(value)))
     .optional()
     .default(1),
+  chatEnabled: z.boolean().default(false),
 });
 
 export const TeamSchema = z.string();

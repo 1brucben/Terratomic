@@ -943,6 +943,7 @@ export class SinglePlayerModal extends LitElement {
               peaceTimerDurationMinutes: this.selectedPeaceTimerDuration,
               startingGold: this.startingGold,
               goldMultiplier: this.goldMultiplier,
+              chatEnabled: false,
             },
           },
         } satisfies JoinLobbyEvent,

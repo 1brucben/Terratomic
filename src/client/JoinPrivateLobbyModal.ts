@@ -6,6 +6,7 @@ import {
   ClientInfo,
   GameInfo,
   GameRecord,
+  LobbyMessage,
   TeamCountConfig,
 } from "../core/Schemas";
 import { generateID } from "../core/Util";
@@ -13,6 +14,7 @@ import { getServerConfigFromClient } from "../core/configuration/ConfigLoader";
 import { PastelTheme } from "../core/configuration/PastelTheme";
 import { ColoredTeams, Duos, GameMode, Quads, Trios } from "../core/game/Game";
 import { JoinLobbyEvent } from "./Main";
+import "./components/LobbyChatPanel";
 import "./components/baseComponents/Button";
 import "./components/baseComponents/Modal";
 @customElement("join-private-lobby-modal")
@@ -29,6 +31,10 @@ export class JoinPrivateLobbyModal extends LitElement {
   @state() private gameMode: GameMode = GameMode.FFA;
   @state() private teamCount: TeamCountConfig = 2;
   @state() private startingGold: number | null = null;
+  @state() private chatEnabled: boolean = false;
+  @state() private lobbyMessages: LobbyMessage[] = [];
+  @state() private joinedClientID: string = "";
+  @state() private joinedUsername: string = "";
 
   private playersInterval: NodeJS.Timeout | null = null;
   private theme = new PastelTheme();
@@ -99,28 +105,47 @@ export class JoinPrivateLobbyModal extends LitElement {
         <div class="message-area ${this.message ? "show" : ""}">
           ${this.message}
         </div>
-        <div class="options-layout">
-          ${this.hasJoined && this.clients.length > 0
-            ? html` <div class="options-section">
-                <div class="option-title">
-                  ${this.clients.length}
-                  ${this.clients.length === 1
-                    ? translateText("private_lobby.player")
-                    : translateText("private_lobby.players")}
-                </div>
-                <div class="team-columns-container">
-                  ${this.renderTeamColumns()}
-                </div>
+        <div
+          class="join-lobby-layout ${this.chatEnabled && this.hasJoined
+            ? "with-chat"
+            : ""}"
+        >
+          <div class="join-lobby-main">
+            <div class="options-layout">
+              ${this.hasJoined && this.clients.length > 0
+                ? html` <div class="options-section">
+                    <div class="option-title">
+                      ${this.clients.length}
+                      ${this.clients.length === 1
+                        ? translateText("private_lobby.player")
+                        : translateText("private_lobby.players")}
+                    </div>
+                    <div class="team-columns-container">
+                      ${this.renderTeamColumns()}
+                    </div>
+                  </div>`
+                : ""}
+            </div>
+            <div class="flex justify-center">
+              ${!this.hasJoined
+                ? html` <o-button
+                    title=${translateText("private_lobby.join_lobby")}
+                    block
+                    @click=${this.joinLobby}
+                  ></o-button>`
+                : ""}
+            </div>
+          </div>
+          ${this.chatEnabled && this.hasJoined
+            ? html`<div class="join-lobby-chat">
+                <div class="chat-title">${translateText("chat")}</div>
+                <lobby-chat-panel
+                  .messages=${this.lobbyMessages}
+                  .clientID=${this.joinedClientID}
+                  .gameID=${this.lobbyIdInput.value}
+                  .username=${this.joinedUsername}
+                ></lobby-chat-panel>
               </div>`
-            : ""}
-        </div>
-        <div class="flex justify-center">
-          ${!this.hasJoined
-            ? html` <o-button
-                title=${translateText("private_lobby.join_lobby")}
-                block
-                @click=${this.joinLobby}
-              ></o-button>`
             : ""}
         </div>
       </o-modal>
@@ -335,11 +360,18 @@ export class JoinPrivateLobbyModal extends LitElement {
       this.message = translateText("private_lobby.joined_waiting");
       this.hasJoined = true;
 
+      const clientID = generateID();
+      const usernameInput = document.querySelector("username-input") as any;
+      const username = usernameInput?.getCurrentUsername?.() ?? "Guest";
+
+      this.joinedClientID = clientID;
+      this.joinedUsername = username;
+
       this.dispatchEvent(
         new CustomEvent("join-lobby", {
           detail: {
             gameID: lobbyId,
-            clientID: generateID(),
+            clientID: clientID,
           } as JoinLobbyEvent,
           bubbles: true,
           composed: true,
@@ -425,10 +457,102 @@ export class JoinPrivateLobbyModal extends LitElement {
           this.gameMode = data.gameConfig.gameMode ?? GameMode.FFA;
           this.teamCount = data.gameConfig.playerTeams ?? 2;
           this.startingGold = data.gameConfig.startingGold ?? 0;
+          this.chatEnabled = data.gameConfig.chatEnabled ?? false;
         }
+        // Update lobby messages
+        this.lobbyMessages = data.messages ?? [];
       })
       .catch((error) => {
         console.error("Error polling players:", error);
       });
   }
 }
+
+// Inject styles for join lobby chat layout
+const joinLobbyStyle = document.createElement("style");
+joinLobbyStyle.textContent = `
+  .join-lobby-layout {
+    display: block;
+  }
+  .join-lobby-layout.with-chat {
+    display: flex;
+    gap: 16px;
+    align-items: stretch;
+  }
+  .join-lobby-main {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+  }
+  .join-lobby-main .options-layout {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    margin: 0;
+    padding: 0;
+  }
+  .join-lobby-main .options-section {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    background: rgba(0, 0, 0, 0.2);
+    border-radius: 12px;
+    padding: 12px;
+    margin: 0;
+  }
+  .join-lobby-main .option-title {
+    flex-shrink: 0;
+    font-weight: 600;
+    margin-bottom: 8px;
+    color: #fff;
+  }
+  .join-lobby-main .team-columns-container {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    overflow-y: auto;
+  }
+  .join-lobby-chat {
+    width: 260px;
+    flex-shrink: 0;
+    display: flex;
+    flex-direction: column;
+    background: rgba(0, 0, 0, 0.2);
+    border-radius: 12px;
+    padding: 12px;
+    max-height: 500px;
+  }
+  .join-lobby-chat .chat-title {
+    font-weight: 600;
+    margin-bottom: 8px;
+    color: #fff;
+    flex-shrink: 0;
+  }
+  .join-lobby-chat lobby-chat-panel {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+    overflow: hidden;
+  }
+  .join-lobby-chat .lcp-container {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    max-height: none;
+    min-height: 0;
+  }
+  .join-lobby-chat .lcp-messages {
+    flex: 1;
+    height: auto;
+    min-height: 120px;
+    overflow-y: auto;
+  }
+  .join-lobby-chat .lcp-input-row {
+    flex-shrink: 0;
+    margin-top: 8px;
+  }
+`;
+document.head.appendChild(joinLobbyStyle);

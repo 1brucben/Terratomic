@@ -1,3 +1,4 @@
+import { Filter } from "bad-words";
 import ipAnonymize from "ip-anonymize";
 import { Logger } from "winston";
 import WebSocket from "ws";
@@ -11,6 +12,7 @@ import {
   GameStartInfo,
   GameStartInfoSchema,
   Intent,
+  LobbyMessage,
   PlayerRecord,
   ServerDesyncSchema,
   ServerErrorMessage,
@@ -26,6 +28,8 @@ import { archive } from "./Archive";
 import { Client } from "./Client";
 import { gatekeeper } from "./Gatekeeper";
 import { rankingService } from "./RankingService";
+
+const profanityFilter = new Filter();
 export enum GamePhase {
   Lobby = "LOBBY",
   Active = "ACTIVE",
@@ -65,6 +69,8 @@ export class GameServer {
   private outOfSyncClients: Set<ClientID> = new Set();
 
   private websockets: Set<WebSocket> = new Set();
+
+  private lobbyMessages: LobbyMessage[] = [];
 
   constructor(
     public readonly id: string,
@@ -132,6 +138,9 @@ export class GameServer {
     }
     if (gameConfig.goldMultiplier !== undefined) {
       this.gameConfig.goldMultiplier = gameConfig.goldMultiplier;
+    }
+    if (gameConfig.chatEnabled !== undefined) {
+      this.gameConfig.chatEnabled = gameConfig.chatEnabled;
     }
   }
 
@@ -669,11 +678,51 @@ export class GameServer {
       msUntilStart: this.isPublic()
         ? this.createdAt + this.config.gameCreationRate()
         : undefined,
+      messages: this.lobbyMessages,
     };
   }
 
   public isPublic(): boolean {
     return this.gameConfig.gameType === GameType.Public;
+  }
+
+  public addLobbyMessage(
+    clientID: ClientID,
+    username: string,
+    text: string,
+  ): void {
+    // Only allow chat in lobby (before game starts)
+    if (this.hasStarted()) {
+      this.log.warn("Cannot add lobby message after game has started", {
+        clientID,
+      });
+      return;
+    }
+
+    // Check if chat is enabled
+    if (!this.gameConfig?.chatEnabled) {
+      this.log.warn("Cannot add lobby message, chat is disabled", {
+        clientID,
+      });
+      return;
+    }
+
+    // Filter profanity from the message
+    const filteredText = profanityFilter.clean(text);
+
+    // Add the message
+    this.lobbyMessages.push({
+      clientID,
+      username,
+      isHost: clientID === this.LobbyCreatorID,
+      text: filteredText,
+      timestamp: Date.now(),
+    });
+
+    // Limit to last 100 messages
+    if (this.lobbyMessages.length > 100) {
+      this.lobbyMessages = this.lobbyMessages.slice(-100);
+    }
   }
 
   public kickClient(clientID: ClientID): void {
