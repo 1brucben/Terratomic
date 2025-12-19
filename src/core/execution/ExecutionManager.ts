@@ -19,7 +19,6 @@ import { EmbargoExecution } from "./EmbargoExecution";
 import { EmojiExecution } from "./EmojiExecution";
 import { FakeHumanExecution } from "./FakeHumanExecution";
 import { MarkDisconnectedExecution } from "./MarkDisconnectedExecution";
-import { MarkPolicyDirectivesSeenExecution } from "./MarkPolicyDirectivesSeenExecution";
 import { MoveFighterJetExecution } from "./MoveFighterJetExecution";
 import { MoveSubmarineExecution } from "./MoveSubmarineExecution";
 import { MoveWarshipExecution } from "./MoveWarshipExecution";
@@ -27,11 +26,9 @@ import { NoOpExecution } from "./NoOpExecution";
 import { ParatrooperAttackExecution } from "./ParatrooperAttackExecution";
 import { ParatrooperRetreatExecution } from "./ParatrooperRetreatExecution";
 import { PeaceRequestExecution } from "./PeaceRequestExecution";
-import { PolicyDirectiveSelectExecution } from "./PolicyDirectiveSelectExecution";
 import { QuickChatExecution } from "./QuickChatExecution";
 import { ResearchTreeSelectExecution } from "./ResearchTreeSelectExecution";
 import { RetreatExecution } from "./RetreatExecution";
-import { ScorchedEarthExecution } from "./ScorchedEarthExecution";
 import { SetAutoBombingExecution } from "./SetAutoBombingExecution";
 import { SetInvestmentRateExecution } from "./SetInvestmentRateExecution";
 import { SetResearchInvestmentExecution } from "./SetResearchInvestmentExecution";
@@ -159,8 +156,6 @@ export class Executor {
           intent.targetLevel,
           intent.bomberLevel,
         );
-      case "activate_scorched_earth":
-        return new ScorchedEarthExecution(player);
       case "upgrade_structure": {
         const unit = player.units().find((u) => u.id() === intent.unitId);
         if (!unit || unit.owner() !== player) return new NoOpExecution();
@@ -175,14 +170,6 @@ export class Executor {
       }
       case "research_tree_select":
         return new ResearchTreeSelectExecution(player, intent.techId);
-      case "policy_directive_select":
-        return new PolicyDirectiveSelectExecution(
-          player,
-          intent.directiveId,
-          intent.optionId,
-        );
-      case "mark_policy_directives_seen":
-        return new MarkPolicyDirectivesSeenExecution(player);
 
       case "quick_chat":
         return new QuickChatExecution(

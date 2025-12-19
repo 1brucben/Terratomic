@@ -1,16 +1,12 @@
 import { CityAAExecution } from "../execution/CityAAExecution";
 import { Game, Player, UpgradeType } from "../game/Game";
-import {
-  getAllPolicyDirectives,
-  getPolicyOption,
-  type PolicyDirectiveId,
-} from "./PolicyDirectives";
 import { RESEARCH_TECH_IDS } from "./TechIds";
 // Re-export for backward compatibility with existing imports
 export { RESEARCH_TECH_IDS } from "./TechIds";
 
 export interface TechMeta {
   name: string;
+  shortDescription?: string;
   description?: string;
 }
 
@@ -91,17 +87,40 @@ export type TechDefinition = {
 
 // Unified registry containing both metadata and effects per tech
 export const TECHS: Readonly<Record<string, TechDefinition>> = Object.freeze({
-  // Sea techs - Level 1: Early Missile Navy
-  [RESEARCH_TECH_IDS.EARLY_MISSILE_NAVY]: {
+  // Sea techs - Level 1: Maritime Warfare
+  [RESEARCH_TECH_IDS.SEA_MISSILE_NAVY]: {
     meta: {
-      name: "Early Missile Navy",
+      name: "Maritime Warfare",
+      shortDescription: "Cruisers, Diesel-Electric Subs",
       description:
-        "Develop guided missile technology for naval warfare. Unlocks Warship Level 2, Submarine Level 2.",
+        "Develop naval warfare capabilities. Unlocks Cruisers (+25% health to 1,250, +35% minimum damage to 270, +21.5% maximum damage to 395) and Diesel-Electric Submarines (1,000 health, 200-325 damage, stealth capabilities).",
     },
     effects: {
       onComplete: (player) => {
         if (!player.hasUpgrade?.(UpgradeType.WarshipLevel2)) {
           player.addUpgrade?.(UpgradeType.WarshipLevel2);
+        }
+        if (!player.hasUpgrade?.(UpgradeType.SubmarineResearch)) {
+          player.addUpgrade?.(UpgradeType.SubmarineResearch);
+        }
+        if (!player.hasUpgrade?.(UpgradeType.SubmarineLevel1)) {
+          player.addUpgrade?.(UpgradeType.SubmarineLevel1);
+        }
+      },
+    },
+  },
+  // Sea techs - Level 2: Fleet Modernization
+  [RESEARCH_TECH_IDS.SEA_ADVANCED_FLEET]: {
+    meta: {
+      name: "Fleet Modernization",
+      shortDescription: "Aegis, Tactical Subs",
+      description:
+        "Advanced naval systems and fleet integration. Unlocks Aegis Warships (+20% health to 1,500, +25.9% minimum damage to 340, +17.7% maximum damage to 465) and Tactical Submarines (+25% health to 1,250, +35% minimum damage to 270, +21.5% maximum damage to 395).",
+    },
+    effects: {
+      onComplete: (player) => {
+        if (!player.hasUpgrade?.(UpgradeType.WarshipLevel3)) {
+          player.addUpgrade?.(UpgradeType.WarshipLevel3);
         }
         if (!player.hasUpgrade?.(UpgradeType.SubmarineLevel2)) {
           player.addUpgrade?.(UpgradeType.SubmarineLevel2);
@@ -109,27 +128,32 @@ export const TECHS: Readonly<Record<string, TechDefinition>> = Object.freeze({
       },
     },
   },
-  // Sea techs - Level 2: Submarine Silent Service Modernization
-  [RESEARCH_TECH_IDS.SUBMARINE_SILENT_SERVICE]: {
+  // Sea techs - Level 3: Submarine Dominance
+  [RESEARCH_TECH_IDS.SEA_NUCLEAR_SUBMARINES]: {
     meta: {
-      name: "Submarine Silent Service Modernization",
+      name: "Submarine Dominance",
+      shortDescription: "Attack Subs, Ship Anti-Air",
       description:
-        "Advanced quieting and acoustic stealth for submarines. Unlocks Submarine Level 3.",
+        "Advanced submarine technology and fleet air defense. Unlocks Attack Submarines (+20% health to 1,500, +25.9% minimum damage to 340, +17.7% maximum damage to 465) and Ship Anti-Air Systems (allows warships to engage and destroy enemy aircraft within range).",
     },
     effects: {
       onComplete: (player) => {
         if (!player.hasUpgrade?.(UpgradeType.SubmarineLevel3)) {
           player.addUpgrade?.(UpgradeType.SubmarineLevel3);
         }
+        if (!player.hasUpgrade?.(UpgradeType.WarshipAntiAir)) {
+          player.addUpgrade?.(UpgradeType.WarshipAntiAir);
+        }
       },
     },
   },
-  // Sea techs - Level 3: SSBN Programs
-  [RESEARCH_TECH_IDS.SSBN_PROGRAMS]: {
+  // Sea techs - Level 4: Strategic Deterrent
+  [RESEARCH_TECH_IDS.SEA_TBD_LEVEL4]: {
     meta: {
-      name: "SSBN Programs",
+      name: "Strategic Deterrent",
+      shortDescription: "Nuclear Sub",
       description:
-        "Ballistic missile submarine programs for strategic deterrence. Unlocks SSBNs (Submarines can launch nuclear weapons).",
+        "Ballistic missile submarine programs for strategic deterrence. Unlocks Nuclear Submarines (enables submarines to launch nuclear weapons while remaining submerged and undetected, providing second-strike capability).",
     },
     effects: {
       onComplete: (player) => {
@@ -139,231 +163,105 @@ export const TECHS: Readonly<Record<string, TechDefinition>> = Object.freeze({
       },
     },
   },
-  // Sea techs - Level 4: Modern Fleet Sensor & SAM Integration
-  [RESEARCH_TECH_IDS.MODERN_FLEET_SENSOR_SAM]: {
+  // Land techs - Level 1: Road Network
+  [RESEARCH_TECH_IDS.LAND_ROADS_HOSPITALS]: {
     meta: {
-      name: "Modern Fleet Sensor & SAM Integration",
+      name: "Road Network",
+      shortDescription: "Roads, Trade Routes",
       description:
-        "Advanced sensor suites and integrated air defense systems for the fleet. Unlocks Warship Level 3, Ship SAM Systems.",
+        "Develop critical infrastructure to boost your economy and military mobility. Unlocks Roads (increases unit movement speed and generates passive trade income per connected tile) and Trade Routes (enables trade ships to establish international commerce routes, generating continuous gold income).",
     },
     effects: {
-      onComplete: (player) => {
-        if (!player.hasUpgrade?.(UpgradeType.WarshipLevel3)) {
-          player.addUpgrade?.(UpgradeType.WarshipLevel3);
+      onComplete: (player, game) => {
+        if (!player.hasUpgrade?.(UpgradeType.Roads)) {
+          player.addUpgrade?.(UpgradeType.Roads);
+          game.markPlayerNodesForReconnection?.(player);
         }
-        if (!player.hasUpgrade?.(UpgradeType.WarshipAntiAir)) {
-          player.addUpgrade?.(UpgradeType.WarshipAntiAir);
+        if (!player.hasUpgrade?.(UpgradeType.InternationalTrade)) {
+          player.addUpgrade?.(UpgradeType.InternationalTrade);
         }
       },
     },
   },
-  [RESEARCH_TECH_IDS.POST_WW2_GROUND_FORCES_MODERNIZATION]: {
+  // Land techs - Level 2: Ground Air Defense
+  [RESEARCH_TECH_IDS.LAND_MILITARY_ACADEMY]: {
     meta: {
-      name: "Post-WW2 Ground Forces Modernization",
+      name: "Ground Air Defense",
+      shortDescription: "City Anti-Air, Improved SAM",
       description:
-        "Doctrine refined by hard-won experience improves offensive capabilities and tactical efficiency. Effects: Enables Military Academy, AA Guns. +5% offensive speed. Casualty Effects (20%): +10% enemy losses when you attack, -10% your losses when defending.",
+        "Establish comprehensive air defense capabilities to protect your cities and territories. Unlocks City Anti-Air (enables cities to automatically engage enemy aircraft with AA batteries) and Improved SAM (+35% range to 94.5 pixels, improved interception accuracy against bombers, fighters, and nuclear missiles).",
     },
     effects: {
       onComplete: (player, game) => {
-        if (!player.hasUpgrade?.(UpgradeType.MilitaryAcademy)) {
-          player.addUpgrade?.(UpgradeType.MilitaryAcademy);
-        }
         if (!player.hasUpgrade?.(UpgradeType.CityAntiAir)) {
           player.addUpgrade?.(UpgradeType.CityAntiAir);
           // Start the city AA execution to fire bullets at planes
           game.addExecution(new CityAAExecution(player));
         }
-      },
-      attack: (mods) => {
-        mods.defenderLossMul *= 1.1; // enemy (defender) takes 10% more losses when we attack
-      },
-      defense: (mods) => {
-        mods.defenderLossMul *= 0.9; // we take 10% less losses when defending
-      },
-      attackSpeed: (mods) => {
-        mods.speedMul *= 1.05; // 5% faster offensive speed
-      },
-    },
-  },
-  [RESEARCH_TECH_IDS.NATIONAL_RECONSTRUCTION_PROGRAM]: {
-    meta: {
-      name: "National Reconstruction Program",
-      description:
-        "Revitalize infrastructure and industry by mobilizing civilian labor and resources to rebuild the national economy. Effects: Enables Roads, Hospitals. +20% infrastructure spending effectiveness, +20% stronger road effects.",
-    },
-    effects: {
-      onComplete: (player, game) => {
-        // Unlock Roads upgrade and trigger reconnection
-        if (!player.hasUpgrade?.(UpgradeType.Roads)) {
-          player.addUpgrade?.(UpgradeType.Roads);
-          game.markPlayerNodesForReconnection?.(player);
-        }
-        if (player.hasUpgrade?.(UpgradeType.ScorchedEarth)) {
-          player.removeUpgrade?.(UpgradeType.ScorchedEarth);
-        }
-        // Unlock Hospitals
-        if (!player.hasUpgrade?.(UpgradeType.HospitalResearch)) {
-          player.addUpgrade?.(UpgradeType.HospitalResearch);
-        }
-      },
-      infrastructureEffectiveness: (mods) => {
-        mods.effectivenessMul *= 1.2; // +20% infrastructure spending effectiveness
-      },
-      roadEffect: (mods) => {
-        mods.effectMul *= 1.2; // +20% stronger road effects
-      },
-    },
-  },
-  // Economy Level 2 tech - National Research & Industrial Foundations (1960s)
-  [RESEARCH_TECH_IDS.NATIONAL_RESEARCH_INDUSTRIAL_FOUNDATIONS]: {
-    meta: {
-      name: "National Research & Industrial Foundations",
-      description:
-        "Establish national research institutions and industrial base. Effects: Enables Research Labs. Policy Directive: Industrial Expansion Priority (+5% domestic income, +20% construction speed) or Scientific Institution Priority (+30% research spending effectiveness).",
-    },
-    effects: {
-      onComplete: (player) => {
-        if (!player.hasUpgrade?.(UpgradeType.ResearchLabResearch)) {
-          player.addUpgrade?.(UpgradeType.ResearchLabResearch);
-        }
-      },
-      // Policy directive effects are applied via getPolicyChoice
-    },
-  },
-  // Economy Level 3 tech - Trade Policy Framework (1970s)
-  [RESEARCH_TECH_IDS.TRADE_POLICY_FRAMEWORK]: {
-    meta: {
-      name: "Trade Policy Framework",
-      description:
-        "Establish trade agreements and commercial policies. Policy Directive: Open Trade Policy (+5% trade income, +5% trade ship income) or Autarky Doctrine (disables international trade, +20% domestic income).",
-    },
-    effects: {
-      // Policy directive effects are applied via getPolicyChoice
-    },
-  },
-  // Economy Level 4 tech - National Infrastructure Modernization (1980s)
-  [RESEARCH_TECH_IDS.NATIONAL_INFRASTRUCTURE_MODERNIZATION]: {
-    meta: {
-      name: "National Infrastructure Modernization",
-      description:
-        "Modernize national infrastructure with advanced technology. Effects: +20% infrastructure spending effectiveness, -20% maintenance costs, +10% construction speed.",
-    },
-    effects: {
-      infrastructureEffectiveness: (mods) => {
-        mods.effectivenessMul *= 1.2; // +20% infrastructure spending effectiveness
-      },
-      constructionSpeed: (mods) => {
-        mods.speedMul *= 1.1; // +10% construction speed
-      },
-      // TODO: -20% maintenance costs when maintenance is implemented
-    },
-  },
-  // Economy Level 5 tech - Digital Administration & Economic Coordination Systems (Early 1990s)
-  [RESEARCH_TECH_IDS.DIGITAL_ADMINISTRATION_SYSTEMS]: {
-    meta: {
-      name: "Digital Administration & Economic Coordination Systems",
-      description:
-        "Digital systems for administration and economic coordination. Policy Directive: Market Optimization Systems (+10% domestic income, -10% maintenance costs) or Central Planning Automation (+5% domestic income, +20% infrastructure spending effectiveness, +10% construction speed).",
-    },
-    effects: {
-      // Policy directive effects are applied via getPolicyChoice
-    },
-  },
-  // Land Level 2 tech - Mechanized Warfare Doctrine (1960s)
-  [RESEARCH_TECH_IDS.MECHANIZED_WARFARE_DOCTRINE]: {
-    meta: {
-      name: "Mechanized Warfare Doctrine",
-      description:
-        "Develop doctrine for mechanized infantry and armored operations. Effects: Unlocks Scorched Earth. +5% offensive speed. Policy Directive (20%): Mobile Infantry Tactics (-10% your losses attacking, +10% enemy losses when they attack you) or Armored Breakthrough Doctrine (+10% enemy losses when you attack, -10% your losses when defending).",
-    },
-    effects: {
-      attackSpeed: (mods) => {
-        mods.speedMul *= 1.05; // 5% faster offensive speed
-      },
-      // Policy directive effects are applied via getPolicyChoice
-    },
-  },
-  // Land Level 3 tech - Air-Defense Grid Expansion (1970s)
-  [RESEARCH_TECH_IDS.AIR_DEFENSE_GRID_EXPANSION]: {
-    meta: {
-      name: "Air-Defense Grid Expansion",
-      description:
-        "Expand air defense networks with improved SAM coverage. Effects: Enables SAM Level 2. +5% offensive speed. Casualty Effects (20%): +15% enemy losses when they attack you, -5% your losses when defending.",
-    },
-    effects: {
-      onComplete: (player) => {
         if (!player.hasUpgrade?.(UpgradeType.SAMLevel2)) {
           player.addUpgrade?.(UpgradeType.SAMLevel2);
         }
       },
-      defense: (mods) => {
-        mods.attackerLossMul *= 1.15; // enemy takes 15% more losses when they attack us
-        mods.defenderLossMul *= 0.95; // we take 5% less losses when defending
-      },
-      attackSpeed: (mods) => {
-        mods.speedMul *= 1.05; // 5% faster offensive speed
-      },
     },
   },
-  // Land Level 4 tech - Integrated SAM & Battlefield Command Systems (1980s)
-  [RESEARCH_TECH_IDS.INTEGRATED_SAM_BATTLEFIELD_COMMAND]: {
+  // Land techs - Level 3: Modern Air Defense
+  [RESEARCH_TECH_IDS.LAND_SAM_SYSTEMS]: {
     meta: {
-      name: "Integrated SAM & Battlefield Command Systems",
+      name: "Modern Air Defense",
+      shortDescription: "Advanced SAM, Hospitals",
       description:
-        "Integrate SA-10, Patriot-era SAM platforms with C3I systems. Effects: Enables SAM Level 3. +5% offensive speed. Casualty Effects (20%): +10% enemy losses when they attack you, -10% your losses when attacking.",
+        "Achieve peak defensive and medical capabilities. Unlocks Advanced SAM (+82.25% range to 127.6 pixels from base 70, maximum interception range exceeding hydrogen bomb blast radius, highest success rate against all aircraft and missiles) and Hospitals (building that increases city population growth rate, accelerating troop production and economic output).",
     },
     effects: {
       onComplete: (player) => {
         if (!player.hasUpgrade?.(UpgradeType.SAMLevel3)) {
           player.addUpgrade?.(UpgradeType.SAMLevel3);
         }
-      },
-      defense: (mods) => {
-        mods.attackerLossMul *= 1.1; // enemy takes 10% more losses when they attack us
-      },
-      attack: (mods) => {
-        mods.attackerLossMul *= 0.9; // we take 10% less losses when attacking
-      },
-      attackSpeed: (mods) => {
-        mods.speedMul *= 1.05; // 5% faster offensive speed
-      },
-    },
-  },
-  // Land Level 5 tech - Night Vision, Thermal Imaging & Digital C3I (Early 1990s)
-  [RESEARCH_TECH_IDS.NIGHT_VISION_THERMAL_C3I]: {
-    meta: {
-      name: "Night Vision, Thermal Imaging & Digital C3I",
-      description:
-        "Equip forces with night vision, thermal imaging, and digital command systems for 24-hour combat capability. Effects: +5% offensive speed. Policy Directive (20%): High-Tempo Maneuver Warfare (+10% enemy losses when you attack, -10% your losses when attacking) or Precision Defensive Fire Doctrine (+10% enemy losses when they attack you, -10% your losses when defending).",
-    },
-    effects: {
-      attackSpeed: (mods) => {
-        mods.speedMul *= 1.05; // 5% faster offensive speed
-      },
-      // Policy directive effects are applied via getPolicyChoice
-    },
-  },
-  // Air techs - Level 1: Early Jet Aviation Framework
-  [RESEARCH_TECH_IDS.EARLY_JET_AVIATION_FRAMEWORK]: {
-    meta: {
-      name: "Early Jet Aviation Framework",
-      description:
-        "Establish jet aviation infrastructure and doctrine. Unlocks Paratroopers.",
-    },
-    effects: {
-      onComplete: (player) => {
-        if (!player.hasUpgrade?.(UpgradeType.AirUpgrade1)) {
-          player.addUpgrade?.(UpgradeType.AirUpgrade1);
+        if (!player.hasUpgrade?.(UpgradeType.HospitalResearch)) {
+          player.addUpgrade?.(UpgradeType.HospitalResearch);
         }
       },
     },
   },
-  // Air techs - Level 2: Supersonic Airframe Development
-  [RESEARCH_TECH_IDS.SUPERSONIC_AIRFRAME_DEVELOPMENT]: {
+  // Land techs - Level 4: Military Academy
+  [RESEARCH_TECH_IDS.LAND_DOOMSDAY_DEVICE]: {
     meta: {
-      name: "Supersonic Airframe Development",
+      name: "Military Academy",
+      shortDescription: "Academy, casualty bonus",
       description:
-        "Develop supersonic aircraft designs. Unlocks Fighter Level 2, Bomber Level 2.",
+        "Establish elite military training infrastructure. Unlocks the Military Academy building. Each Academy (level- and health-scaled, +road bonus when connected) increases enemy troop casualties you inflict in land battles when attacking or defending: +10% with one Academy, ~+15% with two, ~+17.5% with three, asymptotically capped at +20% global casualty output.",
+    },
+    effects: {
+      onComplete: (player) => {
+        if (!player.hasUpgrade?.(UpgradeType.MilitaryAcademy)) {
+          player.addUpgrade?.(UpgradeType.MilitaryAcademy);
+        }
+      },
+    },
+  },
+  // Air techs - Level 1: Early Air Power
+  [RESEARCH_TECH_IDS.AIR_PARATROOPERS]: {
+    meta: {
+      name: "Early Air Power",
+      shortDescription: "Gen 1 Fighters, Paratroopers",
+      description:
+        "Develop airborne warfare capabilities. Unlocks Jet Engines enabling 1st Generation Fighters (750 health, 200-325 damage, engages enemy aircraft) and Paratroopers (airborne infantry units that can be deployed behind enemy lines for rapid territorial expansion).",
+    },
+    effects: {
+      onComplete: (player) => {
+        if (!player.hasUpgrade?.(UpgradeType.JetEngines)) {
+          player.addUpgrade?.(UpgradeType.JetEngines);
+        }
+      },
+    },
+  },
+  // Air techs - Level 2: Jet Technology
+  [RESEARCH_TECH_IDS.AIR_ADVANCED_JETS]: {
+    meta: {
+      name: "Jet Technology",
+      shortDescription: "Gen 2 Fighters, Heavy Bombers",
+      description:
+        "Advance to next-generation aircraft systems. Unlocks 2nd Generation Fighters (+33.3% health to 1,000, +50% minimum damage to 300, +30.8% maximum damage to 425) and Heavy Bombers (+20% health to 600, +20% damage to 300, +40% range to 350, +50% speed to 3).",
     },
     effects: {
       onComplete: (player) => {
@@ -376,12 +274,13 @@ export const TECHS: Readonly<Record<string, TechDefinition>> = Object.freeze({
       },
     },
   },
-  // Air techs - Level 3: Pulse-Doppler Radar & BVR Combat
-  [RESEARCH_TECH_IDS.PULSE_DOPPLER_RADAR_BVR]: {
+  // Air techs - Level 3: Anti-Ship Warfare
+  [RESEARCH_TECH_IDS.AIR_NAVAL_STRIKE]: {
     meta: {
-      name: "Pulse-Doppler Radar & BVR Combat",
+      name: "Anti-Ship Warfare",
+      shortDescription: "Gen 3 Fighters, Anti-ship",
       description:
-        "Advanced radar and beyond-visual-range combat systems. Unlocks Fighter Level 3, Naval Strike Capability.",
+        "Develop advanced anti-ship capabilities for air superiority. Unlocks 3rd Generation Fighters (+25% health to 1,250, +33.3% minimum damage to 400, +23.5% maximum damage to 525) and Naval Strike Weapons (enables fighters to target and attack warships, transport ships, and trade ships).",
     },
     effects: {
       onComplete: (player) => {
@@ -394,12 +293,13 @@ export const TECHS: Readonly<Record<string, TechDefinition>> = Object.freeze({
       },
     },
   },
-  // Air techs - Level 4: Fly-By-Wire Platforms & Advanced Maneuverability
-  [RESEARCH_TECH_IDS.FLY_BY_WIRE_PLATFORMS]: {
+  // Air techs - Level 4: TBD
+  [RESEARCH_TECH_IDS.AIR_TBD_LEVEL4]: {
     meta: {
-      name: "Fly-By-Wire Platforms & Advanced Maneuverability",
+      name: "Advanced Fighters",
+      shortDescription: "Gen 4 Fighters, Supersonic Bombers",
       description:
-        "Digital flight control systems for maximum aircraft performance. Unlocks Fighter Level 4, Bomber Level 3.",
+        "Master cutting-edge aerospace technology. Unlocks 4th Generation Fighters (+20% health to 1,500, +25% minimum damage to 500, +19% maximum damage to 625) and Supersonic Bombers (+16.7% health to 700, +16.7% damage to 350, +28.6% range to 450, +33.3% speed to 4).",
     },
     effects: {
       onComplete: (player) => {
@@ -412,23 +312,30 @@ export const TECHS: Readonly<Record<string, TechDefinition>> = Object.freeze({
       },
     },
   },
+  // Nuclear techs - Level 1: Atomic Weapons
   [RESEARCH_TECH_IDS.NUCLEAR_FISSION]: {
     meta: {
-      name: "Nuclear Fission",
-      description: "Enables: Atom Bomb",
+      name: "Atomic Weapons",
+      shortDescription: "Atom Bomb, Silo",
+      description:
+        "Harness nuclear fission technology. Unlocks Atom Bomb (basic nuclear weapon with large blast radius causing massive area damage) and Missile Silo (required launch facility for deploying nuclear weapons against enemy targets).",
     },
     effects: {
       onComplete: (player) => {
         if (!player.hasUpgrade?.(UpgradeType.NuclearFission)) {
           player.addUpgrade?.(UpgradeType.NuclearFission);
         }
+        // Note: MissileSilo building is unlocked via gameplay progression
       },
     },
   },
+  // Nuclear techs - Level 2: Thermonuclear Weapons
   [RESEARCH_TECH_IDS.THERMONUCLEAR_STAGING]: {
     meta: {
-      name: "Thermonuclear Staging",
-      description: "Enables: Hydrogen Bomb",
+      name: "Thermonuclear Weapons",
+      shortDescription: "Hydrogen Bomb",
+      description:
+        "Advance to fusion-based thermonuclear weapons. Unlocks Hydrogen Bomb (high-yield nuclear weapon with significantly larger blast radius than atom bombs, capable of devastating multi-tile areas and causing catastrophic damage to enemy infrastructure).",
     },
     effects: {
       onComplete: (player) => {
@@ -438,10 +345,13 @@ export const TECHS: Readonly<Record<string, TechDefinition>> = Object.freeze({
       },
     },
   },
+  // Nuclear techs - Level 3: MIRV Warheads
   [RESEARCH_TECH_IDS.MIRV_TECHNOLOGY]: {
     meta: {
-      name: "MIRV Technology",
-      description: "Enables: MIRV",
+      name: "MIRV Warheads",
+      shortDescription: "MIRV",
+      description:
+        "Develop Multiple Independent Reentry Vehicle technology. Unlocks MIRV (advanced nuclear missiles deploying multiple independently targetable warheads from a single missile, significantly harder for enemy SAM systems to intercept, ensuring delivery of nuclear payload).",
     },
     effects: {
       onComplete: (player) => {
@@ -451,10 +361,13 @@ export const TECHS: Readonly<Record<string, TechDefinition>> = Object.freeze({
       },
     },
   },
-  [RESEARCH_TECH_IDS.DOOMSDAY_DEVICE]: {
+  // Nuclear techs - Level 4: TBD
+  [RESEARCH_TECH_IDS.NUCLEAR_TBD_LEVEL4]: {
     meta: {
       name: "Doomsday Device",
-      description: "Enables: Doomsday Device",
+      shortDescription: "Global deterrence",
+      description:
+        "Construct the ultimate deterrent. Unlocks Doomsday Device. When any of your tiles are hit by a nuclear detonation, the device auto-triggers: it consumes itself, plays a global alert, and unleashes an expanding fallout wave across every land tile. The wave instantly destroys all bombers, fighters, warships, and trade ships; damages remaining structures by 80% of current health; relinquishes claimed land; and seeds widespread fallout (noise-pattern coverage) world-wide.",
     },
     effects: {
       onComplete: (player) => {
@@ -531,7 +444,6 @@ export function applyTechCompletionEffects(
  */
 export function defenseCasualtyModifiers(defender: {
   hasResearchedTech?(techId: string): boolean;
-  getPolicyChoice?(directiveId: string): string | null;
 }): DefenseCasualtyModifiers {
   const mods: DefenseCasualtyModifiers = {
     attackerLossMul: 1.0,
@@ -540,22 +452,6 @@ export function defenseCasualtyModifiers(defender: {
   for (const [techId, def] of Object.entries(TECHS)) {
     if (defender.hasResearchedTech?.(techId)) {
       def.effects?.defense?.(mods);
-    }
-  }
-  // Apply policy directive effects
-  for (const directive of getAllPolicyDirectives()) {
-    const chosenOptionId = defender.getPolicyChoice?.(directive.id);
-    if (chosenOptionId) {
-      const option = getPolicyOption(
-        directive.id as PolicyDirectiveId,
-        chosenOptionId,
-      );
-      if (option?.effects.defenderLossMul) {
-        mods.defenderLossMul *= option.effects.defenderLossMul;
-      }
-      if (option?.effects.attackerLossMulOnDefense) {
-        mods.attackerLossMul *= option.effects.attackerLossMulOnDefense;
-      }
     }
   }
   return mods;
@@ -569,7 +465,6 @@ export function defenseCasualtyModifiers(defender: {
  */
 export function attackCasualtyModifiers(attacker: {
   hasResearchedTech?(techId: string): boolean;
-  getPolicyChoice?(directiveId: string): string | null;
 }): DefenseCasualtyModifiers {
   const mods: DefenseCasualtyModifiers = {
     attackerLossMul: 1.0,
@@ -578,22 +473,6 @@ export function attackCasualtyModifiers(attacker: {
   for (const [techId, def] of Object.entries(TECHS)) {
     if (attacker.hasResearchedTech?.(techId)) {
       def.effects?.attack?.(mods);
-    }
-  }
-  // Apply policy directive effects
-  for (const directive of getAllPolicyDirectives()) {
-    const chosenOptionId = attacker.getPolicyChoice?.(directive.id);
-    if (chosenOptionId) {
-      const option = getPolicyOption(
-        directive.id as PolicyDirectiveId,
-        chosenOptionId,
-      );
-      if (option?.effects.attackerLossMul) {
-        mods.attackerLossMul *= option.effects.attackerLossMul;
-      }
-      if (option?.effects.enemyLossMulOnAttack) {
-        mods.defenderLossMul *= option.effects.enemyLossMulOnAttack;
-      }
     }
   }
   return mods;
@@ -605,7 +484,6 @@ export function attackCasualtyModifiers(attacker: {
  */
 export function attackSpeedModifiers(attacker: {
   hasResearchedTech?(techId: string): boolean;
-  getPolicyChoice?(directiveId: string): string | null;
 }): AttackSpeedModifiers {
   const mods: AttackSpeedModifiers = {
     speedMul: 1.0,
@@ -613,19 +491,6 @@ export function attackSpeedModifiers(attacker: {
   for (const [techId, def] of Object.entries(TECHS)) {
     if (attacker.hasResearchedTech?.(techId)) {
       def.effects?.attackSpeed?.(mods);
-    }
-  }
-  // Apply policy directive effects
-  for (const directive of getAllPolicyDirectives()) {
-    const chosenOptionId = attacker.getPolicyChoice?.(directive.id);
-    if (chosenOptionId) {
-      const option = getPolicyOption(
-        directive.id as PolicyDirectiveId,
-        chosenOptionId,
-      );
-      if (option?.effects.attackSpeedMul) {
-        mods.speedMul *= option.effects.attackSpeedMul;
-      }
     }
   }
   return mods;
@@ -637,7 +502,6 @@ export function attackSpeedModifiers(attacker: {
  */
 export function constructionSpeedModifiers(player: {
   hasResearchedTech?(techId: string): boolean;
-  getPolicyChoice?(directiveId: string): string | null;
 }): ConstructionSpeedModifiers {
   const mods: ConstructionSpeedModifiers = {
     speedMul: 1.0,
@@ -646,19 +510,6 @@ export function constructionSpeedModifiers(player: {
   for (const [techId, def] of Object.entries(TECHS)) {
     if (player.hasResearchedTech?.(techId)) {
       def.effects?.constructionSpeed?.(mods);
-    }
-  }
-  // Apply policy directive effects
-  for (const directive of getAllPolicyDirectives()) {
-    const chosenOptionId = player.getPolicyChoice?.(directive.id);
-    if (chosenOptionId) {
-      const option = getPolicyOption(
-        directive.id as PolicyDirectiveId,
-        chosenOptionId,
-      );
-      if (option?.effects.constructionSpeedMul) {
-        mods.speedMul *= option.effects.constructionSpeedMul;
-      }
     }
   }
   return mods;
@@ -689,7 +540,6 @@ export function researchEffectivenessModifiers(
  */
 export function incomeModifiers(player: {
   hasResearchedTech?(techId: string): boolean;
-  getPolicyChoice?(directiveId: string): string | null;
 }): IncomeModifiers {
   const mods: IncomeModifiers = {
     domesticIncomeMul: 1.0,
@@ -698,19 +548,6 @@ export function incomeModifiers(player: {
   for (const [techId, def] of Object.entries(TECHS)) {
     if (player.hasResearchedTech?.(techId)) {
       def.effects?.income?.(mods);
-    }
-  }
-  // Apply policy directive effects
-  for (const directive of getAllPolicyDirectives()) {
-    const chosenOptionId = player.getPolicyChoice?.(directive.id);
-    if (chosenOptionId) {
-      const option = getPolicyOption(
-        directive.id as PolicyDirectiveId,
-        chosenOptionId,
-      );
-      if (option?.effects.domesticIncomeMul) {
-        mods.domesticIncomeMul *= option.effects.domesticIncomeMul;
-      }
     }
   }
   return mods;
@@ -722,7 +559,6 @@ export function incomeModifiers(player: {
  */
 export function infrastructureEffectivenessModifiers(player: {
   hasResearchedTech?(techId: string): boolean;
-  getPolicyChoice?(directiveId: string): string | null;
 }): InfrastructureEffectivenessModifiers {
   const mods: InfrastructureEffectivenessModifiers = {
     effectivenessMul: 1.0,
@@ -730,20 +566,6 @@ export function infrastructureEffectivenessModifiers(player: {
   for (const [techId, def] of Object.entries(TECHS)) {
     if (player.hasResearchedTech?.(techId)) {
       def.effects?.infrastructureEffectiveness?.(mods);
-    }
-  }
-  // Apply policy directive effects
-  for (const directive of getAllPolicyDirectives()) {
-    const chosenOptionId = player.getPolicyChoice?.(directive.id);
-    if (chosenOptionId) {
-      const option = getPolicyOption(
-        directive.id as PolicyDirectiveId,
-        chosenOptionId,
-      );
-      if (option?.effects.infrastructureSpendingEffectivenessMul) {
-        mods.effectivenessMul *=
-          option.effects.infrastructureSpendingEffectivenessMul;
-      }
     }
   }
   return mods;
@@ -756,7 +578,6 @@ export function infrastructureEffectivenessModifiers(player: {
  */
 export function tradeIncomeModifiers(player: {
   hasResearchedTech?(techId: string): boolean;
-  getPolicyChoice?(directiveId: string): string | null;
 }): TradeIncomeModifiers {
   const mods: TradeIncomeModifiers = {
     incomeMul: 1.0,
@@ -765,22 +586,6 @@ export function tradeIncomeModifiers(player: {
   for (const [techId, def] of Object.entries(TECHS)) {
     if (player.hasResearchedTech?.(techId)) {
       def.effects?.tradeIncome?.(mods);
-    }
-  }
-  // Apply policy directive effects
-  for (const directive of getAllPolicyDirectives()) {
-    const chosenOptionId = player.getPolicyChoice?.(directive.id);
-    if (chosenOptionId) {
-      const option = getPolicyOption(
-        directive.id as PolicyDirectiveId,
-        chosenOptionId,
-      );
-      if (option?.effects.tradeIncomeMul) {
-        mods.incomeMul *= option.effects.tradeIncomeMul;
-      }
-      if (option?.effects.tradeShipIncomeMul) {
-        mods.tradeShipIncomeMul *= option.effects.tradeShipIncomeMul;
-      }
     }
   }
   return mods;
@@ -792,7 +597,6 @@ export function tradeIncomeModifiers(player: {
  */
 export function roadEffectModifiers(player: {
   hasResearchedTech?(techId: string): boolean;
-  getPolicyChoice?(directiveId: string): string | null;
 }): RoadEffectModifiers {
   const mods: RoadEffectModifiers = {
     effectMul: 1.0,
@@ -801,19 +605,6 @@ export function roadEffectModifiers(player: {
   for (const [techId, def] of Object.entries(TECHS)) {
     if (player.hasResearchedTech?.(techId)) {
       def.effects?.roadEffect?.(mods);
-    }
-  }
-  // Apply policy directive effects
-  for (const directive of getAllPolicyDirectives()) {
-    const chosenOptionId = player.getPolicyChoice?.(directive.id);
-    if (chosenOptionId) {
-      const option = getPolicyOption(
-        directive.id as PolicyDirectiveId,
-        chosenOptionId,
-      );
-      if (option?.effects.roadEffectMul) {
-        mods.effectMul *= option.effects.roadEffectMul;
-      }
     }
   }
   return mods;

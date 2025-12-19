@@ -44,7 +44,7 @@ describe("Research Priority Allocation", () => {
   });
 
   describe("buildMissingPrereqPath logic validation", () => {
-    it("should identify all prerequisites for Economy-4 when nothing is researched", () => {
+    it("should identify all prerequisites for Land-4 when nothing is researched", () => {
       // Simulate the buildMissingPrereqPath logic
       const nodes = getTechNodes();
       const researched = new Set<string>();
@@ -90,19 +90,19 @@ describe("Research Priority Allocation", () => {
         return path;
       };
 
-      // Test: When setting priority to Economy-4, it should identify Economy-1, Economy-2, Economy-3 as prerequisites
-      const pathSet = buildMissingPrereqPath("Economy-4");
+      // Test: When setting priority to Land-4, it should identify Land-1, Land-2, Land-3 as prerequisites
+      const pathSet = buildMissingPrereqPath("Land-4");
 
-      expect(pathSet.has("Economy-1")).toBe(true);
-      expect(pathSet.has("Economy-2")).toBe(true);
-      expect(pathSet.has("Economy-3")).toBe(true);
-      expect(pathSet.has("Economy-4")).toBe(false); // Target itself should not be in path
+      expect(pathSet.has("Land-1")).toBe(true);
+      expect(pathSet.has("Land-2")).toBe(true);
+      expect(pathSet.has("Land-3")).toBe(true);
+      expect(pathSet.has("Land-4")).toBe(false); // Target itself should not be in path
       expect(pathSet.size).toBe(3);
     });
 
-    it("should identify correct frontier when Economy-1 is already researched", () => {
+    it("should identify correct frontier when Land-1 is already researched", () => {
       const nodes = getTechNodes();
-      const researched = new Set<string>(["Economy-1"]); // Already researched Economy-1
+      const researched = new Set<string>(["Land-1"]); // Already researched Land-1
       const byId = new Map(nodes.map((n) => [n.id, n] as const));
       const sameCat = (a: string, b: string) =>
         (byId.get(a)?.category ?? "") === (byId.get(b)?.category ?? "");
@@ -145,12 +145,12 @@ describe("Research Priority Allocation", () => {
         return path;
       };
 
-      // Test: When Economy-1 is researched and priority is Economy-4, path should only include Economy-2, Economy-3
-      const pathSet = buildMissingPrereqPath("Economy-4");
+      // Test: When Land-1 is researched and priority is Land-4, path should only include Land-2, Land-3
+      const pathSet = buildMissingPrereqPath("Land-4");
 
-      expect(pathSet.has("Economy-1")).toBe(false); // Already researched
-      expect(pathSet.has("Economy-2")).toBe(true);
-      expect(pathSet.has("Economy-3")).toBe(true);
+      expect(pathSet.has("Land-1")).toBe(false); // Already researched
+      expect(pathSet.has("Land-2")).toBe(true);
+      expect(pathSet.has("Land-3")).toBe(true);
       expect(pathSet.size).toBe(2);
     });
 
@@ -206,21 +206,20 @@ describe("Research Priority Allocation", () => {
 
       // Only level-1 techs should be available when nothing is researched
       const availableIds = available.map((n) => n.id);
-      expect(availableIds).toContain("Economy-1");
       expect(availableIds).toContain("Land-1");
       expect(availableIds).toContain("Sea-1");
       expect(availableIds).toContain("Air-1");
       expect(availableIds).toContain("Nuclear-1");
 
-      // Set priority to Economy-4
-      const pathSet = buildMissingPrereqPath("Economy-4");
+      // Set priority to Land-4
+      const pathSet = buildMissingPrereqPath("Land-4");
 
       // Frontier = intersection of pathSet and available
       const frontier = available.filter((n) => pathSet.has(n.id));
 
-      // Only Economy-1 should be in the frontier (the only available prereq)
+      // Only Land-1 should be in the frontier (the only available prereq)
       expect(frontier.length).toBe(1);
-      expect(frontier[0].id).toBe("Economy-1");
+      expect(frontier[0].id).toBe("Land-1");
     });
 
     it("should prioritize frontier techs when priority target is not directly available", () => {
@@ -268,13 +267,13 @@ describe("Research Priority Allocation", () => {
         return path;
       };
 
-      const priorityId = "Economy-4";
+      const priorityId = "Land-4";
       const available = nodes.filter(
         (n) => !researched.has(n.id) && isTechAvailable(n.id, researched),
       );
 
       const priorityInSet = available.some((n) => n.id === priorityId);
-      expect(priorityInSet).toBe(false); // Economy-4 should NOT be directly available
+      expect(priorityInSet).toBe(false); // Land-4 should NOT be directly available
 
       // Simulate allocation logic
       const xTotal = 1000; // arbitrary total research points
@@ -300,12 +299,12 @@ describe("Research Priority Allocation", () => {
         }
       }
 
-      // Economy-1 should receive 50% of the total (500 points)
-      expect(alloc["Economy-1"]).toBe(500);
+      // Land-1 should receive 50% of the total (500 points)
+      expect(alloc["Land-1"]).toBe(500);
 
       // Other level-1 techs should share the remaining 50%
-      const otherTechs = ["Land-1", "Sea-1", "Air-1", "Nuclear-1"];
-      const expectedShareOthers = 500 / otherTechs.length; // 125 each
+      const otherTechs = ["Sea-1", "Air-1", "Nuclear-1"];
+      const expectedShareOthers = 500 / otherTechs.length; // ~166.67 each
       for (const techId of otherTechs) {
         expect(alloc[techId]).toBeCloseTo(expectedShareOthers, 5);
       }
@@ -316,8 +315,8 @@ describe("Research Priority Allocation", () => {
     it("should eventually progress frontier as prerequisite techs complete", () => {
       const nodes = getTechNodes();
 
-      // Simulate: Economy-1 is now researched
-      const researched = new Set<string>(["Economy-1"]);
+      // Simulate: Land-1 is now researched
+      const researched = new Set<string>(["Land-1"]);
       const byId = new Map(nodes.map((n) => [n.id, n] as const));
       const sameCat = (a: string, b: string) =>
         (byId.get(a)?.category ?? "") === (byId.get(b)?.category ?? "");
@@ -360,24 +359,24 @@ describe("Research Priority Allocation", () => {
         return path;
       };
 
-      const priorityId = "Economy-4";
+      const priorityId = "Land-4";
       const available = nodes.filter(
         (n) => !researched.has(n.id) && isTechAvailable(n.id, researched),
       );
 
-      // Now Economy-2 should be available (since Economy-1 is researched)
-      expect(available.some((n) => n.id === "Economy-2")).toBe(true);
+      // Now Land-2 should be available (since Land-1 is researched)
+      expect(available.some((n) => n.id === "Land-2")).toBe(true);
 
-      // Path should now only include Economy-2 and Economy-3
+      // Path should now only include Land-2 and Land-3
       const pathSet = buildMissingPrereqPath(priorityId);
-      expect(pathSet.has("Economy-1")).toBe(false); // Already researched
-      expect(pathSet.has("Economy-2")).toBe(true);
-      expect(pathSet.has("Economy-3")).toBe(true);
+      expect(pathSet.has("Land-1")).toBe(false); // Already researched
+      expect(pathSet.has("Land-2")).toBe(true);
+      expect(pathSet.has("Land-3")).toBe(true);
 
-      // Frontier should be Economy-2 (the only currently available prereq)
+      // Frontier should be Land-2 (the only currently available prereq)
       const frontier = available.filter((n) => pathSet.has(n.id));
       expect(frontier.length).toBe(1);
-      expect(frontier[0].id).toBe("Economy-2");
+      expect(frontier[0].id).toBe("Land-2");
     });
   });
 });

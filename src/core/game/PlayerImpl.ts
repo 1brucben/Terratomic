@@ -1,7 +1,6 @@
 import { renderNumber, renderTroops } from "../../client/Utils";
 import { PseudoRandom } from "../PseudoRandom";
 import { ClientID } from "../Schemas";
-import { getDirectivesUnlockedByTech } from "../tech/PolicyDirectives";
 import { Category, findTech } from "../tech/ResearchTree";
 import {
   applyTechCompletionEffects,
@@ -55,6 +54,7 @@ import {
   canBuildTransportShip,
 } from "./TransportShipUtils";
 import { UnitImpl } from "./UnitImpl";
+import { playerMaxUnitLevel } from "./Upgradeables";
 
 interface Target {
   tick: Tick;
@@ -100,12 +100,8 @@ export class PlayerImpl implements Player {
   private _researchTreeTechs: Set<string> = new Set();
   // Per-match research progress (beakers) per tech
   private _researchBeakers: Map<string, number> = new Map();
-  // Currently selected research priority tech id
-  private _researchPriority: string | null = null;
-  // Policy directive choices: directiveId -> optionId
-  private _policyChoices: Map<string, string> = new Map();
-  // Track unseen policy directives (based on newly unlocked techs)
-  private _unseenPolicyDirectives: Set<string> = new Set();
+  // Currently selected research priority tech ids (can have multiple)
+  private _researchPriorities: Set<string> = new Set();
 
   private _flag: string | undefined;
   private _name: string;
@@ -253,12 +249,12 @@ export class PlayerImpl implements Player {
         this._researchBeakers.size > 0
           ? Object.fromEntries(this._researchBeakers)
           : undefined,
-      researchPriorityTech: this._researchPriority,
-      policyChoices:
-        this._policyChoices.size > 0
-          ? Object.fromEntries(this._policyChoices)
+      researchPriorityTech:
+        this._researchPriorities.values().next().value ?? null,
+      researchPriorities:
+        this._researchPriorities.size > 0
+          ? Array.from(this._researchPriorities)
           : undefined,
-      hasUnseenPolicyDirectives: this._unseenPolicyDirectives.size > 0,
     };
   }
 
@@ -347,19 +343,26 @@ export class PlayerImpl implements Player {
   // Count of units owned by the player, including construction
   unitsOwned(type: UnitType): number {
     let total = 0;
+    // All stackable structure types
+    const stackableTypes = new Set([
+      UnitType.City,
+      UnitType.Port,
+      UnitType.Hospital,
+      UnitType.Academy,
+      UnitType.ResearchLab,
+      UnitType.Factory,
+      UnitType.SAMLauncher,
+      UnitType.Airfield,
+      UnitType.MissileSilo,
+    ]);
+    const isStackable = stackableTypes.has(type);
+
     for (const unit of this._units) {
       if (unit.type() === type) {
-        if (
-          type === UnitType.City ||
-          type === UnitType.Port ||
-          type === UnitType.Hospital ||
-          type === UnitType.Academy ||
-          type === UnitType.ResearchLab ||
-          type === UnitType.Factory
-        ) {
-          // Upgraded cities, ports, hospitals, and academies count toward totals
+        if (isStackable) {
+          // Stacked structures count their stackCount toward totals
           // (affects scaling like new build cost and display counts)
-          total += (unit as any).level?.() ?? 1;
+          total += unit.stackCount?.() ?? 1;
         } else {
           total++;
         }
@@ -367,15 +370,8 @@ export class PlayerImpl implements Player {
       }
       if (unit.type() !== UnitType.Construction) continue;
       if (unit.constructionType() !== type) continue;
-      // For upgradeable structures, count the target level instead of just 1
-      if (
-        type === UnitType.City ||
-        type === UnitType.Port ||
-        type === UnitType.Hospital ||
-        type === UnitType.Academy ||
-        type === UnitType.ResearchLab ||
-        type === UnitType.Factory
-      ) {
+      // For stackable structures, count the target level instead of just 1
+      if (isStackable) {
         total += unit.constructionTargetLevel();
       } else {
         total++;
@@ -390,10 +386,129 @@ export class PlayerImpl implements Player {
 
   addUpgrade(upgrade: UpgradeType): void {
     this._upgrades.add(upgrade);
+    this.applyAutoUnitUpgrades(upgrade);
   }
 
   removeUpgrade(upgrade: UpgradeType): void {
     this._upgrades.delete(upgrade);
+  }
+
+  private applyAutoUnitUpgrades(upgrade: UpgradeType): void {
+    const unitTypes: UnitType[] = [];
+    switch (upgrade) {
+      case UpgradeType.FighterLevel2:
+      case UpgradeType.FighterLevel3:
+      case UpgradeType.FighterLevel4:
+        unitTypes.push(UnitType.FighterJet);
+        break;
+      case UpgradeType.BomberLevel2:
+      case UpgradeType.BomberLevel3:
+        unitTypes.push(UnitType.Bomber);
+        break;
+      case UpgradeType.WarshipLevel2:
+      case UpgradeType.WarshipLevel3:
+        unitTypes.push(UnitType.Warship);
+        break;
+      case UpgradeType.SubmarineLevel2:
+      case UpgradeType.SubmarineLevel3:
+        unitTypes.push(UnitType.Submarine);
+        break;
+      default:
+        return;
+    }
+
+    for (const type of unitTypes) {
+      if (type === UnitType.Bomber) {
+        this.upgradeBombersAndAirfields();
+      } else {
+        this.upgradeCombatUnits(type);
+      }
+    }
+  }
+
+  private upgradeCombatUnits(type: UnitType): void {
+    const targetLevel = playerMaxUnitLevel(this, type);
+    if (targetLevel <= 1) return;
+
+    const desiredMaxHealth = (() => {
+      switch (type) {
+        case UnitType.FighterJet:
+          return this.mg.config().fighterJetLevelMaxHealth(targetLevel);
+        case UnitType.Warship:
+          return this.mg.config().warshipLevelMaxHealth(targetLevel);
+        case UnitType.Submarine:
+          return this.mg.config().submarineLevelMaxHealth(targetLevel);
+        default:
+          return this.mg.unitInfo(type).maxHealth ?? 0;
+      }
+    })();
+    const baseMax = this.mg.unitInfo(type).maxHealth ?? desiredMaxHealth;
+
+    for (const unit of this.units(type)) {
+      const impl = unit as any;
+      const currentLevel = typeof impl.level === "function" ? impl.level() : 1;
+      if (currentLevel >= targetLevel) continue;
+
+      const oldMax =
+        typeof impl.effectiveMaxHealth === "function"
+          ? impl.effectiveMaxHealth()
+          : baseMax;
+      const healthRatio = oldMax > 0 ? Math.min(1, unit.health() / oldMax) : 1;
+
+      impl._level = targetLevel;
+      impl._bonusMaxHealth = Math.max(0, desiredMaxHealth - baseMax);
+      const newHealth = Math.max(0, Math.round(desiredMaxHealth * healthRatio));
+      impl._health = BigInt(
+        Math.min(desiredMaxHealth, newHealth || desiredMaxHealth),
+      );
+      this.mg.addUpdate(unit.toUpdate());
+    }
+
+    this.invalidateEffectiveUnitsCache(type);
+  }
+
+  private upgradeBombersAndAirfields(): void {
+    const targetLevel = playerMaxUnitLevel(this, UnitType.Bomber);
+    if (targetLevel <= 1) return;
+
+    // Sync airfields so new and existing bombers inherit the latest level
+    for (const airfield of this.units(UnitType.Airfield)) {
+      if (airfield.bomberLevel?.() !== undefined) {
+        const current = airfield.bomberLevel();
+        if (current < targetLevel) {
+          airfield.setBomberLevel?.(targetLevel);
+        }
+      } else {
+        airfield.setBomberLevel?.(targetLevel);
+      }
+    }
+
+    const desiredMaxHealth = this.mg.config().bomberMaxHealth(targetLevel);
+    const baseMax =
+      this.mg.unitInfo(UnitType.Bomber).maxHealth ?? desiredMaxHealth;
+
+    for (const bomber of this.units(UnitType.Bomber)) {
+      const impl = bomber as any;
+      const currentLevel = typeof impl.level === "function" ? impl.level() : 1;
+      if (currentLevel < targetLevel) {
+        impl._level = targetLevel;
+      }
+      const oldMax =
+        typeof impl.effectiveMaxHealth === "function"
+          ? impl.effectiveMaxHealth()
+          : baseMax;
+      const healthRatio =
+        oldMax > 0 ? Math.min(1, bomber.health() / oldMax) : 1;
+      impl._bonusMaxHealth = Math.max(0, desiredMaxHealth - baseMax);
+      const newHealth = Math.max(0, Math.round(desiredMaxHealth * healthRatio));
+      impl._health = BigInt(
+        Math.min(desiredMaxHealth, newHealth || desiredMaxHealth),
+      );
+      this.mg.addUpdate(bomber.toUpdate());
+    }
+
+    this.invalidateEffectiveUnitsCache(UnitType.Airfield);
+    this.invalidateEffectiveUnitsCache(UnitType.Bomber);
   }
 
   // Research tree (standalone) API
@@ -403,12 +518,6 @@ export class PlayerImpl implements Player {
 
     // Apply centralized side-effects upon research completion
     applyTechCompletionEffects(this, this.mg, techId);
-
-    // Check if this tech unlocks any policy directives
-    const unlockedDirectives = getDirectivesUnlockedByTech(techId);
-    for (const directive of unlockedDirectives) {
-      this._markPolicyDirectiveUnseen(directive.id);
-    }
   }
   removeResearchedTechsByCategory(category: Category): void {
     const toRemove: string[] = [];
@@ -435,7 +544,6 @@ export class PlayerImpl implements Player {
     }
 
     if (toRemove.length === 0 && progressToClear.length === 0) return;
-    const priority = this._researchPriority;
     const cleared = new Set([...toRemove, ...progressToClear]);
 
     for (const techId of toRemove) {
@@ -445,8 +553,9 @@ export class PlayerImpl implements Player {
       this._researchBeakers.delete(techId);
     }
 
-    if (priority && cleared.has(priority)) {
-      this._researchPriority = null;
+    // Remove cleared techs from priorities
+    for (const techId of cleared) {
+      this._researchPriorities.delete(techId);
     }
   }
   hasResearchedTech(techId: string): boolean {
@@ -475,36 +584,20 @@ export class PlayerImpl implements Player {
     return { completed, newBeakers: total };
   }
   setResearchPriority(techId: string | null): void {
-    this._researchPriority = techId;
+    if (techId === null) {
+      this._researchPriorities.clear();
+    } else if (this._researchPriorities.has(techId)) {
+      this._researchPriorities.delete(techId);
+    } else {
+      this._researchPriorities.add(techId);
+    }
   }
   researchPriority(): string | null {
-    return this._researchPriority;
+    // Return first priority for backward compatibility
+    return this._researchPriorities.values().next().value ?? null;
   }
-
-  // Policy Directive methods
-  getPolicyChoice(directiveId: string): string | null {
-    return this._policyChoices.get(directiveId) ?? null;
-  }
-  setPolicyChoice(directiveId: string, optionId: string): void {
-    this._policyChoices.set(directiveId, optionId);
-    // Mark as seen once a choice is made
-    this._unseenPolicyDirectives.delete(directiveId);
-  }
-  getAllPolicyChoices(): ReadonlyMap<string, string> {
-    return this._policyChoices;
-  }
-  hasUnseenPolicyDirectives(): boolean {
-    return this._unseenPolicyDirectives.size > 0;
-  }
-  markPolicyDirectivesSeen(): void {
-    this._unseenPolicyDirectives.clear();
-  }
-  // Internal: mark a directive as unseen (called when tech unlocks it)
-  _markPolicyDirectiveUnseen(directiveId: string): void {
-    // Only mark as unseen if no choice has been made yet
-    if (!this._policyChoices.has(directiveId)) {
-      this._unseenPolicyDirectives.add(directiveId);
-    }
+  researchPriorities(): Set<string> {
+    return this._researchPriorities;
   }
 
   invalidateEffectiveUnitsCache(type: UnitType): void {

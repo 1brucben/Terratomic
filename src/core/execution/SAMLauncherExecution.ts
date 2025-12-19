@@ -8,6 +8,7 @@ import {
   UnitType,
 } from "../game/Game";
 import { TileRef } from "../game/GameMap";
+import { playerMaxStructureTechLevel } from "../game/Upgradeables";
 import { PseudoRandom } from "../PseudoRandom";
 import { SAMMissileExecution } from "./SAMMissileExecution";
 
@@ -45,7 +46,11 @@ class SAMTargetingSystem {
   private effectiveSamRange(): number {
     const base = this.mg.config().defaultSamRange();
     const bonus = this.mg.config().samRangeUpgradePercent();
-    const lvl = this.sam.level?.() ?? 1;
+    // Use player's SAM tech level, not unit level (which is stack count)
+    const lvl = playerMaxStructureTechLevel(
+      this.sam.owner(),
+      UnitType.SAMLauncher,
+    );
     if (lvl <= 1) return base;
     // Apply per-upgrade multiplicative increase
     const factor = Math.pow(1 + bonus, lvl - 1);
@@ -83,6 +88,12 @@ class SAMTargetingSystem {
   }
 
   public getSingleTarget(): Target | null {
+    const targets = this.getMultipleTargets(1);
+    return targets.length > 0 ? targets[0] : null;
+  }
+
+  // Get multiple targets for stacked SAMs - each SAM can target a different nuke
+  public getMultipleTargets(maxCount: number): Target[] {
     // Look beyond the SAM range so it can preshot nukes
     const detectionRange = this.effectiveSamRange() * 1.5;
     const nukes = this.mg.nearbyUnits(
@@ -104,6 +115,10 @@ class SAMTargetingSystem {
       if (this.nukesToIgnore.has(nuke.unit.id())) {
         continue;
       }
+      // Skip nukes already being targeted by a SAM missile
+      if (nuke.unit.targetedBySAM()) {
+        continue;
+      }
       const interceptionTile = this.computeInterceptionTile(nuke.unit);
       if (interceptionTile !== undefined) {
         targets.push({ unit: nuke.unit, tile: interceptionTile });
@@ -113,8 +128,9 @@ class SAMTargetingSystem {
       }
     }
 
-    return (
-      targets.sort((a: Target, b: Target) => {
+    // Sort by priority (H-bombs first) and return up to maxCount
+    return targets
+      .sort((a: Target, b: Target) => {
         // Prioritize Hydrogen Bombs
         if (
           a.unit.type() === UnitType.HydrogenBomb &&
@@ -128,8 +144,8 @@ class SAMTargetingSystem {
           return 1;
 
         return 0;
-      })[0] ?? null
-    );
+      })
+      .slice(0, maxCount);
   }
 }
 
@@ -153,6 +169,7 @@ export class SAMLauncherExecution implements Execution {
     private tile: TileRef | null,
     private sam: Unit | null = null,
     private desiredLevel?: number,
+    private stackCount: number = 1, // Number of stacked SAMs (fires multiple missiles)
   ) {
     if (sam !== null) {
       this.tile = sam.tile();
@@ -203,12 +220,20 @@ export class SAMLauncherExecution implements Execution {
         return;
       }
       this.sam = this.player.buildUnit(UnitType.SAMLauncher, spawnTile, {});
-      // Apply upgrades up to cap 3 if requested
+      // Apply tech level upgrades
       const level = this.computeDesiredLevel(
         UnitType.SAMLauncher,
         this.desiredLevel,
       );
       this.applyUpgrades(this.sam, level);
+      // Set stack count for multiple missiles
+      if (this.stackCount > 1) {
+        (this.sam as any).setStackCount(this.stackCount);
+        // Apply HP bonuses for stacking (one upgrade per extra stack)
+        for (let i = 1; i < this.stackCount; i++) {
+          (this.sam as any).upgradeStructure();
+        }
+      }
     }
     this.targetingSystem ??= new SAMTargetingSystem(
       this.mg,
@@ -249,6 +274,7 @@ export class SAMLauncherExecution implements Execution {
       },
     );
 
+    // Get a single target - stacked SAMs use launchesRemaining to fire multiple times before cooldown
     let target: Target | null = null;
     if (mirvWarheadTargets.length === 0) {
       target = this.targetingSystem.getSingleTarget();
@@ -259,11 +285,8 @@ export class SAMLauncherExecution implements Execution {
       this.sam.touch();
     }
 
-    const isSingleTarget = !!(target && !target.unit.targetedBySAM());
-    if (
-      (isSingleTarget || mirvWarheadTargets.length > 0) &&
-      !isPeaceTimerActive
-    ) {
+    const hasTarget = target !== null;
+    if ((hasTarget || mirvWarheadTargets.length > 0) && !isPeaceTimerActive) {
       this.sam.launch();
       const type =
         mirvWarheadTargets.length > 0
@@ -302,6 +325,7 @@ export class SAMLauncherExecution implements Execution {
             mirvWarheadTargets.length,
           );
       } else if (target !== null) {
+        // Fire one missile at the target
         target.unit.setTargetedBySAM(true);
         this.mg.addExecution(
           new SAMMissileExecution(
@@ -329,7 +353,11 @@ export class SAMLauncherExecution implements Execution {
     const effectiveRange = (() => {
       const base = this.mg.config().defaultSamRange();
       const bonus = this.mg.config().samRangeUpgradePercent();
-      const lvl = this.sam!.level?.() ?? 1;
+      // Use player's SAM tech level, not unit level (which is stack count)
+      const lvl = playerMaxStructureTechLevel(
+        this.sam!.owner(),
+        UnitType.SAMLauncher,
+      );
       if (lvl <= 1) return base;
       const factor = Math.pow(1 + bonus, lvl - 1);
       return Math.round(base * factor);

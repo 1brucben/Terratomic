@@ -15,8 +15,11 @@ import {
 } from "../game/Game";
 import { TileRef } from "../game/GameMap";
 import {
+  isStackableStructure,
+  isTechUpgradeableStructure,
   isUpgradeableUnit,
-  playerMaxStructureLevel,
+  maxStackCount,
+  playerMaxStructureTechLevel,
   playerMaxUnitLevel,
 } from "../game/Upgradeables";
 import { constructionSpeedModifiers } from "../tech/TechEffects";
@@ -39,13 +42,14 @@ export class ConstructionExecution implements Execution {
 
   private reservedTotalCost: Gold = 0n;
   private baseCost: Gold = 0n;
-  private desiredLevel: number = 1;
+  private desiredStackCount: number = 1; // How many stacked instances
+  private desiredTechLevel: number = 1; // Tech upgrade level (for SAM, Airfield)
 
   constructor(
     private player: Player,
     private constructionType: UnitType,
     private tile: TileRef,
-    private targetLevel?: number,
+    private stackCount?: number, // User-selected stack count (renamed from targetLevel)
     private bomberLevel?: number, // Bomber upgrade level for airfields
   ) {}
 
@@ -70,16 +74,17 @@ export class ConstructionExecution implements Execution {
   tick(ticks: number): void {
     if (this.construction === null) {
       const info = this.mg.unitInfo(this.constructionType);
+
+      // Compute stack count and tech level
+      this.desiredStackCount = this.computeStackCount(this.constructionType);
+      this.desiredTechLevel = this.computeTechLevel(this.constructionType);
+
       if (info.constructionDuration === undefined) {
         // No construction phase; treat as instant build path
         // Compute and reserve total aggregated cost first
         this.baseCost = this.mg
           .unitInfo(this.constructionType)
           .cost(this.player);
-        this.desiredLevel = this.computeDesiredLevel(
-          this.constructionType,
-          this.targetLevel,
-        );
         // Validate build feasibility BEFORE charging any gold
         const canSpawnInstant = this.player.canBuild(
           this.constructionType,
@@ -90,28 +95,10 @@ export class ConstructionExecution implements Execution {
           this.active = false;
           return;
         }
-        const total =
-          aggregateStructureBuildCost(
-            this.mg,
-            this.player,
-            this.constructionType,
-            this.desiredLevel,
-            // For upgradeable units, aggregateStructureBuildCost ignores multiplier
-            this.mg
-              .config()
-              .structureUpgradeCostMultiplier(this.constructionType),
-          ) +
-          (this.constructionType === UnitType.Airfield
-            ? computeBomberUpgradeCost(
-                this.mg,
-                this.player,
-                this.bomberLevel ?? 1,
-                this.desiredLevel,
-              )
-            : 0n);
+        const total = this.computeTotalCost();
         if (this.player.gold() < total) {
           console.warn(
-            `cannot afford construction ${this.constructionType} at level ${this.desiredLevel}`,
+            `cannot afford construction ${this.constructionType} stack=${this.desiredStackCount} techLevel=${this.desiredTechLevel}`,
           );
           this.active = false;
           return;
@@ -128,32 +115,10 @@ export class ConstructionExecution implements Execution {
       }
       // Timed construction path: compute and reserve aggregate cost upfront
       this.baseCost = this.mg.unitInfo(this.constructionType).cost(this.player);
-      this.desiredLevel = this.computeDesiredLevel(
-        this.constructionType,
-        this.targetLevel,
-      );
-      const totalCost =
-        aggregateStructureBuildCost(
-          this.mg,
-          this.player,
-          this.constructionType,
-          this.desiredLevel,
-          // For upgradeable units, aggregateStructureBuildCost ignores multiplier
-          this.mg
-            .config()
-            .structureUpgradeCostMultiplier(this.constructionType),
-        ) +
-        (this.constructionType === UnitType.Airfield
-          ? computeBomberUpgradeCost(
-              this.mg,
-              this.player,
-              this.bomberLevel ?? 1,
-              this.desiredLevel,
-            )
-          : 0n);
+      const totalCost = this.computeTotalCost();
       if (this.player.gold() < totalCost) {
         console.warn(
-          `cannot afford construction ${this.constructionType} at level ${this.desiredLevel}`,
+          `cannot afford construction ${this.constructionType} stack=${this.desiredStackCount} techLevel=${this.desiredTechLevel}`,
         );
         this.active = false;
         return;
@@ -173,7 +138,7 @@ export class ConstructionExecution implements Execution {
       // Reserve total aggregated cost upfront so funds are locked during construction
       this.player.removeGold(this.reservedTotalCost);
       this.construction.setConstructionType(this.constructionType);
-      this.construction.setConstructionTargetLevel(this.desiredLevel);
+      this.construction.setConstructionTargetLevel(this.desiredStackCount);
       // Apply construction speed modifier from tech effects
       const speedMods = constructionSpeedModifiers(this.player);
       this.ticksUntilComplete = Math.ceil(
@@ -224,7 +189,7 @@ export class ConstructionExecution implements Execution {
         this.mg.addExecution(
           new WarshipExecution(
             { owner: player, patrolTile: this.tile },
-            this.desiredLevel,
+            this.desiredTechLevel,
           ),
         );
         break;
@@ -232,7 +197,7 @@ export class ConstructionExecution implements Execution {
         this.mg.addExecution(
           new SubmarineExecution(
             { owner: player, patrolTile: this.tile },
-            this.desiredLevel,
+            this.desiredTechLevel,
           ),
         );
         break;
@@ -240,7 +205,7 @@ export class ConstructionExecution implements Execution {
         this.mg.addExecution(
           new FighterJetExecution(
             { owner: player, patrolTile: this.tile },
-            this.desiredLevel,
+            this.desiredTechLevel,
           ),
         );
         break;
@@ -259,15 +224,21 @@ export class ConstructionExecution implements Execution {
             canSpawn,
             {},
           );
-          this.applyUpgradesIfNeeded(built, this.desiredLevel);
+          this.applyStackingIfNeeded(built, this.desiredStackCount);
         }
         break;
       case UnitType.MissileSilo:
         this.mg.addExecution(
-          new MissileSiloExecution(player, this.tile, this.desiredLevel),
+          new MissileSiloExecution(
+            player,
+            this.tile,
+            this.desiredTechLevel,
+            this.desiredStackCount,
+          ),
         );
         break;
       case UnitType.DefensePost:
+        // DefensePost does not support stacking
         this.mg.addExecution(new DefensePostExecution(player, this.tile));
         break;
       case UnitType.SAMLauncher:
@@ -277,8 +248,15 @@ export class ConstructionExecution implements Execution {
         ) {
           player.addUpgrade(UpgradeType.CityAntiAir);
         }
+        // SAM uses tech level for capability AND stack count for multiple missiles
         this.mg.addExecution(
-          new SAMLauncherExecution(player, this.tile, null, this.desiredLevel),
+          new SAMLauncherExecution(
+            player,
+            this.tile,
+            null,
+            this.desiredTechLevel,
+            this.desiredStackCount,
+          ),
         );
         break;
       case UnitType.City:
@@ -300,16 +278,17 @@ export class ConstructionExecution implements Execution {
             canSpawn,
             {},
           );
-          this.applyUpgradesIfNeeded(built, this.desiredLevel);
+          this.applyStackingIfNeeded(built, this.desiredStackCount);
         }
         break;
       case UnitType.Airfield:
+        // Airfield uses bomber level for capability AND stack count for multiple bombers
         this.mg.addExecution(
           new AirfieldExecution(
             player,
             this.tile,
-            this.bomberLevel,
-            this.desiredLevel,
+            this.bomberLevel ?? this.desiredTechLevel,
+            this.desiredStackCount,
           ),
         );
         break;
@@ -328,7 +307,7 @@ export class ConstructionExecution implements Execution {
             canSpawn,
             {},
           );
-          this.applyUpgradesIfNeeded(built, this.desiredLevel);
+          this.applyStackingIfNeeded(built, this.desiredStackCount);
         }
         break;
     }
@@ -342,22 +321,75 @@ export class ConstructionExecution implements Execution {
     return false;
   }
 
-  private computeDesiredLevel(type: UnitType, target?: number): number {
-    if (target === undefined || target < 1) return 1;
-    // For units, use player-specific max level based on researched techs
-    // For structures, use player-specific max (e.g., SAM launchers depend on SAM tech level)
-    const cap = isUpgradeableUnit(type)
-      ? playerMaxUnitLevel(this.player, type)
-      : playerMaxStructureLevel(this.player, type);
-    return Math.max(1, Math.min(cap, target));
+  // Compute the stack count (how many instances in one tile)
+  private computeStackCount(type: UnitType): number {
+    // Use client-provided stack count, clamped to valid range
+    if (isStackableStructure(type) && this.stackCount && this.stackCount > 1) {
+      return Math.min(maxStackCount(type), this.stackCount);
+    }
+    return 1;
   }
 
-  // step cost is centralized in ../game/Costs
+  // Compute the tech level for upgradeable units/structures
+  private computeTechLevel(type: UnitType): number {
+    if (isUpgradeableUnit(type)) {
+      return playerMaxUnitLevel(this.player, type);
+    }
+    if (isTechUpgradeableStructure(type)) {
+      return playerMaxStructureTechLevel(this.player, type);
+    }
+    return 1;
+  }
 
-  private applyUpgradesIfNeeded(unit: Unit, desiredLevel: number) {
-    const steps = Math.max(0, desiredLevel - 1);
+  // Compute total cost including stacking and tech upgrades
+  private computeTotalCost(): Gold {
+    // For combat units, use hardcoded tech-based costs
+    if (isUpgradeableUnit(this.constructionType)) {
+      return aggregateStructureBuildCost(
+        this.mg,
+        this.player,
+        this.constructionType,
+        this.desiredTechLevel,
+        0, // multiplier ignored for upgradeable units
+      );
+    }
+
+    // For structures, compute stacking cost
+    const stackCost = aggregateStructureBuildCost(
+      this.mg,
+      this.player,
+      this.constructionType,
+      this.desiredStackCount,
+      this.mg.config().structureUpgradeCostMultiplier(this.constructionType),
+    );
+
+    // Add bomber upgrade cost for airfields
+    if (this.constructionType === UnitType.Airfield) {
+      const bomberLvl = this.bomberLevel ?? this.desiredTechLevel;
+      return (
+        stackCost +
+        computeBomberUpgradeCost(
+          this.mg,
+          this.player,
+          bomberLvl,
+          this.desiredStackCount,
+        )
+      );
+    }
+
+    return stackCost;
+  }
+
+  // Apply stacking upgrades (HP bonus) for non-tech structures
+  private applyStackingIfNeeded(unit: Unit, stackCount: number) {
+    const steps = Math.max(0, stackCount - 1);
     if (steps <= 0) return;
     const impl = unit as any; // UnitImpl
+    // Set the stack count on the unit
+    if (typeof impl.setStackCount === "function") {
+      impl.setStackCount(stackCount);
+    }
+    // Apply HP bonuses via upgradeStructure
     if (typeof impl.upgradeStructure === "function") {
       for (let i = 0; i < steps; i++) {
         impl.upgradeStructure();

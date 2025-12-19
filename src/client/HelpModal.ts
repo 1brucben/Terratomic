@@ -1153,7 +1153,6 @@ export class HelpModal extends LitElement {
       Sea: [],
       Air: [],
       Nuclear: [],
-      Economy: [],
     };
 
     for (const node of nodes) {
@@ -1188,7 +1187,6 @@ export class HelpModal extends LitElement {
       Sea: this.t("tech_tree.categories.sea"),
       Air: this.t("tech_tree.categories.air"),
       Nuclear: this.t("tech_tree.categories.nuclear"),
-      Economy: this.t("tech_tree.categories.economy"),
     };
 
     const categoryDescriptions: Record<string, string> = {
@@ -1196,7 +1194,6 @@ export class HelpModal extends LitElement {
       Sea: this.t("tech_tree.categories.sea_desc"),
       Air: this.t("tech_tree.categories.air_desc"),
       Nuclear: this.t("tech_tree.categories.nuclear_desc"),
-      Economy: this.t("tech_tree.categories.economy_desc"),
     };
 
     return html`

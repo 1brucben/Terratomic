@@ -47,7 +47,6 @@ export type Intent =
   | RoadInvestmentIntent
   | ResearchInvestmentIntent
   | BuildUnitIntent
-  | ScorchedEarthIntent
   | ResearchTreeSelectIntent
   | EmbargoIntent
   | QuickChatIntent
@@ -61,9 +60,7 @@ export type Intent =
   | SetAutoBombingIntent
   | KickPlayerIntent
   | UpgradeStructureIntent
-  | UpgradeBomberIntent
-  | PolicyDirectiveSelectIntent
-  | MarkPolicyDirectivesSeenIntent;
+  | UpgradeBomberIntent;
 
 export type AttackIntent = z.infer<typeof AttackIntentSchema>;
 export type CancelAttackIntent = z.infer<typeof CancelAttackIntentSchema>;
@@ -91,7 +88,6 @@ export type ResearchInvestmentIntent = z.infer<
   typeof ResearchInvestmentIntentSchema
 >;
 export type BuildUnitIntent = z.infer<typeof BuildUnitIntentSchema>;
-export type ScorchedEarthIntent = z.infer<typeof ScorchedEarthIntentSchema>;
 export type ResearchTreeSelectIntent = z.infer<
   typeof ResearchTreeSelectIntentSchema
 >;
@@ -117,12 +113,6 @@ export type UpgradeStructureIntent = z.infer<
   typeof UpgradeStructureIntentSchema
 >;
 export type UpgradeBomberIntent = z.infer<typeof UpgradeBomberIntentSchema>;
-export type PolicyDirectiveSelectIntent = z.infer<
-  typeof PolicyDirectiveSelectIntentSchema
->;
-export type MarkPolicyDirectivesSeenIntent = z.infer<
-  typeof MarkPolicyDirectivesSeenIntentSchema
->;
 
 export type Turn = z.infer<typeof TurnSchema>;
 export enum PeaceTimerDuration {
@@ -425,14 +415,10 @@ export const BuildUnitIntentSchema = BaseIntentSchema.extend({
   tile: z.number(),
   // Optional desired starting level for upgradeable structures.
   // Server will clamp based on type and game rules.
-  targetLevel: z.number().int().min(1).max(99).optional(),
+  targetLevel: z.number().int().min(1).max(25).optional(),
   // Optional desired bomber upgrade level for airfields.
   // Server will clamp based on maxUnitLevel(UnitType.Bomber).
   bomberLevel: z.number().int().min(1).max(99).optional(),
-});
-
-export const ScorchedEarthIntentSchema = BaseIntentSchema.extend({
-  type: z.literal("activate_scorched_earth"),
 });
 
 export const UpgradeStructureIntentSchema = BaseIntentSchema.extend({
@@ -449,16 +435,6 @@ export const UpgradeBomberIntentSchema = BaseIntentSchema.extend({
 export const ResearchTreeSelectIntentSchema = BaseIntentSchema.extend({
   type: z.literal("research_tree_select"),
   techId: z.string().max(128),
-});
-
-export const PolicyDirectiveSelectIntentSchema = BaseIntentSchema.extend({
-  type: z.literal("policy_directive_select"),
-  directiveId: z.string().max(128),
-  optionId: z.string().max(128),
-});
-
-export const MarkPolicyDirectivesSeenIntentSchema = BaseIntentSchema.extend({
-  type: z.literal("mark_policy_directives_seen"),
 });
 
 export const CancelAttackIntentSchema = BaseIntentSchema.extend({
@@ -551,12 +527,9 @@ const IntentSchema = z.discriminatedUnion("type", [
   RoadInvestmentIntentSchema,
   ResearchInvestmentIntentSchema,
   BuildUnitIntentSchema,
-  ScorchedEarthIntentSchema,
   UpgradeStructureIntentSchema,
   UpgradeBomberIntentSchema,
   ResearchTreeSelectIntentSchema,
-  PolicyDirectiveSelectIntentSchema,
-  MarkPolicyDirectivesSeenIntentSchema,
   EmbargoIntentSchema,
   MoveWarshipIntentSchema,
   MoveSubmarineIntentSchema,

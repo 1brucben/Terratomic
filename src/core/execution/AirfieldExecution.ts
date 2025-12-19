@@ -1,6 +1,6 @@
 import { Execution, Game, Player, Unit, UnitType } from "../game/Game";
 import { TileRef } from "../game/GameMap";
-import { maxUnitLevel, playerMaxStructureLevel } from "../game/Upgradeables";
+import { maxUnitLevel } from "../game/Upgradeables";
 import { PseudoRandom } from "../PseudoRandom";
 import { BomberExecution } from "./BomberExecution";
 import { CargoPlaneExecution } from "./CargoPlaneExecution";
@@ -11,13 +11,13 @@ export class AirfieldExecution implements Execution {
   private airfield: Unit | null = null;
   private random: PseudoRandom | null = null;
   private checkOffset: number | null = null;
-  private lastLevel = 0; // Track airfield level to detect upgrades
+  private lastStackCount = 0; // Track airfield stack count to detect upgrades
 
   constructor(
     private player: Player,
     private tile: TileRef,
-    private initialBomberLevel: number = 1, // Bomber upgrade level
-    private desiredLevel: number = 1, // Structure upgrade level
+    private initialBomberLevel: number = 1, // Bomber tech upgrade level
+    private stackCount: number = 1, // Stack count (how many bombers to spawn/maintain)
   ) {}
 
   init(mg: Game, ticks: number): void {
@@ -43,13 +43,15 @@ export class AirfieldExecution implements Execution {
       }
       this.airfield = this.player.buildUnit(UnitType.Airfield, spawn, {});
 
-      // Apply structure upgrades if requested
-      const structureLevel = this.computeDesiredLevel(
-        UnitType.Airfield,
-        this.desiredLevel,
-      );
-      this.applyUpgrades(this.airfield, structureLevel);
-      this.lastLevel = this.airfield.level?.() ?? 1;
+      // Set stack count on the airfield
+      if (this.stackCount > 1) {
+        (this.airfield as any).setStackCount(this.stackCount);
+        // Apply HP bonuses for stacking (one upgrade per extra stack)
+        for (let i = 1; i < this.stackCount; i++) {
+          (this.airfield as any).upgradeStructure();
+        }
+      }
+      this.lastStackCount = this.stackCount;
 
       // Set initial bomber upgrade level if specified (clamped to max)
       const bomberLvl = Math.min(
@@ -60,8 +62,8 @@ export class AirfieldExecution implements Execution {
         this.airfield.setBomberLevel?.(bomberLvl);
       }
 
-      // Spawn initial bombers when airfield is built
-      this.spawnBombersForLevel(mg);
+      // Spawn initial bombers based on stack count
+      this.spawnBombersForStackCount(mg);
     }
 
     if (!this.airfield.isActive()) {
@@ -73,14 +75,14 @@ export class AirfieldExecution implements Execution {
       this.player = this.airfield.owner();
     }
 
-    // Check if airfield was upgraded - spawn additional bombers
-    const currentLevel = this.airfield.level?.() ?? 1;
-    if (currentLevel > this.lastLevel) {
-      const bombersToAdd = currentLevel - this.lastLevel;
+    // Check if airfield was upgraded (stack count increased) - spawn additional bombers
+    const currentStackCount = this.airfield.stackCount?.() ?? 1;
+    if (currentStackCount > this.lastStackCount) {
+      const bombersToAdd = currentStackCount - this.lastStackCount;
       for (let i = 0; i < bombersToAdd; i++) {
         mg.addExecution(new BomberExecution(this.player, this.airfield));
       }
-      this.lastLevel = currentLevel;
+      this.lastStackCount = currentStackCount;
     }
 
     if ((mg.ticks() + this.checkOffset) % 10 !== 0) {
@@ -110,9 +112,9 @@ export class AirfieldExecution implements Execution {
     }
   }
 
-  private spawnBombersForLevel(mg: Game): void {
-    const level = this.airfield?.level?.() ?? 1;
-    for (let i = 0; i < level; i++) {
+  private spawnBombersForStackCount(mg: Game): void {
+    const count = this.airfield?.stackCount?.() ?? 1;
+    for (let i = 0; i < count; i++) {
       mg.addExecution(new BomberExecution(this.player, this.airfield!));
     }
   }
@@ -123,20 +125,5 @@ export class AirfieldExecution implements Execution {
 
   activeDuringSpawnPhase(): boolean {
     return false;
-  }
-
-  private computeDesiredLevel(type: UnitType, target?: number): number {
-    if (target === undefined || target < 1) return 1;
-    const cap = playerMaxStructureLevel(this.player, type);
-    return Math.max(1, Math.min(cap, target));
-  }
-
-  private applyUpgrades(unit: Unit, desiredLevel: number): void {
-    const steps = Math.max(0, desiredLevel - 1);
-    if (steps <= 0) return;
-    const impl = unit as any;
-    if (typeof impl.upgradeStructure === "function") {
-      for (let i = 0; i < steps; i++) impl.upgradeStructure();
-    }
   }
 }

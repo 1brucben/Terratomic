@@ -27,12 +27,13 @@ import {
 import { Gold, UnitType, UpgradeType } from "../../../core/game/Game";
 import { GameView } from "../../../core/game/GameView";
 import {
+  isStackableStructure,
+  isTechUpgradeableStructure,
   isUnitAvailable,
-  isUpgradeableStructure,
   isUpgradeableUnit,
-  maxStructureLevel,
+  maxStackCount,
   maxUnitLevel,
-  playerMaxStructureLevel,
+  playerMaxStructureTechLevel,
   playerMaxUnitLevel,
 } from "../../../core/game/Upgradeables";
 import { ToggleBomberUpgradeModeEvent } from "../../events/ToggleBomberUpgradeModeEvent";
@@ -547,68 +548,77 @@ export class BuildMenu extends LitElement {
       .config()
       .unitInfo(item.unitType)
       .cost(this.game.myPlayer()!);
-    // Structures: use configured structure multiplier
-    if (isUpgradeableStructure(item.unitType)) {
-      const desired = this._desiredStructureLevel(item.unitType);
+    // Stackable structures: use stack count for cost calculation
+    if (isStackableStructure(item.unitType)) {
+      const stackCount = this._desiredStackCount(item.unitType);
       let structureCost =
-        desired <= 1
+        stackCount <= 1
           ? base
           : aggregateStructureBuildCost(
               this.game.config(),
               this.game.myPlayer()!,
               item.unitType,
-              desired,
+              stackCount,
               this.game.config().structureUpgradeCostMultiplier(item.unitType),
             );
-      // Add bomber upgrade cost for airfields
+      // Add bomber upgrade cost for airfields (based on tech level, not stack)
       if (item.unitType === UnitType.Airfield) {
-        const bomberLevel = this._desiredUnitLevel(UnitType.Bomber);
+        const bomberLevel = this._structureTechLevel(UnitType.Airfield);
         structureCost += computeBomberUpgradeCost(
           this.game.config(),
           this.game.myPlayer()!,
           bomberLevel,
-          desired,
+          stackCount,
         );
       }
       return structureCost;
     }
     // Units: use hardcoded costs from UnitUpgrades (aggregateStructureBuildCost handles this)
     if (isUpgradeableUnit(item.unitType)) {
-      const desired = this._desiredUnitLevel(item.unitType);
-      if (desired <= 1) return base;
+      const techLevel = playerMaxUnitLevel(
+        this.game.myPlayer()!,
+        item.unitType,
+      );
+      if (techLevel <= 1) return base;
       // aggregateStructureBuildCost detects upgradeable units and uses hardcoded costs
       return aggregateStructureBuildCost(
         this.game.config(),
         this.game.myPlayer()!,
         item.unitType,
-        desired,
+        techLevel,
         0, // multiplier ignored for upgradeable units
       );
     }
     return base;
   }
 
-  private _desiredStructureLevel(type: UnitType): number {
-    // If a specific level is requested via the UI prop, use that (clamped by max level)
+  // Get the desired stack count for stackable structures
+  private _desiredStackCount(type: UnitType): number {
+    // If a specific level is requested via the UI prop, use that (clamped by max)
     const level = this.structureLevels[type];
     if (level && level > 1) {
-      return Math.min(maxStructureLevel(type), level);
+      return Math.min(maxStackCount(type), level);
     }
 
+    // Read from localStorage (used for in-game communication, not persistence)
     try {
-      const raw = localStorage.getItem("buildSettings.levels");
+      const raw = localStorage.getItem("buildSettings.stackCount");
       if (!raw) return 1;
       const obj = JSON.parse(raw);
       const key = String(type);
       const val = obj?.[key];
       if (typeof val !== "number" || val < 1) return 1;
-      // Use player-specific max level based on researched techs
-      const player = this.game?.myPlayer();
-      const maxLevel = player ? playerMaxStructureLevel(player, type) : 1;
-      return Math.min(maxLevel, val);
+      return Math.min(maxStackCount(type), val);
     } catch (_) {
       return 1;
     }
+  }
+
+  // Get the tech level for tech-upgradeable structures (SAM, Airfield)
+  private _structureTechLevel(type: UnitType): number {
+    const player = this.game?.myPlayer();
+    if (!player) return 1;
+    return playerMaxStructureTechLevel(player, type);
   }
 
   private _desiredUnitLevel(type: UnitType): number {
@@ -635,7 +645,94 @@ export class BuildMenu extends LitElement {
     if (!player) {
       return "?";
     }
-    return player.units(item.unitType).length.toString();
+    // Use unitsOwned() to get the correct count including stacked structures
+    return player.unitsOwned(item.unitType).toString();
+  }
+
+  private getUnitDisplayName(unitType: UnitType, baseName: string): string {
+    const player = this.game?.myPlayer();
+    if (!player) return baseName;
+
+    // Handle combat units with tech upgrades
+    if (isUpgradeableUnit(unitType)) {
+      const level = playerMaxUnitLevel(player, unitType);
+
+      // Only Fighters use "Gen X" naming
+      if (unitType === UnitType.FighterJet && level > 1) {
+        return `Gen ${level} ${baseName}`;
+      }
+
+      // Warships have specific names per level
+      if (unitType === UnitType.Warship) {
+        switch (level) {
+          case 1:
+            return baseName; // "Warship"
+          case 2:
+            return "Cruiser";
+          case 3:
+            return "Aegis Warship";
+          default:
+            return baseName;
+        }
+      }
+
+      // Submarines have specific names per level
+      if (unitType === UnitType.Submarine) {
+        switch (level) {
+          case 1:
+            return "Diesel Sub";
+          case 2:
+            return "Tactical Sub";
+          case 3:
+            return "Attack Sub";
+          default:
+            return baseName;
+        }
+      }
+
+      // Bombers have specific names per level
+      if (unitType === UnitType.Bomber) {
+        switch (level) {
+          case 1:
+            return baseName; // "Bomber"
+          case 2:
+            return "Heavy Bomber";
+          case 3:
+            return "Supersonic Bomber";
+          default:
+            return baseName;
+        }
+      }
+
+      return baseName;
+    }
+
+    // Handle tech-upgradeable structures (SAM, Airfield)
+    if (isTechUpgradeableStructure(unitType)) {
+      const techLevel = playerMaxStructureTechLevel(player, unitType);
+      const stackCount = this._desiredStackCount(unitType);
+
+      let name = baseName;
+      if (unitType === UnitType.SAMLauncher && techLevel > 1) {
+        name =
+          techLevel === 2
+            ? "Radar SAM"
+            : techLevel === 3
+              ? "Strategic SAM"
+              : baseName;
+      }
+
+      // Do not prefix stack count in the label; chip handles it
+      return name;
+    }
+
+    // Handle other stackable structures
+    if (isStackableStructure(unitType)) {
+      // Do not prefix stack count in the label; chip handles it
+      return baseName;
+    }
+
+    return baseName;
   }
 
   public onBuildSelected = (item: BuildItemDisplay) => {
@@ -674,16 +771,17 @@ export class BuildMenu extends LitElement {
           (row) => html`
             <div class="build-row">
               ${row.map((item) => {
-                const name = item.key
+                const baseName = item.key
                   ? translateText(item.key)
                   : String(item.unitType);
                 const price =
                   this.game && this.game.myPlayer() ? this.cost(item) : 0;
-                const desiredLevel = isUpgradeableStructure(item.unitType)
-                  ? this._desiredStructureLevel(item.unitType)
-                  : isUpgradeableUnit(item.unitType)
-                    ? this._desiredUnitLevel(item.unitType)
-                    : 1;
+
+                const displayName = this.getUnitDisplayName(
+                  item.unitType,
+                  baseName,
+                );
+                const desiredStack = this._desiredStackCount(item.unitType);
 
                 return html`
                   <button
@@ -696,7 +794,7 @@ export class BuildMenu extends LitElement {
                     title=${item.description
                       ? translateText(item.description)
                       : ""}
-                    aria-label=${`${name}, ${renderNumber(price)} gold`}
+                    aria-label=${`${displayName}, ${renderNumber(price)} gold`}
                   >
                     <div class="build-hotkey">
                       ${this.hotkeyMap.get(item.unitType)}
@@ -704,13 +802,13 @@ export class BuildMenu extends LitElement {
                     <img
                       class="build-icon"
                       src=${item.icon}
-                      alt=${name}
+                      alt=${baseName}
                       style="width:${this.iconPixelSize(
                         item.unitType,
                       )}px;height:${this.iconPixelSize(item.unitType)}px;"
                     />
                     <div class="build-item-details">
-                      <span class="build-name">${name}</span>
+                      <span class="build-name">${displayName}</span>
                       <span class="build-cost" translate="no">
                         ${renderNumber(price)}
                         <img
@@ -722,9 +820,9 @@ export class BuildMenu extends LitElement {
                         />
                       </span>
                     </div>
-                    ${desiredLevel >= 1
-                      ? html`<div class="build-level-chip">
-                          L${desiredLevel}
+                    ${desiredStack > 1
+                      ? html`<div class="build-level-chip" title="Stack count">
+                          ×${desiredStack}
                         </div>`
                       : ""}
                     ${item.countable

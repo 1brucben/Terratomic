@@ -144,7 +144,6 @@ export interface Config {
   donateCooldown(): Tick;
   defaultDonationAmount(sender: Player): number;
   unitInfo(type: UnitType): UnitInfo;
-  scorchedEarthActivationCost(player: Player | PlayerView): Gold;
   tradeShipGold(dist: number): Gold;
   tradeShipSpawnRate(numberOfPorts: number): number;
   // Trade rework: gravity-based demand and port-supplied ships
@@ -173,8 +172,6 @@ export interface Config {
   internationalCargoTruckGoldSplitRatio(): number;
   urbanPlanningPopulationBonusNum(): number;
   urbanPlanningPopulationBonusDen(): number;
-  structureInsuranceRefundNum(): number;
-  structureInsuranceRefundDen(): number;
 
   // Structure upgrade cost multiplier per structure type (e.g., 0.8 for 80%)
   structureUpgradeCostMultiplier(type: UnitType): number;

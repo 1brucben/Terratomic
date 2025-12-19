@@ -45,7 +45,7 @@ export class ParatrooperAttackExecution implements Execution {
   init(game: Game, ticks: number): void {
     this.mg = game;
 
-    if (!this.attacker.hasUpgrade(UpgradeType.AirUpgrade1)) {
+    if (!this.attacker.hasUpgrade(UpgradeType.JetEngines)) {
       return;
     }
 

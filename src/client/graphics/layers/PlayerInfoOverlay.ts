@@ -347,15 +347,18 @@ export class PlayerInfoOverlay extends LitElement implements Layer {
               const iconSrc = unitIconMap[unitType];
               if (!iconSrc) return null;
 
-              // Use unitsOwned for upgraded structures (City, Port, Hospital, Academy)
-              // so counts reflect summed levels + constructions, consistent with server.
+              // Use unitsOwned for all stackable structures
+              // so counts reflect summed stack counts + constructions, consistent with server.
               const count =
                 unitType === UnitType.City ||
                 unitType === UnitType.Port ||
                 unitType === UnitType.Hospital ||
                 unitType === UnitType.Academy ||
                 unitType === UnitType.ResearchLab ||
-                unitType === UnitType.Factory
+                unitType === UnitType.Factory ||
+                unitType === UnitType.SAMLauncher ||
+                unitType === UnitType.Airfield ||
+                unitType === UnitType.MissileSilo
                   ? player.unitsOwned(unitType)
                   : player.units(unitType).length;
 

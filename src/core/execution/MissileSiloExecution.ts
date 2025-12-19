@@ -10,6 +10,7 @@ export class MissileSiloExecution implements Execution {
     private player: Player,
     private tile: TileRef,
     private desiredLevel?: number,
+    private stackCount: number = 1,
   ) {}
 
   init(mg: Game, ticks: number): void {
@@ -27,6 +28,20 @@ export class MissileSiloExecution implements Execution {
         return;
       }
       this.silo = this.player.buildUnit(UnitType.MissileSilo, spawn, {});
+
+      // Apply stack count (multiple silos in one tile)
+      if (this.stackCount > 1) {
+        const impl = this.silo as any;
+        if (typeof impl.setStackCount === "function") {
+          impl.setStackCount(this.stackCount);
+        }
+        // Apply HP bonuses for stacking via upgradeStructure
+        if (typeof impl.upgradeStructure === "function") {
+          for (let i = 0; i < this.stackCount - 1; i++) {
+            impl.upgradeStructure();
+          }
+        }
+      }
 
       // Apply upgrades up to cap 3 if requested
       const level = this.computeDesiredLevel(

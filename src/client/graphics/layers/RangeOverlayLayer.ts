@@ -3,6 +3,7 @@ import { EventBus } from "../../../core/EventBus";
 import { Cell, UnitType } from "../../../core/game/Game";
 import { GameUpdateType } from "../../../core/game/GameUpdates";
 import { GameView, UnitView } from "../../../core/game/GameView";
+import { playerMaxStructureTechLevel } from "../../../core/game/Upgradeables";
 import { MouseOverEvent } from "../../InputHandler";
 import { TransformHandler } from "../TransformHandler";
 import { UIState } from "../UIState";
@@ -404,7 +405,8 @@ export class RangeOverlayLayer implements Layer {
     if (u.type() === UnitType.SAMLauncher) {
       const base = this.game.config().defaultSamRange();
       const bonus = this.game.config().samRangeUpgradePercent();
-      const lvl = u.level();
+      // Use player's SAM tech level, not unit level (which is stack count)
+      const lvl = playerMaxStructureTechLevel(u.owner(), UnitType.SAMLauncher);
       if (lvl <= 1) return base;
       const factor = Math.pow(1 + bonus, lvl - 1);
       return Math.round(base * factor);

@@ -39,18 +39,19 @@ export class ResearchTreeSelectExecution implements Execution {
         // Complete the research immediately; side-effects are handled by addResearchedTech()
         (this.player as any).addResearchedTech?.(this.techId);
 
-        // Clear any existing priority since research is completed
-        (this.player as any).setResearchPriority?.(null);
+        // Remove from priorities since research is completed
+        const priorities = (this.player as any).researchPriorities?.();
+        if (priorities?.has(this.techId)) {
+          (this.player as any).setResearchPriority?.(this.techId); // Toggle off
+        }
         this._active = false;
         return;
       }
       // Fall through to priority toggle if not available or already researched
     }
 
-    // Default behavior: toggle research priority on click
-    const current = (this.player as any).researchPriority?.() ?? null;
-    const next = current === this.techId ? null : this.techId;
-    (this.player as any).setResearchPriority?.(next);
+    // Default behavior: toggle research priority (add/remove from set)
+    (this.player as any).setResearchPriority?.(this.techId);
     this._active = false;
   }
 }

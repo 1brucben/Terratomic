@@ -31,6 +31,9 @@ export function startGame(id: GameID, lobby: Partial<GameConfig>) {
     return;
   }
 
+  // Clear stack count settings so each game starts fresh
+  localStorage.removeItem("buildSettings.stackCount");
+
   _startTime = Date.now();
   const stats = getStats();
   stats[id] = { lobby };
