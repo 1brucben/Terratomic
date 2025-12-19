@@ -38,7 +38,7 @@ export function renderUnitTypeOptions({
     ({ type, translationKey }) => html`
       <label
         class="option-card ${disabledUnits.includes(type) ? "" : "selected"}"
-        style="width: 140px;"
+        style="width: 115px;"
       >
         <div class="checkbox-icon"></div>
         <input

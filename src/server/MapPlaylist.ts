@@ -90,6 +90,7 @@ export class MapPlaylist {
       peaceTimerDurationMinutes: PeaceTimerDuration.None,
       startingGold: 0,
       goldMultiplier: 1,
+      chatEnabled: false,
     } satisfies GameConfig;
   }
 

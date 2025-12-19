@@ -35,6 +35,7 @@ function createMockGameEndInfo(numTurns: number): GameEndInfo {
       peaceTimerDurationMinutes: PeaceTimerDuration.None,
       startingGold: 0,
       goldMultiplier: 1,
+      chatEnabled: false,
     },
     players: [
       {

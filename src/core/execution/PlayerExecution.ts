@@ -2,15 +2,26 @@ import { Config } from "../configuration/Config";
 import {
   Execution,
   Game,
+  MessageType,
   Player,
   PlayerType,
   UnitType,
   UpgradeType,
 } from "../game/Game";
+import { TileRef } from "../game/GameMap";
 import { PseudoRandom } from "../PseudoRandom";
 import { getTechNodes, isTechAvailable } from "../tech/ResearchTree";
 import { researchEffectivenessModifiers } from "../tech/TechEffects";
-import { simpleHash } from "../Util";
+import { calculateBoundingBox, getMode, inscribed, simpleHash } from "../Util";
+
+// Traversal state for cluster calculation to avoid repeated allocations
+interface ClusterTraversalState {
+  visited: Uint8Array;
+  currentGen: number;
+}
+
+// Per-game traversal state used by calculateClusters() to avoid per-player buffers.
+const traversalStates = new WeakMap<Game, ClusterTraversalState>();
 
 export class PlayerExecution implements Execution {
   private config: Config;
@@ -19,6 +30,9 @@ export class PlayerExecution implements Execution {
   private random: PseudoRandom | null = null;
   // Accumulate research "intensity" allocation since last innovation calculation
   private _researchAccum: Map<string, number> = new Map();
+  // Cluster encircling check fields
+  private lastCalc: number = 0;
+  private readonly ticksPerClusterCalc = 20;
 
   constructor(private player: Player) {}
 
@@ -137,6 +151,20 @@ export class PlayerExecution implements Execution {
         u.modifyHealth(0.5);
       }
     });
+
+    // Check for encircled clusters (bot-only annexing)
+    if (ticks - this.lastCalc > this.ticksPerClusterCalc) {
+      if (this.player.lastTileChange() > this.lastCalc) {
+        this.lastCalc = ticks;
+        const start = performance.now();
+        this.removeClusters();
+        const end = performance.now();
+        if (end - start > 1000) {
+          console.log(`player ${this.player.name()}, took ${end - start}ms`);
+        }
+      }
+    }
+
     // --- Research system per-tick processing ---
     this.tickResearch();
   }
@@ -316,6 +344,252 @@ export class PlayerExecution implements Execution {
       // Reset accumulators after processing the cadence boundary
       this._researchAccum.clear();
     }
+  }
+
+  /**
+   * Encircle and annex bot clusters that are surrounded by a single enemy player.
+   * Only applicable when this.player is a Bot (PlayerType.Bot).
+   * Any player type (Human, FakeHuman, Bot) can annex a surrounded Bot.
+   */
+  private removeClusters() {
+    // Only Bots can be encircled and annexed
+    if (this.player.type() !== PlayerType.Bot) {
+      return;
+    }
+
+    const clusters = this.calculateClusters();
+    clusters.sort((a, b) => b.size - a.size);
+
+    const main = clusters.shift();
+    if (main === undefined) throw new Error("No clusters");
+    const surroundedBy = this.surroundedBySamePlayer(main);
+    if (surroundedBy && !this.player.isFriendly(surroundedBy)) {
+      this.removeCluster(main);
+    }
+
+    for (const cluster of clusters) {
+      if (this.isSurrounded(cluster)) {
+        const surroundingPlayer = this.getCapturingPlayer(cluster);
+        if (surroundingPlayer) {
+          this.removeCluster(cluster);
+        }
+      }
+    }
+  }
+
+  private surroundedBySamePlayer(cluster: Set<TileRef>): false | Player {
+    const enemies = new Set<number>();
+    for (const tile of cluster) {
+      // Check if this tile has water access (ocean or lake) - escape route via boat
+      let hasWaterAccess = false;
+      this.mg.forEachNeighbor(tile, (n) => {
+        if (!this.mg.isLand(n)) {
+          hasWaterAccess = true;
+        }
+      });
+
+      // If any tile has water access or is on map edge, not surrounded
+      if (hasWaterAccess || this.mg.isOnEdgeOfMap(tile)) {
+        return false;
+      }
+
+      // Check if there are any unowned neighbors (neutral territory = escape)
+      let hasUnownedNeighbor = false;
+      this.mg.forEachNeighbor(tile, (n) => {
+        if (!this.mg?.hasOwner(n)) {
+          hasUnownedNeighbor = true;
+        }
+      });
+      if (hasUnownedNeighbor) {
+        return false;
+      }
+
+      this.mg.forEachNeighbor(tile, (n) => {
+        if (this.mg?.ownerID(n) !== this.player?.smallID()) {
+          enemies.add(this.mg.ownerID(n));
+        }
+      });
+      if (enemies.size !== 1) {
+        return false;
+      }
+    }
+    if (enemies.size !== 1) {
+      return false;
+    }
+    const enemy = this.mg.playerBySmallID(Array.from(enemies)[0]) as Player;
+    const enemyBox = calculateBoundingBox(this.mg, enemy.borderTiles());
+    const clusterBox = calculateBoundingBox(this.mg, cluster);
+    if (inscribed(enemyBox, clusterBox)) {
+      return enemy;
+    }
+    return false;
+  }
+
+  private isSurrounded(cluster: Set<TileRef>): boolean {
+    const enemyTiles = new Set<TileRef>();
+    for (const tr of cluster) {
+      // Check if this tile has water access (ocean or lake) - escape route via boat
+      let hasWaterAccess = false;
+      this.mg.forEachNeighbor(tr, (n) => {
+        if (!this.mg.isLand(n)) {
+          hasWaterAccess = true;
+        }
+      });
+
+      // If any tile has water access or is on map edge, not surrounded
+      if (hasWaterAccess || this.mg.isOnEdgeOfMap(tr)) {
+        return false;
+      }
+
+      this.mg.forEachNeighbor(tr, (n) => {
+        if (
+          this.mg?.owner(n).isPlayer() &&
+          this.mg?.ownerID(n) !== this.player?.smallID()
+        ) {
+          enemyTiles.add(n);
+        }
+      });
+    }
+    if (enemyTiles.size === 0) {
+      return false;
+    }
+    const enemyBox = calculateBoundingBox(this.mg, enemyTiles);
+    const clusterBox = calculateBoundingBox(this.mg, cluster);
+    return inscribed(enemyBox, clusterBox);
+  }
+
+  private removeCluster(cluster: Set<TileRef>) {
+    if (
+      Array.from(cluster).some(
+        (t) => this.mg?.ownerID(t) !== this.player?.smallID(),
+      )
+    ) {
+      // Other removeCluster operations could change tile owners,
+      // so double check.
+      return;
+    }
+
+    const capturing = this.getCapturingPlayer(cluster);
+    if (capturing === null) {
+      return;
+    }
+
+    const firstTile = cluster.values().next().value;
+    const filter = (_, t: TileRef): boolean =>
+      this.mg?.ownerID(t) === this.player?.smallID();
+    const tiles = this.mg.bfs(firstTile, filter);
+
+    if (this.player.numTilesOwned() === tiles.size) {
+      const gold = this.player.gold();
+      this.mg.displayMessage(
+        `Conquered ${this.player.displayName()} received ${gold.toString()} gold`,
+        MessageType.CONQUERED_PLAYER,
+        capturing.id(),
+        gold,
+      );
+      capturing.addGold(gold);
+      this.player.removeGold(gold);
+
+      // Record stats
+      this.mg.stats().goldWar(capturing, this.player, gold);
+    }
+
+    for (const tile of tiles) {
+      capturing.conquer(tile);
+    }
+  }
+
+  private getCapturingPlayer(cluster: Set<TileRef>): Player | null {
+    const neighborsIDs = new Set<number>();
+    for (const t of cluster) {
+      this.mg.forEachNeighbor(t, (neighbor) => {
+        if (this.mg.ownerID(neighbor) !== this.player.smallID()) {
+          neighborsIDs.add(this.mg.ownerID(neighbor));
+        }
+      });
+    }
+
+    let largestNeighborAttack: Player | null = null;
+    let largestTroopCount: number = 0;
+    for (const id of neighborsIDs) {
+      const neighbor = this.mg.playerBySmallID(id);
+      if (!neighbor.isPlayer() || this.player.isFriendly(neighbor)) {
+        continue;
+      }
+      for (const attack of neighbor.outgoingAttacks()) {
+        if (attack.target() === this.player) {
+          if (attack.troops() > largestTroopCount) {
+            largestTroopCount = attack.troops();
+            largestNeighborAttack = neighbor;
+          }
+        }
+      }
+    }
+    if (largestNeighborAttack !== null) {
+      return largestNeighborAttack;
+    }
+
+    // fall back to getting mode if no attacks
+    const mode = getMode(neighborsIDs);
+    if (!this.mg.playerBySmallID(mode).isPlayer()) {
+      return null;
+    }
+    const capturing = this.mg.playerBySmallID(mode);
+    if (!capturing.isPlayer()) {
+      return null;
+    }
+    return capturing;
+  }
+
+  private calculateClusters(): Set<TileRef>[] {
+    const border = this.player.borderTiles();
+    const clusters: Set<TileRef>[] = [];
+
+    // Get or create traversal state for this game instance
+    let state = traversalStates.get(this.mg);
+    if (!state) {
+      state = {
+        visited: new Uint8Array(this.mg.width() * this.mg.height()),
+        currentGen: 1,
+      };
+      traversalStates.set(this.mg, state);
+    }
+
+    // Increment generation instead of clearing the array
+    state.currentGen++;
+    if (state.currentGen === 255) {
+      // Wraparound: reset to 1 and clear array
+      state.currentGen = 1;
+      state.visited.fill(0);
+    }
+
+    const currentGen = state.currentGen;
+    const visited = state.visited;
+
+    for (const tile of border) {
+      if (visited[tile] === currentGen) {
+        continue;
+      }
+
+      const cluster = new Set<TileRef>();
+      const stack: TileRef[] = [tile];
+      visited[tile] = currentGen;
+
+      while (stack.length > 0) {
+        const curr = stack.pop();
+        if (curr === undefined) throw new Error("curr is undefined");
+        cluster.add(curr);
+
+        this.mg.forEachNeighborWithDiag(curr, (neighbor) => {
+          if (border.has(neighbor) && visited[neighbor] !== currentGen) {
+            stack.push(neighbor);
+            visited[neighbor] = currentGen;
+          }
+        });
+      }
+      clusters.push(cluster);
+    }
+    return clusters;
   }
 
   owner(): Player {

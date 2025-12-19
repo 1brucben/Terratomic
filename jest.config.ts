@@ -10,6 +10,7 @@ export default {
     "^src/client/InputHandler$": "<rootDir>/tests/__mocks__/InputHandler.ts",
     "\\.(svg|png|jpe?g|gif|webp)$": "<rootDir>/tests/__mocks__/fileMock.ts",
     "^nanoid$": "<rootDir>/tests/__mocks__/nanoid.cjs",
+    "^bad-words$": "<rootDir>/tests/__mocks__/bad-words.ts",
   },
   transform: {
     "^.+\\.tsx?$": ["@swc/jest"],
