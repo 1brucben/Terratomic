@@ -127,14 +127,10 @@ export class ControlPanel2 extends LitElement implements Layer {
   @state()
   private _uiSelectedStructures: UnitType[] = [];
 
-  // Cache for trade demand to prevent flickering tooltips
+  // Cache for active trade ships to prevent flickering
   @state()
-  private _tradeDemandCache: {
-    label: string;
-    color: string;
-    queueLen: number;
-    availableShips: number;
-    myShipCount: number;
+  private _activeTradeShipsCache: {
+    count: number;
     tooltip: string;
     timestamp: number;
   } | null = null;
@@ -1294,7 +1290,7 @@ export class ControlPanel2 extends LitElement implements Layer {
                     </button>
                   </div>
                   <div class="toolbar-spacer"></div>
-                  ${this._renderTradeDemand()}
+                  ${this._renderActiveTradeShips()}
                 </div>
                 <!-- Build Grid -->
                 <build-menu
@@ -1735,84 +1731,29 @@ export class ControlPanel2 extends LitElement implements Layer {
     `;
   }
 
-  private _renderTradeDemand() {
+  private _renderActiveTradeShips() {
     const me = this.game.myPlayer();
     if (!me) return html``;
 
-    // Hide trade demand if player has no ports (trading not yet available)
+    // Hide if player has no ports (trading not yet available)
     const myPorts = me.units(UnitType.Port).filter((u) => u.isActive());
     if (myPorts.length === 0) return html``;
 
-    // Count MY trade ships (not global)
+    // Count MY active trade ships
     const myTradeShips = me
       .units(UnitType.TradeShip)
       .filter((u) => u.isActive());
     const myShipCount = myTradeShips.length;
 
-    // If I have no trade ships, show "No Ships"
-    if (myShipCount === 0) {
-      const icon = html`<svg
-        xmlns="http://www.w3.org/2000/svg"
-        width="16"
-        height="16"
-        viewBox="0 0 24 24"
-        fill="none"
-        stroke="currentColor"
-        stroke-width="2"
-        stroke-linecap="round"
-        stroke-linejoin="round"
-        class="text-gray-400"
-      >
-        <path
-          d="M2 21c.6.5 1.2 1 2.5 1 2.5 0 2.5-2 5-2 1.3 0 1.9.5 2.5 1 .6.5 1.2 1 2.5 1 2.5 0 2.5-2 5-2 1.3 0 1.9.5 2.5 1"
-        />
-        <path d="M19.38 20A11.6 11.6 0 0 0 21 14l-9-4-9 4c0 2.9.9 5.8 2.5 8" />
-        <path d="M12 10V4" />
-        <path d="M8 8v2" />
-        <path d="M16 8v2" />
-      </svg>`;
-      return html`
-        <div
-          class="trade-demand-indicator"
-          title="Build trade ships to fulfill trade routes"
-        >
-          ${icon}
-          <span style="opacity: 0.7;">Trade Demand:</span>
-          <span class="trade-demand-value" style="color: var(--ui-text-muted);">
-            No Ships
-          </span>
-        </div>
-      `;
-    }
-
-    // Count ships available (idle at my ports)
-    const availableShips = myTradeShips.filter((s) => {
-      const isReturning = s.returning();
-      const phase = s.tradePhase();
-      const hasTarget = s.targetUnitId() !== undefined;
-      const dockOwner = s.dockedAtPortOwner();
-      // Available = at my port, not assigned, not in transit
-      return (
-        !isReturning &&
-        phase === null &&
-        !hasTarget &&
-        dockOwner?.smallID() === me.smallID()
-      );
-    }).length;
-
-    const queueLen = me.tradeDemandQueueLength();
-
-    // Only update cache if values changed significantly (reduce re-render flicker)
+    // Use cache if still valid (reduce re-renders)
     const now = Date.now();
     const cacheValid =
-      this._tradeDemandCache !== null &&
-      this._tradeDemandCache.queueLen === queueLen &&
-      this._tradeDemandCache.availableShips === availableShips &&
-      this._tradeDemandCache.myShipCount === myShipCount &&
-      now - this._tradeDemandCache.timestamp < 2000; // 2 second cache
+      this._activeTradeShipsCache !== null &&
+      this._activeTradeShipsCache.count === myShipCount &&
+      now - this._activeTradeShipsCache.timestamp < 2000; // 2 second cache
 
     if (cacheValid) {
-      const cached = this._tradeDemandCache!;
+      const cached = this._activeTradeShipsCache!;
       const icon = html`<svg
         xmlns="http://www.w3.org/2000/svg"
         width="16"
@@ -1836,48 +1777,24 @@ export class ControlPanel2 extends LitElement implements Layer {
       return html`
         <div class="trade-demand-indicator" title="${cached.tooltip}">
           ${icon}
-          <span style="opacity: 0.7;">Trade Demand:</span>
+          <span style="opacity: 0.7;">Active Trade Ships:</span>
           <span
             class="trade-demand-value"
-            style="color: ${cached.color}; filter: drop-shadow(0 0 2px ${cached.color}80);"
+            style="color: var(--ui-text-default);"
           >
-            ${cached.label}
+            ${cached.count}
           </span>
         </div>
       `;
     }
 
-    // Compare queue vs MY ships (not global)
-    const queueRatio = queueLen / Math.max(1, myShipCount);
-    const availableRatio = availableShips / Math.max(1, myShipCount);
-
-    let demandLabel = "Medium";
-    let demandColor = "var(--ui-text-default)";
-
-    // High demand = lots of routes waiting, need more ships
-    if (queueRatio > 2) {
-      demandLabel = "Very High";
-      demandColor = "var(--ui-alert)";
-    } else if (queueRatio > 1) {
-      demandLabel = "High";
-      demandColor = "var(--ui-warning)";
-    } else if (availableRatio > 0.5) {
-      // Low demand = most ships idle, surplus capacity
-      demandLabel = "Low";
-      demandColor = "var(--ui-success)";
-    } else if (queueLen === 0 && availableShips > 0) {
-      demandLabel = "Very Low";
-      demandColor = "var(--ui-info)";
-    }
-
     // Update cache
-    const tooltipText = `Trade Demand: ${queueLen} routes waiting, ${availableShips}/${myShipCount} ships available`;
-    this._tradeDemandCache = {
-      label: demandLabel,
-      color: demandColor,
-      queueLen,
-      availableShips,
-      myShipCount,
+    const tooltipText =
+      myShipCount === 0
+        ? "No trade ships active"
+        : `${myShipCount} trade ship${myShipCount === 1 ? "" : "s"} actively trading`;
+    this._activeTradeShipsCache = {
+      count: myShipCount,
       tooltip: tooltipText,
       timestamp: now,
     };
@@ -1906,12 +1823,9 @@ export class ControlPanel2 extends LitElement implements Layer {
     return html`
       <div class="trade-demand-indicator" title="${tooltipText}">
         ${icon}
-        <span style="opacity: 0.7;">Trade Demand:</span>
-        <span
-          class="trade-demand-value"
-          style="color: ${demandColor}; filter: drop-shadow(0 0 2px ${demandColor}80);"
-        >
-          ${demandLabel}
+        <span style="opacity: 0.7;">Active Trade Ships:</span>
+        <span class="trade-demand-value" style="color: var(--ui-text-default);">
+          ${myShipCount}
         </span>
       </div>
     `;

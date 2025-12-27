@@ -30,6 +30,7 @@ import { FighterJetExecution } from "./FighterJetExecution";
 import { MirvExecution } from "./MIRVExecution";
 import { MissileSiloExecution } from "./MissileSiloExecution";
 import { NukeExecution } from "./NukeExecution";
+import { PortExecution } from "./PortExecution";
 import { SAMLauncherExecution } from "./SAMLauncherExecution";
 import { SubmarineExecution } from "./SubmarineExecution";
 import { WarshipExecution } from "./WarshipExecution";
@@ -220,22 +221,14 @@ export class ConstructionExecution implements Execution {
         );
         break;
       case UnitType.Port:
-        {
-          const canSpawn = this.player.canBuild(
-            this.constructionType,
+        this.mg.addExecution(
+          new PortExecution(
+            player,
             this.tile,
-          );
-          if (canSpawn === false) {
-            console.warn(`cannot build ${this.constructionType}`);
-            return;
-          }
-          const built = this.player.buildUnit(
-            this.constructionType,
-            canSpawn,
-            {},
-          );
-          this.applyStackingIfNeeded(built, this.desiredStackCount);
-        }
+            this.desiredTechLevel,
+            this.desiredStackCount,
+          ),
+        );
         break;
       case UnitType.MissileSilo:
         this.mg.addExecution(
