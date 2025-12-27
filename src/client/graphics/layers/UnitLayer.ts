@@ -184,8 +184,6 @@ export class UnitLayer implements Layer {
   // Submarine ghost sprites
   private ghostRenders: GhostRenderInfo[] = [];
   private renderedUnits = new Map<number, UnitView>();
-
-  // Cache bomber visibility at airfield (updated once per tick instead of 60×/sec)
   private bomberAtAirfield = new Map<number, boolean>();
 
   constructor(
@@ -697,7 +695,6 @@ export class UnitLayer implements Layer {
       } else {
         // Unit removed
         this.removePixiUnit(unitView.id());
-        this.bomberAtAirfield.delete(unitView.id());
       }
     }
   }
@@ -1073,15 +1070,6 @@ export class UnitLayer implements Layer {
 
     // Apply rotation to bombers and fighter jets to point them in movement direction
     if (unit.type() === UnitType.Bomber) {
-      const atAirfield = this.bomberAtAirfield.get(unit.id()) ?? false;
-      if (atAirfield) {
-        render.pixiSprite.visible = false;
-        return; // Skip rendering this bomber
-      } else {
-        render.pixiSprite.visible = true;
-      }
-
-      // Apply rotation to point bomber in movement direction
       const angle = this.getUnitAngle(unit);
       if (angle !== null) {
         render.pixiSprite.rotation = angle;

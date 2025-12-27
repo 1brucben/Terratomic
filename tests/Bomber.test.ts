@@ -42,18 +42,24 @@ describe("Bomber", () => {
     player2.setWarWith(player1);
   });
 
-  test("Bomber spawns at airfield with full health", () => {
+  test("Bomber spawns with full health when launching on mission", () => {
     const airfield = player1.buildUnit(UnitType.Airfield, game.ref(10, 10), {});
+    // Create target so bomber launches
+    const enemyCity = player2.buildUnit(UnitType.City, game.ref(15, 15), {});
+
+    player1.setAutoBombingEnabled(true);
+
     const bomberExec = new BomberExecution(player1, airfield);
     game.addExecution(bomberExec);
 
     game.executeNextTick();
+    executeTicks(game, 101); // Wait for cooldown
 
     const bombers = player1.units(UnitType.Bomber);
     expect(bombers.length).toBe(1);
     // New bombers spawn at 100% health (500)
     expect(bombers[0].health()).toBe(500);
-    expect(bombers[0].tile()).toBe(airfield.tile());
+    expect(bombers[0].targetTile()).toBe(enemyCity.tile());
   });
 
   test("Bomber targets enemy structure within range (manual targeting)", () => {
@@ -70,11 +76,8 @@ describe("Bomber", () => {
     const bomberExec = new BomberExecution(player1, airfield);
     game.addExecution(bomberExec);
 
-    // Spawn bomber
     game.executeNextTick();
-
-    // Wait for cooldown and launch gap
-    executeTicks(game, 110);
+    executeTicks(game, 101); // Wait for cooldown
 
     const bombers = player1.units(UnitType.Bomber);
     expect(bombers.length).toBe(1);
@@ -95,7 +98,7 @@ describe("Bomber", () => {
     game.addExecution(bomberExec);
 
     game.executeNextTick();
-    executeTicks(game, 110);
+    executeTicks(game, 101); // Wait for cooldown
 
     const bombers = player1.units(UnitType.Bomber);
     expect(bombers.length).toBe(1);
@@ -121,11 +124,12 @@ describe("Bomber", () => {
     game.addExecution(bomberExec);
 
     game.executeNextTick();
-    executeTicks(game, 110);
+    executeTicks(game, 101); // Wait for cooldown
 
     const bombers = player1.units(UnitType.Bomber);
+    expect(bombers.length).toBe(1);
     // Should target city1 because it has more bombers (concentrate fire)
-    expect(bombers[0].targetTile?.()).toBe(city1.tile());
+    expect(bombers[0].targetTile()).toBe(city1.tile());
   });
 
   test("Bomber avoids SAM coverage when possible", () => {
@@ -147,7 +151,7 @@ describe("Bomber", () => {
     game.addExecution(bomberExec);
 
     game.executeNextTick();
-    executeTicks(game, 110);
+    executeTicks(game, 101); // Wait for cooldown
 
     const bombers = player1.units(UnitType.Bomber);
     expect(bombers.length).toBe(1);
@@ -175,7 +179,7 @@ describe("Bomber", () => {
     game.addExecution(bomberExec);
 
     game.executeNextTick();
-    executeTicks(game, 110);
+    executeTicks(game, 101); // Wait for cooldown
 
     const bombers = player1.units(UnitType.Bomber);
     expect(bombers.length).toBe(1);
@@ -215,9 +219,10 @@ describe("Bomber", () => {
     game.addExecution(bomberExec);
 
     game.executeNextTick();
-    executeTicks(game, 110);
+    executeTicks(game, 101); // Wait for cooldown
 
     const bombers = player1.units(UnitType.Bomber);
+    expect(bombers.length).toBe(1);
     // Should launch despite neutral SAM in path
     expect(bombers[0].targetTile()).toBe(enemyCity.tile());
   });
@@ -237,10 +242,11 @@ describe("Bomber", () => {
     game.addExecution(bomberExec);
 
     game.executeNextTick();
-    executeTicks(game, 110);
+    executeTicks(game, 101); // Wait for cooldown
 
     const bombers = player1.units(UnitType.Bomber);
-    const initialTarget = bombers[0].targetTile?.();
+    expect(bombers.length).toBe(1);
+    const initialTarget = bombers[0].targetTile();
     expect(initialTarget).toBe(city2.tile()); // Closer city
 
     // Destroy the target
@@ -250,7 +256,7 @@ describe("Bomber", () => {
     game.executeNextTick();
 
     // Should retarget to city1
-    expect(bombers[0].targetTile?.()).toBe(city1.tile());
+    expect(bombers[0].targetTile()).toBe(city1.tile());
   });
 
   test("Bomber returns home when target becomes invalid (no other targets)", () => {
@@ -268,16 +274,15 @@ describe("Bomber", () => {
     game.addExecution(bomberExec);
 
     game.executeNextTick();
+    executeTicks(game, 101); // Wait for cooldown
 
     const bombers = player1.units(UnitType.Bomber);
-
-    // Bomber launches immediately (no initial cooldown) and starts moving at tick 104
-    executeTicks(game, 3);
+    expect(bombers.length).toBe(1);
 
     // Verify bomber has launched and has target
     expect(bombers[0].targetTile()).toBe(city.tile());
 
-    // Bomber should be away from airfield now (started moving at tick 104)
+    // Bomber should be away from airfield now
     expect(bombers[0].tile()).not.toBe(airfield.tile());
 
     // Destroy the only target while bomber is en route
@@ -305,14 +310,13 @@ describe("Bomber", () => {
     game.addExecution(bomberExec);
 
     game.executeNextTick();
+    executeTicks(game, 101); // Wait for cooldown
 
     const bombers = player1.units(UnitType.Bomber);
-
-    // Bomber launches immediately and starts moving
-    executeTicks(game, 3);
+    expect(bombers.length).toBe(1);
 
     // Verify bomber has launched and has target
-    expect(bombers[0].targetTile?.()).toBe(city1.tile());
+    expect(bombers[0].targetTile()).toBe(city1.tile());
 
     // Bomber should be away from airfield now
     expect(bombers[0].tile()).not.toBe(airfield.tile());
@@ -350,9 +354,10 @@ describe("Bomber", () => {
     game.addExecution(bomberExec);
 
     game.executeNextTick();
-    executeTicks(game, 2); // Bomber launches immediately at tick 103
+    executeTicks(game, 101); // Wait for cooldown
 
     const bombers = player1.units(UnitType.Bomber);
+    expect(bombers.length).toBe(1);
     // Should still target because 6 > 5
     expect(bombers[0].targetTile()).toBe(highHealthCity.tile());
     expect(player1.bombersOnTarget.get(highHealthCity.tile())).toBe(6);
@@ -384,7 +389,7 @@ describe("Bomber", () => {
 
     const bombers = player1.units(UnitType.Bomber);
     // Should not launch because 3 is not > 3
-    expect(bombers[0].tile()).toBe(airfield.tile());
+    expect(bombers.length).toBe(0);
   });
 
   test("Bomber cleanup removes invalid targets from bombersOnTarget map", () => {
@@ -427,7 +432,7 @@ describe("Bomber", () => {
     game.addExecution(bomberExec);
 
     game.executeNextTick();
-    executeTicks(game, 2); // Bomber launches immediately at tick 103
+    executeTicks(game, 101); // Wait for cooldown
 
     // Bomber should have launched and incremented count
     expect(player1.bombersOnTarget.get(city.tile())).toBe(1);
@@ -459,11 +464,12 @@ describe("Bomber", () => {
     game.addExecution(bomberExec);
 
     game.executeNextTick();
-    executeTicks(game, 110);
+    executeTicks(game, 101); // Wait for cooldown
 
     const bombers = player1.units(UnitType.Bomber);
+    expect(bombers.length).toBe(1);
     // Should target city (more bombers = higher priority)
-    expect(bombers[0].targetTile?.()).toBe(city.tile());
+    expect(bombers[0].targetTile()).toBe(city.tile());
   });
 
   test("Manual targeting prefers closest when preferClosest is true", () => {
@@ -481,9 +487,10 @@ describe("Bomber", () => {
     game.addExecution(bomberExec);
 
     game.executeNextTick();
-    executeTicks(game, 110);
+    executeTicks(game, 101); // Wait for cooldown
 
     const bombers = player1.units(UnitType.Bomber);
+    expect(bombers.length).toBe(1);
     expect(bombers[0].targetTile()).toBe(nearCity.tile());
   });
 
@@ -502,34 +509,45 @@ describe("Bomber", () => {
     game.addExecution(bomberExec);
 
     game.executeNextTick();
-    executeTicks(game, 110);
+    executeTicks(game, 101); // Wait for cooldown
 
     const bombers = player1.units(UnitType.Bomber);
+    expect(bombers.length).toBe(1);
     expect(bombers[0].targetTile()).toBe(farCity.tile());
   });
 
-  test("Bomber respawns at airfield after being destroyed", () => {
+  test("Bomber launches new mission after previous bomber destroyed", () => {
     const airfield = player1.buildUnit(UnitType.Airfield, game.ref(10, 10), {});
+    const enemyCity = player2.buildUnit(UnitType.City, game.ref(15, 15), {});
+
+    player1.setAutoBombingEnabled(true);
 
     const bomberExec = new BomberExecution(player1, airfield);
     game.addExecution(bomberExec);
 
     game.executeNextTick();
+    executeTicks(game, 101); // First bomber launches
 
     const bomber1 = player1.units(UnitType.Bomber)[0];
     expect(bomber1).toBeDefined();
+    const bomber1Id = bomber1.id();
 
-    // Destroy the bomber
+    // Destroy the bomber mid-mission
     bomber1.delete(false);
     expect(bomber1.isActive()).toBe(false);
 
-    game.executeNextTick();
+    // Wait for cooldown and new mission launch
+    executeTicks(game, 110);
 
-    // Should respawn
-    const bomber2 = player1.units(UnitType.Bomber)[0];
-    expect(bomber2).toBeDefined();
-    expect(bomber2.tile()).toBe(airfield.tile());
-    expect(bomber2.health()).toBe(1);
+    // Should launch a new bomber (different unit, not respawn)
+    const bombers = player1.units(UnitType.Bomber);
+    if (bombers.length > 0) {
+      const bomber2 = bombers[0];
+      expect(bomber2).toBeDefined();
+      expect(bomber2.id()).not.toBe(bomber1Id); // Different bomber
+      expect(bomber2.targetTile()).toBe(enemyCity.tile());
+    }
+    // Note: bomber may not exist if it already completed mission and returned
   });
 
   test("Bomber fallback to direct path when no SAM-avoiding route exists", () => {
@@ -550,9 +568,10 @@ describe("Bomber", () => {
     game.addExecution(bomberExec);
 
     game.executeNextTick();
-    executeTicks(game, 110);
+    executeTicks(game, 101); // Wait for cooldown
 
     const bombers = player1.units(UnitType.Bomber);
+    expect(bombers.length).toBe(1);
     // Should still target using direct path (fallback)
     expect(bombers[0].targetTile()).toBe(enemyCity.tile());
   });

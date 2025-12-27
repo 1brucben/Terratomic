@@ -8,7 +8,7 @@ export class BomberExecution implements Execution {
   executionName = "BomberExecution";
   private active = true;
   private mg: Game;
-  private bomber!: Unit;
+  private bomber: Unit | null = null;
   private bombsLeft = 0;
   private onMission = false;
   private pathFinder: StraightPathFinder;
@@ -19,7 +19,6 @@ export class BomberExecution implements Execution {
   private waypoints: TileRef[] = [];
   private currentWaypointIndex = 0;
   private hasRebasedToNewAirfield = false; // Track if bomber rebased due to home airfield destruction
-  private lastHealthLogTick = 0; // For health logging
   private cachedTarget:
     | { tile: TileRef; unit: Unit | null }
     | null
@@ -96,115 +95,92 @@ export class BomberExecution implements Execution {
   init(mg: Game, ticks: number): void {
     this.mg = mg;
     this.pathFinder = new StraightPathFinder(mg);
-
-    // Create the bomber at the airfield
-    const spawn = this.origOwner.canBuild(
-      UnitType.Bomber,
-      this.sourceAirfield.tile(),
-    );
-    if (!spawn) {
-      this.active = false;
-      return;
-    }
-    this.bomber = this.origOwner.buildUnit(UnitType.Bomber, spawn, {
-      targetTile: this.sourceAirfield.tile(),
-      sourceAirfield: this.sourceAirfield,
-    });
-    // Apply level-based bonus health before setting full health
-    this.applyBomberLevelStats();
-    // New bombers start at 100% health based on airfield's bomber level
-    this.bomber.setHealth(BigInt(this.getMaxHealth()));
+    // Bomber starts on cooldown, will be created when first mission launches
+    this.cooldownEndsAtTick = ticks + this.mg.config().bomberCooldownTicks();
   }
 
   tick(ticks: number): void {
-    // Log bomber health every 5 seconds (50 ticks)
-    if (
-      this.bomber &&
-      this.bomber.isActive() &&
-      ticks - this.lastHealthLogTick >= 50
-    ) {
-      this.lastHealthLogTick = ticks;
-    }
-
-    // Respawn bomber if destroyed
-    if (!this.bomber?.isActive()) {
-      // Decrement bomber count for the target we were attacking (if any)
-      if (this.currentTargetUnit) {
-        this.decrementBomberCount(this.currentTargetUnit);
-        this.currentTargetUnit = null;
-      }
-
-      // Check if source airfield still exists and is owned by us
-      if (
-        !this.sourceAirfield.isActive() ||
-        this.sourceAirfield.owner() !== this.origOwner
-      ) {
-        // Airfield destroyed or captured - this bomber execution is done
-        // (the nearest airfield should already have its own bomber)
-        this.active = false;
-        return;
-      }
-
-      // Respawn bomber at airfield with health=1
-      const spawn = this.origOwner.canBuild(
-        UnitType.Bomber,
-        this.sourceAirfield.tile(),
-      );
-      if (!spawn) {
-        this.active = false;
-        return;
-      }
-      this.bomber = this.origOwner.buildUnit(UnitType.Bomber, spawn, {
-        targetTile: this.sourceAirfield.tile(),
-        sourceAirfield: this.sourceAirfield,
-      });
-      // Apply level-based bonus health before setting respawn health
-      this.applyBomberLevelStats();
-      this.bomber.setHealth(1n);
-      this.resetMissionState(this.getEffectiveCooldownTicks());
-      return;
-    }
-
     // Check if source airfield was destroyed or captured
     if (
       !this.sourceAirfield.isActive() ||
       this.sourceAirfield.owner() !== this.origOwner
     ) {
-      // If bomber is at the airfield when it's destroyed/captured, destroy the bomber
-      if (this.bomber.tile() === this.sourceAirfield.tile()) {
-        this.bomber.delete(false);
-        this.active = false;
-        return;
-      }
-
-      // Bomber is on mission - try to find another owned airfield
-      const nearestAirfield = this.findNearestOwnedAirfield();
-      if (nearestAirfield) {
-        this.sourceAirfield = nearestAirfield;
-        this.bomber.setSourceAirfield(nearestAirfield);
-        this.hasRebasedToNewAirfield = true; // Mark that this bomber rebased
-        // Bomber will continue its mission and return to the new airfield
-        // No need to abort - just let it complete normally
+      // If bomber exists and is on mission, handle it
+      if (this.bomber?.isActive()) {
+        // Bomber is on mission - try to find another owned airfield
+        const nearestAirfield = this.findNearestOwnedAirfield();
+        if (nearestAirfield) {
+          this.sourceAirfield = nearestAirfield;
+          this.bomber.setSourceAirfield(nearestAirfield);
+          this.hasRebasedToNewAirfield = true;
+        } else {
+          // No airfields left - bomber is destroyed
+          this.bomber.delete(false);
+          this.bomber = null;
+          this.active = false;
+          return;
+        }
       } else {
-        // No airfields left - bomber is destroyed
-        this.bomber.delete(false);
+        // Airfield destroyed, no active bomber - execution is done
         this.active = false;
         return;
       }
     }
 
-    // If bomber is at airfield and not on mission, check cooldown and find target
-    if (!this.onMission && this.bomber.tile() === this.sourceAirfield.tile()) {
+    // Handle bomber on mission
+    if (this.bomber?.isActive()) {
+      // Execute the mission
+      if (
+        this.onMission &&
+        (this.currentTargetTile || this.bomber.returning())
+      ) {
+        // Check if current target is still valid (only retarget if not already returning)
+        if (
+          this.currentTargetUnit &&
+          !this.isTargetValid(this.currentTargetUnit) &&
+          !this.bomber.returning()
+        ) {
+          // Target is no longer valid, find a new one
+          this.decrementBomberCount(this.currentTargetUnit);
+          this.currentTargetUnit = null;
+          this.currentTargetTile = null;
+
+          const newTarget = this.findTarget();
+          if (newTarget) {
+            this.startMission(newTarget.tile, newTarget.unit);
+          } else {
+            // No valid targets, abort mission and return to airfield
+            this.bomber.setTargetTile(this.sourceAirfield.tile());
+            if (this.bomber.tile() !== this.sourceAirfield.tile()) {
+              // Already away from airfield, need to return
+              this.bomber.setReturning(true);
+              const routeResult = this.findSafeRoute(
+                this.bomber.tile(),
+                this.sourceAirfield.tile(),
+                null,
+              );
+              this.onMission = true;
+              this.bombsLeft = 0;
+              this.currentTargetTile = null;
+              this.currentTargetUnit = null;
+              this.waypoints = routeResult.waypoints;
+              this.currentWaypointIndex = 0;
+            } else {
+              this.resetMissionState(0);
+            }
+            return;
+          }
+        }
+
+        this.executeMission();
+      }
+      return;
+    }
+
+    // No bomber exists - check if we should launch one
+    if (!this.onMission) {
       if (ticks < this.cooldownEndsAtTick) {
         return; // Still on cooldown
-      }
-
-      // Check if bomber has reached health threshold before allowing takeoff
-      const healthThreshold = this.mg.config().bomberTakeoffHealthThreshold();
-      const maxHealth = this.getMaxHealth();
-      const currentHealth = Number(this.bomber.health());
-      if (currentHealth < maxHealth * healthThreshold) {
-        return; // Wait for bomber to heal to threshold
       }
 
       // Check if another bomber took off recently from this airfield
@@ -218,58 +194,32 @@ export class BomberExecution implements Execution {
       // Check for a new target
       const target = this.findTarget();
       if (target) {
-        // Reserve this takeoff slot only when actually taking off
+        // Create bomber for this mission
+        const spawn = this.origOwner.canBuild(
+          UnitType.Bomber,
+          this.sourceAirfield.tile(),
+        );
+        if (!spawn) {
+          return; // Can't spawn, will try next tick
+        }
+        this.bomber = this.origOwner.buildUnit(UnitType.Bomber, spawn, {
+          targetTile: this.sourceAirfield.tile(),
+          sourceAirfield: this.sourceAirfield,
+        });
+        // Apply level-based bonus health
+        this.applyBomberLevelStats();
+        this.bomber.setHealth(BigInt(this.getMaxHealth()));
+
+        // Reserve this takeoff slot
         this.sourceAirfield.setLastBomberTakeoffTick(ticks);
         this.startMission(target.tile, target.unit);
       }
       return;
     }
-
-    // Execute mission
-    if (this.onMission && (this.currentTargetTile || this.bomber.returning())) {
-      // Check if current target is still valid (only retarget if not already returning)
-      if (
-        this.currentTargetUnit &&
-        !this.isTargetValid(this.currentTargetUnit) &&
-        !this.bomber.returning()
-      ) {
-        // Target is no longer valid, find a new one
-        this.decrementBomberCount(this.currentTargetUnit);
-        this.currentTargetUnit = null;
-        this.currentTargetTile = null;
-
-        const newTarget = this.findTarget();
-        if (newTarget) {
-          this.startMission(newTarget.tile, newTarget.unit);
-        } else {
-          // No valid targets, abort mission and return to airfield
-          this.bomber.setTargetTile(this.sourceAirfield.tile());
-          if (this.bomber.tile() !== this.sourceAirfield.tile()) {
-            // Already away from airfield, need to return
-            this.bomber.setReturning(true);
-            const routeResult = this.findSafeRoute(
-              this.bomber.tile(),
-              this.sourceAirfield.tile(),
-              null,
-            );
-            this.onMission = true; // Keep mission active for return journey
-            this.bombsLeft = 0;
-            this.currentTargetTile = null;
-            this.currentTargetUnit = null;
-            this.waypoints = routeResult.waypoints;
-            this.currentWaypointIndex = 0;
-          } else {
-            this.resetMissionState(0);
-          }
-          return;
-        }
-      }
-
-      this.executeMission();
-    }
   }
 
   private startMission(targetTile: TileRef, targetUnit: Unit | null): void {
+    if (!this.bomber) return;
     const wasAlreadyOnMission = this.onMission;
     this.onMission = true;
     this.currentTargetTile = targetTile;
@@ -297,6 +247,7 @@ export class BomberExecution implements Execution {
   }
 
   private executeMission(): void {
+    if (!this.bomber) return;
     const returning = this.bomber.returning();
     if (!returning && !this.currentTargetTile) return;
 
@@ -339,21 +290,21 @@ export class BomberExecution implements Execution {
             return; // Stop movement for this tick after dropping bomb
           }
         } else if (returning) {
-          // Bomber returned to airfield
-          this.bomber.move(this.sourceAirfield.tile());
-
-          // If this bomber rebased due to home airfield destruction, delete it
-          if (this.hasRebasedToNewAirfield) {
-            this.bomber.delete(false);
-            this.active = false;
-            return;
-          }
+          // Bomber returned to airfield - delete it
+          this.bomber.delete(false);
 
           // Clear from bombersOnTarget since mission is complete
           if (this.currentTargetUnit) {
             this.decrementBomberCount(this.currentTargetUnit);
           }
 
+          // If this bomber rebased, end execution
+          if (this.hasRebasedToNewAirfield) {
+            this.active = false;
+            return;
+          }
+
+          this.bomber = null;
           this.resetMissionState(this.getEffectiveCooldownTicks());
         }
         return;
@@ -531,6 +482,7 @@ export class BomberExecution implements Execution {
   }
 
   private dropBomb(): void {
+    if (!this.bomber) return;
     this.mg.bomberExplosion(
       this.bomber.tile(),
       this.mg.config().bomberExplosionRadius(),
@@ -620,7 +572,9 @@ export class BomberExecution implements Execution {
     this.waypoints = [];
     this.currentWaypointIndex = 0;
     this.cooldownEndsAtTick = this.mg.ticks() + cooldownTicks;
-    this.bomber.setReturning(false);
+    if (this.bomber) {
+      this.bomber.setReturning(false);
+    }
   }
 
   private trySelectTarget(
@@ -653,6 +607,7 @@ export class BomberExecution implements Execution {
   }
 
   private findNearestOwnedAirfield(): Unit | null {
+    if (!this.bomber) return null;
     const ownedAirfields = this.origOwner
       .units(UnitType.Airfield)
       .filter((a) => a.isActive());
