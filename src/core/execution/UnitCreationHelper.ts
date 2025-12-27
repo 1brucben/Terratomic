@@ -1,13 +1,38 @@
-import { Game, Gold, Player, TerrainType, UnitType } from "../game/Game";
+import { Game, Gold, Player, TerrainType, Unit, UnitType } from "../game/Game";
 import { TileRef } from "../game/GameMap";
 import { PseudoRandom } from "../PseudoRandom";
 import { ConstructionExecution } from "./ConstructionExecution";
+import { BotPersonality } from "./FakeHumanExecution";
+import { UpgradeStructureExecution } from "./UpgradeStructureExecution";
 
 export class UnitCreationHelper {
   private static readonly CITY_DENSITY_PER_TILE = 1 / 6000;
   private static readonly PORT_DENSITY_PER_TILE = 1 / 12000;
-  private static readonly MIN_BUILDING_DISTANCE_SQUARED = 1600; // 40 tiles squared
+  private static readonly FACTORY_DENSITY_PER_TILE = 1 / 8000;
+  private static readonly AIRFIELD_DENSITY_PER_TILE = 1 / 10000;
+  private static readonly MISSILE_SILO_DENSITY_PER_TILE = 1 / 15000;
+  private static readonly SAM_LAUNCHER_DENSITY_PER_TILE = 1 / 15000;
+  private static readonly ACADEMY_DENSITY_PER_TILE = 1 / 30000;
+  private static readonly HOSPITAL_DENSITY_PER_TILE = 1 / 20000;
   private static readonly DEFENSE_POST_DENSITY_PER_BORDER_TILE = 1 / 110;
+  private static readonly MIN_BUILDING_DISTANCE_SQUARED = 1600; // 40 tiles squared
+
+  // Max caps for structures (regardless of density)
+  private static readonly MAX_ACADEMY = 4;
+  private static readonly MAX_HOSPITAL = 4;
+  private static readonly MAX_CITY_STACK = 25;
+
+  // Mobile unit base ratios (1 unit per X production buildings)
+  private static readonly WARSHIP_PER_PORTS = 5;
+  private static readonly SUBMARINE_PER_PORTS = 5;
+  private static readonly FIGHTER_JET_PER_AIRFIELDS = 5;
+  private static readonly ARTILLERY_PER_FACTORIES = 5;
+
+  // Max caps for mobile units
+  private static readonly MAX_WARSHIP = 10;
+  private static readonly MAX_SUBMARINE = 8;
+  private static readonly MAX_FIGHTER_JET = 8;
+  private static readonly MAX_ARTILLERY = 8;
   private static readonly MAX_DISTANCE_FROM_BORDER_SQUARED = 400; // 20 tiles squared
   private static readonly MIN_DISTANCE_FROM_BORDER_SQUARED = 100; // 10 tiles squared
   private static readonly MIN_DISTANCE_BETWEEN_DEFENSE_POSTS_SQUARED = 900; // 30 tiles squared
@@ -21,6 +46,7 @@ export class UnitCreationHelper {
     private random: PseudoRandom,
     private mg: Game,
     private player: Player,
+    private personality: BotPersonality = BotPersonality.Balanced,
   ) {}
 
   // Per-handleUnits invocation caches to avoid repeated heavy work.
@@ -35,108 +61,523 @@ export class UnitCreationHelper {
     Array<{ tile: TileRef; x: number; y: number }>
   > | null = null;
 
+  /**
+   * Returns the personality multiplier for a given structure type.
+   * Multiplier adjusts the base density (higher = builds more frequently).
+   */
+  private getPersonalityMultiplier(unitType: UnitType): number {
+    switch (unitType) {
+      case UnitType.City:
+        switch (this.personality) {
+          case BotPersonality.LandWarfare:
+            return 1.2;
+          case BotPersonality.AirSupremacy:
+            return 0.8;
+          case BotPersonality.NavalPower:
+            return 0.8;
+          case BotPersonality.Nuclear:
+            return 0.9;
+          default:
+            return 1.0;
+        }
+      case UnitType.Port:
+        switch (this.personality) {
+          case BotPersonality.Balanced:
+            return 0.5;
+          case BotPersonality.NavalPower:
+            return 2.0;
+          default:
+            return 1.0;
+        }
+      case UnitType.Factory:
+        switch (this.personality) {
+          case BotPersonality.LandWarfare:
+            return 1.5;
+          case BotPersonality.NavalPower:
+            return 0.5;
+          case BotPersonality.Nuclear:
+            return 0.75;
+          default:
+            return 1.0;
+        }
+      case UnitType.DefensePost:
+        switch (this.personality) {
+          case BotPersonality.LandWarfare:
+            return 1.0;
+          case BotPersonality.Balanced:
+            return 0.75;
+          default:
+            return 0.5;
+        }
+      case UnitType.Airfield:
+        switch (this.personality) {
+          case BotPersonality.LandWarfare:
+            return 0.8;
+          case BotPersonality.AirSupremacy:
+            return 1.5;
+          case BotPersonality.NavalPower:
+            return 0.5;
+          case BotPersonality.Nuclear:
+            return 0.7;
+          default:
+            return 1.0;
+        }
+      case UnitType.MissileSilo:
+        switch (this.personality) {
+          case BotPersonality.LandWarfare:
+            return 1.2;
+          case BotPersonality.AirSupremacy:
+            return 0.7;
+          case BotPersonality.NavalPower:
+            return 0.7;
+          case BotPersonality.Nuclear:
+            return 2.0;
+          default:
+            return 1.0;
+        }
+      case UnitType.SAMLauncher:
+        switch (this.personality) {
+          case BotPersonality.LandWarfare:
+            return 1.2;
+          case BotPersonality.AirSupremacy:
+            return 0.7;
+          case BotPersonality.NavalPower:
+            return 0.6;
+          case BotPersonality.Nuclear:
+            return 2.0;
+          default:
+            return 1.0;
+        }
+      case UnitType.Academy:
+        switch (this.personality) {
+          case BotPersonality.LandWarfare:
+            return 1.5;
+          case BotPersonality.AirSupremacy:
+            return 0.5;
+          case BotPersonality.NavalPower:
+            return 0.5;
+          case BotPersonality.Nuclear:
+            return 0.0;
+          default:
+            return 1.0;
+        }
+      case UnitType.Hospital:
+        switch (this.personality) {
+          case BotPersonality.LandWarfare:
+            return 1.5;
+          case BotPersonality.AirSupremacy:
+            return 0.8;
+          case BotPersonality.NavalPower:
+            return 0.5;
+          default:
+            return 1.0;
+        }
+      case UnitType.Warship:
+        switch (this.personality) {
+          case BotPersonality.Balanced:
+            return 0.8;
+          case BotPersonality.LandWarfare:
+            return 0.3;
+          case BotPersonality.AirSupremacy:
+            return 0.4;
+          case BotPersonality.NavalPower:
+            return 1.5;
+          case BotPersonality.Nuclear:
+            return 0.5;
+          default:
+            return 1.0;
+        }
+      case UnitType.Submarine:
+        switch (this.personality) {
+          case BotPersonality.Balanced:
+            return 0.5;
+          case BotPersonality.LandWarfare:
+            return 0.3;
+          case BotPersonality.AirSupremacy:
+            return 0.4;
+          case BotPersonality.NavalPower:
+            return 1.5;
+          case BotPersonality.Nuclear:
+            return 0.9;
+          default:
+            return 1.0;
+        }
+      case UnitType.FighterJet:
+        switch (this.personality) {
+          case BotPersonality.Balanced:
+            return 0.8;
+          case BotPersonality.LandWarfare:
+            return 0.5;
+          case BotPersonality.AirSupremacy:
+            return 1.5;
+          case BotPersonality.NavalPower:
+            return 0.3;
+          case BotPersonality.Nuclear:
+            return 0.8;
+          default:
+            return 1.0;
+        }
+      case UnitType.Artillery:
+        switch (this.personality) {
+          case BotPersonality.Balanced:
+            return 0.8;
+          case BotPersonality.LandWarfare:
+            return 1.5;
+          case BotPersonality.AirSupremacy:
+            return 0.8;
+          case BotPersonality.NavalPower:
+            return 0.5;
+          case BotPersonality.Nuclear:
+            return 1.0;
+          default:
+            return 1.0;
+        }
+      default:
+        return 1.0;
+    }
+  }
+
+  /**
+   * Returns personality-specific building priority order.
+   * All personalities start with City (economic foundation), then specialize.
+   */
+  private getBuildingPriorityOrder(): UnitType[] {
+    const common = [UnitType.Academy, UnitType.Hospital];
+
+    switch (this.personality) {
+      case BotPersonality.Nuclear:
+        return [
+          UnitType.City,
+          UnitType.MissileSilo,
+          UnitType.SAMLauncher,
+          ...common,
+          UnitType.Port,
+          UnitType.Factory,
+          UnitType.Airfield,
+          UnitType.DefensePost,
+          UnitType.Warship,
+          UnitType.Submarine,
+          UnitType.FighterJet,
+          UnitType.Artillery,
+        ];
+      case BotPersonality.NavalPower:
+        return [
+          UnitType.City,
+          UnitType.Port,
+          UnitType.Warship,
+          UnitType.Submarine,
+          ...common,
+          UnitType.Factory,
+          UnitType.Airfield,
+          UnitType.SAMLauncher,
+          UnitType.MissileSilo,
+          UnitType.DefensePost,
+          UnitType.FighterJet,
+          UnitType.Artillery,
+        ];
+      case BotPersonality.LandWarfare:
+        return [
+          UnitType.City,
+          UnitType.Factory,
+          UnitType.DefensePost,
+          UnitType.Artillery,
+          ...common,
+          UnitType.Port,
+          UnitType.Airfield,
+          UnitType.SAMLauncher,
+          UnitType.MissileSilo,
+          UnitType.Warship,
+          UnitType.Submarine,
+          UnitType.FighterJet,
+        ];
+      case BotPersonality.AirSupremacy:
+        return [
+          UnitType.City,
+          UnitType.Airfield,
+          UnitType.FighterJet,
+          UnitType.SAMLauncher,
+          ...common,
+          UnitType.Port,
+          UnitType.Factory,
+          UnitType.MissileSilo,
+          UnitType.DefensePost,
+          UnitType.Warship,
+          UnitType.Submarine,
+          UnitType.Artillery,
+        ];
+      case BotPersonality.Balanced:
+      default:
+        return [
+          UnitType.City,
+          UnitType.Port,
+          UnitType.Factory,
+          UnitType.Airfield,
+          UnitType.DefensePost,
+          ...common,
+          UnitType.MissileSilo,
+          UnitType.SAMLauncher,
+          UnitType.Warship,
+          UnitType.Submarine,
+          UnitType.FighterJet,
+          UnitType.Artillery,
+        ];
+    }
+  }
+
   handleUnits() {
-    // Reset per-tick caches – this helper may be called multiple times per tick
-    // and structureSpawnTile can be expensive without caching.
+    // Reset per-tick caches
     this.spawnCache.clear();
     this.ownedTilesCache = null;
     this.shoreOwnedTilesCache = null;
     this.buildingBuckets = null;
 
-    const cityInfo = this.getDensityBasedStructureInfo(UnitType.City);
-    const portInfo = this.getDensityBasedStructureInfo(UnitType.Port);
+    // Get personality-specific building priority order
+    const structureTypes = this.getBuildingPriorityOrder();
 
-    let chosenType: UnitType | null = null;
-    let chosenTile: TileRef | null = null;
+    // Check each structure type and build the one with best priority-weighted density gap
+    let bestType: UnitType | null = null;
+    let bestWeightedGap = 0;
+    let bestTile: TileRef | null = null;
 
-    if (cityInfo.canBuild && portInfo.canBuild) {
-      if (cityInfo.cost < portInfo.cost) {
-        chosenType = UnitType.City;
-        chosenTile = cityInfo.tile;
-      } else if (portInfo.cost < cityInfo.cost) {
-        chosenType = UnitType.Port;
-        chosenTile = portInfo.tile;
-      } else {
-        // Costs are equal, choose based on density gap
-        if (cityInfo.densityGap > portInfo.densityGap) {
-          chosenType = UnitType.City;
-          chosenTile = cityInfo.tile;
-        } else {
-          chosenType = UnitType.Port;
-          chosenTile = portInfo.tile;
+    for (let i = 0; i < structureTypes.length; i++) {
+      const type = structureTypes[i];
+      const multiplier = this.getPersonalityMultiplier(type);
+      if (multiplier === 0) continue; // Skip structures this personality doesn't build
+
+      const info = this.getDensityInfo(type);
+      if (info.canBuild && info.densityGap > 0) {
+        // Priority weight: 1.0 for first item, decreasing linearly to ~0 for last
+        const priorityWeight = 1.0 - i / structureTypes.length;
+        const weightedGap = info.densityGap * priorityWeight;
+
+        if (weightedGap > bestWeightedGap) {
+          bestWeightedGap = weightedGap;
+          bestType = type;
+          bestTile = info.tile;
         }
       }
-    } else if (cityInfo.canBuild) {
-      chosenType = UnitType.City;
-      chosenTile = cityInfo.tile;
-    } else if (portInfo.canBuild) {
-      chosenType = UnitType.Port;
-      chosenTile = portInfo.tile;
     }
 
-    if (chosenType !== null && chosenTile !== null) {
+    // Build the structure with the biggest density gap
+    if (bestType !== null && bestTile !== null) {
       this.mg.addExecution(
-        new ConstructionExecution(this.player, chosenType, chosenTile),
+        new ConstructionExecution(this.player, bestType, bestTile),
       );
       return true;
     }
 
-    return (
-      this.maybeSpawnStructure(UnitType.Airfield, 1) ||
-      this.maybeSpawnNavalUnit() ||
-      this.maybeSpawnArtillery() ||
-      this.maybeSpawnSAMLauncher() ||
-      this.maybeSpawnStructure(UnitType.MissileSilo, 1) ||
-      this.maybeSpawnDefensePost()
-    );
+    // Fallback: If saturated, stack cities up to MAX_CITY_STACK
+    const cities = this.player.units(UnitType.City);
+    if (cities.length > 0) {
+      // Find city with lowest stack count that's below the cap
+      let lowestStackCity: Unit | null = null;
+      let lowestStackCount = UnitCreationHelper.MAX_CITY_STACK + 1;
+
+      for (const city of cities) {
+        const stackCount = city.stackCount();
+        if (
+          stackCount < UnitCreationHelper.MAX_CITY_STACK &&
+          stackCount < lowestStackCount
+        ) {
+          lowestStackCount = stackCount;
+          lowestStackCity = city;
+        }
+      }
+
+      if (lowestStackCity !== null) {
+        // Use UpgradeStructureExecution to stack the city
+        this.mg.addExecution(
+          new UpgradeStructureExecution(this.player, lowestStackCity),
+        );
+        return true;
+      }
+    }
+
+    return false;
   }
 
-  private getDensityBasedStructureInfo(type: UnitType): {
+  private getDensityInfo(type: UnitType): {
     canBuild: boolean;
     cost: Gold;
     densityGap: number;
     tile: TileRef | null;
   } {
-    const tilesOwned = this.player.tiles().size;
-    if (tilesOwned === 0) {
+    // Check max cap first (before expensive calculations)
+    const currentCount = this.player.unitsOwned(type);
+    if (
+      type === UnitType.Academy &&
+      currentCount >= UnitCreationHelper.MAX_ACADEMY
+    ) {
+      return { canBuild: false, cost: 0n, densityGap: 0, tile: null };
+    }
+    if (
+      type === UnitType.Hospital &&
+      currentCount >= UnitCreationHelper.MAX_HOSPITAL
+    ) {
+      return { canBuild: false, cost: 0n, densityGap: 0, tile: null };
+    }
+    if (
+      type === UnitType.Warship &&
+      currentCount >= UnitCreationHelper.MAX_WARSHIP
+    ) {
+      return { canBuild: false, cost: 0n, densityGap: 0, tile: null };
+    }
+    if (
+      type === UnitType.Submarine &&
+      currentCount >= UnitCreationHelper.MAX_SUBMARINE
+    ) {
+      return { canBuild: false, cost: 0n, densityGap: 0, tile: null };
+    }
+    if (
+      type === UnitType.FighterJet &&
+      currentCount >= UnitCreationHelper.MAX_FIGHTER_JET
+    ) {
+      return { canBuild: false, cost: 0n, densityGap: 0, tile: null };
+    }
+    if (
+      type === UnitType.Artillery &&
+      currentCount >= UnitCreationHelper.MAX_ARTILLERY
+    ) {
       return { canBuild: false, cost: 0n, densityGap: 0, tile: null };
     }
 
-    const densityThreshold =
-      type === UnitType.City
-        ? UnitCreationHelper.CITY_DENSITY_PER_TILE
-        : UnitCreationHelper.PORT_DENSITY_PER_TILE;
+    // Mobile units use production building count instead of tile count
+    const isMobileUnit =
+      type === UnitType.Warship ||
+      type === UnitType.Submarine ||
+      type === UnitType.FighterJet ||
+      type === UnitType.Artillery;
 
-    const currentDensity = this.player.unitsOwned(type) / tilesOwned;
+    let baseCount: number;
+
+    if (isMobileUnit) {
+      // Mobile units scale with production buildings
+      if (type === UnitType.Warship || type === UnitType.Submarine) {
+        baseCount = this.player.units(UnitType.Port).length;
+      } else if (type === UnitType.FighterJet) {
+        baseCount = this.player.units(UnitType.Airfield).length;
+      } else {
+        // Artillery
+        baseCount = this.player.units(UnitType.Factory).length;
+      }
+
+      if (baseCount === 0) {
+        return { canBuild: false, cost: 0n, densityGap: 0, tile: null };
+      }
+    } else {
+      // Structures use tiles (border tiles for DefensePost)
+      const usesBorderTiles = type === UnitType.DefensePost;
+
+      if (usesBorderTiles) {
+        const frontlineBorders = Array.from(this.player.borderTiles()).filter(
+          (t) => this.touchesEnemyLand(t),
+        );
+        baseCount = frontlineBorders.length;
+      } else {
+        baseCount = this.player.tiles().size;
+      }
+
+      if (baseCount === 0) {
+        return { canBuild: false, cost: 0n, densityGap: 0, tile: null };
+      }
+    }
+
+    // Get base density threshold
+    let baseDensity: number;
+    switch (type) {
+      case UnitType.City:
+        baseDensity = UnitCreationHelper.CITY_DENSITY_PER_TILE;
+        break;
+      case UnitType.Port:
+        baseDensity = UnitCreationHelper.PORT_DENSITY_PER_TILE;
+        break;
+      case UnitType.Factory:
+        baseDensity = UnitCreationHelper.FACTORY_DENSITY_PER_TILE;
+        break;
+      case UnitType.DefensePost:
+        baseDensity = UnitCreationHelper.DEFENSE_POST_DENSITY_PER_BORDER_TILE;
+        break;
+      case UnitType.Airfield:
+        baseDensity = UnitCreationHelper.AIRFIELD_DENSITY_PER_TILE;
+        break;
+      case UnitType.MissileSilo:
+        baseDensity = UnitCreationHelper.MISSILE_SILO_DENSITY_PER_TILE;
+        break;
+      case UnitType.SAMLauncher:
+        baseDensity = UnitCreationHelper.SAM_LAUNCHER_DENSITY_PER_TILE;
+        break;
+      case UnitType.Academy:
+        baseDensity = UnitCreationHelper.ACADEMY_DENSITY_PER_TILE;
+        break;
+      case UnitType.Hospital:
+        baseDensity = UnitCreationHelper.HOSPITAL_DENSITY_PER_TILE;
+        break;
+      case UnitType.Warship:
+        baseDensity = 1 / UnitCreationHelper.WARSHIP_PER_PORTS;
+        break;
+      case UnitType.Submarine:
+        baseDensity = 1 / UnitCreationHelper.SUBMARINE_PER_PORTS;
+        break;
+      case UnitType.FighterJet:
+        baseDensity = 1 / UnitCreationHelper.FIGHTER_JET_PER_AIRFIELDS;
+        break;
+      case UnitType.Artillery:
+        baseDensity = 1 / UnitCreationHelper.ARTILLERY_PER_FACTORIES;
+        break;
+      default:
+        throw new Error(`Unsupported unit type: ${type}`);
+    }
+
+    // Apply personality multiplier
+    const multiplier = this.getPersonalityMultiplier(type);
+    const densityThreshold = baseDensity * multiplier;
+
+    const currentDensity = currentCount / baseCount;
     const cost: Gold = this.cost(type);
     const densityGap = (densityThreshold - currentDensity) / densityThreshold;
 
     if (currentDensity < densityThreshold && this.player.gold() >= cost) {
-      const tile = this.structureSpawnTile(type);
+      let tile: TileRef | null;
+
+      // Different tile finding logic based on unit type
+      if (type === UnitType.DefensePost) {
+        const frontlineBorders = Array.from(this.player.borderTiles()).filter(
+          (t) => this.touchesEnemyLand(t),
+        );
+        tile = this.findSuitableDefensePostTile(frontlineBorders);
+      } else if (type === UnitType.Warship || type === UnitType.Submarine) {
+        const ports = this.player.units(UnitType.Port);
+        if (ports.length > 0) {
+          const port = this.random.randElement(ports);
+          tile = this.navalUnitSpawnTile(port.tile());
+        } else {
+          tile = null;
+        }
+      } else if (type === UnitType.FighterJet) {
+        const airfields = this.player.units(UnitType.Airfield);
+        if (airfields.length > 0) {
+          const airfield = this.random.randElement(airfields);
+          tile = airfield.tile(); // FighterJets spawn at airfield
+        } else {
+          tile = null;
+        }
+      } else if (type === UnitType.Artillery) {
+        const factories = this.player.units(UnitType.Factory);
+        if (factories.length > 0) {
+          const factory = this.random.randElement(factories);
+          tile = this.landUnitSpawnTile(factory.tile());
+        } else {
+          tile = null;
+        }
+      } else {
+        tile = this.structureSpawnTile(type);
+      }
+
       if (tile !== null && this.player.canBuild(type, tile)) {
         return { canBuild: true, cost, densityGap, tile };
       }
     }
     return { canBuild: false, cost, densityGap, tile: null };
-  }
-
-  private maybeSpawnStructure(type: UnitType, maxNum: number): boolean {
-    if (this.player.unitsOwned(type) >= maxNum) {
-      return false;
-    }
-    if (this.player.gold() < this.cost(type)) {
-      return false;
-    }
-    const tile = this.structureSpawnTile(type);
-    if (tile === null) {
-      return false;
-    }
-    const canBuild = this.player.canBuild(type, tile);
-    if (canBuild === false) {
-      return false;
-    }
-    this.mg.addExecution(new ConstructionExecution(this.player, type, tile));
-    return true;
   }
 
   private structureSpawnTile(type: UnitType): TileRef | null {
@@ -229,67 +670,8 @@ export class UnitCreationHelper {
     return null;
   }
 
-  private maybeSpawnNavalUnit(): boolean {
-    const warshipCount = this.player.units(UnitType.Warship).length;
-    const submarineCount = this.player.units(UnitType.Submarine).length;
-    const navalCombatUnitCount = warshipCount + submarineCount;
-
-    const ports = this.player.units(UnitType.Port);
-    if (ports.length > 0 && navalCombatUnitCount === 0) {
-      const unitToBuild = this.random.chance(50)
-        ? UnitType.Submarine
-        : UnitType.Warship;
-
-      if (this.player.gold() > this.cost(unitToBuild)) {
-        const port = this.random.randElement(ports);
-        const targetTile = this.navalUnitSpawnTile(port.tile());
-        if (targetTile === null) {
-          return false;
-        }
-        const canBuild = this.player.canBuild(unitToBuild, targetTile);
-        if (canBuild === false) {
-          console.warn(`cannot spawn ${unitToBuild}`);
-          return false;
-        }
-        this.mg.addExecution(
-          new ConstructionExecution(this.player, unitToBuild, targetTile),
-        );
-        return true;
-      }
-    }
-    return false;
-  }
-
-  private maybeSpawnArtillery(): boolean {
-    const artilleryCount = this.player.units(UnitType.Artillery).length;
-
-    const factories = this.player.units(UnitType.Factory);
-    if (factories.length > 0 && artilleryCount === 0) {
-      if (this.player.gold() > this.cost(UnitType.Artillery)) {
-        const factory = this.random.randElement(factories);
-        const targetTile = this.landUnitSpawnTile(factory.tile());
-        if (targetTile === null) {
-          return false;
-        }
-        const canBuild = this.player.canBuild(UnitType.Artillery, targetTile);
-        if (canBuild === false) {
-          return false;
-        }
-        this.mg.addExecution(
-          new ConstructionExecution(
-            this.player,
-            UnitType.Artillery,
-            targetTile,
-          ),
-        );
-        return true;
-      }
-    }
-    return false;
-  }
-
   private landUnitSpawnTile(factoryTile: TileRef): TileRef | null {
-    const radius = 100;
+    const radius = 40;
     for (let attempts = 0; attempts < 50; attempts++) {
       const randX = this.random.nextInt(
         this.mg.x(factoryTile) - radius,
@@ -303,10 +685,11 @@ export class UnitCreationHelper {
         continue;
       }
       const tile = this.mg.ref(randX, randY);
-      // Must be land and not barrier
+      // Must be owned land and not barrier
       if (
         this.mg.isOcean(tile) ||
-        this.mg.terrainType(tile) === TerrainType.Barrier
+        this.mg.terrainType(tile) === TerrainType.Barrier ||
+        this.mg.owner(tile) !== this.player
       ) {
         continue;
       }
@@ -337,67 +720,6 @@ export class UnitCreationHelper {
       return tile;
     }
     return null;
-  }
-
-  private maybeSpawnDefensePost(): boolean {
-    // keep only those border tiles that touch enemy land
-    const frontlineBorders = Array.from(this.player.borderTiles()).filter((t) =>
-      this.touchesEnemyLand(t),
-    );
-    if (frontlineBorders.length === 0) return false; // nothing worth guarding
-
-    const currentDensity =
-      this.player.unitsOwned(UnitType.DefensePost) / frontlineBorders.length;
-    const cost = this.cost(UnitType.DefensePost);
-
-    if (
-      currentDensity <
-        UnitCreationHelper.DEFENSE_POST_DENSITY_PER_BORDER_TILE &&
-      this.player.gold() >= cost
-    ) {
-      const tile = this.findSuitableDefensePostTile(frontlineBorders);
-      if (tile && this.player.canBuild(UnitType.DefensePost, tile)) {
-        this.mg.addExecution(
-          new ConstructionExecution(this.player, UnitType.DefensePost, tile),
-        );
-        return true;
-      }
-    }
-    return false;
-  }
-  private maybeSpawnSAMLauncher(): boolean {
-    // Build 1 SAM for every silo / airfield that has none within 40 tiles.
-    const sams = this.player.units(UnitType.SAMLauncher);
-    const silos = this.player.units(UnitType.MissileSilo);
-    const airfields = this.player.units(UnitType.Airfield);
-    const samRadiusSq = 40 * 40; // 40-tile protection radius
-    const cost = this.cost(UnitType.SAMLauncher);
-    if (this.player.gold() < cost) return false;
-
-    // iterate over all “protected” buildings
-    for (const b of [...silos, ...airfields]) {
-      const alreadyCovered = sams.some(
-        (s) => this.mg.euclideanDistSquared(b.tile(), s.tile()) <= samRadiusSq,
-      );
-      if (alreadyCovered) continue;
-
-      // find an own land tile ≤ 40 away
-      const candidateTiles = Array.from(this.player.tiles()).filter(
-        (t) =>
-          this.mg.isLand(t) &&
-          this.mg.euclideanDistSquared(t, b.tile()) <= samRadiusSq,
-      );
-      if (candidateTiles.length === 0) continue;
-
-      const buildTile = this.random.randElement(candidateTiles);
-      if (!this.player.canBuild(UnitType.SAMLauncher, buildTile)) continue;
-
-      this.mg.addExecution(
-        new ConstructionExecution(this.player, UnitType.SAMLauncher, buildTile),
-      );
-      return true; // build one SAM per tick at most
-    }
-    return false;
   }
 
   private touchesEnemyLand(tile: TileRef): boolean {

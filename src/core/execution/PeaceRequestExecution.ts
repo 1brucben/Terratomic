@@ -1,4 +1,6 @@
-import { Execution, Game, Player, PlayerID } from "../game/Game";
+import { Execution, Game, Player, PlayerID, PlayerType } from "../game/Game";
+import { BotPersonality } from "./FakeHumanExecution";
+import { shouldAcceptPeaceRequest } from "./utils/BotBehavior";
 
 export class PeaceRequestExecution implements Execution {
   executionName = "PeaceRequestExecution";
@@ -30,10 +32,30 @@ export class PeaceRequestExecution implements Execution {
       this.active = false;
       return;
     }
-    // If they are at war, set both to neutral now (immediate accept). Otherwise no-op.
+    // If they are at war, decide whether to accept peace request
     if (this.sender.isAtWarWith(recipient)) {
-      this.sender.setNeutralWith(recipient);
-      recipient.setNeutralWith(this.sender);
+      // Humans always accept peace requests
+      if (recipient.type() === PlayerType.Human) {
+        this.sender.setNeutralWith(recipient);
+        recipient.setNeutralWith(this.sender);
+      } else {
+        // Bots use strategic decision-making
+        const personalityValue = recipient.botPersonality?.();
+        const recipientPersonality =
+          (personalityValue as BotPersonality | undefined) ??
+          BotPersonality.Balanced;
+        const shouldAccept = shouldAcceptPeaceRequest(
+          this.mg,
+          recipient,
+          this.sender,
+          recipientPersonality,
+        );
+        if (shouldAccept) {
+          this.sender.setNeutralWith(recipient);
+          recipient.setNeutralWith(this.sender);
+        }
+        // If rejected, peace request is ignored (war continues)
+      }
     }
     this.active = false;
   }

@@ -575,6 +575,7 @@ export interface Player {
   type(): PlayerType;
   isPlayer(): this is Player;
   toString(): string;
+  botPersonality?(): number; // For dev mode: exposes BotPersonality enum value
 
   // State & Properties
   isAlive(): boolean;

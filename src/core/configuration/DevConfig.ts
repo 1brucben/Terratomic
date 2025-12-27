@@ -50,6 +50,10 @@ export class DevConfig extends DefaultConfig {
     return 100; // 5 seconds for dev
   }
 
+  showBotPersonalityNames(): boolean {
+    return true; // Set to true to see bot personalities instead of country names
+  }
+
   unitInfo(type: UnitType): UnitInfo {
     const info = super.unitInfo(type);
     const oldCost = info.cost;

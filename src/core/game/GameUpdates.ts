@@ -244,6 +244,8 @@ export interface PlayerUpdate {
   policyChoices?: Record<string, string>;
   // Whether the player has unseen policy directives to review
   hasUnseenPolicyDirectives?: boolean;
+  // Bot personality (for dev mode display)
+  botPersonality?: number;
 }
 
 export interface AllianceRequestUpdate {

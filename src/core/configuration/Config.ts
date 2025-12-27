@@ -76,6 +76,7 @@ export interface Config {
   gameConfig(): GameConfig;
   peaceTimerDuration(): number;
   theme(): Theme;
+  showBotPersonalityNames(): boolean;
   percentageTilesOwnedToWin(): number;
   numBots(): number;
   spawnNPCs(): boolean;

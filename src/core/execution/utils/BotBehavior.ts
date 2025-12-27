@@ -1,5 +1,6 @@
 import {
   AllianceRequest,
+  Difficulty,
   Game,
   Player,
   PlayerType,
@@ -8,10 +9,12 @@ import {
   Tick,
   UnitType,
 } from "../../game/Game";
+import { TileRef } from "../../game/GameMap";
 import { PseudoRandom } from "../../PseudoRandom";
 import { flattenedEmojiTable } from "../../Util";
 import { AttackExecution } from "../AttackExecution";
 import { EmojiExecution } from "../EmojiExecution";
+import { BotPersonality } from "../FakeHumanExecution";
 import { SetAutoBombingExecution } from "../SetAutoBombingExecution";
 
 export class BotBehavior {
@@ -23,17 +26,33 @@ export class BotBehavior {
 
   private firstAttackSent = false;
 
+  // Performance cache for border tiles
+  private borderTilesCache: Map<string, { tiles: TileRef[]; tick: Tick }> =
+    new Map();
+
   constructor(
     private random: PseudoRandom,
     private game: Game,
     private player: Player,
     private triggerRatio: number,
     private reserveRatio: number,
+    private personality: BotPersonality = BotPersonality.Balanced,
   ) {}
+
+  private getBorderTiles(player: Player): TileRef[] {
+    const cached = this.borderTilesCache.get(player.id());
+    // Cache valid for 100 ticks
+    if (cached && this.game.ticks() - cached.tick < 100) {
+      return cached.tiles;
+    }
+    const tiles = Array.from(player.borderTiles());
+    this.borderTilesCache.set(player.id(), { tiles, tick: this.game.ticks() });
+    return tiles;
+  }
 
   handleAllianceRequests() {
     for (const req of this.player.incomingAllianceRequests()) {
-      if (shouldAcceptAllianceRequest(this.player, req)) {
+      if (shouldAcceptAllianceRequest(this.game, this.player, req)) {
         req.accept();
       } else {
         req.reject();
@@ -148,54 +167,66 @@ export class BotBehavior {
     if (this.enemy) return this.enemySanityCheck();
 
     /* ---------- 3. weakest nearby player, using *sampled* border tiles ---------- */
-    const ourBordersAll = Array.from(this.player.borderTiles());
+    const ourBordersAll = this.getBorderTiles(this.player);
     const ourBordersSample = this.random.sampleArray(ourBordersAll, 10); // ≤10 tiles
     const radSq = this.enemySearchRadius * this.enemySearchRadius;
 
-    let weakest: Player | null = null;
-    let weakestTroops = Infinity;
+    const candidates: Array<{ player: Player; score: number }> = [];
 
     for (const p of this.game.players()) {
       if (!p.isPlayer() || p === this.player || this.player.isFriendly(p))
         continue;
 
-      // Direct neighbour counts immediately
+      // Base score = troop count (lower = better target)
+      let score = p.troops();
+
+      // Direct neighbour: strong preference
       if (this.player.neighbors().includes(p)) {
-        if (p.troops() < weakestTroops) {
-          weakest = p;
-          weakestTroops = p.troops();
-        }
-        continue;
-      }
+        score *= 0.7;
+      } else {
+        // Sample up to 10 of their border tiles for distance check
+        const theirBorders = this.random.sampleArray(
+          this.getBorderTiles(p),
+          10,
+        );
+        if (!theirBorders.length) continue;
 
-      // Sample up to 10 of their border tiles
-      const theirBorders = this.random.sampleArray(
-        Array.from(p.borderTiles()),
-        10,
-      );
-      if (!theirBorders.length) continue;
-
-      // Cheap nested loop: ≤100 distance checks per player
-      let closeEnough = false;
-      outer: for (const tb of theirBorders) {
-        for (const ob of ourBordersSample) {
-          const dx = this.game.x(ob) - this.game.x(tb);
-          const dy = this.game.y(ob) - this.game.y(tb);
-          if (dx * dx + dy * dy <= radSq) {
-            closeEnough = true;
-            break outer;
+        // Check if close enough (≤100 distance checks per player)
+        let closeEnough = false;
+        outer: for (const tb of theirBorders) {
+          for (const ob of ourBordersSample) {
+            const dx = this.game.x(ob) - this.game.x(tb);
+            const dy = this.game.y(ob) - this.game.y(tb);
+            if (dx * dx + dy * dy <= radSq) {
+              closeEnough = true;
+              break outer;
+            }
           }
         }
+
+        if (!closeEnough) continue;
+        score *= 1.2; // Distance penalty for non-neighbors
       }
 
-      if (closeEnough && p.troops() < weakestTroops) {
-        weakest = p;
-        weakestTroops = p.troops();
+      // Personality-based targeting preferences
+      if (this.personality === BotPersonality.LandWarfare) {
+        // Prefer weaker targets more aggressively
+        score *= p.troops() < this.player.troops() ? 0.6 : 1.4;
+      } else if (this.personality === BotPersonality.AirSupremacy) {
+        // Prefer targets with airfields (neutralize air threat)
+        const airfieldCount = p.units(UnitType.Airfield).length;
+        if (airfieldCount > 2) score *= 0.7;
+      } else if (this.personality === BotPersonality.NavalPower) {
+        // Prefer coastal players
+        if (p.units(UnitType.Port).length > 0) score *= 0.8;
       }
+
+      candidates.push({ player: p, score });
     }
 
-    if (weakest) {
-      this.setNewEnemy(weakest); // resets radius to 100
+    if (candidates.length > 0) {
+      candidates.sort((a, b) => a.score - b.score);
+      this.setNewEnemy(candidates[0].player);
     } else {
       this.enemySearchRadius += 50; // widen search next tick
     }
@@ -256,18 +287,109 @@ export class BotBehavior {
   }
 }
 
-function shouldAcceptAllianceRequest(player: Player, request: AllianceRequest) {
+function shouldAcceptAllianceRequest(
+  game: Game,
+  player: Player,
+  request: AllianceRequest,
+) {
+  const difficulty = game.config().gameConfig().difficulty;
+
+  // Impossible: Never accept alliances
+  if (difficulty === Difficulty.Impossible) {
+    return false;
+  }
+
   if (player.relation(request.requestor()) < Relation.Neutral) {
     return false; // Reject if hasMalice
   }
   if (request.requestor().isTraitor()) {
     return false; // Reject if isTraitor
   }
-  if (request.requestor().numTilesOwned() > player.numTilesOwned() * 3) {
+
+  const requestor = request.requestor();
+
+  // Context 1: Accept if we're significantly weaker (need protection)
+  const weAreMuchWeaker =
+    player.numTilesOwned() < requestor.numTilesOwned() * 0.5;
+  if (weAreMuchWeaker) return true;
+
+  // Context 2: Accept if we're under active attack
+  const underAttack = player.incomingAttacks().length > 0;
+  if (underAttack) return true;
+
+  // Context 3: Check if we share a border (mutual defense value)
+  const sharesBorder = player.neighbors().includes(requestor);
+
+  if (requestor.numTilesOwned() > player.numTilesOwned() * 3) {
     return true; // Accept if requestorIsMuchLarger
   }
-  if (request.requestor().alliances().length >= 3) {
+
+  // Difficulty-based alliance limits
+  let maxAlliances: number;
+  switch (difficulty) {
+    case Difficulty.Easy:
+      maxAlliances = 3; // Original behavior
+      break;
+    case Difficulty.Medium:
+      maxAlliances = 2;
+      break;
+    case Difficulty.Hard:
+      maxAlliances = 1;
+      break;
+    default:
+      maxAlliances = 3;
+  }
+
+  // More lenient if we share border
+  const effectiveMax = sharesBorder ? maxAlliances + 1 : maxAlliances;
+
+  if (requestor.alliances().length >= effectiveMax) {
     return false; // Reject if tooManyAlliances
   }
   return true; // Accept otherwise
+}
+
+export function shouldAcceptPeaceRequest(
+  game: Game,
+  player: Player,
+  requestor: Player,
+  personality: BotPersonality,
+): boolean {
+  const difficulty = game.config().gameConfig().difficulty;
+
+  // Auto-accept if losing badly (need relief from war)
+  const weAreLosing =
+    player.numTilesOwned() < requestor.numTilesOwned() * 0.4 ||
+    player.incomingAttacks().length > 3;
+  if (weAreLosing) return true;
+
+  // Auto-reject if winning decisively (press the advantage)
+  const weAreWinning =
+    requestor.numTilesOwned() < player.numTilesOwned() * 0.4 &&
+    player.population() > requestor.population() * 1.5;
+  if (weAreWinning) return false;
+
+  // Personality-based decisions for balanced situations
+  if (
+    personality === BotPersonality.Nuclear ||
+    personality === BotPersonality.LandWarfare
+  ) {
+    // Aggressive personalities: reject unless under pressure
+    return player.incomingAttacks().length > 0;
+  }
+
+  if (
+    personality === BotPersonality.NavalPower ||
+    personality === BotPersonality.AirSupremacy
+  ) {
+    // Diplomatic personalities: accept readily
+    return true;
+  }
+
+  // Balanced personality: Difficulty-based decision
+  if (difficulty === Difficulty.Impossible) {
+    return false; // Never accept on Impossible
+  }
+
+  return true; // Accept by default for Easy/Medium/Hard
 }

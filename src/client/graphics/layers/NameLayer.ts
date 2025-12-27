@@ -12,9 +12,9 @@ import shieldIcon from "../../../../resources/images/ShieldIconBlack.svg";
 import swordIconBlack from "../../../../resources/images/SwordIcon.svg";
 import targetIcon from "../../../../resources/images/TargetIcon.svg";
 import traitorIcon from "../../../../resources/images/TraitorIcon.svg";
-import { EventBus } from "../../../core/EventBus";
-import { PseudoRandom } from "../../../core/PseudoRandom";
 import { Theme } from "../../../core/configuration/Config";
+import { EventBus } from "../../../core/EventBus";
+import { BotPersonality } from "../../../core/execution/FakeHumanExecution";
 import {
   AllPlayers,
   Cell,
@@ -23,10 +23,28 @@ import {
 } from "../../../core/game/Game";
 import { GameView, PlayerView } from "../../../core/game/GameView";
 import { UserSettings } from "../../../core/game/UserSettings";
+import { PseudoRandom } from "../../../core/PseudoRandom";
 import { AlternateViewEvent } from "../../InputHandler";
 import { createCanvas, renderNumber, renderTroops } from "../../Utils";
 import { TransformHandler } from "../TransformHandler";
 import { Layer } from "./Layer";
+
+function getPersonalityName(personality: number): string {
+  switch (personality) {
+    case BotPersonality.Balanced:
+      return "Balanced";
+    case BotPersonality.LandWarfare:
+      return "Land Warfare";
+    case BotPersonality.AirSupremacy:
+      return "Air Supremacy";
+    case BotPersonality.NavalPower:
+      return "Naval Power";
+    case BotPersonality.Nuclear:
+      return "Nuclear";
+    default:
+      return "Unknown";
+  }
+}
 
 class RenderInfo {
   public icons: Map<string, HTMLImageElement> = new Map(); // Track icon elements
@@ -280,7 +298,16 @@ export class NameLayer implements Layer {
 
     const nameSpan = document.createElement("span");
     nameSpan.className = "player-name-span";
-    nameSpan.innerHTML = player.name();
+
+    // In dev mode, show bot personality instead of name (if enabled)
+    const showPersonality = this.game.config().showBotPersonalityNames();
+    const pers = player.botPersonality();
+    if (showPersonality && pers !== undefined) {
+      nameSpan.innerHTML = getPersonalityName(pers);
+    } else {
+      nameSpan.innerHTML = player.name();
+    }
+
     nameDiv.appendChild(nameSpan);
     element.appendChild(nameDiv);
 
@@ -373,7 +400,14 @@ export class NameLayer implements Layer {
     nameDiv.style.color = render.fontColor;
     const span = nameDiv.querySelector(".player-name-span");
     if (span) {
-      span.innerHTML = render.player.name();
+      // In dev mode, show bot personality instead of name (if enabled)
+      const showPersonality = this.game.config().showBotPersonalityNames();
+      const personality = render.player.botPersonality();
+      if (showPersonality && personality !== undefined) {
+        span.innerHTML = getPersonalityName(personality);
+      } else {
+        span.innerHTML = render.player.name();
+      }
     }
     if (flagDiv) {
       flagDiv.style.height = `${render.fontSize}px`;

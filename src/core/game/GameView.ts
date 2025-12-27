@@ -504,6 +504,10 @@ export class PlayerView {
   tradeDemandQueueLength(): number {
     return (this.data as any).tradeDemandQueueLength ?? 0;
   }
+
+  botPersonality(): number | undefined {
+    return this.data.botPersonality;
+  }
 }
 
 export class GameView implements GameMap {

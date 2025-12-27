@@ -193,6 +193,7 @@ export class PlayerImpl implements Player {
       totalPopulation: this.totalPopulation(),
       hospitalReturns: this.hospitalReturns(),
       workers: this.workers(),
+      botPersonality: (this as any).botPersonality?.(),
       // Road KPIs exposed to client
       roadNetworkQuality: this.roadNetworkQuality(),
       roadNetworkCompletion: this.roadNetworkCompletion(),
