@@ -14,6 +14,7 @@ import { euclDistFN, manhattanDistFN, TileRef } from "../game/GameMap";
 import { PseudoRandom } from "../PseudoRandom";
 import { calculateBoundingBox } from "../Util";
 import { BotPersonality } from "./FakeHumanExecution";
+import { MirvExecution } from "./MIRVExecution";
 import { NukeExecution } from "./NukeExecution";
 import { closestTwoTiles } from "./Util";
 
@@ -132,7 +133,13 @@ export class NukeExecutionHelper {
     const tick = this.mg.ticks();
     this.lastNukeSent.push([tick, tile]);
     this.nukesLaunchedThisCycle++;
-    this.mg.addExecution(new NukeExecution(nukeType as any, this.player, tile));
+    if (nukeType === UnitType.MIRV) {
+      this.mg.addExecution(new MirvExecution(this.player, tile));
+    } else {
+      this.mg.addExecution(
+        new NukeExecution(nukeType as any, this.player, tile),
+      );
+    }
   }
 
   private selectNukeType(): UnitType | null {
