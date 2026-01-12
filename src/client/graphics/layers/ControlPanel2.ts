@@ -402,7 +402,18 @@ export class ControlPanel2 extends LitElement implements Layer {
     this._gold = player.gold();
     this._productivity = player.productivity();
     this._productivityGrowth = player.productivityGrowthPerMinute();
-    this.investmentRate = player.investmentRate();
+    // Sync investment rate from server (e.g., when max productivity resets it to 0)
+    const serverInvestmentRate = player.investmentRate();
+    if (Math.abs(serverInvestmentRate - this.investmentRate) > 1e-6) {
+      this.investmentRate = serverInvestmentRate;
+      this.uiState.investmentRate = this.investmentRate;
+      localStorage.setItem(
+        "settings.investmentRate",
+        this.investmentRate.toString(),
+      );
+      // Emit sync event so other UI components (like sliders) update
+      this.emitInvestmentSync();
+    }
     const serverResearchRate = player.researchInvestmentRate();
     if (Math.abs(serverResearchRate - this._researchInvestmentRate) > 1e-6) {
       this._researchInvestmentRate = serverResearchRate;
