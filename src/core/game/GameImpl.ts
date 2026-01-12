@@ -86,6 +86,8 @@ export class GameImpl implements Game {
   private cargoManager: CargoManager;
   // Trade: global demand queue length, updated by TradeManagerExecution each tick
   private _tradeDemandQueueLength: number = 0;
+  // Tradeship pathfinding cache: Map<"srcTile-dstTile", TileRef[]>
+  private tradeshipPathCache = new Map<string, TileRef[]>();
 
   private playerTeams: Team[];
   private botTeam: Team = ColoredTeams.Bot;
@@ -674,6 +676,27 @@ export class GameImpl implements Game {
   // Check if a structure is connected to the road network
   public isStructureConnectedToRoadNetwork(unit: Unit): boolean {
     return this.roadManager.isStructureConnectedToRoadNetwork(unit);
+  }
+
+  // Tradeship pathfinding cache methods
+  public getTradeshipPath(src: TileRef, dst: TileRef): TileRef[] | undefined {
+    const key = `${src}-${dst}`;
+    return this.tradeshipPathCache.get(key);
+  }
+
+  public setTradeshipPath(src: TileRef, dst: TileRef, path: TileRef[]): void {
+    const key = `${src}-${dst}`;
+    this.tradeshipPathCache.set(key, path);
+  }
+
+  public invalidateTradeshipPathsForTile(tile: TileRef): void {
+    // Remove all cache entries containing this tile (as src or dst)
+    const tileStr = String(tile);
+    for (const key of this.tradeshipPathCache.keys()) {
+      if (key.startsWith(tileStr + "-") || key.endsWith("-" + tileStr)) {
+        this.tradeshipPathCache.delete(key);
+      }
+    }
   }
 
   private maybeAssignTeam(player: PlayerInfo): Team | null {

@@ -20,16 +20,30 @@ export class TradeShipExecution implements Execution {
   private wasCaptured = false;
   private pathFinder: PathFinder;
   private tilesTraveled = 0;
+  private precomputedPath: TileRef[] | null = null;
+  private stackMultiplier: number;
 
   constructor(
     private origOwner: Player,
     private srcPort: Unit,
     private _dstPort: Unit,
-  ) {}
+    stackMultiplier: number = 1,
+  ) {
+    this.stackMultiplier = Math.max(1, stackMultiplier);
+  }
 
   init(mg: Game, ticks: number): void {
     this.mg = mg;
-    this.pathFinder = PathFinder.Mini(mg, 2500);
+    // Check cache first
+    const cachedPath = mg.getTradeshipPath(
+      this.srcPort.tile(),
+      this._dstPort.tile(),
+    );
+    if (cachedPath) {
+      this.precomputedPath = cachedPath;
+    } else {
+      this.pathFinder = PathFinder.Mini(mg, 2500);
+    }
   }
 
   tick(ticks: number): void {
@@ -72,7 +86,9 @@ export class TradeShipExecution implements Execution {
 
     if (
       !this.wasCaptured &&
-      (!this._dstPort.isActive() || !tradeShipOwner.canTrade(dstPortOwner))
+      (!this.srcPort.isActive() ||
+        !this._dstPort.isActive() ||
+        !tradeShipOwner.canTrade(dstPortOwner))
     ) {
       this.tradeShip.delete(false);
       this.active = false;
@@ -98,8 +114,26 @@ export class TradeShipExecution implements Execution {
     }
 
     const curTile = this.tradeShip.tile();
-    if (curTile === this.dstPort()) {
+    // Ships can't move onto land (where ports are), so check if adjacent (manhattan dist = 1)
+    if (this.mg.manhattanDist(curTile, this.dstPort()) === 1) {
       this.complete();
+      return;
+    }
+
+    // If we have a precomputed path, use it directly
+    if (this.precomputedPath !== null) {
+      const nextIdx = this.precomputedPath.findIndex((t) => t === curTile);
+      if (nextIdx === -1 || nextIdx >= this.precomputedPath.length - 1) {
+        // Path completed or ship not on path (shouldn't happen)
+        this.complete();
+        return;
+      }
+      const nextTile = this.precomputedPath[nextIdx + 1];
+      if (this.mg.isWater(nextTile) && this.mg.isShoreline(nextTile)) {
+        this.tradeShip.setSafeFromPirates();
+      }
+      this.tradeShip.move(nextTile);
+      this.tilesTraveled++;
       return;
     }
 
@@ -119,6 +153,20 @@ export class TradeShipExecution implements Execution {
         this.tilesTraveled++;
         break;
       case PathFindResultType.Completed:
+        // Cache the computed path before completing (only if we used PathFinder, not precomputed)
+        if (
+          this.pathFinder &&
+          typeof this.pathFinder.reconstructPath === "function"
+        ) {
+          const fullPath = this.pathFinder.reconstructPath();
+          if (fullPath.length > 0) {
+            this.mg.setTradeshipPath(
+              this.srcPort.tile(),
+              this._dstPort.tile(),
+              [this.srcPort.tile(), ...fullPath],
+            );
+          }
+        }
         this.complete();
         break;
       case PathFindResultType.PathNotFound:
@@ -135,22 +183,27 @@ export class TradeShipExecution implements Execution {
     this.active = false;
     this.tradeShip!.delete(false);
     const baseGold = this.mg.config().tradeShipGold(this.tilesTraveled);
+    const multipliedGold = baseGold * BigInt(this.stackMultiplier);
 
     if (this.wasCaptured) {
-      this.tradeShip!.owner().addGold(baseGold);
+      this.tradeShip!.owner().addGold(multipliedGold);
       this.mg.displayMessage(
-        `Received ${renderNumber(baseGold)} gold from ship captured from ${this.origOwner.displayName()}`,
+        `Received ${renderNumber(multipliedGold)} gold from ship captured from ${this.origOwner.displayName()}`,
         MessageType.CAPTURED_ENEMY_UNIT,
         this.tradeShip!.owner().id(),
-        baseGold,
+        multipliedGold,
       );
     } else {
       // Apply tech modifiers to each port owner
       const srcMods = tradeIncomeModifiers(this.srcPort.owner());
       const dstMods = tradeIncomeModifiers(this._dstPort.owner());
 
-      const srcGold = BigInt(Math.floor(Number(baseGold) * srcMods.incomeMul));
-      const dstGold = BigInt(Math.floor(Number(baseGold) * dstMods.incomeMul));
+      const srcGold = BigInt(
+        Math.floor(Number(multipliedGold) * srcMods.incomeMul),
+      );
+      const dstGold = BigInt(
+        Math.floor(Number(multipliedGold) * dstMods.incomeMul),
+      );
 
       this.srcPort.owner().addGold(srcGold);
       this._dstPort.owner().addGold(dstGold);

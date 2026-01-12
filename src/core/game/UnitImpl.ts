@@ -519,6 +519,12 @@ export class UnitImpl implements Unit {
     this._active = false;
     this.mg.addUpdate(this.toUpdate());
     this.mg.removeUnit(this);
+
+    // Invalidate tradeship path cache if this is a port
+    if (this._type === UnitType.Port) {
+      this.mg.invalidateTradeshipPathsForTile(this._tile);
+    }
+
     if (
       displayMessage !== false &&
       this._type !== UnitType.MIRVWarhead &&

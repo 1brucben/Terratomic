@@ -119,4 +119,34 @@ describe("TradeShipExecution", () => {
     expect(tradeShipExecution.isActive()).toBe(false);
     expect(game.displayMessage).toHaveBeenCalled();
   });
+
+  it("should complete when ship is adjacent to port (manhattan distance = 1)", () => {
+    // Mock manhattanDist to return 1 (ship is adjacent to port)
+    game.manhattanDist = jest.fn(() => 1);
+    tradeShip.tile = jest.fn(() => 30014); // Adjacent to port at 30015
+
+    tradeShipExecution.tick(1);
+
+    // Should complete immediately without calling pathfinder
+    expect(tradeShip.delete).toHaveBeenCalledWith(false);
+    expect(tradeShipExecution.isActive()).toBe(false);
+    expect(game.displayMessage).toHaveBeenCalled();
+  });
+
+  it("should NOT complete when ship is not adjacent to port (manhattan distance > 1)", () => {
+    // Mock manhattanDist to return 2 (ship is NOT adjacent)
+    game.manhattanDist = jest.fn(() => 2);
+    tradeShip.tile = jest.fn(() => 30013); // Not adjacent to port
+
+    tradeShipExecution["pathFinder"] = {
+      nextTile: jest.fn(() => ({ type: 0, node: 30014 })), // NextTile
+    } as any;
+
+    tradeShipExecution.tick(1);
+
+    // Should NOT complete, should continue pathfinding
+    expect(tradeShip.delete).not.toHaveBeenCalled();
+    expect(tradeShipExecution.isActive()).toBe(true);
+    expect(tradeShip.move).toHaveBeenCalled();
+  });
 });

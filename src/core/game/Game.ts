@@ -818,6 +818,11 @@ export interface Game extends GameMap {
   // Check if a structure is connected to the road network (has at least one road)
   isStructureConnectedToRoadNetwork(unit: Unit): boolean;
 
+  // Tradeship pathfinding cache
+  getTradeshipPath(src: TileRef, dst: TileRef): TileRef[] | undefined;
+  setTradeshipPath(src: TileRef, dst: TileRef, path: TileRef[]): void;
+  invalidateTradeshipPathsForTile(tile: TileRef): void;
+
   // Game State
   ticks(): Tick;
   inSpawnPhase(): boolean;
