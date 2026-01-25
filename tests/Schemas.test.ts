@@ -7,7 +7,7 @@ import {
 } from "../src/core/game/Game";
 
 const baseConfig = {
-  gameMap: GameMapType.World,
+  gameMap: GameMapType.WorldMap,
   difficulty: Difficulty.Medium,
   gameMode: GameMode.Team,
   gameType: GameType.Private,

@@ -59,10 +59,11 @@ export const ColoredTeams: Record<string, Team> = {
 } as const;
 
 export enum GameMapType {
-  World = "World",
-  GiantWorldMap = "Giant World Map",
+  WorldMap = "World",
+  WorldMapGiant = "Giant World Map",
   Europe = "Europe",
   EuropeClassic = "Europe Classic",
+  EuropeV2 = "Europe V2",
   Mena = "Mena",
   NorthAmerica = "North America",
   SouthAmerica = "South America",
@@ -93,40 +94,19 @@ export enum GameMapType {
 
 export type GameMapName = keyof typeof GameMapType;
 
+import mapData from "../../../resources/maps/maps.json" with { type: "json" };
+
 export const mapCategories: Record<string, GameMapType[]> = {
-  continental: [
-    GameMapType.World,
-    GameMapType.GiantWorldMap,
-    GameMapType.NorthAmerica,
-    GameMapType.SouthAmerica,
-    GameMapType.Europe,
-    GameMapType.EuropeClassic,
-    GameMapType.Asia,
-    GameMapType.Africa,
-    GameMapType.Oceania,
-  ],
-  regional: [
-    GameMapType.BlackSea,
-    GameMapType.Britannia,
-    GameMapType.GatewayToTheAtlantic,
-    GameMapType.BetweenTwoSeas,
-    GameMapType.Iceland,
-    GameMapType.EastAsia,
-    GameMapType.Mena,
-    GameMapType.Australia,
-    GameMapType.FaroeIslands,
-    GameMapType.FalklandIslands,
-    GameMapType.Baikal,
-    GameMapType.Halkidiki,
-  ],
-  fantasy: [
-    GameMapType.Pangaea,
-    GameMapType.Mars,
-    GameMapType.DeglaciatedAntarctica,
-    GameMapType.NukeWars2000,
-    GameMapType.NukeWarsQuad,
-  ],
+  continental: [],
+  regional: [],
+  fantasy: [],
 };
+
+mapData.forEach((map) => {
+  if (map.fileName in GameMapType && map.category in mapCategories) {
+    mapCategories[map.category].push(GameMapType[map.fileName as GameMapName]);
+  }
+});
 
 export enum GameType {
   Singleplayer = "Singleplayer",

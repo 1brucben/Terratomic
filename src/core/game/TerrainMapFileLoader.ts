@@ -1,4 +1,4 @@
-import { GameMapType } from "./Game";
+import { GameMapName, GameMapType } from "./Game";
 import { NationMap } from "./TerrainMapLoader";
 
 interface MapData {
@@ -21,39 +21,16 @@ interface NationMapModule {
   default: NationMap;
 }
 
+import mapData from "../../../resources/maps/maps.json" with { type: "json" };
+
 // Mapping from GameMap enum values to file names
-const MAP_FILE_NAMES: Record<GameMapType, string> = {
-  [GameMapType.World]: "WorldMap",
-  [GameMapType.GiantWorldMap]: "WorldMapGiant",
-  [GameMapType.Europe]: "Europe",
-  [GameMapType.Mena]: "Mena",
-  [GameMapType.NorthAmerica]: "NorthAmerica",
-  [GameMapType.Oceania]: "Oceania",
-  [GameMapType.BlackSea]: "BlackSea",
-  [GameMapType.Africa]: "Africa",
-  [GameMapType.Pangaea]: "Pangaea",
-  [GameMapType.Asia]: "Asia",
-  [GameMapType.Mars]: "Mars",
-  [GameMapType.SouthAmerica]: "SouthAmerica",
-  [GameMapType.Britannia]: "Britannia",
-  [GameMapType.GatewayToTheAtlantic]: "GatewayToTheAtlantic",
-  [GameMapType.Australia]: "Australia",
-  [GameMapType.Iceland]: "Iceland",
-  [GameMapType.EastAsia]: "EastAsia",
-  [GameMapType.BetweenTwoSeas]: "BetweenTwoSeas",
-  [GameMapType.FaroeIslands]: "FaroeIslands",
-  [GameMapType.DeglaciatedAntarctica]: "DeglaciatedAntarctica",
-  [GameMapType.EuropeClassic]: "EuropeClassic",
-  [GameMapType.FalklandIslands]: "FalklandIslands",
-  [GameMapType.Baikal]: "Baikal",
-  [GameMapType.Halkidiki]: "Halkidiki",
-  [GameMapType.StraitOfGibraltar]: "StraitOfGibraltar",
-  [GameMapType.Italia]: "Italia",
-  [GameMapType.Nukewars1024]: "Nukewars1024",
-  [GameMapType.NukeWars2]: "NukeWars2",
-  [GameMapType.NukeWars2000]: "NukeWars2000",
-  [GameMapType.NukeWarsQuad]: "NukeWarsQuad",
-};
+const MAP_FILE_NAMES: Record<GameMapType, string> = {} as any;
+mapData.forEach((map) => {
+  if (map.fileName in GameMapType) {
+    const mapType = GameMapType[map.fileName as GameMapName];
+    MAP_FILE_NAMES[mapType] = map.fileName;
+  }
+});
 
 class GameMapLoader {
   private maps: Map<GameMapType, MapCache>;
@@ -87,14 +64,14 @@ class GameMapLoader {
 
     const [binModule, miniBinModule, infoModule] = await Promise.all([
       import(
-        `!!binary-loader!../../../resources/maps/${fileName}.bin`
+        `!!binary-loader!../../../resources/maps/${fileName}/${fileName}.bin`
       ) as Promise<BinModule>,
       import(
-        `!!binary-loader!../../../resources/maps/${fileName}Mini.bin`
+        `!!binary-loader!../../../resources/maps/${fileName}/${fileName}Mini.bin`
       ) as Promise<BinModule>,
-      import(
-        `../../../resources/maps/${fileName}.json`
-      ) as Promise<NationMapModule>,
+      import(`../../../resources/maps/${fileName}/${fileName}.json`, {
+        with: { type: "json" },
+      }) as Promise<NationMapModule>,
     ]);
 
     return {

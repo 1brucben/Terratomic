@@ -62,38 +62,20 @@ const JwksSchema = z.object({
     .min(1),
 });
 
-const numPlayersConfig = {
-  [GameMapType.GatewayToTheAtlantic]: [40, 30, 20],
-  [GameMapType.SouthAmerica]: [35, 25, 20],
-  [GameMapType.NorthAmerica]: [40, 30, 25],
-  [GameMapType.Africa]: [50, 40, 25],
-  [GameMapType.Europe]: [40, 25, 15],
-  [GameMapType.Australia]: [25, 20, 15],
-  [GameMapType.Iceland]: [25, 20, 15],
-  [GameMapType.Britannia]: [25, 20, 15],
-  [GameMapType.Asia]: [30, 25, 15],
-  [GameMapType.FalklandIslands]: [40, 25, 15],
-  [GameMapType.Baikal]: [30, 25, 20],
-  [GameMapType.Mena]: [30, 25, 15],
-  [GameMapType.Mars]: [25, 20, 15],
-  [GameMapType.Oceania]: [15, 10, 5],
-  [GameMapType.EastAsia]: [25, 20, 15],
-  [GameMapType.FaroeIslands]: [25, 20, 15],
-  [GameMapType.DeglaciatedAntarctica]: [25, 20, 15],
-  [GameMapType.EuropeClassic]: [40, 15, 25],
-  [GameMapType.BetweenTwoSeas]: [20, 25, 15],
-  [GameMapType.BlackSea]: [20, 25, 15],
-  [GameMapType.Pangaea]: [20, 10, 15],
-  [GameMapType.World]: [75, 40, 25],
-  [GameMapType.GiantWorldMap]: [75, 50, 30],
-  [GameMapType.Halkidiki]: [25, 20, 15],
-  [GameMapType.StraitOfGibraltar]: [25, 20, 15],
-  [GameMapType.Italia]: [25, 20, 15],
-  [GameMapType.Nukewars1024]: [25, 20, 15],
-  [GameMapType.NukeWars2]: [25, 20, 15],
-  [GameMapType.NukeWars2000]: [25, 20, 15],
-  [GameMapType.NukeWarsQuad]: [25, 20, 15],
-} as const satisfies Record<GameMapType, [number, number, number]>;
+import mapData from "../../../resources/maps/maps.json" with { type: "json" };
+
+const numPlayersConfig: Record<GameMapType, [number, number, number]> =
+  {} as any;
+const validMapTypes = new Set(Object.values(GameMapType));
+mapData.forEach((map) => {
+  if (validMapTypes.has(map.fileName as GameMapType)) {
+    numPlayersConfig[map.fileName as GameMapType] = map.playerCounts as [
+      number,
+      number,
+      number,
+    ];
+  }
+});
 
 const TERRAIN_EFFECTS = {
   [TerrainType.Plains]: { mag: 1, speed: 0.8 }, // higher speed, lower damage

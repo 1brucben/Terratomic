@@ -92,7 +92,7 @@ class MockServerConfig implements ServerConfig {
 }
 
 const baseGameConfig: GameConfig = {
-  gameMap: GameMapType.World,
+  gameMap: GameMapType.WorldMap,
   gameMode: GameMode.Team,
   gameType: GameType.Private,
   difficulty: Difficulty.Medium,

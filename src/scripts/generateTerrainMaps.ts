@@ -1,90 +1,68 @@
+import { existsSync } from "fs";
 import fs from "fs/promises";
 import path from "path";
-import sharp from "sharp";
 import { generateMap } from "./TerrainMapGenerator.js";
-
-const maps = [
-  "Africa",
-  "Asia",
-  "WorldMap",
-  "WorldMapGiant",
-  "BlackSea",
-  "Europe",
-  "EuropeClassic",
-  "Mars",
-  "Mena",
-  "Oceania",
-  "NorthAmerica",
-  "SouthAmerica",
-  "Britannia",
-  "GatewayToTheAtlantic",
-  "Australia",
-  "Pangaea",
-  "Iceland",
-  "BetweenTwoSeas",
-  "EastAsia",
-  //"KnownWorld",
-  "FaroeIslands",
-  "DeglaciatedAntarctica",
-  "FalklandIslands",
-  "Baikal",
-  "Halkidiki",
-  "Nukewars1024",
-  "NukeWars2",
-  "NukeWars2000",
-  "NukeWarsQuad",
-];
 
 const removeSmall = true;
 
+interface MapConfig {
+  fileName: string;
+  displayName: string;
+  category: string;
+  frequency: number;
+  playerCounts: number[];
+  generatorScript?: string;
+  notes?: string;
+}
+
 async function loadTerrainMaps() {
+  const configPath = path.resolve(
+    process.cwd(),
+    "resources",
+    "maps",
+    "maps.json",
+  );
+  const configContent = await fs.readFile(configPath, "utf-8");
+  const maps: MapConfig[] = JSON.parse(configContent);
+
+  console.log(`Loaded ${maps.length} map definitions from maps.json`);
+
   await Promise.all(
-    maps.map(async (map) => {
-      const mapPath = path.resolve(
-        process.cwd(),
-        "resources",
-        "maps",
-        map + ".png",
-      );
-      const imageBuffer = await fs.readFile(mapPath);
-      const {
-        map: mainMap,
-        miniMap,
-        thumb,
-      } = await generateMap(imageBuffer, removeSmall, map);
+    maps.map(async (mapConfig) => {
+      const mapName = mapConfig.fileName;
+      // Look for the map image in the SUBFOLDER: resources/maps/[mapName]/[mapName].png
+      const mapDir = path.join(process.cwd(), "resources", "maps", mapName);
+      const mapPath = path.join(mapDir, mapName + ".png");
 
-      const outputPath = path.join(
-        process.cwd(),
-        "resources",
-        "maps",
-        map + ".bin",
-      );
-      const miniOutputPath = path.join(
-        process.cwd(),
-        "resources",
-        "maps",
-        map + "Mini.bin",
-      );
-      const thumbOutputPath = path.join(
-        process.cwd(),
-        "resources",
-        "maps",
-        map + "Thumb.webp",
-      );
+      // Check if PNG exists
+      if (!existsSync(mapPath)) {
+        console.warn(`Skipping ${mapName}: Source PNG not found at ${mapPath}`);
+        return;
+      }
 
-      await Promise.all([
-        fs.writeFile(outputPath, mainMap),
-        fs.writeFile(miniOutputPath, miniMap),
-        sharp(Buffer.from(thumb.data), {
-          raw: {
-            width: thumb.width,
-            height: thumb.height,
-            channels: 4,
-          },
-        })
-          .webp({ quality: 45 })
-          .toFile(thumbOutputPath),
-      ]);
+      console.log(`Generating map: ${mapName} (${mapConfig.displayName})...`);
+
+      try {
+        const imageBuffer = await fs.readFile(mapPath);
+        const {
+          map: mainMap,
+          miniMap,
+          thumb,
+        } = await generateMap(imageBuffer, removeSmall, mapName);
+
+        const outputPath = path.join(mapDir, mapName + ".bin");
+        const miniOutputPath = path.join(mapDir, mapName + "Mini.bin");
+        const thumbOutputPath = path.join(mapDir, mapName + "Thumb.webp");
+
+        await Promise.all([
+          fs.writeFile(outputPath, mainMap),
+          fs.writeFile(miniOutputPath, miniMap),
+          thumb.webp({ quality: 45 }).toFile(thumbOutputPath),
+        ]);
+        console.log(`Finished ${mapName}`);
+      } catch (err) {
+        console.error(`Error generating ${mapName}:`, err);
+      }
     }),
   );
 }

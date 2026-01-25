@@ -21,32 +21,15 @@ const log = logger.child({});
 
 const config = getServerConfigFromServer();
 
+import mapData from "../../resources/maps/maps.json" with { type: "json" };
+
 // How many times each map should appear in the playlist.
-// Note: The Partial should eventually be removed for better type safety.
-const frequency: Partial<Record<GameMapName, number>> = {
-  World: 3,
-  Europe: 2,
-  Africa: 2,
-  Australia: 1,
-  NorthAmerica: 1,
-  Britannia: 1,
-  GatewayToTheAtlantic: 1,
-  Iceland: 1,
-  SouthAmerica: 1,
-  DeglaciatedAntarctica: 1,
-  EuropeClassic: 1,
-  Mena: 1,
-  Pangaea: 1,
-  Asia: 1,
-  Mars: 1,
-  BetweenTwoSeas: 1,
-  EastAsia: 1,
-  BlackSea: 1,
-  FaroeIslands: 1,
-  FalklandIslands: 1,
-  Baikal: 1,
-  Halkidiki: 1,
-};
+const frequency: Partial<Record<GameMapName, number>> = {};
+mapData.forEach((map) => {
+  if (map.fileName in GameMapType) {
+    frequency[map.fileName as GameMapName] = map.frequency || 0;
+  }
+});
 
 interface MapWithMode {
   map: GameMapType;

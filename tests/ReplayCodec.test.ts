@@ -23,7 +23,7 @@ function createMockGameEndInfo(numTurns: number): GameEndInfo {
   return {
     gameID: "test-game-id",
     config: {
-      gameMap: GameMapType.World,
+      gameMap: GameMapType.WorldMap,
       difficulty: Difficulty.Medium,
       gameMode: GameMode.FFA,
       gameType: GameType.Singleplayer,

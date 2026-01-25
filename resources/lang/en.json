@@ -147,8 +147,8 @@
   },
   "map": {
     "map": "Map",
-    "world": "World",
-    "giantworldmap": "Giant World Map",
+    "worldmap": "World",
+    "worldmapgiant": "Giant World Map",
     "europe": "Europe",
     "mena": "MENA",
     "northamerica": "North America",
@@ -177,7 +177,8 @@
     "nukewars1024": "Nukewars 1",
     "nukewars2": "Nukewars 2",
     "nukewars2000": "Nukewars",
-    "nukewarsquad": "Nukewars Quad"
+    "nukewarsquad": "Nukewars Quad",
+    "europev2": "Europe V2"
   },
   "map_categories": {
     "continental": "Continental",

@@ -1,0 +1,223 @@
+[
+  {
+    "fileName": "WorldMap",
+    "displayName": "World",
+    "category": "continental",
+    "frequency": 3,
+    "playerCounts": [75, 40, 25]
+  },
+  {
+    "fileName": "WorldMapGiant",
+    "displayName": "Giant World Map",
+    "category": "continental",
+    "frequency": 1,
+    "playerCounts": [75, 50, 30]
+  },
+  {
+    "fileName": "NorthAmerica",
+    "displayName": "North America",
+    "category": "continental",
+    "frequency": 1,
+    "playerCounts": [40, 30, 25]
+  },
+  {
+    "fileName": "SouthAmerica",
+    "displayName": "South America",
+    "category": "continental",
+    "frequency": 1,
+    "playerCounts": [35, 25, 20]
+  },
+  {
+    "fileName": "Europe",
+    "displayName": "Europe",
+    "category": "continental",
+    "frequency": 2,
+    "playerCounts": [40, 25, 15]
+  },
+  {
+    "fileName": "EuropeV2",
+    "displayName": "Europe V2",
+    "category": "continental",
+    "frequency": 2,
+    "playerCounts": [40, 25, 15]
+  },
+  {
+    "fileName": "EuropeClassic",
+    "displayName": "Europe Classic",
+    "category": "continental",
+    "frequency": 1,
+    "playerCounts": [40, 15, 25]
+  },
+  {
+    "fileName": "Asia",
+    "displayName": "Asia",
+    "category": "continental",
+    "frequency": 1,
+    "playerCounts": [30, 25, 15]
+  },
+  {
+    "fileName": "Africa",
+    "displayName": "Africa",
+    "category": "continental",
+    "frequency": 2,
+    "playerCounts": [50, 40, 25]
+  },
+  {
+    "fileName": "Oceania",
+    "displayName": "Oceania",
+    "category": "continental",
+    "frequency": 1,
+    "playerCounts": [15, 10, 5]
+  },
+  {
+    "fileName": "BlackSea",
+    "displayName": "Black Sea",
+    "category": "regional",
+    "frequency": 1,
+    "playerCounts": [20, 25, 15]
+  },
+  {
+    "fileName": "Britannia",
+    "displayName": "Britannia",
+    "category": "regional",
+    "frequency": 1,
+    "playerCounts": [25, 20, 15]
+  },
+  {
+    "fileName": "GatewayToTheAtlantic",
+    "displayName": "Gateway to the Atlantic",
+    "category": "regional",
+    "frequency": 1,
+    "playerCounts": [40, 30, 20]
+  },
+  {
+    "fileName": "BetweenTwoSeas",
+    "displayName": "Between Two Seas",
+    "category": "regional",
+    "frequency": 1,
+    "playerCounts": [20, 25, 15]
+  },
+  {
+    "fileName": "Iceland",
+    "displayName": "Iceland",
+    "category": "regional",
+    "frequency": 1,
+    "playerCounts": [25, 20, 15]
+  },
+  {
+    "fileName": "EastAsia",
+    "displayName": "East Asia",
+    "category": "regional",
+    "frequency": 1,
+    "playerCounts": [25, 20, 15]
+  },
+  {
+    "fileName": "Mena",
+    "displayName": "Mena",
+    "category": "regional",
+    "frequency": 1,
+    "playerCounts": [30, 25, 15]
+  },
+  {
+    "fileName": "Australia",
+    "displayName": "Australia",
+    "category": "regional",
+    "frequency": 1,
+    "playerCounts": [25, 20, 15]
+  },
+  {
+    "fileName": "FaroeIslands",
+    "displayName": "Faroe Islands",
+    "category": "regional",
+    "frequency": 1,
+    "playerCounts": [25, 20, 15]
+  },
+  {
+    "fileName": "FalklandIslands",
+    "displayName": "Falkland Islands",
+    "category": "regional",
+    "frequency": 1,
+    "playerCounts": [40, 25, 15]
+  },
+  {
+    "fileName": "Baikal",
+    "displayName": "Baikal",
+    "category": "regional",
+    "frequency": 1,
+    "playerCounts": [30, 25, 20]
+  },
+  {
+    "fileName": "Halkidiki",
+    "displayName": "Halkidiki",
+    "category": "regional",
+    "frequency": 1,
+    "playerCounts": [25, 20, 15]
+  },
+  {
+    "fileName": "StraitOfGibraltar",
+    "displayName": "Strait of Gibraltar",
+    "category": "regional",
+    "notes": "No source PNG found for regeneration",
+    "frequency": 0,
+    "playerCounts": [25, 20, 15]
+  },
+  {
+    "fileName": "italia",
+    "displayName": "Italia",
+    "category": "regional",
+    "notes": "No source PNG found for regeneration",
+    "frequency": 0,
+    "playerCounts": [25, 20, 15]
+  },
+  {
+    "fileName": "Pangaea",
+    "displayName": "Pangaea",
+    "category": "fantasy",
+    "frequency": 1,
+    "playerCounts": [20, 10, 15]
+  },
+  {
+    "fileName": "Mars",
+    "displayName": "Mars",
+    "category": "fantasy",
+    "frequency": 1,
+    "playerCounts": [25, 20, 15]
+  },
+  {
+    "fileName": "DeglaciatedAntarctica",
+    "displayName": "Deglaciated Antarctica",
+    "category": "fantasy",
+    "frequency": 1,
+    "playerCounts": [25, 20, 15]
+  },
+  {
+    "fileName": "NukeWars2000",
+    "displayName": "NukeWars 2000",
+    "category": "fantasy",
+    "generatorScript": "src/scripts/createNukeWars2000Image.ts",
+    "frequency": 1,
+    "playerCounts": [25, 20, 15]
+  },
+  {
+    "fileName": "NukeWarsQuad",
+    "displayName": "NukeWars Quad",
+    "category": "fantasy",
+    "generatorScript": "src/scripts/createNukeWarsQuadMap.ts",
+    "frequency": 1,
+    "playerCounts": [25, 20, 15]
+  },
+  {
+    "fileName": "Nukewars1024",
+    "displayName": "Nukewars 1024",
+    "category": "fantasy",
+    "frequency": 1,
+    "playerCounts": [25, 20, 15]
+  },
+  {
+    "fileName": "NukeWars2",
+    "displayName": "NukeWars 2",
+    "category": "fantasy",
+    "frequency": 1,
+    "playerCounts": [25, 20, 15]
+  }
+]
