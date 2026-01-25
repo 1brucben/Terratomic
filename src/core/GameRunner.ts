@@ -69,7 +69,7 @@ export async function createGameRunner(
             new PlayerInfo(
               n.flag || "",
               n.name,
-              PlayerType.FakeHuman,
+              PlayerType.AI,
               null,
               random.nextID(),
             ),
@@ -278,7 +278,7 @@ export class GameRunner {
       );
     }
     if (this.game.config().spawnNPCs()) {
-      this.game.addExecution(...this.execManager.fakeHumanExecutions());
+      this.game.addExecution(...this.execManager.aiPlayerExecutions());
     }
     this.game.addExecution(new WinCheckExecution());
     this.game.addExecution(new AllianceExpireCheckExecution());
@@ -327,8 +327,7 @@ export class GameRunner {
       this.game
         .players()
         .filter(
-          (p) =>
-            p.type() === PlayerType.Human || p.type() === PlayerType.FakeHuman,
+          (p) => p.type() === PlayerType.Human || p.type() === PlayerType.AI,
         )
         .forEach(
           (p) => (this.playerViewData[p.id()] = placeName(this.game, p)),
@@ -398,13 +397,12 @@ export class GameRunner {
         canBreakAlliance: player.isAlliedWith(other),
         // Only show Peace when at war
         canRequestPeace: player.isAtWarWith(other),
-        // Only show Declare War when not at war and not allied, and target is human/fakehuman
+        // Only show Declare War when not at war and not allied, and target is human/AI (not bots)
         canDeclareWar:
           !player.isAtWarWith(other) &&
           !player.isAlliedWith(other) &&
           other !== player &&
-          (other.type() === PlayerType.Human ||
-            other.type() === PlayerType.FakeHuman),
+          (other.type() === PlayerType.Human || other.type() === PlayerType.AI),
         canDonate: player.canDonate(other),
         canEmbargo: !player.hasEmbargoAgainst(other),
       };

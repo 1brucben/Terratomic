@@ -60,12 +60,10 @@ export class AISpawnHandler {
   private handleSnipingSpawn(ticks: number): void {
     const spawnPhaseEnd = this.mg.config().numSpawnPhaseTurns();
 
-    if (this.snipeSpawnTick === null) {
-      this.snipeSpawnTick = this.random.nextInt(
-        spawnPhaseEnd - 10,
-        spawnPhaseEnd,
-      );
-    }
+    this.snipeSpawnTick ??= this.random.nextInt(
+      spawnPhaseEnd - 10,
+      spawnPhaseEnd,
+    );
 
     if (ticks !== this.snipeSpawnTick) {
       return;
@@ -76,7 +74,7 @@ export class AISpawnHandler {
       .filter(
         (p) =>
           p.id() !== this.nation.playerInfo.id &&
-          (p.type() === PlayerType.Human || p.type() === PlayerType.FakeHuman),
+          (p.type() === PlayerType.Human || p.type() === PlayerType.AI),
       );
 
     if (targets.length === 0) {

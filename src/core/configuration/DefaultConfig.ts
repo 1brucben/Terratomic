@@ -927,12 +927,10 @@ export class DefaultConfig implements Config {
       const attackerType = attacker.type();
       const defenderType = defender.isPlayer() ? defender.type() : null;
 
-      // If both attacker and defender are Human or FakeHuman, block the attack
+      // If both attacker and defender are Human or AI, block the attack
       if (
-        (attackerType === PlayerType.Human ||
-          attackerType === PlayerType.FakeHuman) &&
-        (defenderType === PlayerType.Human ||
-          defenderType === PlayerType.FakeHuman)
+        (attackerType === PlayerType.Human || attackerType === PlayerType.AI) &&
+        (defenderType === PlayerType.Human || defenderType === PlayerType.AI)
       ) {
         // Display a message to the players
         gm.displayMessage(
@@ -990,8 +988,7 @@ export class DefaultConfig implements Config {
 
     if (attacker.isPlayer() && defenderIsPlayer) {
       if (
-        (attackerType === PlayerType.Human ||
-          attackerType === PlayerType.FakeHuman) &&
+        (attackerType === PlayerType.Human || attackerType === PlayerType.AI) &&
         defenderType === PlayerType.Bot
       ) {
         mag *= 0.6;
@@ -1099,7 +1096,7 @@ export class DefaultConfig implements Config {
     if (playerInfo.playerType === PlayerType.Bot) {
       return 6_000;
     }
-    if (playerInfo.playerType === PlayerType.FakeHuman) {
+    if (playerInfo.playerType === PlayerType.AI) {
       switch (this._gameConfig.difficulty) {
         case Difficulty.Easy:
           return 2_500 + 1000 * (playerInfo?.nation?.strength ?? 1);
@@ -1162,7 +1159,7 @@ export class DefaultConfig implements Config {
       toAdd *= 0.7;
     }
 
-    if (player.type() === PlayerType.FakeHuman) {
+    if (player.type() === PlayerType.AI) {
       switch (this._gameConfig.difficulty) {
         case Difficulty.Easy:
           toAdd *= 0.7;
