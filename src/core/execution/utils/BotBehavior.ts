@@ -174,7 +174,12 @@ export class BotBehavior {
     const candidates: Array<{ player: Player; score: number }> = [];
 
     for (const p of this.game.players()) {
-      if (!p.isPlayer() || p === this.player || this.player.isFriendly(p))
+      if (
+        !p.isPlayer() ||
+        p === this.player ||
+        this.player.isFriendly(p) ||
+        p.type() === PlayerType.Human
+      )
         continue;
 
       // Base score = troop count (lower = better target)
