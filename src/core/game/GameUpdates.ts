@@ -240,10 +240,6 @@ export interface PlayerUpdate {
   researchPriorityTech?: string | null;
   // All selected research priority tech ids (optional; omitted if none)
   researchPriorities?: string[];
-  // Policy directive choices: directiveId -> optionId (optional; omitted if none)
-  policyChoices?: Record<string, string>;
-  // Whether the player has unseen policy directives to review
-  hasUnseenPolicyDirectives?: boolean;
 }
 
 export interface AllianceRequestUpdate {
