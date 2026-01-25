@@ -1,4 +1,4 @@
-import { Execution, Game, Player } from "../game/Game";
+import { Execution, Game, Player, PlayerType } from "../game/Game";
 import { PseudoRandom } from "../PseudoRandom";
 import { simpleHash } from "../Util";
 import { BotBehavior } from "./utils/BotBehavior";
@@ -68,7 +68,9 @@ export class BotExecution implements Execution {
 
     const neighbors = this.bot
       .neighbors()
-      .filter((n): n is Player => n.isPlayer());
+      .filter(
+        (n): n is Player => n.isPlayer() && n.type() !== PlayerType.Human,
+      );
 
     if (neighbors.length > 0) {
       const target = this.random.randElement(neighbors);
