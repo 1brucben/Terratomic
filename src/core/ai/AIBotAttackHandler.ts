@@ -7,7 +7,7 @@ import { AIBehaviorParams } from "./AIBehaviorParams";
 
 /**
  * Handles attack behavior against Bot players only.
- * Player attacks (Human, FakeHuman, etc.) are handled separately.
+ * Player attacks (Human, AI, etc.) are handled separately.
  */
 export class AIBotAttackHandler {
   private currentBotTarget: Player | null = null;

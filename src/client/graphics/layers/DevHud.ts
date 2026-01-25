@@ -150,7 +150,7 @@ export class DevHud implements Layer {
     // Player counts
     const allPlayers = this.game.players();
     const humans = { alive: 0, total: 0 };
-    const fakeHumans = { alive: 0, total: 0 };
+    const aiPlayers = { alive: 0, total: 0 };
     const bots = { alive: 0, total: 0 };
     for (const p of allPlayers) {
       const type = p.type();
@@ -158,9 +158,9 @@ export class DevHud implements Layer {
       if (type === PlayerType.Human) {
         humans.total++;
         if (isAlive) humans.alive++;
-      } else if (type === PlayerType.FakeHuman) {
-        fakeHumans.total++;
-        if (isAlive) fakeHumans.alive++;
+      } else if (type === PlayerType.AI) {
+        aiPlayers.total++;
+        if (isAlive) aiPlayers.alive++;
       } else if (type === PlayerType.Bot) {
         bots.total++;
         if (isAlive) bots.alive++;
@@ -318,13 +318,13 @@ export class DevHud implements Layer {
       "Human players (alive / total)",
     );
     html += renderRow(
-      "FakeHumans",
-      `${fakeHumans.alive} / ${fakeHumans.total}`,
-      fakeHumans.alive,
-      fakeHumans.total || 1,
+      "AI",
+      `${aiPlayers.alive} / ${aiPlayers.total}`,
+      aiPlayers.alive,
+      aiPlayers.total || 1,
       "#ffff00",
       true,
-      "FakeHuman players (alive / total)",
+      "AI players (alive / total)",
     );
     html += renderRow(
       "Bots",

@@ -69,34 +69,28 @@ describe("Bot Annexing (Encirclement Mechanic)", () => {
       expect(human1.numTilesOwned()).toEqual(human1TilesBefore);
     });
 
-    it("should not annex a fakehuman player", async () => {
+    it("should not annex an AI player", async () => {
       game = await setup(
         "Plains",
         { infiniteGold: true, instantBuild: true, startingGold: 0 },
         [
           new PlayerInfo("us", "Human", PlayerType.Human, null, "human_id"),
-          new PlayerInfo(
-            "us",
-            "FakeHuman",
-            PlayerType.FakeHuman,
-            null,
-            "fake_id",
-          ),
+          new PlayerInfo("us", "AI", PlayerType.AI, null, "fake_id"),
         ],
       );
 
       while (game.inSpawnPhase()) game.executeNextTick();
 
-      const fakeHuman = game.player("fake_id") as Player;
-      const fakeInitialTiles = fakeHuman.numTilesOwned();
+      const aiPlayer = game.player("fake_id") as Player;
+      const aiInitialTiles = aiPlayer.numTilesOwned();
 
       // Execute many ticks
       for (let i = 0; i < 250; i++) {
         game.executeNextTick();
       }
 
-      // FakeHuman should still own same tiles (not auto-annexed)
-      expect(fakeHuman.numTilesOwned()).toEqual(fakeInitialTiles);
+      // AI should still own same tiles (not auto-annexed)
+      expect(aiPlayer.numTilesOwned()).toEqual(aiInitialTiles);
     });
   });
 

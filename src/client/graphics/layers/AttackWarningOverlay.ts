@@ -86,7 +86,7 @@ export class AttackWarningOverlay extends LitElement implements Layer {
       return;
     }
 
-    // Only consider attacks from human or fakehuman players (not bots)
+    // Only consider attacks from human or AI players (not bots)
     const incomingAttacks = myPlayer.incomingAttacks().filter((attack) => {
       const attacker = this.game.playerBySmallID(attack.attackerID);
       if (

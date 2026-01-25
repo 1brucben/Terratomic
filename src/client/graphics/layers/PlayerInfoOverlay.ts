@@ -226,7 +226,7 @@ export class PlayerInfoOverlay extends LitElement implements Layer {
         relationClass = "text-yellow-300";
         relationName = translateText("relation.neutral");
         displayRelation = true;
-      } else if (player.type() === PlayerType.FakeHuman) {
+      } else if (player.type() === PlayerType.AI) {
         const relation =
           this.playerProfile?.relations[myPlayer.smallID()] ?? Relation.Neutral;
         relationClass = this.getRelationClass(relation);
@@ -246,7 +246,7 @@ export class PlayerInfoOverlay extends LitElement implements Layer {
       case PlayerType.Bot:
         playerType = translateText("player_info_overlay.bot");
         break;
-      case PlayerType.FakeHuman:
+      case PlayerType.AI:
         playerType = translateText("player_info_overlay.nation");
         break;
       case PlayerType.Human:

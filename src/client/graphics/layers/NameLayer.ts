@@ -461,12 +461,12 @@ export class NameLayer implements Layer {
     // Alliance icon
     const existingAlliance = iconsDiv.querySelector('[data-icon="alliance"]');
     const isSelf = myPlayer !== null && render.player === myPlayer;
-    const isHumanOrFakeHuman =
+    const isHumanOrAI =
       render.player.type() === PlayerType.Human ||
-      render.player.type() === PlayerType.FakeHuman;
+      render.player.type() === PlayerType.AI;
     if (
       !isSelf &&
-      isHumanOrFakeHuman &&
+      isHumanOrAI &&
       myPlayer !== null &&
       myPlayer.isAlliedWith(render.player)
     ) {
@@ -509,7 +509,7 @@ export class NameLayer implements Layer {
     const existingWar = iconsDiv.querySelector('[data-icon="war"]');
     if (
       !isSelf &&
-      isHumanOrFakeHuman &&
+      isHumanOrAI &&
       myPlayer !== null &&
       myPlayer.isAtWarWith(render.player)
     ) {
@@ -526,7 +526,7 @@ export class NameLayer implements Layer {
     const existingNeutral = iconsDiv.querySelector('[data-icon="neutral"]');
     if (
       !isSelf &&
-      isHumanOrFakeHuman &&
+      isHumanOrAI &&
       myPlayer !== null &&
       !myPlayer.isAlliedWith(render.player) &&
       !myPlayer.isAtWarWith(render.player)

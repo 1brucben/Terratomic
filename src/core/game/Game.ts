@@ -352,7 +352,7 @@ export class Nation {
 export enum PlayerType {
   Bot = "BOT",
   Human = "HUMAN",
-  FakeHuman = "FAKEHUMAN",
+  AI = "AI",
 }
 
 export interface Execution {

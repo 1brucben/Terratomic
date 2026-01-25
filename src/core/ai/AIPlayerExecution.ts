@@ -15,7 +15,7 @@ import { AITerraNulliusHandler } from "./AITerraNulliusHandler";
 export class AIPlayerExecution implements Execution {
   private active = true;
   private mg: Game;
-  private player: Player | null = null;
+  private player: Player | undefined;
   private random: PseudoRandom;
   private spawnHandler: AISpawnHandler | null = null;
   private terraNulliusHandler: AITerraNulliusHandler | null = null;
@@ -84,13 +84,11 @@ export class AIPlayerExecution implements Execution {
     }
 
     // Find player if not found yet
-    if (this.player === null) {
-      this.player =
-        this.mg.players().find((p) => p.id() === this.nation.playerInfo.id) ??
-        null;
-    }
+    this.player ??= this.mg
+      .players()
+      .find((p) => p.id() === this.nation.playerInfo.id);
 
-    if (this.player === null || !this.player.isAlive()) {
+    if (!this.player || !this.player.isAlive()) {
       this.active = false;
       return;
     }
@@ -115,7 +113,7 @@ export class AIPlayerExecution implements Execution {
   }
 
   private updateSliders(ticks: number): void {
-    if (this.player === null) return;
+    if (!this.player) return;
 
     // Set initial investment rates once
     if (!this.initialInvestmentSet) {
