@@ -324,7 +324,7 @@ export class ClientGameRunner {
           this.gameView
             .players()
             .filter((p) =>
-              [PlayerType.Human, PlayerType.FakeHuman].includes(
+              [PlayerType.Human, PlayerType.AI].includes(
                 p.type() as PlayerType,
               ),
             ),

@@ -36,12 +36,11 @@ export class AllianceExtensionExecution implements Execution {
     // Mark this player's intent to extend
     alliance.requestExtension(from);
 
-    // If the other player is a bot or fake human, request extension on their behalf
+    // If the other player is a bot or AI, request extension on their behalf
     if (
       this.to.type &&
       typeof this.to.type === "function" &&
-      (this.to.type() === PlayerType.Bot ||
-        this.to.type() === PlayerType.FakeHuman)
+      (this.to.type() === PlayerType.Bot || this.to.type() === PlayerType.AI)
     ) {
       alliance.requestExtension(this.to);
     }

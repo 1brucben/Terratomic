@@ -82,9 +82,7 @@ export class StatisticsModal extends LitElement {
     return this.game
       .players()
       .filter((p) =>
-        [PlayerType.Human, PlayerType.FakeHuman].includes(
-          p.type() as PlayerType,
-        ),
+        [PlayerType.Human, PlayerType.AI].includes(p.type() as PlayerType),
       )
       .sort((a, b) => a.displayName().localeCompare(b.displayName()));
   }
@@ -94,7 +92,7 @@ export class StatisticsModal extends LitElement {
     const me = this.game?.myPlayer();
     if (
       me &&
-      [PlayerType.Human, PlayerType.FakeHuman].includes(me.type() as PlayerType)
+      [PlayerType.Human, PlayerType.AI].includes(me.type() as PlayerType)
     ) {
       this.selectedPlayerId = me.id();
       return;
@@ -338,9 +336,7 @@ export class StatisticsModal extends LitElement {
       }
       case "List": {
         const allPlayers = (this.game?.players?.() ?? []).filter((p) =>
-          [PlayerType.Human, PlayerType.FakeHuman].includes(
-            p.type() as PlayerType,
-          ),
+          [PlayerType.Human, PlayerType.AI].includes(p.type() as PlayerType),
         );
         const opts = this._availableListStats();
         const rows = allPlayers.map((p) => {
@@ -482,9 +478,7 @@ export class StatisticsModal extends LitElement {
     return this.game
       .players()
       .filter((p) =>
-        [PlayerType.Human, PlayerType.FakeHuman].includes(
-          p.type() as PlayerType,
-        ),
+        [PlayerType.Human, PlayerType.AI].includes(p.type() as PlayerType),
       )
       .slice()
       .sort((a, b) => a.displayName().localeCompare(b.displayName()));

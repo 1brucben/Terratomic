@@ -1,3 +1,5 @@
+import { getAIProfile } from "../ai";
+import { AIPlayerExecution } from "../ai/AIPlayerExecution";
 import { Execution, Game, UnitType } from "../game/Game";
 import { getArtilleryMaxDistance } from "../game/UnitUpgrades";
 import { isUpgradeableStructure } from "../game/Upgradeables";
@@ -18,7 +20,6 @@ import { DonateGoldExecution } from "./DonateGoldExecution";
 import { DonateTroopsExecution } from "./DonateTroopExecution";
 import { EmbargoExecution } from "./EmbargoExecution";
 import { EmojiExecution } from "./EmojiExecution";
-import { FakeHumanExecution } from "./FakeHumanExecution";
 import { MarkDisconnectedExecution } from "./MarkDisconnectedExecution";
 import { MoveArtilleryExecution } from "./MoveArtilleryExecution";
 import { MoveFighterJetExecution } from "./MoveFighterJetExecution";
@@ -241,10 +242,17 @@ export class Executor {
     return new BotSpawner(this.mg, this.gameID).spawnBots(numBots);
   }
 
-  fakeHumanExecutions(): Execution[] {
+  aiPlayerExecutions(): Execution[] {
+    const defaultProfile = getAIProfile("default");
     const execs: Execution[] = [];
     for (const nation of this.mg.nations()) {
-      execs.push(new FakeHumanExecution(this.gameID, nation));
+      execs.push(
+        new AIPlayerExecution(
+          this.gameID,
+          nation,
+          defaultProfile?.params ?? {},
+        ),
+      );
     }
     return execs;
   }

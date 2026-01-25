@@ -1820,10 +1820,8 @@ export class PlayerImpl implements Player {
       const defenderType = other.isPlayer() ? other.type() : null;
 
       if (
-        (attackerType === PlayerType.Human ||
-          attackerType === PlayerType.FakeHuman) &&
-        (defenderType === PlayerType.Human ||
-          defenderType === PlayerType.FakeHuman)
+        (attackerType === PlayerType.Human || attackerType === PlayerType.AI) &&
+        (defenderType === PlayerType.Human || defenderType === PlayerType.AI)
       ) {
         return false; // Block attack if peace timer is active and both are protected types
       }

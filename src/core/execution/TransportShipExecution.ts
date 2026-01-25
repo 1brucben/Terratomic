@@ -56,10 +56,8 @@ export class TransportShipExecution implements Execution {
       const defenderType = this.target.type();
 
       if (
-        (attackerType === PlayerType.Human ||
-          attackerType === PlayerType.FakeHuman) &&
-        (defenderType === PlayerType.Human ||
-          defenderType === PlayerType.FakeHuman)
+        (attackerType === PlayerType.Human || attackerType === PlayerType.AI) &&
+        (defenderType === PlayerType.Human || defenderType === PlayerType.AI)
       ) {
         mg.displayMessage(
           `Attack blocked: Peace timer is active.`,

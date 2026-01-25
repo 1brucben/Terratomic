@@ -43,7 +43,7 @@ export class EmojiExecution implements Execution {
       if (
         emojiString === "🖕" &&
         this.recipient !== AllPlayers &&
-        this.recipient.type() === PlayerType.FakeHuman
+        this.recipient.type() === PlayerType.AI
       ) {
         this.recipient.updateRelation(this.requestor, -100);
       }

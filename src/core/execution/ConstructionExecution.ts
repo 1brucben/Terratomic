@@ -252,7 +252,7 @@ export class ConstructionExecution implements Execution {
         break;
       case UnitType.SAMLauncher:
         if (
-          player.type() === PlayerType.FakeHuman &&
+          player.type() === PlayerType.AI &&
           player.unitsOwned(UnitType.SAMLauncher) === 0
         ) {
           player.addUpgrade(UpgradeType.CityAntiAir);
