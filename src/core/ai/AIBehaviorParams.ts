@@ -48,10 +48,6 @@ export interface AIBehaviorParams {
   /** If true, cap road investment to maintenance cost (or exact maintenance if at max quality) */
   roadInvestmentCapToMaintenance?: boolean;
 
-  // === Policy Directives ===
-  /** If true, choose Open Trade; if false, choose Autarky */
-  preferOpenTrade?: boolean;
-
   // === Construction ===
   /** Whether to build cities */
   buildCities?: boolean;
