@@ -52,7 +52,8 @@
         "weightSAMLauncher": 1,
         "weightDefensePost": 1,
         "weightDoomsdayDevice": 1,
-        "aiAssumedPopPercent": 0.7
+        "aiAssumedPopPercent": 0.7,
+        "aiFirstPortScore": 1.0
       }
     }
   ]

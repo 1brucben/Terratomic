@@ -136,6 +136,11 @@ export interface AIBehaviorParams {
    * Default 0.7 (70%).
    */
   aiAssumedPopPercent?: number;
+  /**
+   * Base score for building the first port (when AI has 0 ports).
+   * Default 1.0.
+   */
+  aiFirstPortScore?: number;
 }
 
 export interface AIProfile {
