@@ -572,6 +572,14 @@ export interface Embargo {
   target: PlayerID;
 }
 
+export interface TradeDemandMetrics {
+  shipCount: number;
+  availableShips: number;
+  queueLen: number;
+  queueRatio: number;
+  availableRatio: number;
+}
+
 export interface Player {
   // Basic Info
   smallID(): number;
@@ -650,6 +658,9 @@ export interface Player {
   roadNetworkLength(): number;
   // Internal mutators used by infrastructure systems
   addRoadNetworkLength(delta: number): void;
+
+  // Trade demand metrics for AI scoring and UI
+  tradeDemandMetrics(queueLen: number): TradeDemandMetrics;
 
   // Units
   units(...types: UnitType[]): Unit[];

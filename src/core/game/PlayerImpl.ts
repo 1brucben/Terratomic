@@ -47,6 +47,7 @@ import {
   TerrainType,
   TerraNullius,
   Tick,
+  TradeDemandMetrics,
   Unit,
   UnitParams,
   UnitType,
@@ -314,6 +315,43 @@ export class PlayerImpl implements Player {
 
   clan(): string | null {
     return this.playerInfo.clan;
+  }
+
+  // Trade demand metrics for AI scoring and UI
+  tradeDemandMetrics(queueLen: number): TradeDemandMetrics {
+    const tradeShips = this.units(UnitType.TradeShip).filter((u) =>
+      u.isActive(),
+    );
+    const shipCount = tradeShips.length;
+
+    if (shipCount === 0) {
+      return {
+        shipCount: 0,
+        availableShips: 0,
+        queueLen,
+        queueRatio: 0,
+        availableRatio: 0,
+      };
+    }
+
+    // A ship is idle if not returning, no trade phase, and no target
+    const availableShips = tradeShips.filter((s) => {
+      const isReturning = s.returning();
+      const phase = s.tradePhase();
+      const hasTarget = s.targetUnit() !== undefined;
+      return !isReturning && phase === null && !hasTarget;
+    }).length;
+
+    const queueRatio = queueLen / shipCount;
+    const availableRatio = availableShips / shipCount;
+
+    return {
+      shipCount,
+      availableShips,
+      queueLen,
+      queueRatio,
+      availableRatio,
+    };
   }
 
   units(...types: UnitType[]): Unit[] {
