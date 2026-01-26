@@ -49,6 +49,8 @@ export interface AIBehaviorParams {
   researchInvestmentRate?: number;
   /** Road investment rate (0-1), set once roads are researched */
   roadInvestmentRate?: number;
+  /** Target troop ratio (0-1), troops share out of workers and troops, set at game start */
+  targetTroopRatio?: number;
   /** If true, cap road investment to maintenance cost (or exact maintenance if at max quality) */
   roadInvestmentCapToMaintenance?: boolean;
   /** Extra investment above maintenance when road network is incomplete (0-1), default 0.1 */
@@ -102,6 +104,31 @@ export interface AIBehaviorParams {
    * - "lowest": pick the lowest level/stackCount (ties broken randomly)
    */
   aiStackUpgradeStrategy?: "weighted" | "lowest";
+
+  // === Structure Build Weights ===
+  // Multipliers for structure build scoring (default 1 for all)
+  /** Weight for city build priority */
+  weightCity?: number;
+  /** Weight for factory build priority */
+  weightFactory?: number;
+  /** Weight for port build priority */
+  weightPort?: number;
+  /** Weight for hospital build priority */
+  weightHospital?: number;
+  /** Weight for academy build priority */
+  weightAcademy?: number;
+  /** Weight for airfield build priority */
+  weightAirfield?: number;
+  /** Weight for research lab build priority */
+  weightResearchLab?: number;
+  /** Weight for missile silo build priority */
+  weightMissileSilo?: number;
+  /** Weight for SAM launcher build priority */
+  weightSAMLauncher?: number;
+  /** Weight for defense post build priority */
+  weightDefensePost?: number;
+  /** Weight for doomsday device build priority */
+  weightDoomsdayDevice?: number;
 }
 
 export interface AIProfile {

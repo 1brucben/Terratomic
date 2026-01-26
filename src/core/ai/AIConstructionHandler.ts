@@ -207,9 +207,40 @@ export class AIConstructionHandler {
     return candidates;
   }
 
-  private scoreTarget(_player: Player, _unitType: UnitType): number {
-    // Placeholder: all structures have equal score for now.
-    return 0;
+  private scoreTarget(_player: Player, unitType: UnitType): number {
+    // Base score is 0; multiply by the structure's weight parameter
+    const baseScore = 0;
+    const weight = this.getStructureWeight(unitType);
+    return baseScore * weight;
+  }
+
+  private getStructureWeight(unitType: UnitType): number {
+    switch (unitType) {
+      case UnitType.City:
+        return this.params.weightCity ?? 1;
+      case UnitType.Factory:
+        return this.params.weightFactory ?? 1;
+      case UnitType.Port:
+        return this.params.weightPort ?? 1;
+      case UnitType.Hospital:
+        return this.params.weightHospital ?? 1;
+      case UnitType.Academy:
+        return this.params.weightAcademy ?? 1;
+      case UnitType.Airfield:
+        return this.params.weightAirfield ?? 1;
+      case UnitType.ResearchLab:
+        return this.params.weightResearchLab ?? 1;
+      case UnitType.MissileSilo:
+        return this.params.weightMissileSilo ?? 1;
+      case UnitType.SAMLauncher:
+        return this.params.weightSAMLauncher ?? 1;
+      case UnitType.DefensePost:
+        return this.params.weightDefensePost ?? 1;
+      case UnitType.DoomsdayDevice:
+        return this.params.weightDoomsdayDevice ?? 1;
+      default:
+        return 1;
+    }
   }
 
   private pickTarget(
