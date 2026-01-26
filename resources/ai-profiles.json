@@ -26,7 +26,7 @@
         "buildCities": true,
         "buildFactories": true,
         "buildPorts": true,
-        "aiStructureMinDistance": 10,
+        "aiStructureMinDistance": 40,
         "aiAvoidHumanAiDistance": 10,
         "aiStackUpgradeStrategy": "lowest"
       }
