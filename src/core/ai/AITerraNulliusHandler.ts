@@ -15,9 +15,7 @@ export class AITerraNulliusHandler {
   private lastTNCheckTick: number = 0;
   private lastBoatAttemptTick: number = 0;
   private playerShoreCache: { tiles: TileRef[]; tick: number } | null = null;
-  private static readonly MIN_SEARCH_RANGE = 50;
-  private static readonly MAX_SEARCH_RANGE = 300;
-  private static readonly RANGE_INCREASE_INTERVAL = 10; // ticks
+  private static readonly MAX_SEARCH_RANGE = 270;
   private static readonly TN_RECHECK_INTERVAL = 100; // ticks between re-checking if TN exists
   private static readonly BOAT_ATTEMPT_INTERVAL = 5; // only attempt boat attacks every N ticks
   private static readonly SHORE_CACHE_INTERVAL = 10;
