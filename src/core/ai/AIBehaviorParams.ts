@@ -77,6 +77,10 @@ export interface AIBehaviorParams {
   buildMissileSilos?: boolean;
   /** Whether to build SAM launchers */
   buildSAMLaunchers?: boolean;
+  /** Whether to build defense posts */
+  buildDefensePosts?: boolean;
+  /** Whether to build doomsday devices */
+  buildDoomsdayDevices?: boolean;
 
   /**
    * Minimum distance (in tiles) required between non-defense-post structures.
