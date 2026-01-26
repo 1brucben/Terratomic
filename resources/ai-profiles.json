@@ -53,7 +53,7 @@
         "weightDefensePost": 1,
         "weightDoomsdayDevice": 1,
         "aiAssumedPopPercent": 0.7,
-        "aiFirstPortScore": 1.0
+        "aiFirstPortScore": 5000
       }
     }
   ]
