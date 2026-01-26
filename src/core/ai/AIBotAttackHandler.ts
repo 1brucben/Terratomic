@@ -11,13 +11,17 @@ import { AIBehaviorParams } from "./AIBehaviorParams";
  */
 export class AIBotAttackHandler {
   private currentBotTarget: Player | null = null;
+  private readonly thresholdOffset: number;
 
   constructor(
     private mg: Game,
     private playerId: PlayerID,
     private random: PseudoRandom,
     private params: AIBehaviorParams,
-  ) {}
+  ) {
+    // Random offset in range [-0.025, 0.025] for threshold variation
+    this.thresholdOffset = (random.next() - 0.5) * 0.05;
+  }
 
   private getPlayer(): Player | null {
     if (!this.mg.hasPlayer(this.playerId)) {
@@ -32,7 +36,8 @@ export class AIBotAttackHandler {
       return;
     }
 
-    const attackThreshold = this.params.botAttackTroopThreshold ?? 0.5;
+    const attackThreshold =
+      (this.params.botAttackTroopThreshold ?? 0.5) + this.thresholdOffset;
     const maxPop = this.mg.config().maxPopulation(player);
     const maxTroops = maxPop * player.targetTroopRatio();
     const totalTroops = player.troops() + player.attackingTroops();
@@ -40,6 +45,13 @@ export class AIBotAttackHandler {
 
     // Only attack bots if we have enough troops
     if (troopRatio < attackThreshold) {
+      return;
+    }
+
+    // Check if we have enough defending troops at home
+    const defendingTroopTarget = this.params.defendingTroopTarget ?? 0.5;
+    const defendingRatio = player.troops() / totalTroops;
+    if (defendingRatio < defendingTroopTarget) {
       return;
     }
 

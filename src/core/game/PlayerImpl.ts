@@ -690,7 +690,10 @@ export class PlayerImpl implements Player {
   sharesBorderWith(other: Player | TerraNullius): boolean {
     for (const border of this._borderTiles) {
       for (const neighbor of this.mg.map().neighbors(border)) {
-        if (this.mg.map().ownerID(neighbor) === other.smallID()) {
+        if (
+          this.mg.map().isLand(neighbor) &&
+          this.mg.map().ownerID(neighbor) === other.smallID()
+        ) {
           return true;
         }
       }
