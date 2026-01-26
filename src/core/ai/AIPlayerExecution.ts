@@ -144,6 +144,9 @@ export class AIPlayerExecution implements Execution {
 
     // Set road investment once roads are researched
     if (!this.roadInvestmentSet && this.player.hasUpgrade(UpgradeType.Roads)) {
+      console.log(
+        `[AI Roads] ${this.player.name()} has Roads upgrade, setting road investment`,
+      );
       this.updateRoadInvestment(this.player);
       this.roadInvestmentSet = true;
     } else if (
@@ -161,42 +164,46 @@ export class AIPlayerExecution implements Execution {
       this.params.roadInvestmentCapToMaintenance ?? false;
 
     if (!capToMaintenance) {
+      console.log(
+        `[AI Roads] ${player.name()} setting roadInvestmentRate to ${baseRate}`,
+      );
       player.setRoadInvestmentRate(baseRate);
       return;
     }
 
-    // Calculate maintenance rate needed
-    const config = this.mg.config();
-    const baseCost = config.roadConstructionBaseCost();
-    const maintMult = config.roadMaintenanceMultiplier();
+    // New parameters
+    const buildBoost = this.params.roadBuildBoost ?? 0.1; // X
+    const qualityAdjust = this.params.roadQualityAdjust ?? 0.01; // Y
+    const targetQuality = this.params.targetRoadQuality ?? 100;
+
+    // Get maintenance rate from authoritative source
+    const maintenanceRate = this.mg.getRoadMaintenanceRateForPlayer(player);
     const roadLength = player.roadNetworkLength();
-    const productivity = Math.max(0.0001, player.productivity());
     const quality = player.roadNetworkQuality();
-    const maxQuality = config.roadQualityMax?.() ?? 150;
-    const minQuality = config.roadQualityMin?.() ?? 0;
-    const clampedQuality = Math.max(minQuality, Math.min(maxQuality, quality));
-    const qualityFactor = clampedQuality / 100;
+    const completion = player.roadNetworkCompletion();
 
-    // Maintenance per tick
-    const maintenancePerTick =
-      baseCost * maintMult * productivity * roadLength * qualityFactor;
-
-    // Gross gold per tick
-    const grossGoldPerTick = config.grossGoldAdditionRate(player);
-
-    // Calculate maintenance rate as fraction of gross gold
-    let maintenanceRate = 0;
-    if (grossGoldPerTick > 0) {
-      maintenanceRate = maintenancePerTick / grossGoldPerTick;
+    let finalRate: number;
+    if (roadLength === 0) {
+      // No roads built yet: invest buildBoost to start building
+      finalRate = buildBoost;
+    } else if (completion < 100) {
+      // Road network incomplete: invest maintenance + buildBoost to build more roads
+      finalRate = maintenanceRate + buildBoost;
+    } else {
+      // Road network complete: adjust based on quality vs target
+      if (quality < targetQuality) {
+        finalRate = maintenanceRate + qualityAdjust;
+      } else {
+        finalRate = maintenanceRate - qualityAdjust;
+      }
     }
-    maintenanceRate = Math.max(0, Math.min(1, maintenanceRate));
 
-    // If near max quality (within 1%), set exactly to maintenance; otherwise min of base and maintenance
-    const atMaxQuality = quality >= maxQuality - 1;
-    const finalRate = atMaxQuality
-      ? maintenanceRate
-      : Math.min(baseRate, maintenanceRate);
+    // Clamp to [0, 1]
+    finalRate = Math.max(0, Math.min(1, finalRate));
 
+    console.log(
+      `[AI Roads] ${player.name()} completion=${completion}%, quality=${quality}, target=${targetQuality}, maintenance=${(maintenanceRate * 100).toFixed(1)}%, final=${(finalRate * 100).toFixed(1)}%`,
+    );
     player.setRoadInvestmentRate(finalRate);
   }
 }

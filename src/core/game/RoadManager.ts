@@ -1787,6 +1787,30 @@ export class RoadManager {
     return Math.max(minQ, Math.min(maxQ, avg));
   }
 
+  /**
+   * Calculate the road maintenance rate as a fraction of gross gold for a player.
+   * Returns a value between 0 and 1 representing what percentage of gross gold
+   * is needed to maintain current roads at their current quality.
+   */
+  public getRoadMaintenanceRateForPlayer(player: Player): number {
+    const creditedLength = this.roadLengthByOwner.get(player.id()) ?? 0;
+    if (creditedLength <= 0) return 0;
+
+    const config = this.game.config();
+    const baseCost = config.roadConstructionBaseCost();
+    const maintMult = config.roadMaintenanceMultiplier();
+    const productivity = Math.max(0.0001, player.productivity?.() ?? 1);
+    const quality = this.getRoadNetworkQualityForPlayer(player.id());
+    const qualityFactor = quality / 100;
+
+    const maintenancePerTick =
+      maintMult * baseCost * productivity * creditedLength * qualityFactor;
+    const grossGoldPerTick = config.grossGoldAdditionRate(player);
+
+    if (grossGoldPerTick <= 0) return 0;
+    return Math.max(0, Math.min(1, maintenancePerTick / grossGoldPerTick));
+  }
+
   // Expose server-computed net road build rate (pixels per second) for client display
   public getRoadNetPixelsPerSecond(playerId: PlayerID): number {
     return this.roadNetPxPerSecond.get(playerId) ?? 0;

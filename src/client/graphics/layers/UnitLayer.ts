@@ -605,38 +605,6 @@ export class UnitLayer implements Layer {
         );
       }
     }
-
-    // DEBUG: Log bomber status every 10 ticks
-    if (this.game.ticks() % 10 === 0) {
-      const myPlayer = this.game.myPlayer();
-      if (myPlayer) {
-        // First log all airfields
-        const allAirfields = this.game.units(UnitType.Airfield);
-        const myAirfields = allAirfields.filter(
-          (a) => a.owner().smallID() === myPlayer.smallID(),
-        );
-        const airfieldTiles = myAirfields.map((a) => a.tile());
-        console.log(
-          `[My Airfields] Total: ${myAirfields.length}, tiles: [${airfieldTiles.join(", ")}]`,
-        );
-
-        for (const render of this.pixiRenders) {
-          if (
-            render.unit.type() === UnitType.Bomber &&
-            render.unit.owner().smallID() === myPlayer.smallID()
-          ) {
-            const unit = render.unit;
-            const cachedAtAirfield = this.bomberAtAirfield.get(unit.id());
-            const bomberTile = unit.tile();
-            const tileMatches = airfieldTiles.includes(bomberTile);
-            console.log(
-              `[Bomber ${unit.id()}] tile=${bomberTile}, tileMatchesAnyAirfield=${tileMatches}, ` +
-                `cachedAtAirfield=${cachedAtAirfield}, spriteVisible=${render.pixiSprite.visible}`,
-            );
-          }
-        }
-      }
-    }
   }
 
   private isUnitAtOwnedAirfield(unit: UnitView): boolean {

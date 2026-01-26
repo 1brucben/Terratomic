@@ -51,6 +51,12 @@ export interface AIBehaviorParams {
   roadInvestmentRate?: number;
   /** If true, cap road investment to maintenance cost (or exact maintenance if at max quality) */
   roadInvestmentCapToMaintenance?: boolean;
+  /** Extra investment above maintenance when road network is incomplete (0-1), default 0.1 */
+  roadBuildBoost?: number;
+  /** Investment adjustment above/below maintenance based on quality vs target (0-1), default 0.01 */
+  roadQualityAdjust?: number;
+  /** Target road quality (0-150), invest more when below, less when above, default 100 */
+  targetRoadQuality?: number;
 
   // === Construction ===
   /** Whether to build cities */
