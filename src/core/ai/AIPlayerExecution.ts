@@ -136,9 +136,11 @@ export class AIPlayerExecution implements Execution {
     if (!this.initialInvestmentSet) {
       const productivityRate = this.params.productivityInvestmentRate ?? 0.1;
       const researchRate = this.params.researchInvestmentRate ?? 0.1;
+      const troopRatio = this.params.targetTroopRatio ?? 0.6;
       this.player.setInvestmentRate(productivityRate);
       this.player.setResearchInvestmentRate(researchRate);
       this.player.setRoadInvestmentRate(0);
+      this.player.setTargetTroopRatio(troopRatio);
       this.initialInvestmentSet = true;
     }
 

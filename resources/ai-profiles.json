@@ -22,6 +22,7 @@
         "productivityInvestmentRate": 0.1,
         "researchInvestmentRate": 0.2,
         "roadInvestmentRate": 0.1,
+        "targetTroopRatio": 0.6,
         "roadInvestmentCapToMaintenance": true,
         "roadBuildBoost": 0.1,
         "roadQualityAdjust": 0.01,
@@ -39,7 +40,18 @@
         "buildDoomsdayDevices": false,
         "aiStructureMinDistance": 40,
         "aiAvoidHumanAiDistance": 40,
-        "aiStackUpgradeStrategy": "lowest"
+        "aiStackUpgradeStrategy": "lowest",
+        "weightCity": 1,
+        "weightFactory": 1,
+        "weightPort": 1,
+        "weightHospital": 1,
+        "weightAcademy": 1,
+        "weightAirfield": 1,
+        "weightResearchLab": 1,
+        "weightMissileSilo": 1,
+        "weightSAMLauncher": 1,
+        "weightDefensePost": 1,
+        "weightDoomsdayDevice": 1
       }
     }
   ]
