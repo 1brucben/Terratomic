@@ -5,6 +5,8 @@ import { Category, findTech } from "../tech/ResearchTree";
 import {
   applyTechCompletionEffects,
   attackCasualtyModifiers,
+  attackSpeedModifiers,
+  AttackSpeedModifiers,
   defenseCasualtyModifiers,
   DefenseCasualtyModifiers,
   roadEffectModifiers,
@@ -107,6 +109,7 @@ export class PlayerImpl implements Player {
   private _attackCasualtyModifiersCache: DefenseCasualtyModifiers | null = null;
   private _defenseCasualtyModifiersCache: DefenseCasualtyModifiers | null =
     null;
+  private _attackSpeedModifiersCache: AttackSpeedModifiers | null = null;
 
   public _tiles: Set<TileRef> = new Set();
   private _upgrades: Set<UpgradeType> = new Set();
@@ -575,9 +578,10 @@ export class PlayerImpl implements Player {
     // Add tech to researched set
     this._researchTreeTechs.add(techId);
 
-    // Invalidate casualty modifier caches since they depend on researched techs
+    // Invalidate casualty/speed modifier caches since they depend on researched techs
     this._attackCasualtyModifiersCache = null;
     this._defenseCasualtyModifiersCache = null;
+    this._attackSpeedModifiersCache = null;
 
     // Apply centralized side-effects upon research completion
     applyTechCompletionEffects(this, this.mg, techId);
@@ -645,6 +649,17 @@ export class PlayerImpl implements Player {
       this._defenseCasualtyModifiersCache = defenseCasualtyModifiers(this);
     }
     return this._defenseCasualtyModifiersCache;
+  }
+
+  /**
+   * Get cached attack speed modifiers (based on researched techs).
+   * Cache is invalidated when a new tech is researched.
+   */
+  getAttackSpeedModifiers(): AttackSpeedModifiers {
+    if (this._attackSpeedModifiersCache === null) {
+      this._attackSpeedModifiersCache = attackSpeedModifiers(this);
+    }
+    return this._attackSpeedModifiersCache;
   }
 
   researchBeakers(techId: string): number {

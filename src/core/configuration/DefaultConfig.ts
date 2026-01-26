@@ -39,7 +39,7 @@ import {
   PlayerTeamAssignments,
   TeamCountConfig,
 } from "../Schemas";
-import { attackSpeedModifiers, incomeModifiers } from "../tech/TechEffects";
+import { incomeModifiers } from "../tech/TechEffects";
 import { assertNever, simpleHash, within } from "../Util";
 import { Config, GameEnv, NukeMagnitude, ServerConfig, Theme } from "./Config";
 import { PastelTheme } from "./PastelTheme";
@@ -1052,8 +1052,8 @@ export class DefaultConfig implements Config {
     defender: Player | TerraNullius,
     numAdjacentTilesWithEnemy: number,
   ): number {
-    // Get tech-based speed modifier
-    const speedMods = attackSpeedModifiers(attacker);
+    // Get tech-based speed modifier (cached on player)
+    const speedMods = attacker.getAttackSpeedModifiers();
     const baseTiles = defender.isPlayer()
       ? 10 * numAdjacentTilesWithEnemy
       : 12 * numAdjacentTilesWithEnemy;
