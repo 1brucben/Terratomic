@@ -25,7 +25,7 @@ export class AIConstructionHandler {
     return this.mg.player(this.playerId);
   }
 
-  tickConstruction(): void {
+  tickConstruction(ticks: number, shouldRecalculate: boolean): void {
     const player = this.getPlayer();
     if (!player || !player.isAlive()) {
       return;
@@ -34,6 +34,12 @@ export class AIConstructionHandler {
     const numTiles = player.numTilesOwned();
     if (numTiles === 0) {
       return;
+    }
+
+    // Periodically re-score and potentially retarget.
+    // Only switches if there's a strictly better target than the current.
+    if (shouldRecalculate) {
+      this.recalculateTarget(player);
     }
 
     if (this.target === null) {
@@ -59,6 +65,48 @@ export class AIConstructionHandler {
     const original = this.target;
     const next = this.pickTarget(original, player);
     this.target = next;
+  }
+
+  private recalculateTarget(player: Player): void {
+    const candidates = this.candidateTargets();
+    if (candidates.length === 0) {
+      this.target = null;
+      return;
+    }
+
+    // If current target is no longer a candidate, drop it so we can repick.
+    if (this.target !== null && !candidates.includes(this.target)) {
+      this.target = null;
+    }
+
+    let bestScore = -Infinity;
+    let best: UnitType[] = [];
+    for (const t of candidates) {
+      const s = this.scoreTarget(player, t);
+      if (s > bestScore) {
+        bestScore = s;
+        best = [t];
+      } else if (s === bestScore) {
+        best.push(t);
+      }
+    }
+
+    if (best.length === 0) {
+      this.target = null;
+      return;
+    }
+
+    if (this.target === null) {
+      this.target = this.random.randElement(best);
+      return;
+    }
+
+    const currentScore = this.scoreTarget(player, this.target);
+    // Switch only if a new target has a strictly higher score, or if the current
+    // target is somehow not in the best set.
+    if (bestScore > currentScore || !best.includes(this.target)) {
+      this.target = this.random.randElement(best);
+    }
   }
 
   private candidateTargets(): UnitType[] {
