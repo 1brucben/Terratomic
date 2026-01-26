@@ -13,21 +13,23 @@ export class AITerraNulliusHandler {
   private currentSearchRange: number = 50;
   private tnExpansionDisabled: boolean = false;
   private lastTNCheckTick: number = 0;
-  private readonly thresholdOffset: number;
+  private lastBoatAttemptTick: number = 0;
+  private playerShoreCache: { tiles: TileRef[]; tick: number } | null = null;
   private static readonly MIN_SEARCH_RANGE = 50;
   private static readonly MAX_SEARCH_RANGE = 300;
   private static readonly RANGE_INCREASE_INTERVAL = 10; // ticks
   private static readonly TN_RECHECK_INTERVAL = 100; // ticks between re-checking if TN exists
+  private static readonly BOAT_ATTEMPT_INTERVAL = 5; // only attempt boat attacks every N ticks
+  private static readonly SHORE_CACHE_INTERVAL = 10;
+  private static readonly RANDOM_SHORE_MAX_ITERATIONS = 150;
 
   constructor(
     private mg: Game,
     private playerId: PlayerID,
     private random: PseudoRandom,
     private params: AIBehaviorParams,
-  ) {
-    // Random offset in range [-0.025, 0.025] for threshold variation
-    this.thresholdOffset = (random.next() - 0.5) * 0.05;
-  }
+    private readonly thresholdOffset: number,
+  ) {}
 
   private getPlayer(): Player | null {
     if (!this.mg.hasPlayer(this.playerId)) {
@@ -93,19 +95,28 @@ export class AITerraNulliusHandler {
       );
     }
 
-    // Otherwise, try boat attack
+    // Otherwise, try boat attack (rate-limited to avoid expensive shore searches)
+    const currentTick = this.mg.ticks();
+    if (
+      currentTick - this.lastBoatAttemptTick <
+      AITerraNulliusHandler.BOAT_ATTEMPT_INTERVAL
+    ) {
+      // Rate limited - skip without expanding search range
+      return false;
+    }
+    this.lastBoatAttemptTick = currentTick;
+
     const boatAttacked = this.launchBoatAttack(player);
     if (boatAttacked) {
       return true;
     }
 
-    // No valid TN attack available - gradually increase search range
-    if (this.mg.ticks() % AITerraNulliusHandler.RANGE_INCREASE_INTERVAL === 0) {
-      this.currentSearchRange = Math.min(
-        this.currentSearchRange + 1,
-        AITerraNulliusHandler.MAX_SEARCH_RANGE,
-      );
-    }
+    // No valid TN attack available - increase search range
+    // (increase by 5 since we only check every BOAT_ATTEMPT_INTERVAL ticks)
+    this.currentSearchRange = Math.min(
+      this.currentSearchRange + 5,
+      AITerraNulliusHandler.MAX_SEARCH_RANGE,
+    );
 
     // If we've maxed out search range and still can't find TN, check if TN exists at all
     if (this.currentSearchRange >= AITerraNulliusHandler.MAX_SEARCH_RANGE) {
@@ -156,13 +167,12 @@ export class AITerraNulliusHandler {
   }
 
   private launchBoatAttack(player: Player): boolean {
+    const currentTick = this.mg.ticks();
     const minSpacing = this.params.terraNulliusBoatSpacing ?? 30;
     const boatTroopPercent = this.params.terraNulliusBoatTroopPercent ?? 0.05;
 
-    // Sample player's ocean shore tiles
-    const playerShore = Array.from(player.borderTiles()).filter((t) =>
-      this.mg.isOceanShore(t),
-    );
+    // Get player's ocean shore tiles (cached)
+    const playerShore = this.getPlayerShoreCached(player, currentTick);
     if (playerShore.length === 0) {
       return false;
     }
@@ -194,6 +204,25 @@ export class AITerraNulliusHandler {
     return false;
   }
 
+  /**
+   * Get player's ocean shore tiles with caching.
+   */
+  private getPlayerShoreCached(player: Player, currentTick: number): TileRef[] {
+    if (
+      this.playerShoreCache &&
+      currentTick - this.playerShoreCache.tick <
+        AITerraNulliusHandler.SHORE_CACHE_INTERVAL
+    ) {
+      return this.playerShoreCache.tiles;
+    }
+
+    const tiles = Array.from(player.borderTiles()).filter((t) =>
+      this.mg.isOceanShore(t),
+    );
+    this.playerShoreCache = { tiles, tick: currentTick };
+    return tiles;
+  }
+
   private findRandomTNShore(
     fromTile: TileRef,
     maxDistance: number,
@@ -202,7 +231,11 @@ export class AITerraNulliusHandler {
     const x = this.mg.x(fromTile);
     const y = this.mg.y(fromTile);
 
-    for (let i = 0; i < 500; i++) {
+    for (
+      let i = 0;
+      i < AITerraNulliusHandler.RANDOM_SHORE_MAX_ITERATIONS;
+      i++
+    ) {
       const randX = this.random.nextInt(x - maxDistance, x + maxDistance);
       const randY = this.random.nextInt(y - maxDistance, y + maxDistance);
 
