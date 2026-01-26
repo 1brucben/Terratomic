@@ -16,6 +16,7 @@ import {
   playerMaxStructureLevel,
 } from "../game/Upgradeables";
 import { PseudoRandom } from "../PseudoRandom";
+import { tradeIncomeModifiers } from "../tech/TechEffects";
 import { AIBehaviorParams } from "./AIBehaviorParams";
 
 /**
@@ -36,6 +37,8 @@ export class AIConstructionHandler {
 
   private static readonly AVOID_HUMAN_AI_SAMPLE_COUNT = 12; // Reduced from 30
   private static readonly AVOID_HUMAN_AI_RING_POINTS = 8; // Reduced from 12
+
+  private static readonly PORT_SCORE_MULTIPLIER = 0.5;
 
   private static readonly NON_DEFENSE_STRUCTURE_TYPES: UnitType[] =
     Object.values(UnitType).filter(
@@ -220,6 +223,8 @@ export class AIConstructionHandler {
       baseScore = this.scoreCity(player);
     } else if (unitType === UnitType.Factory) {
       baseScore = this.scoreFactory(player);
+    } else if (unitType === UnitType.Port) {
+      baseScore = this.scorePort(player);
     }
 
     // For other structures, base score remains 0 (uses weight only)
@@ -324,6 +329,36 @@ export class AIConstructionHandler {
     }
 
     return (incomeGain / costNum) * 1e6;
+  }
+
+  /**
+   * Computes the port base score based on trade demand.
+   */
+  private scorePort(player: Player): number {
+    const portCount = player.effectiveUnits(UnitType.Port);
+
+    // If AI has 0 ports, use the profile parameter for first port score
+    if (portCount === 0) {
+      return this.params.aiFirstPortScore ?? 1.0;
+    }
+
+    // Get global trade demand queue length
+    const queueLen = (this.mg as any).tradeDemandQueueLength?.() ?? 0;
+
+    // Use player method for metrics calculation
+    const metrics = player.tradeDemandMetrics(queueLen);
+
+    // Get trade income multipliers
+    const tradeMods = tradeIncomeModifiers(player);
+    const tradeIncomeMul = tradeMods.incomeMul * tradeMods.tradeShipIncomeMul;
+
+    // Base score = multiplier * (1 + queueRatio) * (1 - availableRatio) * tradeIncomeMods
+    return (
+      AIConstructionHandler.PORT_SCORE_MULTIPLIER *
+      (1 + metrics.queueRatio) *
+      (1 - metrics.availableRatio) *
+      tradeIncomeMul
+    );
   }
 
   private getStructureWeight(unitType: UnitType): number {
