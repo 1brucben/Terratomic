@@ -3,6 +3,7 @@ import { AbstractGraph } from "../pathfinding/algorithms/AbstractGraph";
 import { PathFinder } from "../pathfinding/types";
 import { AllPlayersStats, ClientID } from "../Schemas";
 import { Category } from "../tech/ResearchTree";
+import { DefenseCasualtyModifiers } from "../tech/TechEffects";
 import { Cell, GameMap, MapPos, TerrainType, TileRef } from "./GameMap";
 
 import {
@@ -673,6 +674,9 @@ export interface Player {
   hasResearchedTech(techId: string): boolean;
   addResearchedTech(techId: string): void;
   removeResearchedTechsByCategory(category: Category): void;
+  // Cached casualty modifiers (based on researched techs)
+  getAttackCasualtyModifiers(): DefenseCasualtyModifiers;
+  getDefenseCasualtyModifiers(): DefenseCasualtyModifiers;
 
   captureUnit(unit: Unit): void;
 
