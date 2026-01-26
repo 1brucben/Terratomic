@@ -9,6 +9,8 @@ import { AIBehaviorParams } from "./AIBehaviorParams";
  * Builds cities, factories, and ports based on density parameters.
  */
 export class AIConstructionHandler {
+  private target: UnitType | null = null;
+
   constructor(
     private mg: Game,
     private playerId: PlayerID,
@@ -23,7 +25,7 @@ export class AIConstructionHandler {
     return this.mg.player(this.playerId);
   }
 
-  handleConstruction(): void {
+  tickConstruction(): void {
     const player = this.getPlayer();
     if (!player || !player.isAlive()) {
       return;
@@ -34,140 +36,94 @@ export class AIConstructionHandler {
       return;
     }
 
-    // Try to build structures based on density needs
-    this.tryBuildCity(player, numTiles);
-    this.tryBuildFactory(player, numTiles);
-    this.tryBuildPort(player, numTiles);
-  }
-
-  private tryBuildCity(player: Player, numTiles: number): void {
-    if (!(this.params.buildCities ?? true)) {
+    if (this.target === null) {
+      this.target = this.pickTarget(null, player);
       return;
     }
 
-    const tilesPerCity = this.params.tilesPerCity ?? 500;
-    const desiredCount = Math.floor(numTiles / tilesPerCity);
-    const currentCount = player.units(UnitType.City).length;
-
-    if (currentCount >= desiredCount) {
+    // Only attempt placement if we can afford the target structure
+    if (!this.canAffordTarget(player, this.target)) {
       return;
     }
 
-    const tile = this.findBuildTile(player, UnitType.City);
-    if (tile !== null) {
+    const placement = this.findPlacement(player, this.target, 200);
+    if (placement !== null) {
       this.mg.addExecution(
-        new ConstructionExecution(player, UnitType.City, tile),
+        new ConstructionExecution(player, this.target, placement),
       );
+      this.target = null;
+      return;
     }
+
+    // Failed to place after N attempts: pick a different target (re-score)
+    const original = this.target;
+    const next = this.pickTarget(original, player);
+    this.target = next;
   }
 
-  private tryBuildFactory(player: Player, numTiles: number): void {
-    if (!(this.params.buildFactories ?? true)) {
-      return;
-    }
-
-    const tilesPerFactory = this.params.tilesPerFactory ?? 1000;
-    const desiredCount = Math.floor(numTiles / tilesPerFactory);
-    const currentCount = player.units(UnitType.Factory).length;
-
-    if (currentCount >= desiredCount) {
-      return;
-    }
-
-    const tile = this.findBuildTile(player, UnitType.Factory);
-    if (tile !== null) {
-      this.mg.addExecution(
-        new ConstructionExecution(player, UnitType.Factory, tile),
-      );
-    }
+  private candidateTargets(): UnitType[] {
+    const candidates: UnitType[] = [];
+    if (this.params.buildCities ?? true) candidates.push(UnitType.City);
+    if (this.params.buildFactories ?? true) candidates.push(UnitType.Factory);
+    if (this.params.buildPorts ?? true) candidates.push(UnitType.Port);
+    return candidates;
   }
 
-  private tryBuildPort(player: Player, numTiles: number): void {
-    if (!(this.params.buildPorts ?? true)) {
-      return;
-    }
-
-    const tilesPerPort = this.params.tilesPerPort ?? 2000;
-    const desiredCount = Math.floor(numTiles / tilesPerPort);
-    const currentCount = player.units(UnitType.Port).length;
-
-    if (currentCount >= desiredCount) {
-      return;
-    }
-
-    // Ports need ocean shore tiles
-    const tile = this.findPortBuildTile(player);
-    if (tile !== null) {
-      this.mg.addExecution(
-        new ConstructionExecution(player, UnitType.Port, tile),
-      );
-    }
+  private scoreTarget(_player: Player, _unitType: UnitType): number {
+    // Placeholder: all structures have equal score for now.
+    return 0;
   }
 
-  private findBuildTile(player: Player, unitType: UnitType): TileRef | null {
-    // Sample owned tiles and find a valid build location
+  private pickTarget(
+    exclude: UnitType | null,
+    player: Player,
+  ): UnitType | null {
+    const candidates = this.candidateTargets().filter((t) =>
+      exclude === null ? true : t !== exclude,
+    );
+
+    if (candidates.length === 0) {
+      return null;
+    }
+
+    let bestScore = -Infinity;
+    let best: UnitType[] = [];
+    for (const t of candidates) {
+      const s = this.scoreTarget(player, t);
+      if (s > bestScore) {
+        bestScore = s;
+        best = [t];
+      } else if (s === bestScore) {
+        best.push(t);
+      }
+    }
+
+    return this.random.randElement(best);
+  }
+
+  private canAffordTarget(player: Player, unitType: UnitType): boolean {
+    const cost = this.mg.unitInfo(unitType).cost(player);
+    return player.gold() >= cost;
+  }
+
+  private findPlacement(
+    player: Player,
+    unitType: UnitType,
+    maxAttempts: number,
+  ): TileRef | null {
     const ownedTiles = Array.from(player.tiles());
     if (ownedTiles.length === 0) {
       return null;
     }
 
-    const sample = this.random.sampleArray(ownedTiles, 20);
-
-    for (const tile of sample) {
-      if (this.isValidBuildTile(player, tile, unitType)) {
+    for (let i = 0; i < maxAttempts; i++) {
+      const tile = this.random.randElement(ownedTiles);
+      const canBuild = player.canBuild(unitType, tile);
+      if (canBuild !== false) {
         return tile;
       }
     }
 
     return null;
-  }
-
-  private findPortBuildTile(player: Player): TileRef | null {
-    // Ports need ocean shore tiles
-    const shoreTiles = Array.from(player.borderTiles()).filter((t) =>
-      this.mg.isOceanShore(t),
-    );
-
-    if (shoreTiles.length === 0) {
-      return null;
-    }
-
-    const sample = this.random.sampleArray(shoreTiles, 10);
-
-    for (const tile of sample) {
-      if (this.isValidBuildTile(player, tile, UnitType.Port)) {
-        return tile;
-      }
-    }
-
-    return null;
-  }
-
-  private isValidBuildTile(
-    player: Player,
-    tile: TileRef,
-    unitType: UnitType,
-  ): boolean {
-    // Must be land
-    if (!this.mg.isLand(tile)) {
-      return false;
-    }
-
-    // Must be owned by player
-    if (this.mg.owner(tile) !== player) {
-      return false;
-    }
-
-    // Must not already have a structure
-    if (this.mg.unitsAt(tile).length > 0) {
-      return false;
-    }
-
-    // Ports need ocean shore
-    if (unitType === UnitType.Port && !this.mg.isOceanShore(tile)) {
-      return false;
-    }
-
-    return true;
   }
 }
