@@ -49,6 +49,10 @@ export class AIPlayerExecution implements Execution {
 
   init(mg: Game): void {
     this.mg = mg;
+    // Calculate threshold offset once and share between attack handlers
+    // Random offset in range [-0.025, 0.025] for threshold variation
+    const thresholdOffset = (this.random.next() - 0.5) * 0.05;
+
     this.spawnHandler = new AISpawnHandler(
       mg,
       this.nation,
@@ -60,12 +64,14 @@ export class AIPlayerExecution implements Execution {
       this.nation.playerInfo.id,
       this.random,
       this.params,
+      thresholdOffset,
     );
     this.botAttackHandler = new AIBotAttackHandler(
       mg,
       this.nation.playerInfo.id,
       this.random,
       this.params,
+      thresholdOffset,
     );
     this.constructionHandler = new AIConstructionHandler(
       mg,
