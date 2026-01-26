@@ -2,6 +2,7 @@ import { AttackExecution } from "../execution/AttackExecution";
 import { TransportShipExecution } from "../execution/TransportShipExecution";
 import { Game, Player, PlayerID } from "../game/Game";
 import { TileRef } from "../game/GameMap";
+import { canBuildTransportShip } from "../game/TransportShipUtils";
 import { PseudoRandom } from "../PseudoRandom";
 import { AIBehaviorParams } from "./AIBehaviorParams";
 
@@ -20,6 +21,7 @@ export class AITerraNulliusHandler {
   private static readonly BOAT_ATTEMPT_INTERVAL = 10; // only attempt boat attacks every N ticks
   private static readonly SHORE_CACHE_INTERVAL = 10;
   private static readonly RANDOM_SHORE_MAX_ITERATIONS = 150;
+  private static readonly OPPORTUNISTIC_BOAT_SAMPLES = 1; // random tiles to check for opportunistic boat attacks
 
   constructor(
     private mg: Game,
@@ -82,7 +84,12 @@ export class AITerraNulliusHandler {
 
     const tn = this.mg.terraNullius();
 
-    // Try land attack first if we border Terra Nullius
+    // Try opportunistic boat attack first (finds TN across rivers/water that land attack can't reach)
+    if (this.tryOpportunisticBoatAttack(player)) {
+      return true;
+    }
+
+    // Try land attack if we border Terra Nullius
     if (player.sharesBorderWith(tn)) {
       return this.launchLandAttack(
         player,
@@ -164,6 +171,75 @@ export class AITerraNulliusHandler {
     return true;
   }
 
+  /**
+   * Opportunistic boat attack: picks random tiles within search range and checks
+   * if any are TN ocean shore tiles that can be boat attacked. This finds TN
+   * across rivers/water that land attacks can't reach.
+   */
+  private tryOpportunisticBoatAttack(player: Player): boolean {
+    const tn = this.mg.terraNullius();
+    const minSpacing = this.params.terraNulliusBoatSpacing ?? 30;
+    const boatTroopPercent = this.params.terraNulliusBoatTroopPercent ?? 0.05;
+
+    // Get a random border tile as our search origin
+    const borderTiles = Array.from(player.borderTiles());
+    if (borderTiles.length === 0) {
+      return false;
+    }
+    const origin = borderTiles[this.random.nextInt(0, borderTiles.length - 1)];
+    const originX = this.mg.x(origin);
+    const originY = this.mg.y(origin);
+
+    for (let i = 0; i < AITerraNulliusHandler.OPPORTUNISTIC_BOAT_SAMPLES; i++) {
+      // Pick a random tile within max search range
+      const randX = this.random.nextInt(
+        originX - AITerraNulliusHandler.MAX_SEARCH_RANGE,
+        originX + AITerraNulliusHandler.MAX_SEARCH_RANGE,
+      );
+      const randY = this.random.nextInt(
+        originY - AITerraNulliusHandler.MAX_SEARCH_RANGE,
+        originY + AITerraNulliusHandler.MAX_SEARCH_RANGE,
+      );
+
+      if (!this.mg.isValidCoord(randX, randY)) {
+        continue;
+      }
+
+      const tile = this.mg.ref(randX, randY);
+
+      // Must be TN-owned ocean shore
+      if (!this.mg.isOceanShore(tile)) {
+        continue;
+      }
+      if (this.mg.owner(tile) !== tn) {
+        continue;
+      }
+
+      // Check spacing from pending targets
+      if (this.isTooCloseToExisting(tile, minSpacing)) {
+        continue;
+      }
+
+      // Check if we can actually boat attack this tile
+      if (canBuildTransportShip(this.mg, player, tile) === false) {
+        continue;
+      }
+
+      const troops = player.troops() * boatTroopPercent;
+      if (troops < 1) {
+        return false;
+      }
+
+      this.pendingBoatTargets.add(tile);
+      this.mg.addExecution(
+        new TransportShipExecution(player, null, tile, troops, null),
+      );
+      return true;
+    }
+
+    return false;
+  }
+
   private launchBoatAttack(player: Player): boolean {
     const currentTick = this.mg.ticks();
     const minSpacing = this.params.terraNulliusBoatSpacing ?? 30;
@@ -185,6 +261,11 @@ export class AITerraNulliusHandler {
 
       // Check spacing from pending targets
       if (this.isTooCloseToExisting(dst, minSpacing)) {
+        continue;
+      }
+
+      // Validate boat attack is possible
+      if (canBuildTransportShip(this.mg, player, dst) === false) {
         continue;
       }
 
