@@ -9,6 +9,7 @@ import {
   AttackSpeedModifiers,
   defenseCasualtyModifiers,
   DefenseCasualtyModifiers,
+  incomeModifiers,
   roadEffectModifiers,
 } from "../tech/TechEffects";
 import {
@@ -303,12 +304,16 @@ export class PlayerImpl implements Player {
     return this.playerInfo.playerType;
   }
 
-  // Economic: Industrial Production proxy (formerly GDP) as parameter * max population
+  // Economic: Industrial Production = gross gold rate without gold multiplier
+  // Formula: 0.11 * workers^0.65 * productivity * factoryFactor * domesticIncomeMul
   industrialProduction(): number {
-    const factor = this.mg.config().industrialProductionFactor();
-    const maxPop = this.mg.config().maxPopulation(this);
-    const g = factor * maxPop;
-    // Ensure finite, non-negative number
+    const base = 0.11 * Math.pow(this.workers(), 0.65);
+    const productivity = this.productivity();
+    const k = this.effectiveUnits(UnitType.Factory);
+    const factoryFactor = Math.pow(1 + k, 0.35);
+    const incomeMods = incomeModifiers(this);
+    const g =
+      base * productivity * factoryFactor * incomeMods.domesticIncomeMul;
     if (!Number.isFinite(g) || g < 0) return 0;
     return Math.floor(g);
   }
