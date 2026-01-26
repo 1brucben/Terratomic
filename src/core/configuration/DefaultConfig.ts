@@ -39,12 +39,7 @@ import {
   PlayerTeamAssignments,
   TeamCountConfig,
 } from "../Schemas";
-import {
-  attackCasualtyModifiers,
-  attackSpeedModifiers,
-  defenseCasualtyModifiers,
-  incomeModifiers,
-} from "../tech/TechEffects";
+import { attackSpeedModifiers, incomeModifiers } from "../tech/TechEffects";
 import { assertNever, simpleHash, within } from "../Util";
 import { Config, GameEnv, NukeMagnitude, ServerConfig, Theme } from "./Config";
 import { PastelTheme } from "./PastelTheme";
@@ -1020,8 +1015,9 @@ export class DefaultConfig implements Config {
       let defenderLoss = baseDefenderLoss;
 
       // Combine attacker-side and defender-side tech modifiers multiplicatively.
-      const atkMods = attackCasualtyModifiers(attacker as Player);
-      const defMods = defenseCasualtyModifiers(defender as Player);
+      // Use cached getters for performance (avoid iterating all techs per tile)
+      const atkMods = attacker.getAttackCasualtyModifiers();
+      const defMods = defender.getDefenseCasualtyModifiers();
       attackerLoss *= atkMods.attackerLossMul * defMods.attackerLossMul;
       defenderLoss *= atkMods.defenderLossMul * defMods.defenderLossMul;
 

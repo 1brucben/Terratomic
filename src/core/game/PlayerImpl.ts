@@ -4,6 +4,9 @@ import { ClientID } from "../Schemas";
 import { Category, findTech } from "../tech/ResearchTree";
 import {
   applyTechCompletionEffects,
+  attackCasualtyModifiers,
+  defenseCasualtyModifiers,
+  DefenseCasualtyModifiers,
   roadEffectModifiers,
 } from "../tech/TechEffects";
 import {
@@ -99,6 +102,11 @@ export class PlayerImpl implements Player {
   // Phase 1 Optimization: Cache airfield existence
   private _hasAirfieldCache: boolean = false;
   private _hasAirfieldCacheDirty: boolean = true;
+
+  // Phase 2 Optimization: Cache casualty modifiers (invalidated on tech research)
+  private _attackCasualtyModifiersCache: DefenseCasualtyModifiers | null = null;
+  private _defenseCasualtyModifiersCache: DefenseCasualtyModifiers | null =
+    null;
 
   public _tiles: Set<TileRef> = new Set();
   private _upgrades: Set<UpgradeType> = new Set();
@@ -528,6 +536,10 @@ export class PlayerImpl implements Player {
     // Add tech to researched set
     this._researchTreeTechs.add(techId);
 
+    // Invalidate casualty modifier caches since they depend on researched techs
+    this._attackCasualtyModifiersCache = null;
+    this._defenseCasualtyModifiersCache = null;
+
     // Apply centralized side-effects upon research completion
     applyTechCompletionEffects(this, this.mg, techId);
   }
@@ -573,6 +585,29 @@ export class PlayerImpl implements Player {
   hasResearchedTech(techId: string): boolean {
     return this._researchTreeTechs.has(techId);
   }
+
+  /**
+   * Get cached attack casualty modifiers (based on researched techs).
+   * Cache is invalidated when a new tech is researched.
+   */
+  getAttackCasualtyModifiers(): DefenseCasualtyModifiers {
+    if (this._attackCasualtyModifiersCache === null) {
+      this._attackCasualtyModifiersCache = attackCasualtyModifiers(this);
+    }
+    return this._attackCasualtyModifiersCache;
+  }
+
+  /**
+   * Get cached defense casualty modifiers (based on researched techs).
+   * Cache is invalidated when a new tech is researched.
+   */
+  getDefenseCasualtyModifiers(): DefenseCasualtyModifiers {
+    if (this._defenseCasualtyModifiersCache === null) {
+      this._defenseCasualtyModifiersCache = defenseCasualtyModifiers(this);
+    }
+    return this._defenseCasualtyModifiersCache;
+  }
+
   researchBeakers(techId: string): number {
     return this._researchBeakers.get(techId) ?? 0;
   }
