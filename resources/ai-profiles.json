@@ -35,6 +35,8 @@
         "buildResearchLabs": false,
         "buildMissileSilos": false,
         "buildSAMLaunchers": false,
+        "buildDefensePosts": false,
+        "buildDoomsdayDevices": false,
         "aiStructureMinDistance": 40,
         "aiAvoidHumanAiDistance": 40,
         "aiStackUpgradeStrategy": "lowest"
