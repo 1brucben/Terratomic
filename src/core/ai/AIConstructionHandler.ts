@@ -164,6 +164,10 @@ export class AIConstructionHandler {
       candidates.push(UnitType.MissileSilo);
     if (this.params.buildSAMLaunchers ?? false)
       candidates.push(UnitType.SAMLauncher);
+    if (this.params.buildDefensePosts ?? false)
+      candidates.push(UnitType.DefensePost);
+    if (this.params.buildDoomsdayDevices ?? false)
+      candidates.push(UnitType.DoomsdayDevice);
     return candidates;
   }
 
