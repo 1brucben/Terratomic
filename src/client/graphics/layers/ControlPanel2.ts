@@ -1861,13 +1861,14 @@ export class ControlPanel2 extends LitElement implements Layer {
     } else if (queueRatio > 1) {
       demandLabel = "High";
       demandColor = "var(--ui-warning)";
-    } else if (availableRatio > 0.5) {
-      // Low demand = most ships idle, surplus capacity
-      demandLabel = "Low";
-      demandColor = "var(--ui-success)";
-    } else if (queueLen === 0 && availableShips > 0) {
+    } else if (availableRatio > 0.6) {
+      // Very low demand = most ships idle, large surplus capacity
       demandLabel = "Very Low";
       demandColor = "var(--ui-info)";
+    } else if (availableRatio > 0.3) {
+      // Low demand = some ships idle, surplus capacity
+      demandLabel = "Low";
+      demandColor = "var(--ui-success)";
     }
 
     // Update cache
