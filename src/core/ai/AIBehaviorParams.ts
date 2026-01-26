@@ -129,6 +129,13 @@ export interface AIBehaviorParams {
   weightDefensePost?: number;
   /** Weight for doomsday device build priority */
   weightDoomsdayDevice?: number;
+
+  // === Structure Scoring ===
+  /**
+   * Assumed population percentage of max pop when scoring structures.
+   * Default 0.7 (70%).
+   */
+  aiAssumedPopPercent?: number;
 }
 
 export interface AIProfile {
