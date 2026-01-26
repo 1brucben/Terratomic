@@ -812,6 +812,12 @@ export interface Game extends GameMap {
   markPlayerNodesForReconnection(player: Player): void;
   // Road KPIs
   getRoadNetworkQualityForPlayer(playerId: PlayerID): number;
+  /**
+   * Get the road maintenance rate as a fraction of gross gold (0-1).
+   * Represents what percentage of gross gold is needed to maintain
+   * current roads at their current quality.
+   */
+  getRoadMaintenanceRateForPlayer(player: Player): number;
   // Helper for player road KPI calculations
   getRoadCountsForPlayer(player: Player): {
     completed: number;
