@@ -287,7 +287,10 @@
   "select_lang": {
     "title": "Select Language",
     "tooltip": "Select your language",
-    "settings": "Settings"
+    "settings": "Settings",
+    "search_placeholder": "Search language...",
+    "search_label": "Search languages",
+    "no_results": "Target language not found"
   },
   "build_menu": {
     "desc": {

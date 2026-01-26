@@ -38,7 +38,6 @@ export class LangSelector extends LitElement {
   @state() public defaultTranslations: Record<string, string> | undefined;
   @state() public currentLang: string = "en";
   @state() private languageList: any[] = [];
-  @state() private showModal: boolean = false;
   @state() private debugMode: boolean = false;
 
   private debugKeyPressed: boolean = false;
@@ -196,12 +195,15 @@ export class LangSelector extends LitElement {
     }
   }
 
-  private changeLanguage(lang: string) {
+  /**
+   * Changes the current language and applies translations to the UI.
+   * @param lang - The language code to switch to.
+   */
+  public changeLanguage(lang: string) {
     localStorage.setItem("lang", lang);
     this.translations = this.loadLanguage(lang);
     this.currentLang = lang;
     this.applyTranslation();
-    this.showModal = false;
   }
 
   public applyTranslation(): void {
@@ -279,9 +281,14 @@ export class LangSelector extends LitElement {
   }
 
   private openModal() {
-    this.debugMode = this.debugKeyPressed;
-    this.showModal = true;
-    this.loadLanguageList();
+    window.dispatchEvent(
+      new CustomEvent("open-language-modal", {
+        detail: {
+          languageList: this.languageList,
+          currentLang: this.currentLang,
+        },
+      }),
+    );
   }
 
   render() {
@@ -301,39 +308,15 @@ export class LangSelector extends LitElement {
           });
 
     return html`
-      <div class="container__row">
-        <button
-          id="lang-selector"
-          @click=${this.openModal}
-          class="
-          text-center appearance-none w-full
-          bg-[var(--secondaryColor)] hover:bg-[var(--secondaryColorHover)]
-          text-[var(--accentTextColor)]
-          p-3 sm:p-4 lg:p-5 font-medium text-sm sm:text-base lg:text-lg
-          rounded-md border-none cursor-pointer
-          transition-colors duration-300
-          flex items-center gap-2 justify-center
-          "
-          title="${this.translateText("select_lang.tooltip")}"
-        >
-          <img
-            id="lang-flag"
-            class="w-6 h-4"
-            src="/flags/${currentLang.svg}.svg"
-            alt="flag"
-          />
-          <span id="lang-name">${currentLang.native} (${currentLang.en})</span>
-        </button>
-      </div>
-
-      <language-modal
-        .visible=${this.showModal}
-        .languageList=${this.languageList}
-        .currentLang=${this.currentLang}
-        @language-selected=${(e: CustomEvent) =>
-          this.changeLanguage(e.detail.lang)}
-        @close-modal=${() => (this.showModal = false)}
-      ></language-modal>
+      <o-button
+        id="lang-selector"
+        title="${currentLang.native} (${currentLang.en})"
+        @click=${this.openModal}
+        block
+        secondary
+        .iconSrc=${`/flags/${currentLang.svg}.svg`}
+      >
+      </o-button>
     `;
   }
 }

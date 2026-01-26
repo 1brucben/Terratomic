@@ -16,7 +16,7 @@ import { HostLobbyModal as HostPrivateLobbyModal } from "./HostLobbyModal";
 import { JoinPrivateLobbyModal } from "./JoinPrivateLobbyModal";
 import "./LangSelector";
 import { LangSelector } from "./LangSelector";
-import { LanguageModal } from "./LanguageModal";
+import "./LanguageModal";
 import "./LobbyNotificationPopup";
 import { NewsModal } from "./NewsModal";
 import "./PublicLobby";
@@ -156,15 +156,14 @@ class Client {
     const langSelector = document.querySelector(
       "lang-selector",
     ) as LangSelector;
-    const languageModal = document.querySelector(
-      "language-modal",
-    ) as LanguageModal;
     if (!langSelector) {
       console.warn("Lang selector element not found");
     }
-    if (!languageModal) {
-      console.warn("Language modal element not found");
-    }
+
+    window.addEventListener("language-selected", (e: Event) => {
+      const event = e as CustomEvent<{ lang: string }>;
+      langSelector.changeLanguage(event.detail.lang);
+    });
 
     this.flagInput = document.querySelector("flag-input") as FlagInput;
     if (!this.flagInput) {
