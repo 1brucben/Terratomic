@@ -16,6 +16,7 @@ export class AIPlayerExecution implements Execution {
   private mg: Game;
   private player: Player | undefined;
   private random: PseudoRandom;
+  private phaseSeed: number;
   private spawnHandler: AISpawnHandler | null = null;
   private terraNulliusHandler: AITerraNulliusHandler | null = null;
   private botAttackHandler: AIBotAttackHandler | null = null;
@@ -31,6 +32,19 @@ export class AIPlayerExecution implements Execution {
     this.random = new PseudoRandom(
       simpleHash(nation.playerInfo.id) + simpleHash(gameID),
     );
+    // Stagger periodic actions across AIs.
+    // For any period P, use (phaseSeed % P) as the per-AI offset.
+    this.phaseSeed = this.random.nextInt(0, 0x7fffffff);
+  }
+
+  private periodicOffset(period: number): number {
+    const p = Math.max(1, Math.floor(period));
+    return this.phaseSeed % p;
+  }
+
+  private shouldRunPeriodic(ticks: number, period: number): boolean {
+    const p = Math.max(1, Math.floor(period));
+    return ticks % p === this.periodicOffset(p);
   }
 
   init(mg: Game): void {
@@ -85,11 +99,17 @@ export class AIPlayerExecution implements Execution {
       return;
     }
 
+    const sliderPeriod = 100;
+    const constructionRescorePeriod = 100;
+
     // Construction runs every tick (targeted planning + placement attempts)
-    this.constructionHandler?.tickConstruction();
+    this.constructionHandler?.tickConstruction(
+      ticks,
+      this.shouldRunPeriodic(ticks, constructionRescorePeriod),
+    );
 
     // Handle slider updates every 100 ticks
-    if (ticks % 100 === 0) {
+    if (this.shouldRunPeriodic(ticks, sliderPeriod)) {
       this.updateSliders(ticks);
     }
 
