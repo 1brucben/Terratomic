@@ -1274,7 +1274,7 @@ export class DefaultConfig implements Config {
   }
 
   structureMinDist(): number {
-    return 15;
+    return 1;
   }
 
   shellLifetime(): number {
