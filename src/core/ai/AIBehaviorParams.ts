@@ -65,6 +65,18 @@ export interface AIBehaviorParams {
   buildFactories?: boolean;
   /** Whether to build ports */
   buildPorts?: boolean;
+  /** Whether to build hospitals */
+  buildHospitals?: boolean;
+  /** Whether to build academies */
+  buildAcademies?: boolean;
+  /** Whether to build airfields */
+  buildAirfields?: boolean;
+  /** Whether to build research labs */
+  buildResearchLabs?: boolean;
+  /** Whether to build missile silos */
+  buildMissileSilos?: boolean;
+  /** Whether to build SAM launchers */
+  buildSAMLaunchers?: boolean;
 
   /**
    * Minimum distance (in tiles) required between non-defense-post structures.

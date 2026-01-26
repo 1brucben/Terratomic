@@ -155,6 +155,15 @@ export class AIConstructionHandler {
     if (this.params.buildCities ?? true) candidates.push(UnitType.City);
     if (this.params.buildFactories ?? true) candidates.push(UnitType.Factory);
     if (this.params.buildPorts ?? true) candidates.push(UnitType.Port);
+    if (this.params.buildHospitals ?? false) candidates.push(UnitType.Hospital);
+    if (this.params.buildAcademies ?? false) candidates.push(UnitType.Academy);
+    if (this.params.buildAirfields ?? false) candidates.push(UnitType.Airfield);
+    if (this.params.buildResearchLabs ?? false)
+      candidates.push(UnitType.ResearchLab);
+    if (this.params.buildMissileSilos ?? false)
+      candidates.push(UnitType.MissileSilo);
+    if (this.params.buildSAMLaunchers ?? false)
+      candidates.push(UnitType.SAMLauncher);
     return candidates;
   }
 
