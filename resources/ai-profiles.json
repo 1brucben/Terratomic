@@ -51,7 +51,8 @@
         "weightMissileSilo": 1,
         "weightSAMLauncher": 1,
         "weightDefensePost": 1,
-        "weightDoomsdayDevice": 1
+        "weightDoomsdayDevice": 1,
+        "aiAssumedPopPercent": 0.7
       }
     }
   ]
