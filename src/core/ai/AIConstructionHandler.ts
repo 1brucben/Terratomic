@@ -38,7 +38,7 @@ export class AIConstructionHandler {
   private static readonly AVOID_HUMAN_AI_SAMPLE_COUNT = 12; // Reduced from 30
   private static readonly AVOID_HUMAN_AI_RING_POINTS = 8; // Reduced from 12
 
-  private static readonly PORT_SCORE_MULTIPLIER = 0.5;
+  private static readonly PORT_SCORE_MULTIPLIER = 100;
 
   private static readonly NON_DEFENSE_STRUCTURE_TYPES: UnitType[] =
     Object.values(UnitType).filter(
@@ -166,8 +166,10 @@ export class AIConstructionHandler {
 
     let bestScore = -Infinity;
     let best: UnitType[] = [];
+    const scores: Record<string, number> = {};
     for (const t of candidates) {
       const s = this.scoreTarget(player, t);
+      scores[UnitType[t]] = s;
       if (s > bestScore) {
         bestScore = s;
         best = [t];
@@ -175,6 +177,11 @@ export class AIConstructionHandler {
         best.push(t);
       }
     }
+
+    console.log(
+      `[AI Construction] Player ${player.id()} scores:`,
+      JSON.stringify(scores),
+    );
 
     if (best.length === 0) {
       this.target = null;
