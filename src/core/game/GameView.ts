@@ -25,6 +25,7 @@ import {
   TerrainType,
   TerraNullius,
   Tick,
+  TradeDemandMetrics,
   UnitInfo,
   UnitType,
   UpgradeType,
@@ -503,6 +504,22 @@ export class PlayerView {
   // Trade: global demand queue length (server-provided; default 0)
   tradeDemandQueueLength(): number {
     return (this.data as any).tradeDemandQueueLength ?? 0;
+  }
+
+  // Trade demand metrics for UI display
+  tradeDemandMetrics(queueLen: number): TradeDemandMetrics {
+    const shipCount = this.units(UnitType.TradeShip).length;
+    // Count idle ships: not returning, no trade phase, no target
+    const availableShips = this.units(UnitType.TradeShip).filter((ship) => {
+      const returning = (ship as any).returning?.() ?? false;
+      const tradePhase = (ship as any).tradePhase?.() ?? null;
+      const targetUnit = (ship as any).targetUnit?.() ?? undefined;
+      return !returning && tradePhase === null && targetUnit === undefined;
+    }).length;
+    const queueRatio =
+      shipCount > 0 ? queueLen / shipCount : queueLen > 0 ? 1 : 0;
+    const availableRatio = shipCount > 0 ? availableShips / shipCount : 0;
+    return { shipCount, availableShips, queueLen, queueRatio, availableRatio };
   }
 }
 

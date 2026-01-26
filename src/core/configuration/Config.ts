@@ -145,9 +145,7 @@ export interface Config {
   donateCooldown(): Tick;
   defaultDonationAmount(sender: Player): number;
   unitInfo(type: UnitType): UnitInfo;
-  tradeShipShortRangeDebuff(): number;
-  tradeShipGold(dist: number, numPorts?: number): Gold;
-  tradeShipSpawnRate(numberOfPorts: number): number;
+  tradeShipGold(dist: number): Gold;
   // Trade rework: gravity-based demand and port-supplied ships
   tradeGravityK(): number; // Coefficient K in K * ip_i * ip_j / distance / world_industrial_production
   tradeDemandTickInterval(): number; // Ticks between gravity accumulation (default 10)

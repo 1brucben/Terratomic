@@ -57,10 +57,6 @@ export class DevConfig extends DefaultConfig {
     return info;
   }
 
-  // tradeShipSpawnRate(): number {
-  //   return 10;
-  // }
-
   // percentageTilesOwnedToWin(): number {
   //     return 1
   // }

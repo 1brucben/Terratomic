@@ -1746,7 +1746,7 @@ export class ControlPanel2 extends LitElement implements Layer {
     const queueLen = me.tradeDemandQueueLength();
 
     // Use player method for metrics calculation
-    const metrics = (me as any).tradeDemandMetrics(queueLen);
+    const metrics = me.tradeDemandMetrics(queueLen);
 
     // If I have no trade ships, show "No Ships"
     if (metrics.shipCount === 0) {
