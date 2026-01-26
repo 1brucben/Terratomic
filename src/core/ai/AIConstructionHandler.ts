@@ -207,11 +207,118 @@ export class AIConstructionHandler {
     return candidates;
   }
 
-  private scoreTarget(_player: Player, unitType: UnitType): number {
-    // Base score is 0; multiply by the structure's weight parameter
-    const baseScore = 0;
+  private scoreTarget(player: Player, unitType: UnitType): number {
     const weight = this.getStructureWeight(unitType);
+    let baseScore = 0;
+
+    if (unitType === UnitType.City) {
+      baseScore = this.scoreCity(player);
+    } else if (unitType === UnitType.Factory) {
+      baseScore = this.scoreFactory(player);
+    }
+
+    // For other structures, base score remains 0 (uses weight only)
     return baseScore * weight;
+  }
+
+  /**
+   * Computes the city base score as expected income gain / cost.
+   */
+  private scoreCity(player: Player): number {
+    const config = this.mg.config();
+    const cost = this.mg.unitInfo(UnitType.City).cost(player);
+    if (cost <= 0n) {
+      return 0;
+    }
+
+    // Get assumed pop percentage (default 70%)
+    const assumedPopPercent = this.params.aiAssumedPopPercent ?? 0.7;
+    const targetTroopRatio = player.targetTroopRatio();
+
+    // Compute current max pop and projected max pop with +1 city
+    const currentMaxPop = config.maxPopulation(player);
+    const cityPopBonus = config.cityPopulationIncrease();
+    // Adding one city increases effective units by 1 (at level 1)
+    const projectedMaxPop = currentMaxPop + cityPopBonus;
+
+    // Compute workers under assumed pop scenario
+    // totalPop = maxPop * assumedPopPercent
+    // troops = totalPop * targetTroopRatio
+    // workers = totalPop - troops = totalPop * (1 - targetTroopRatio)
+    const currentTotalPop = currentMaxPop * assumedPopPercent;
+    const currentWorkers = currentTotalPop * (1 - targetTroopRatio);
+
+    const projectedTotalPop = projectedMaxPop * assumedPopPercent;
+    const projectedWorkers = projectedTotalPop * (1 - targetTroopRatio);
+
+    // Compute factory factor (unchanged by city construction)
+    const k = player.effectiveUnits(UnitType.Factory);
+    const factoryFactor = Math.pow(1 + k, 0.35);
+
+    // Compute productivity and multiplier (unchanged)
+    const productivity = player.productivity();
+    const multiplier = config.gameConfig().goldMultiplier ?? 1;
+
+    const currentGrossGold =
+      0.11 *
+      Math.pow(currentWorkers, 0.65) *
+      productivity *
+      factoryFactor *
+      multiplier;
+    const projectedGrossGold =
+      0.11 *
+      Math.pow(projectedWorkers, 0.65) *
+      productivity *
+      factoryFactor *
+      multiplier;
+
+    const incomeGain = projectedGrossGold - currentGrossGold;
+
+    const costNum = Number(cost);
+    if (costNum <= 0 || !Number.isFinite(incomeGain)) {
+      return 0;
+    }
+
+    return (incomeGain / costNum) * 1e6;
+  }
+
+  /**
+   * Computes the factory base score as expected income gain / cost.
+   */
+  private scoreFactory(player: Player): number {
+    const config = this.mg.config();
+    const cost = this.mg.unitInfo(UnitType.Factory).cost(player);
+    if (cost <= 0n) {
+      return 0;
+    }
+
+    const assumedPopPercent = this.params.aiAssumedPopPercent ?? 0.7;
+    const targetTroopRatio = player.targetTroopRatio();
+
+    const currentMaxPop = config.maxPopulation(player);
+    const currentTotalPop = currentMaxPop * assumedPopPercent;
+    const workers = currentTotalPop * (1 - targetTroopRatio);
+
+    // Factory factor changes with +1 factory
+    const k = player.effectiveUnits(UnitType.Factory);
+    const currentFactoryFactor = Math.pow(1 + k, 0.35);
+    const projectedFactoryFactor = Math.pow(1 + k + 1, 0.35);
+
+    const productivity = player.productivity();
+    const multiplier = config.gameConfig().goldMultiplier ?? 1;
+
+    const base = 0.11 * Math.pow(workers, 0.65) * productivity * multiplier;
+    const currentGrossGold = base * currentFactoryFactor;
+    const projectedGrossGold = base * projectedFactoryFactor;
+
+    const incomeGain = projectedGrossGold - currentGrossGold;
+
+    const costNum = Number(cost);
+    if (costNum <= 0 || !Number.isFinite(incomeGain)) {
+      return 0;
+    }
+
+    return (incomeGain / costNum) * 1e6;
   }
 
   private getStructureWeight(unitType: UnitType): number {
