@@ -162,11 +162,6 @@ export class AITerraNulliusHandler {
       return false;
     }
 
-    if (player.name() === "Mongolia") {
-      console.log(
-        `[AI ${player.name()}] Terra Nullius land attack: troops=${Math.floor(troops)}, troopRatio=${(troopRatio * 100).toFixed(1)}%, maxPop=${Math.floor(maxPop)}, maxTroops=${Math.floor(maxTroops)}, totalTroops=${Math.floor(totalTroops)}, player.troops()=${Math.floor(player.troops())}, player.attackingTroops()=${Math.floor(player.attackingTroops())}`,
-      );
-    }
     this.mg.addExecution(new AttackExecution(troops, player, null));
     return true;
   }

@@ -8,7 +8,6 @@ import {
   Tick,
   Unit,
   UnitType,
-  UpgradeType,
 } from "../game/Game";
 import { TileRef } from "../game/GameMap";
 import { PathFindResultType } from "../pathfinding/AStar";
@@ -51,6 +50,9 @@ export class TradeManagerExecution implements Execution {
   private shipOwnerById: Map<number, Player> = new Map();
   private shipHomePortById: Map<number, number /*portUnitID*/> = new Map();
   private knownPortIds: Set<number> = new Set();
+
+  // Debug: throttle logging to once per second
+  private lastDebugLogTick: Tick = -100;
 
   // Per-tick cache to avoid multiple global iterations
   private cachedShips: Unit[] = [];
@@ -159,6 +161,7 @@ export class TradeManagerExecution implements Execution {
       .filter((p) => p.isAlive())
       .reduce((sum, p) => sum + p.industrialProduction(), 0);
     const players = this.playersForTrade();
+
     for (let i = 0; i < players.length; i++) {
       for (let j = 0; j < players.length; j++) {
         if (i === j) continue;
@@ -167,14 +170,6 @@ export class TradeManagerExecution implements Execution {
         // If either side has an embargo against the other, demand is zero
         if (a.hasEmbargoAgainst(b) || b.hasEmbargoAgainst(a)) {
           // Keep fractional demand at 0 for this pair
-          this.demand.set(this.key(a, b), 0);
-          continue;
-        }
-        // If either side lacks InternationalTrade upgrade (autarky), demand is zero
-        if (
-          !a.hasUpgrade(UpgradeType.InternationalTrade) ||
-          !b.hasUpgrade(UpgradeType.InternationalTrade)
-        ) {
           this.demand.set(this.key(a, b), 0);
           continue;
         }
@@ -196,8 +191,21 @@ export class TradeManagerExecution implements Execution {
         const k = this.key(a, b);
         // Initialize with a uniform random fractional remainder in [0,1) once per pair
         let prev = this.demand.get(k);
-        prev ??= 0.8 + this.rand.next() * 0.2;
+        prev ??= 0.9 + this.rand.next() * 0.1;
         const next = (prev as number) + demandDelta;
+
+        // Debug: log demand between Human and Madagascar (once per second)
+        const isHumanMadagascar =
+          (a.type() === PlayerType.Human && b.name().includes("Madagascar")) ||
+          (b.type() === PlayerType.Human && a.name().includes("Madagascar"));
+        const ticks = this.mg.ticks();
+        if (isHumanMadagascar && ticks - this.lastDebugLogTick >= 10) {
+          this.lastDebugLogTick = ticks;
+          console.log(
+            `[TradeDemand] ${a.name()} -> ${b.name()}: prev=${(prev as number).toFixed(3)} delta=${demandDelta.toFixed(5)} next=${next.toFixed(3)} ip_a=${a.industrialProduction()} ip_b=${b.industrialProduction()} dist=${dist.toFixed(0)} worldIP=${worldIndustrialProduction}`,
+          );
+        }
+
         // Enqueue integer demand, keep fractional remainder
         if (next >= 1) {
           const count = Math.floor(next);

@@ -140,9 +140,6 @@ export class AIConstructionHandler {
     }
 
     // Failed to place even with relaxed rules - give up for a while
-    console.log(
-      `[AIConstruction] ${player.displayName()} failed to place ${this.target} even with relaxed rules, cooling down`,
-    );
     this._placementCooldownUntil =
       ticks + AIConstructionHandler.PLACEMENT_COOLDOWN_TICKS;
 
@@ -166,10 +163,8 @@ export class AIConstructionHandler {
 
     let bestScore = -Infinity;
     let best: UnitType[] = [];
-    const scores: Record<string, number> = {};
     for (const t of candidates) {
       const s = this.scoreTarget(player, t);
-      scores[UnitType[t]] = s;
       if (s > bestScore) {
         bestScore = s;
         best = [t];
@@ -177,11 +172,6 @@ export class AIConstructionHandler {
         best.push(t);
       }
     }
-
-    console.log(
-      `[AI Construction] Player ${player.id()} scores:`,
-      JSON.stringify(scores),
-    );
 
     if (best.length === 0) {
       this.target = null;

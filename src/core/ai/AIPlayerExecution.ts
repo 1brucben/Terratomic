@@ -146,9 +146,6 @@ export class AIPlayerExecution implements Execution {
 
     // Set road investment once roads are researched
     if (!this.roadInvestmentSet && this.player.hasUpgrade(UpgradeType.Roads)) {
-      console.log(
-        `[AI Roads] ${this.player.name()} has Roads upgrade, setting road investment`,
-      );
       this.updateRoadInvestment(this.player);
       this.roadInvestmentSet = true;
     } else if (
@@ -166,9 +163,6 @@ export class AIPlayerExecution implements Execution {
       this.params.roadInvestmentCapToMaintenance ?? false;
 
     if (!capToMaintenance) {
-      console.log(
-        `[AI Roads] ${player.name()} setting roadInvestmentRate to ${baseRate}`,
-      );
       player.setRoadInvestmentRate(baseRate);
       return;
     }
@@ -203,9 +197,6 @@ export class AIPlayerExecution implements Execution {
     // Clamp to [0, 1]
     finalRate = Math.max(0, Math.min(1, finalRate));
 
-    console.log(
-      `[AI Roads] ${player.name()} completion=${completion}%, quality=${quality}, target=${targetQuality}, maintenance=${(maintenanceRate * 100).toFixed(1)}%, final=${(finalRate * 100).toFixed(1)}%`,
-    );
     player.setRoadInvestmentRate(finalRate);
   }
 }
