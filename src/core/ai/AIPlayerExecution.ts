@@ -85,10 +85,12 @@ export class AIPlayerExecution implements Execution {
       return;
     }
 
+    // Construction runs every tick (targeted planning + placement attempts)
+    this.constructionHandler?.tickConstruction();
+
     // Handle slider updates every 100 ticks
     if (ticks % 100 === 0) {
       this.updateSliders(ticks);
-      this.constructionHandler?.handleConstruction();
     }
 
     // Handle Terra Nullius expansion every tick
