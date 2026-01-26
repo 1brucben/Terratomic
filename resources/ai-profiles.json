@@ -29,8 +29,14 @@
         "buildCities": true,
         "buildFactories": true,
         "buildPorts": true,
+        "buildHospitals": false,
+        "buildAcademies": false,
+        "buildAirfields": false,
+        "buildResearchLabs": false,
+        "buildMissileSilos": false,
+        "buildSAMLaunchers": false,
         "aiStructureMinDistance": 40,
-        "aiAvoidHumanAiDistance": 10,
+        "aiAvoidHumanAiDistance": 40,
         "aiStackUpgradeStrategy": "lowest"
       }
     }
