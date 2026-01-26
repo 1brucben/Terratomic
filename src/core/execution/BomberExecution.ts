@@ -5,6 +5,7 @@ import { StraightPathFinder } from "../pathfinding/PathFinding";
 import { roadEffectModifiers } from "../tech/TechEffects";
 
 export class BomberExecution implements Execution {
+  executionName = "BomberExecution";
   private active = true;
   private mg: Game;
   private bomber: Unit | null = null;

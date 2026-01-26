@@ -1,6 +1,7 @@
 import { Execution, Game, UnitType } from "../game/Game";
 
 export class BomberTargetExecution implements Execution {
+  executionName = "BomberTargetExecution";
   constructor(
     private readonly player: any, // or Player if typed
     private readonly targetPlayerID: string | null, // who to attack

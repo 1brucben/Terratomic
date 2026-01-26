@@ -2,6 +2,7 @@ import { Execution, Game, Player, Unit, UnitType } from "../game/Game";
 import { TileRef } from "../game/GameMap";
 
 export class MissileSiloExecution implements Execution {
+  executionName = "MissileSiloExecution";
   private active = true;
   private mg: Game;
   private silo: Unit | null = null;

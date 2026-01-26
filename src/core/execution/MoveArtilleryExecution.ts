@@ -3,6 +3,7 @@ import { TileRef } from "../game/GameMap";
 import { getArtilleryMaxDistance } from "../game/UnitUpgrades";
 
 export class MoveArtilleryExecution implements Execution {
+  executionName = "MoveArtilleryExecution";
   constructor(
     private readonly owner: Player,
     private readonly unitId: number,

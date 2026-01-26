@@ -1,6 +1,7 @@
 import { Execution, Game, Player, PlayerID } from "../../game/Game";
 
 export class AllianceRequestExecution implements Execution {
+  executionName = "AllianceRequestExecution";
   private active = true;
   private recipient: Player | null = null;
 

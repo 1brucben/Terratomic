@@ -14,6 +14,7 @@ import { StraightPathFinder } from "../pathfinding/PathFinding";
 import { AttackExecution } from "./AttackExecution";
 
 export class ParatrooperAttackExecution implements Execution {
+  executionName = "ParatrooperAttackExecution";
   private paratrooperUnitID: number | null = null;
   private paratrooper: Unit | null = null;
   private pathFinder: StraightPathFinder | null = null;

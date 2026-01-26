@@ -1,6 +1,7 @@
 import { Execution, Game, Player, Unit, UnitType } from "../game/Game";
 
 export class ParatrooperRetreatExecution implements Execution {
+  executionName = "ParatrooperRetreatExecution";
   private active = true;
   private paratrooper: Unit | null = null;
 

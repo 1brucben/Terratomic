@@ -3,6 +3,7 @@ import { getTechNodes, isTechAvailable } from "../tech/ResearchTree";
 
 // Execution to set the player's research priority tech in the tree.
 export class ResearchTreeSelectExecution implements Execution {
+  executionName = "ResearchTreeSelectExecution";
   private _active = true;
   private mg: Game | null = null;
 

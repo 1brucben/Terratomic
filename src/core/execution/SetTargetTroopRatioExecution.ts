@@ -1,6 +1,7 @@
 import { Execution, Game, Player } from "../game/Game";
 
 export class SetTargetTroopRatioExecution implements Execution {
+  executionName = "SetTargetTroopRatioExecution";
   private active = true;
 
   constructor(

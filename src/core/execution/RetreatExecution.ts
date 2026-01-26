@@ -3,6 +3,7 @@ import { Execution, Game, Player } from "../game/Game";
 const cancelDelay = 20;
 
 export class RetreatExecution implements Execution {
+  executionName = "RetreatExecution";
   private active = true;
   private retreatOrdered = false;
   private startTick: number;

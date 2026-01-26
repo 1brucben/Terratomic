@@ -6,6 +6,7 @@ import { BomberExecution } from "./BomberExecution";
 import { CargoPlaneExecution } from "./CargoPlaneExecution";
 
 export class AirfieldExecution implements Execution {
+  executionName = "AirfieldExecution";
   private active = true;
   private mg: Game | null = null;
   private airfield: Unit | null = null;

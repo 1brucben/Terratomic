@@ -1,6 +1,7 @@
 import { Execution, Game, Player } from "../game/Game";
 
 export class SetAutoBombingExecution implements Execution {
+  executionName = "SetAutoBombingExecution";
   constructor(
     private readonly player: Player,
     private readonly enabled: boolean,

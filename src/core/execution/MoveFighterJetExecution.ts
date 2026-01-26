@@ -3,6 +3,7 @@ import { GameImpl } from "../game/GameImpl";
 import { TileRef } from "../game/GameMap";
 
 export class MoveFighterJetExecution implements Execution {
+  executionName = "MoveFighterJetExecution";
   private mg: GameImpl;
 
   constructor(

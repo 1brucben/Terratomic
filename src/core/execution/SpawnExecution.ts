@@ -5,6 +5,7 @@ import { PlayerExecution } from "./PlayerExecution";
 import { getSpawnTiles } from "./Util";
 
 export class SpawnExecution implements Execution {
+  executionName = "SpawnExecution";
   active: boolean = true;
   private mg: Game;
 

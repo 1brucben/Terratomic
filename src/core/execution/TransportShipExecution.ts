@@ -16,6 +16,7 @@ import { PathFinder } from "../pathfinding/PathFinding";
 import { AttackExecution } from "./AttackExecution";
 
 export class TransportShipExecution implements Execution {
+  executionName = "TransportShipExecution";
   private lastMove: number;
 
   // TODO: make this configurable

@@ -3,6 +3,7 @@ import { TileRef } from "../game/GameMap";
 import { ShellExecution } from "./ShellExecution";
 
 export class DefensePostExecution implements Execution {
+  executionName = "DefensePostExecution";
   private mg: Game;
   private post: Unit | null = null;
   private active: boolean = true;

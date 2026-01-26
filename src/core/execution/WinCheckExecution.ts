@@ -13,6 +13,7 @@ export class WinEvent implements GameEvent {
 }
 
 export class WinCheckExecution implements Execution {
+  executionName = "WinCheckExecution";
   private active = true;
 
   private mg: Game | null = null;

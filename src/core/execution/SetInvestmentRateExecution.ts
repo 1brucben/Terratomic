@@ -1,6 +1,7 @@
 import { Execution, Game, Player } from "../game/Game";
 
 export class SetInvestmentRateExecution implements Execution {
+  executionName = "SetInvestmentRateExecution";
   private active = true;
 
   constructor(

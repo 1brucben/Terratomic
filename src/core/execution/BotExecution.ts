@@ -4,6 +4,7 @@ import { simpleHash } from "../Util";
 import { BotBehavior } from "./utils/BotBehavior";
 
 export class BotExecution implements Execution {
+  executionName = "BotExecution";
   private active = true;
   private random: PseudoRandom;
   private mg: Game;

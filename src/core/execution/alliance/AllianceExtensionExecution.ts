@@ -7,6 +7,7 @@ import {
 } from "../../game/Game";
 
 export class AllianceExtensionExecution implements Execution {
+  executionName = "AllianceExtensionExecution";
   private isDone = false;
 
   constructor(

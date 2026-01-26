@@ -18,6 +18,7 @@ import { SAMMissileExecution } from "./SAMMissileExecution";
 import { ShellExecution } from "./ShellExecution";
 
 export class WarshipExecution implements Execution {
+  executionName = "WarshipExecution";
   private random: PseudoRandom;
   private warship: Unit;
   private mg: GameImpl;
@@ -609,6 +610,7 @@ export class WarshipExecution implements Execution {
 }
 
 class CapturedTradeShipReturnExecution implements Execution {
+  executionName = "CapturedTradeShipReturnExecution";
   private mg!: Game;
   private pathfinder!: PathFinder;
   private active = true;

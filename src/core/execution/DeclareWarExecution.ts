@@ -1,6 +1,7 @@
 import { Execution, Game, Player, PlayerID } from "../game/Game";
 
 export class DeclareWarExecution implements Execution {
+  executionName = "DeclareWarExecution";
   private mg: Game;
   private active = true;
 

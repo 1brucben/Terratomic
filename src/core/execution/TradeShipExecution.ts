@@ -14,6 +14,7 @@ import { tradeIncomeModifiers } from "../tech/TechEffects";
 import { distSortUnit } from "../Util";
 
 export class TradeShipExecution implements Execution {
+  executionName = "TradeShipExecution";
   private active = true;
   private mg: Game;
   private tradeShip: Unit | undefined;

@@ -3,6 +3,7 @@ import { BotPersonality } from "./FakeHumanExecution";
 import { shouldAcceptPeaceRequest } from "./utils/BotBehavior";
 
 export class PeaceRequestExecution implements Execution {
+  executionName = "PeaceRequestExecution";
   private mg: Game;
   private active = true;
 

@@ -364,6 +364,7 @@ export interface Execution {
   activeDuringSpawnPhase(): boolean;
   init(mg: Game, ticks: number): void;
   tick(ticks: number): void;
+  executionName?: string; // Optional explicit name for perf tracking (prevents minification issues)
 }
 
 export interface Attack {

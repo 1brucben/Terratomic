@@ -22,6 +22,7 @@ const PLANE_TYPES: UnitType[] = [
  * every few ticks.
  */
 export class CityAAExecution implements Execution {
+  executionName = "CityAAExecution";
   private active = true;
   private mg: Game;
   private lastFireTick: Map<number, number> = new Map(); // cityId -> last fire tick

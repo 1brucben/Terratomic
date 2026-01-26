@@ -22,6 +22,7 @@ import {
 const SPRITE_RADIUS = 16;
 
 export class NukeExecution implements Execution {
+  executionName = "NukeExecution";
   private active = true;
   private mg: Game;
   private nuke: Unit | null = null;

@@ -9,6 +9,7 @@ import {
 import { flattenedEmojiTable } from "../Util";
 
 export class EmojiExecution implements Execution {
+  executionName = "EmojiExecution";
   private recipient: Player | typeof AllPlayers;
 
   private active = true;

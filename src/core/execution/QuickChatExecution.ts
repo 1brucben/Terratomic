@@ -1,6 +1,7 @@
 import { Execution, Game, Player, PlayerID } from "../game/Game";
 
 export class QuickChatExecution implements Execution {
+  executionName = "QuickChatExecution";
   private recipient: Player;
   private mg: Game;
 

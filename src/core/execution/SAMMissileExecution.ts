@@ -12,6 +12,7 @@ import { PseudoRandom } from "../PseudoRandom";
 import { NukeType } from "../StatsSchemas";
 
 export class SAMMissileExecution implements Execution {
+  executionName = "SAMMissileExecution";
   private active = true;
   private pathFinder: AirPathFinder;
   private SAMMissile: Unit | undefined;

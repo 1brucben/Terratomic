@@ -14,6 +14,7 @@ import { simpleHash } from "../Util";
 import { NukeExecution } from "./NukeExecution";
 
 export class MirvExecution implements Execution {
+  executionName = "MirvExecution";
   private active = true;
 
   private mg: Game;

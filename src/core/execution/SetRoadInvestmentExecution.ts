@@ -1,6 +1,7 @@
 import { Execution, Game, Player } from "../game/Game";
 
 export class SetRoadInvestmentExecution implements Execution {
+  executionName = "SetRoadInvestmentExecution";
   private active = true;
   constructor(
     private player: Player,

@@ -10,6 +10,7 @@ import { simpleHash } from "../Util";
  * - Uses up to 100 randomly sampled tiles (deterministic sampling per interval)
  */
 export class CapitalRecalculationExecution implements Execution {
+  executionName = "CapitalRecalculationExecution";
   private mg!: Game;
   private active = true;
 

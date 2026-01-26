@@ -4,6 +4,7 @@ import { Execution, Game, Player } from "../../game/Game";
  * Expiration check for alliances.
  */
 export class AllianceExpireCheckExecution implements Execution {
+  executionName = "AllianceExpireCheckExecution";
   private active = true;
   private mg: Game | null = null;
 

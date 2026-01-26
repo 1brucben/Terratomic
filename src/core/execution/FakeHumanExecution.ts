@@ -38,6 +38,7 @@ export enum BotPersonality {
 }
 
 export class FakeHumanExecution implements Execution {
+  executionName = "FakeHumanExecution";
   private firstMove = true;
 
   private active = true;

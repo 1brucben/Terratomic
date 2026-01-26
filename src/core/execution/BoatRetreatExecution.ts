@@ -1,6 +1,7 @@
 import { Execution, Game, Player, UnitType } from "../game/Game";
 
 export class BoatRetreatExecution implements Execution {
+  executionName = "BoatRetreatExecution";
   private active = true;
   constructor(
     private player: Player,

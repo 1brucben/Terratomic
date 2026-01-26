@@ -19,6 +19,7 @@ import { FlatBinaryHeap } from "./utils/FlatBinaryHeap"; // adjust path if neede
 const malusForRetreat = 25;
 
 export class AttackExecution implements Execution {
+  executionName = "AttackExecution";
   private breakAlliance = false;
   private wasAlliedAtInit = false; // Store alliance state at initialization
   private active: boolean = true;

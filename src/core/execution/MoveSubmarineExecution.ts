@@ -2,6 +2,7 @@ import { Execution, Game, Player, UnitType } from "../game/Game";
 import { TileRef } from "../game/GameMap";
 
 export class MoveSubmarineExecution implements Execution {
+  executionName = "MoveSubmarineExecution";
   constructor(
     private readonly owner: Player,
     private readonly unitId: number,

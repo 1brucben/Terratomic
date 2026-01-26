@@ -1,6 +1,7 @@
 import { Execution, Game, Player, PlayerID } from "../../game/Game";
 
 export class AllianceRequestReplyExecution implements Execution {
+  executionName = "AllianceRequestReplyExecution";
   private active = true;
   private requestor: Player | null = null;
 

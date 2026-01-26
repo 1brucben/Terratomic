@@ -1,6 +1,7 @@
 import { Execution, Game, Player, PlayerID } from "../game/Game";
 
 export class DonateTroopsExecution implements Execution {
+  executionName = "DonateTroopsExecution";
   private recipient: Player;
 
   private active = true;

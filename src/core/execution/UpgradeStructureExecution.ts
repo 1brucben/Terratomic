@@ -12,6 +12,7 @@ import { NoOpExecution } from "./NoOpExecution";
  * Generic structure upgrade execution.
  */
 export class UpgradeStructureExecution implements Execution {
+  executionName = "UpgradeStructureExecution";
   private mg!: GameImpl;
   private _isActive = true;
 

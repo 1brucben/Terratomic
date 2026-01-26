@@ -9,6 +9,7 @@ import { NoOpExecution } from "./NoOpExecution";
  * Uses hardcoded per-level upgrade costs from UnitUpgrades.
  */
 export class UpgradeBomberExecution implements Execution {
+  executionName = "UpgradeBomberExecution";
   private mg!: GameImpl;
   private _isActive = true;
 

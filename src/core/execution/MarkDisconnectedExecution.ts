@@ -1,6 +1,7 @@
 import { Execution, Game, Player } from "../game/Game";
 
 export class MarkDisconnectedExecution implements Execution {
+  executionName = "MarkDisconnectedExecution";
   constructor(
     private player: Player,
     private isDisconnected: boolean,

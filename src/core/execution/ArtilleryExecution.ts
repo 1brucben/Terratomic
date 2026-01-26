@@ -17,6 +17,7 @@ import { PseudoRandom } from "../PseudoRandom";
 import { ShellExecution } from "./ShellExecution";
 
 export class ArtilleryExecution implements Execution {
+  executionName = "ArtilleryExecution";
   private random: PseudoRandom;
   private artillery: Unit;
   private mg: GameImpl;

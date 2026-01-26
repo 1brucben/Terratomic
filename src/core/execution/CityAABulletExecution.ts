@@ -8,6 +8,7 @@ import { StraightPathFinder } from "../pathfinding/PathFinding";
  * moving targets.
  */
 export class CityAABulletExecution implements Execution {
+  executionName = "CityAABulletExecution";
   private active = true;
   private pathFinder: StraightPathFinder;
   private bullet: Unit | undefined;

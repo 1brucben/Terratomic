@@ -4,6 +4,7 @@ import { AirPathFinder } from "../pathfinding/PathFinding";
 import { PseudoRandom } from "../PseudoRandom";
 
 export class ShellExecution implements Execution {
+  executionName = "ShellExecution";
   private active = true;
   private pathFinder: AirPathFinder;
   private shell: Unit | undefined;

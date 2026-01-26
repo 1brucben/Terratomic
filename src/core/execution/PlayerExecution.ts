@@ -26,6 +26,7 @@ interface ClusterTraversalState {
 const traversalStates = new WeakMap<Game, ClusterTraversalState>();
 
 export class PlayerExecution implements Execution {
+  executionName = "PlayerExecution";
   private config: Config;
   private mg: GameImpl;
   private active = true;

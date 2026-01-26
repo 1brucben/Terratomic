@@ -11,6 +11,7 @@ import { TileRef } from "../game/GameMap";
 import { StraightPathFinder } from "../pathfinding/PathFinding";
 
 export class CargoPlaneExecution implements Execution {
+  executionName = "CargoPlaneExecution";
   private active = true;
   private mg: Game;
   private cargoPlane: Unit | undefined;

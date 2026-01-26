@@ -104,6 +104,7 @@ class FalloutNoise {
 }
 
 export class DoomsdayActivationExecution implements Execution {
+  executionName = "DoomsdayActivationExecution";
   private active = true;
   private mg: Game;
   private device: Unit;

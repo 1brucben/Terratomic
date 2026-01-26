@@ -1,6 +1,7 @@
 import { Execution, Game } from "../game/Game";
 
 export class NoOpExecution implements Execution {
+  executionName = "NoOpExecution";
   isActive(): boolean {
     return false;
   }
