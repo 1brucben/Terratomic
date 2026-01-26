@@ -102,6 +102,11 @@ export class AIConstructionHandler {
       avoidHumanAiRingPoints,
     });
     if (placement !== null) {
+      // Recalculate right before building to ensure target is still optimal
+      this.recalculateTarget(player);
+      if (this.target === null || !this.canAffordTarget(player, this.target)) {
+        return;
+      }
       this.mg.addExecution(
         new ConstructionExecution(player, this.target, placement),
       );
