@@ -197,7 +197,7 @@ export class AIConstructionHandler {
 
   private structureMinDistanceFor(unitType: UnitType): number {
     if (unitType === UnitType.DefensePost) return 0;
-    return Math.max(0, Math.floor(this.params.aiStructureMinDistance ?? 10));
+    return Math.max(0, Math.floor(this.params.aiStructureMinDistance ?? 40));
   }
 
   private avoidHumanAiDistanceFor(unitType: UnitType): number {
