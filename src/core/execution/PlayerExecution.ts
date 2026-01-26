@@ -380,6 +380,12 @@ export class PlayerExecution implements Execution {
             beakers,
             cost,
           );
+          if (this.player.type() === PlayerType.AI) {
+            const current = (this.player as any).researchBeakers?.(techId) ?? 0;
+            console.log(
+              `[AI Research] ${this.player.name()} +${beakers} beakers on ${techId} (${current}/${cost})`,
+            );
+          }
           if (result?.completed) {
             // completed via addResearchBeakers -> addResearchedTech side-effects
           }

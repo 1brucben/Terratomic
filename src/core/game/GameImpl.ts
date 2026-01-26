@@ -671,6 +671,11 @@ export class GameImpl implements Game {
     return this.roadManager.getRoadNetworkQualityForPlayer(playerId);
   }
 
+  // Expose road maintenance rate as fraction of gross gold
+  public getRoadMaintenanceRateForPlayer(player: Player): number {
+    return this.roadManager.getRoadMaintenanceRateForPlayer(player);
+  }
+
   // Check if a structure is connected to the road network
   public isStructureConnectedToRoadNetwork(unit: Unit): boolean {
     return this.roadManager.isStructureConnectedToRoadNetwork(unit);
