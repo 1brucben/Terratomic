@@ -23,11 +23,11 @@
         "roadInvestmentRate": 0.1,
         "roadInvestmentCapToMaintenance": true,
         "buildCities": true,
-        "tilesPerCity": 500,
         "buildFactories": true,
-        "tilesPerFactory": 1000,
         "buildPorts": true,
-        "tilesPerPort": 2000
+        "aiStructureMinDistance": 10,
+        "aiAvoidHumanAiDistance": 10,
+        "aiStackUpgradeStrategy": "lowest"
       }
     }
   ]

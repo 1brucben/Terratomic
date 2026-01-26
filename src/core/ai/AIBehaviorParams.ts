@@ -51,16 +51,31 @@ export interface AIBehaviorParams {
   // === Construction ===
   /** Whether to build cities */
   buildCities?: boolean;
-  /** Tiles per city (e.g., 500 = 1 city per 500 tiles) */
-  tilesPerCity?: number;
   /** Whether to build factories */
   buildFactories?: boolean;
-  /** Tiles per factory */
-  tilesPerFactory?: number;
   /** Whether to build ports */
   buildPorts?: boolean;
-  /** Tiles per port */
-  tilesPerPort?: number;
+
+  /**
+   * Minimum distance (in tiles) required between non-defense-post structures.
+   * This is applied by the AI on top of the game's own placement rules.
+   */
+  aiStructureMinDistance?: number;
+
+  /**
+   * Minimum distance (in tiles) to keep away from Human/AI players when placing
+   * non-defense-post structures.
+   */
+  aiAvoidHumanAiDistance?: number;
+
+  /**
+   * When no valid placement tile is found for a stackable structure and the AI
+   * already owns at least one of that structure type, decide which existing one
+   * to upgrade.
+   * - "weighted": random selection weighted by current level/stackCount
+   * - "lowest": pick the lowest level/stackCount (ties broken randomly)
+   */
+  aiStackUpgradeStrategy?: "weighted" | "lowest";
 }
 
 export interface AIProfile {
@@ -69,7 +84,7 @@ export interface AIProfile {
   params: AIBehaviorParams;
 }
 
-const aiProfiles: AIProfile[] = aiProfilesData.profiles;
+const aiProfiles = aiProfilesData.profiles as AIProfile[];
 
 export function getAIProfile(id: string): AIProfile | undefined {
   return aiProfiles.find((p) => p.id === id);
