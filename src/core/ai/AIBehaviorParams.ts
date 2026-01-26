@@ -38,6 +38,10 @@ export interface AIBehaviorParams {
   /** Multiplier of bot troops to cap attack size (beta) */
   botAttackEnemyTroopMultiplier?: number;
 
+  // === Defense ===
+  /** Minimum ratio of defending troops (player.troops() / totalTroops) required before attacking (0-1) */
+  defendingTroopTarget?: number;
+
   // === Investment Rates ===
   /** Productivity investment rate (0-1), set at game start */
   productivityInvestmentRate?: number;
