@@ -17,7 +17,7 @@ export class AITerraNulliusHandler {
   private playerShoreCache: { tiles: TileRef[]; tick: number } | null = null;
   private static readonly MAX_SEARCH_RANGE = 270;
   private static readonly TN_RECHECK_INTERVAL = 100; // ticks between re-checking if TN exists
-  private static readonly BOAT_ATTEMPT_INTERVAL = 5; // only attempt boat attacks every N ticks
+  private static readonly BOAT_ATTEMPT_INTERVAL = 10; // only attempt boat attacks every N ticks
   private static readonly SHORE_CACHE_INTERVAL = 10;
   private static readonly RANDOM_SHORE_MAX_ITERATIONS = 150;
 
@@ -110,9 +110,9 @@ export class AITerraNulliusHandler {
     }
 
     // No valid TN attack available - increase search range
-    // (increase by 5 since we only check every BOAT_ATTEMPT_INTERVAL ticks)
+    // (increase by 1 since we only check every BOAT_ATTEMPT_INTERVAL ticks)
     this.currentSearchRange = Math.min(
-      this.currentSearchRange + 5,
+      this.currentSearchRange + 1,
       AITerraNulliusHandler.MAX_SEARCH_RANGE,
     );
 
