@@ -25,8 +25,17 @@ import { AIBehaviorParams } from "./AIBehaviorParams";
 export class AIConstructionHandler {
   private target: UnitType | null = null;
 
-  private static readonly AVOID_HUMAN_AI_SAMPLE_COUNT = 30;
-  private static readonly AVOID_HUMAN_AI_RING_POINTS = 12;
+  // Cached tile array to avoid allocation every tick
+  private _cachedTiles: TileRef[] | null = null;
+  private _cachedTilesPlayerTileCount: number = 0;
+
+  // Cooldown after completely failing placement
+  private _placementCooldownUntil: number = 0;
+  private static readonly PLACEMENT_COOLDOWN_TICKS = 50;
+  private static readonly MAX_PLACEMENT_ATTEMPTS = 50;
+
+  private static readonly AVOID_HUMAN_AI_SAMPLE_COUNT = 12; // Reduced from 30
+  private static readonly AVOID_HUMAN_AI_RING_POINTS = 8; // Reduced from 12
 
   private static readonly NON_DEFENSE_STRUCTURE_TYPES: UnitType[] =
     Object.values(UnitType).filter(
@@ -74,6 +83,11 @@ export class AIConstructionHandler {
       return;
     }
 
+    // Skip placement attempts during cooldown period
+    if (ticks < this._placementCooldownUntil) {
+      return;
+    }
+
     const structureMinDist = this.structureMinDistanceFor(this.target);
     const avoidHumanAiDist = this.avoidHumanAiDistanceFor(this.target);
     const avoidHumanAiSampleCount =
@@ -102,7 +116,29 @@ export class AIConstructionHandler {
       return;
     }
 
-    // Failed to place after N attempts: pick a different target (re-score)
+    // Fallback: try again with relaxed rules (no structure min dist, smaller player avoidance)
+    const relaxedPlacement = this.findPlacement(player, this.target, 200, {
+      structureMinDist: 0,
+      avoidHumanAiDist: 5,
+      avoidHumanAiSampleCount,
+      avoidHumanAiRingPoints,
+    });
+    if (relaxedPlacement !== null) {
+      this.mg.addExecution(
+        new ConstructionExecution(player, this.target, relaxedPlacement),
+      );
+      this.target = null;
+      return;
+    }
+
+    // Failed to place even with relaxed rules - give up for a while
+    console.log(
+      `[AIConstruction] ${player.displayName()} failed to place ${this.target} even with relaxed rules, cooling down`,
+    );
+    this._placementCooldownUntil =
+      ticks + AIConstructionHandler.PLACEMENT_COOLDOWN_TICKS;
+
+    // Pick a different target (re-score)
     const original = this.target;
     const next = this.pickTarget(original, player);
     this.target = next;
@@ -210,12 +246,12 @@ export class AIConstructionHandler {
 
   private structureMinDistanceFor(unitType: UnitType): number {
     if (unitType === UnitType.DefensePost) return 0;
-    return Math.max(0, Math.floor(this.params.aiStructureMinDistance ?? 40));
+    return Math.max(0, Math.floor(this.params.aiStructureMinDistance ?? 25)); // Reduced from 40
   }
 
   private avoidHumanAiDistanceFor(unitType: UnitType): number {
     if (unitType === UnitType.DefensePost) return 0;
-    return Math.max(0, Math.floor(this.params.aiAvoidHumanAiDistance ?? 10));
+    return Math.max(0, Math.floor(this.params.aiAvoidHumanAiDistance ?? 8)); // Reduced from 10
   }
 
   private tileIsNearHumanOrAi(
@@ -430,7 +466,7 @@ export class AIConstructionHandler {
   private findPlacement(
     player: Player,
     unitType: UnitType,
-    maxAttempts: number,
+    _maxAttempts: number,
     rules: {
       structureMinDist: number;
       avoidHumanAiDist: number;
@@ -438,12 +474,22 @@ export class AIConstructionHandler {
       avoidHumanAiRingPoints: number;
     },
   ): TileRef | null {
-    const ownedTiles = Array.from(player.tiles());
+    // Use cached tile array if player's tile count hasn't changed
+    const currentTileCount = player.numTilesOwned();
+    if (
+      this._cachedTiles === null ||
+      this._cachedTilesPlayerTileCount !== currentTileCount
+    ) {
+      this._cachedTiles = Array.from(player.tiles());
+      this._cachedTilesPlayerTileCount = currentTileCount;
+    }
+
+    const ownedTiles = this._cachedTiles;
     if (ownedTiles.length === 0) {
       return null;
     }
 
-    for (let i = 0; i < maxAttempts; i++) {
+    for (let i = 0; i < AIConstructionHandler.MAX_PLACEMENT_ATTEMPTS; i++) {
       const tile = this.random.randElement(ownedTiles);
       const spawnTile = player.canBuild(unitType, tile);
       if (spawnTile === false) {
