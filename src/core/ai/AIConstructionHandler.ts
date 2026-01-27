@@ -40,8 +40,8 @@ export class AIConstructionHandler {
   private static readonly PORT_SCORE_MULTIPLIER = 100;
   private static readonly HOSPITAL_BASE_SCORE = 1e-3;
   private static readonly ACADEMY_BASE_SCORE = 1e-3;
-  private static readonly RESEARCH_LAB_BASE_SCORE = 1;
-  private static readonly AIRFIELD_SCORE_MULTIPLIER = 1e-3;
+  private static readonly RESEARCH_LAB_BASE_SCORE = 8e-1;
+  private static readonly AIRFIELD_SCORE_MULTIPLIER = 1e-2;
 
   private static readonly NON_DEFENSE_STRUCTURE_TYPES: UnitType[] =
     Object.values(UnitType).filter(
