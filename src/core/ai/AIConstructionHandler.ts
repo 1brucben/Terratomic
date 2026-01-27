@@ -32,8 +32,8 @@ export class AIConstructionHandler {
   // Structure types blocked from consideration until another structure is built/upgraded
   private _blockedStructures: Set<UnitType> = new Set();
 
-  private static readonly AVOID_PLAYER_SAMPLE_COUNT = 12; // Reduced from 30
-  private static readonly AVOID_PLAYER_RING_POINTS = 8; // Reduced from 12
+  private static readonly AVOID_PLAYER_SAMPLE_COUNT = 12;
+  private static readonly AVOID_PLAYER_RING_POINTS = 8;
 
   private static readonly PORT_SCORE_MULTIPLIER = 100;
   private static readonly HOSPITAL_BASE_SCORE = 1e-3;
@@ -152,6 +152,14 @@ export class AIConstructionHandler {
     const savedTile = this.getSavedTileForStructure(this.target);
     if (savedTile === null) {
       // No tile evaluated yet, wait for tile evaluation
+      return;
+    }
+
+    // Re-validate the tile at build time to catch any changes since evaluation
+    if (!this.validateTileForConstruction(player, savedTile, this.target)) {
+      // Tile no longer valid - clear it and wait for fresh evaluation
+      this.clearTileScoresForTile(savedTile);
+      this.target = null;
       return;
     }
 
@@ -648,12 +656,10 @@ export class AIConstructionHandler {
     // Penalty if within avoid player distance from another player
     const avoidPlayerDist = this.avoidPlayerDistanceFor(UnitType.Port);
     if (avoidPlayerDist > 0) {
-      const isNearPlayer = this.tileIsNearOtherPlayer(
+      const isNearPlayer = this.tileIsNearOtherPlayerSampled(
         player,
         tile,
         avoidPlayerDist,
-        AIConstructionHandler.AVOID_PLAYER_SAMPLE_COUNT,
-        AIConstructionHandler.AVOID_PLAYER_RING_POINTS,
       );
       if (isNearPlayer) {
         const penalty = this.params.portTileNearPlayerPenalty ?? 0.5;
@@ -734,12 +740,10 @@ export class AIConstructionHandler {
     // Penalty if within avoid player distance from another player
     const avoidPlayerDist = this.avoidPlayerDistanceFor(UnitType.City);
     if (avoidPlayerDist > 0) {
-      const isNearPlayer = this.tileIsNearOtherPlayer(
+      const isNearPlayer = this.tileIsNearOtherPlayerSampled(
         player,
         tile,
         avoidPlayerDist,
-        AIConstructionHandler.AVOID_PLAYER_SAMPLE_COUNT,
-        AIConstructionHandler.AVOID_PLAYER_RING_POINTS,
       );
       if (isNearPlayer) {
         const penalty = this.params.otherTileNearPlayerPenalty ?? 0.5;
@@ -1157,14 +1161,12 @@ export class AIConstructionHandler {
     for (let i = 0; i < 10; i++) {
       const tile = this.random.randElement(this._cachedTiles);
 
-      // Check if tile is far enough from other players
+      // Check if tile is far enough from other players (use sampled for quick eval)
       if (
-        !this.tileIsNearOtherPlayer(
+        !this.tileIsNearOtherPlayerSampled(
           player,
           tile,
           AIConstructionHandler.SAM_PLACEMENT_MIN_PLAYER_DIST,
-          AIConstructionHandler.AVOID_PLAYER_SAMPLE_COUNT,
-          AIConstructionHandler.AVOID_PLAYER_RING_POINTS,
         )
       ) {
         return tile;
@@ -1245,16 +1247,18 @@ export class AIConstructionHandler {
     return Math.max(0, Math.floor(this.params.aiAvoidPlayerDistance ?? 8)); // Reduced from 10
   }
 
-  private tileIsNearOtherPlayer(
+  /**
+   * Checks if there is another player's territory within the given radius.
+   * Uses random sampling for fast approximate checking during scoring.
+   */
+  private tileIsNearOtherPlayerSampled(
     player: Player,
     center: TileRef,
     radius: number,
-    sampleCount: number,
-    ringPoints: number,
   ): boolean {
     if (radius <= 0) return false;
 
-    const minSq = radius * radius;
+    const radiusSq = radius * radius;
     const cx = this.mg.x(center);
     const cy = this.mg.y(center);
 
@@ -1265,7 +1269,8 @@ export class AIConstructionHandler {
       return owner.id() !== player.id();
     };
 
-    // A few deterministic ring points at exactly radius.
+    // A few deterministic ring points at exactly radius
+    const ringPoints = AIConstructionHandler.AVOID_PLAYER_RING_POINTS;
     if (ringPoints > 0) {
       const seen = new Set<string>();
       for (let i = 0; i < ringPoints; i++) {
@@ -1284,18 +1289,19 @@ export class AIConstructionHandler {
       }
     }
 
-    // Random samples within the radius disk.
+    // Random samples within the radius disk
+    const sampleCount = AIConstructionHandler.AVOID_PLAYER_SAMPLE_COUNT;
     for (let i = 0; i < sampleCount; i++) {
       let dx = 0;
       let dy = 0;
-      // Rejection sample inside circle; cap retries to avoid worst-case loops.
+      // Rejection sample inside circle; cap retries to avoid worst-case loops
       for (let tries = 0; tries < 6; tries++) {
         dx = this.random.nextInt(-radius, radius + 1);
         dy = this.random.nextInt(-radius, radius + 1);
-        if (dx * dx + dy * dy <= minSq) break;
+        if (dx * dx + dy * dy <= radiusSq) break;
       }
 
-      if (dx * dx + dy * dy > minSq) {
+      if (dx * dx + dy * dy > radiusSq) {
         continue;
       }
 
@@ -1307,5 +1313,94 @@ export class AIConstructionHandler {
     }
 
     return false;
+  }
+
+  /**
+   * Checks if there is another player's territory within the given radius.
+   * Exhaustively checks all tiles within the radius (used for final validation).
+   */
+  private tileIsNearOtherPlayer(
+    player: Player,
+    center: TileRef,
+    radius: number,
+  ): boolean {
+    if (radius <= 0) return false;
+
+    const radiusSq = radius * radius;
+    const cx = this.mg.x(center);
+    const cy = this.mg.y(center);
+
+    // Check all tiles within the radius
+    for (let dy = -radius; dy <= radius; dy++) {
+      for (let dx = -radius; dx <= radius; dx++) {
+        if (dx * dx + dy * dy > radiusSq) continue;
+        const x = cx + dx;
+        const y = cy + dy;
+        if (!this.mg.isValidCoord(x, y)) continue;
+        const t = this.mg.ref(x, y);
+        if (!this.mg.hasOwner(t)) continue;
+        const owner = this.mg.owner(t);
+        if (!owner.isPlayer?.() || !owner.isPlayer()) continue;
+        if (owner.id() !== player.id()) return true;
+      }
+    }
+
+    return false;
+  }
+
+  /**
+   * Re-validates a tile at build time to ensure it still passes placement rules.
+   * This catches any changes since the tile was originally evaluated.
+   */
+  private validateTileForConstruction(
+    player: Player,
+    tile: TileRef,
+    unitType: UnitType,
+  ): boolean {
+    // Defense posts have no special validation rules
+    if (unitType === UnitType.DefensePost) {
+      return true;
+    }
+
+    // Check if still buildable
+    if (player.canBuild(unitType, tile) === false) {
+      return false;
+    }
+
+    // Check near-player distance
+    const avoidPlayerDist = this.avoidPlayerDistanceFor(unitType);
+    if (avoidPlayerDist > 0) {
+      if (this.tileIsNearOtherPlayer(player, tile, avoidPlayerDist)) {
+        return false;
+      }
+    }
+
+    // Check structure min distance
+    const structureMinDist = this.structureMinDistanceFor(unitType);
+    if (structureMinDist > 0) {
+      const nearbyStructures = this.mg.nearbyUnits(
+        tile,
+        structureMinDist,
+        AIConstructionHandler.DISTANCE_CHECK_STRUCTURE_TYPES,
+      );
+      const ownNearbyStructures = nearbyStructures.filter(
+        ({ unit }) => unit.owner().id() === player.id(),
+      );
+      if (ownNearbyStructures.length > 0) {
+        return false;
+      }
+    }
+
+    // For non-port structures, check water proximity
+    if (unitType !== UnitType.Port) {
+      const waterCheckDist = this.params.otherTileWaterCheckDistance ?? 5;
+      if (waterCheckDist > 0) {
+        if (this.tileHasNearbyWater(tile, waterCheckDist)) {
+          return false;
+        }
+      }
+    }
+
+    return true;
   }
 }
