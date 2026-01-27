@@ -375,12 +375,29 @@ export class AIConstructionHandler {
     const tradeMods = tradeIncomeModifiers(player);
     const tradeIncomeMul = tradeMods.incomeMul * tradeMods.tradeShipIncomeMul;
 
-    // Base score = multiplier * (1 + queueRatio) * (1 - availableRatio) * tradeIncomeMods
+    // Calculate global ships under construction vs global ports multiplier
+    // Global port count sums levels (stackCount) but ignores health
+    const allPorts = this.mg.units(UnitType.Port).filter((p) => p.isActive());
+    const globalPortCount = allPorts.reduce(
+      (sum, port) => sum + (port.stackCount?.() ?? 1),
+      0,
+    );
+    const globalShipsUnderConstruction = allPorts.reduce(
+      (sum, port) => sum + (port as any).pendingTradeShipDueTicks().length,
+      0,
+    );
+    const constructionRatioMul =
+      globalPortCount > 0
+        ? 1 - globalShipsUnderConstruction / globalPortCount
+        : 1;
+
+    // Base score = multiplier * (1 + queueRatio) * (1 - availableRatio) * tradeIncomeMods * constructionRatioMul
     return (
       AIConstructionHandler.PORT_SCORE_MULTIPLIER *
       (1 + metrics.queueRatio) *
       (1 - metrics.availableRatio) *
-      tradeIncomeMul
+      tradeIncomeMul *
+      Math.max(0, constructionRatioMul)
     );
   }
 
