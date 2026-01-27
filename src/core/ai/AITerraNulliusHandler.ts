@@ -16,9 +16,11 @@ export class AITerraNulliusHandler {
   private lastTNCheckTick: number = 0;
   private lastBoatAttemptTick: number = 0;
   private playerShoreCache: { tiles: TileRef[]; tick: number } | null = null;
+  private tnBorderCache: { borders: boolean; tick: number } | null = null;
   private static readonly MAX_SEARCH_RANGE = 270;
   private static readonly TN_RECHECK_INTERVAL = 100; // ticks between re-checking if TN exists
   private static readonly BOAT_ATTEMPT_INTERVAL = 10; // only attempt boat attacks every N ticks
+  private static readonly TN_BORDER_CACHE_INTERVAL = 20; // cache sharesBorderWith(tn) result
   private static readonly SHORE_CACHE_INTERVAL = 10;
   private static readonly RANDOM_SHORE_MAX_ITERATIONS = 150;
   private static readonly OPPORTUNISTIC_BOAT_SAMPLES = 1; // random tiles to check for opportunistic boat attacks
@@ -44,9 +46,9 @@ export class AITerraNulliusHandler {
       return false;
     }
 
-    // If TN expansion is disabled, periodically re-check if TN exists (fallout can create new TN)
+    // Check if TN exists at all (cheap arithmetic check) - re-check periodically
+    const currentTick = this.mg.ticks();
     if (this.tnExpansionDisabled) {
-      const currentTick = this.mg.ticks();
       if (
         currentTick - this.lastTNCheckTick >=
         AITerraNulliusHandler.TN_RECHECK_INTERVAL
@@ -57,6 +59,16 @@ export class AITerraNulliusHandler {
         }
       }
       if (this.tnExpansionDisabled) {
+        return false;
+      }
+    } else if (
+      currentTick - this.lastTNCheckTick >=
+      AITerraNulliusHandler.TN_RECHECK_INTERVAL
+    ) {
+      // Periodically verify TN still exists before expensive sharesBorderWith check
+      this.lastTNCheckTick = currentTick;
+      if (!this.hasTNLandTiles()) {
+        this.tnExpansionDisabled = true;
         return false;
       }
     }
@@ -89,8 +101,8 @@ export class AITerraNulliusHandler {
       return true;
     }
 
-    // Try land attack if we border Terra Nullius
-    if (player.sharesBorderWith(tn)) {
+    // Try land attack if we border Terra Nullius (cached check)
+    if (this.bordersTNCached(player, tn, currentTick)) {
       return this.launchLandAttack(
         player,
         troopRatio,
@@ -101,7 +113,6 @@ export class AITerraNulliusHandler {
     }
 
     // Otherwise, try boat attack (rate-limited to avoid expensive shore searches)
-    const currentTick = this.mg.ticks();
     if (
       currentTick - this.lastBoatAttemptTick <
       AITerraNulliusHandler.BOAT_ATTEMPT_INTERVAL
@@ -146,6 +157,28 @@ export class AITerraNulliusHandler {
       .reduce((sum, p) => sum + p.numTilesOwned(), 0);
     const tnTiles = totalLand - fallout - playerOwned;
     return tnTiles > 0;
+  }
+
+  /**
+   * Cached check for whether player borders Terra Nullius.
+   * Invalidates when player successfully attacks TN (acquires new land).
+   */
+  private bordersTNCached(
+    player: Player,
+    tn: ReturnType<Game["terraNullius"]>,
+    currentTick: number,
+  ): boolean {
+    if (
+      this.tnBorderCache &&
+      currentTick - this.tnBorderCache.tick <
+        AITerraNulliusHandler.TN_BORDER_CACHE_INTERVAL
+    ) {
+      return this.tnBorderCache.borders;
+    }
+
+    const borders = player.sharesBorderWith(tn);
+    this.tnBorderCache = { borders, tick: currentTick };
+    return borders;
   }
 
   private launchLandAttack(
