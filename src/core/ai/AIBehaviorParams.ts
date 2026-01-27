@@ -91,10 +91,10 @@ export interface AIBehaviorParams {
   aiStructureMinDistance?: number;
 
   /**
-   * Minimum distance (in tiles) to keep away from Human/AI players when placing
+   * Minimum distance (in tiles) to keep away from other players when placing
    * non-defense-post structures.
    */
-  aiAvoidHumanAiDistance?: number;
+  aiAvoidPlayerDistance?: number;
 
   /**
    * When no valid placement tile is found for a stackable structure and the AI
