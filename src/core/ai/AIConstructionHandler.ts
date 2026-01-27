@@ -43,7 +43,7 @@ export class AIConstructionHandler {
   private static readonly ACADEMY_BASE_SCORE = 1e-3;
   private static readonly RESEARCH_LAB_BASE_SCORE = 8e-1;
   private static readonly AIRFIELD_SCORE_MULTIPLIER = 1e-1;
-  private static readonly SAM_BASE_SCORE = 1e-6;
+  private static readonly SAM_BASE_SCORE = 1e-5;
   private static readonly SAM_EVALUATION_INTERVAL = 10;
   private static readonly SAM_PLACEMENT_MIN_PLAYER_DIST = 10;
 
