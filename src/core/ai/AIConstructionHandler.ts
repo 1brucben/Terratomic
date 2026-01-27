@@ -30,18 +30,17 @@ export class AIConstructionHandler {
   private _cachedTiles: TileRef[] | null = null;
   private _cachedTilesPlayerTileCount: number = 0;
 
-  // Cooldown after completely failing placement
-  private _placementCooldownUntil: number = 0;
-  private static readonly PLACEMENT_COOLDOWN_TICKS = 50;
-  private static readonly MAX_PLACEMENT_ATTEMPTS = 50;
+  // Structure type blocked from consideration until another structure is built/upgraded
+  private _blockedStructure: UnitType | null = null;
+  private static readonly MAX_PLACEMENT_ATTEMPTS = 100;
 
   private static readonly AVOID_HUMAN_AI_SAMPLE_COUNT = 12; // Reduced from 30
   private static readonly AVOID_HUMAN_AI_RING_POINTS = 8; // Reduced from 12
 
   private static readonly PORT_SCORE_MULTIPLIER = 100;
-  private static readonly HOSPITAL_BASE_SCORE = 1e-1;
-  private static readonly ACADEMY_BASE_SCORE = 1e-1;
-  private static readonly RESEARCH_LAB_BASE_SCORE = 10;
+  private static readonly HOSPITAL_BASE_SCORE = 1e-3;
+  private static readonly ACADEMY_BASE_SCORE = 1e-3;
+  private static readonly RESEARCH_LAB_BASE_SCORE = 1;
 
   private static readonly NON_DEFENSE_STRUCTURE_TYPES: UnitType[] =
     Object.values(UnitType).filter(
@@ -89,11 +88,6 @@ export class AIConstructionHandler {
       return;
     }
 
-    // Skip placement attempts during cooldown period
-    if (ticks < this._placementCooldownUntil) {
-      return;
-    }
-
     const structureMinDist = this.structureMinDistanceFor(this.target);
     const avoidHumanAiDist = this.avoidHumanAiDistanceFor(this.target);
     const avoidHumanAiSampleCount =
@@ -116,6 +110,7 @@ export class AIConstructionHandler {
       this.mg.addExecution(
         new ConstructionExecution(player, this.target, placement),
       );
+      this._blockedStructure = null; // Clear block on successful build
       this.target = null;
       return;
     }
@@ -123,6 +118,7 @@ export class AIConstructionHandler {
     // If we can't find a valid placement tile, prefer upgrading an existing
     // stackable structure of this type (if any) instead of switching targets.
     if (this.tryUpgradeExistingStructure(player, this.target)) {
+      this._blockedStructure = null; // Clear block on successful upgrade
       this.target = null;
       return;
     }
@@ -138,13 +134,13 @@ export class AIConstructionHandler {
       this.mg.addExecution(
         new ConstructionExecution(player, this.target, relaxedPlacement),
       );
+      this._blockedStructure = null; // Clear block on successful build
       this.target = null;
       return;
     }
 
-    // Failed to place even with relaxed rules - give up for a while
-    this._placementCooldownUntil =
-      ticks + AIConstructionHandler.PLACEMENT_COOLDOWN_TICKS;
+    // Failed to place even with relaxed rules - block this structure until another is built
+    this._blockedStructure = this.target;
 
     // Pick a different target (re-score)
     const original = this.target;
@@ -229,7 +225,8 @@ export class AIConstructionHandler {
       candidates.push(UnitType.DefensePost);
     if (this.params.buildDoomsdayDevices ?? false)
       candidates.push(UnitType.DoomsdayDevice);
-    return candidates;
+    // Exclude blocked structure until another structure is successfully built
+    return candidates.filter((t) => t !== this._blockedStructure);
   }
 
   private scoreTarget(player: Player, unitType: UnitType): number {
