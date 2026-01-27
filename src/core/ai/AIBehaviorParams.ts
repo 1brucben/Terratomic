@@ -149,20 +149,21 @@ export interface AIBehaviorParams {
    */
   portTileNearPlayerPenalty?: number;
   /**
-   * Percentage penalty (0-1) for port tile if within structure min distance from own structure.
-   * Default 0.3 (30% penalty).
+   * Maximum percentage penalty (0-1) for port tile based on distance to closest own structure.
+   * Penalty scales linearly from this value at distance 0 to 0 at maxDistance.
+   * Default 0.3 (30% max penalty).
    */
   portTileNearStructurePenalty?: number;
   /**
-   * Percentage bonus per tile of distance from capital (0-1).
-   * Default 0.01 (1% bonus per tile).
+   * Percentage penalty per tile of distance from capital (0-1).
+   * Tiles farther from capital get penalized. Default 0.01 (1% penalty per tile).
    */
-  portTileCapitalDistanceBonus?: number;
+  portTileCapitalDistancePenalty?: number;
   /**
-   * Maximum bonus from capital distance (0-1).
-   * Default 0.5 (50% max bonus).
+   * Maximum penalty from capital distance (0-1).
+   * Default 0.5 (50% max penalty).
    */
-  portTileCapitalDistanceBonusMax?: number;
+  portTileCapitalDistancePenaltyMax?: number;
   /**
    * Percentage bonus (0-1) if tile is protected by at least one SAM.
    * Default 0.2 (20% bonus).
@@ -176,20 +177,21 @@ export interface AIBehaviorParams {
    */
   otherTileNearPlayerPenalty?: number;
   /**
-   * Percentage penalty (0-1) for other tile if within structure min distance from own structure.
-   * Default 0.3 (30% penalty).
+   * Maximum percentage penalty (0-1) for other tile based on distance to closest own structure.
+   * Penalty scales linearly from this value at distance 0 to 0 at maxDistance.
+   * Default 0.3 (30% max penalty).
    */
   otherTileNearStructurePenalty?: number;
   /**
-   * Percentage bonus per tile of distance from capital (0-1).
-   * Default 0.01 (1% bonus per tile).
+   * Percentage penalty per tile of distance from capital (0-1).
+   * Tiles farther from capital get penalized. Default 0.01 (1% penalty per tile).
    */
-  otherTileCapitalDistanceBonus?: number;
+  otherTileCapitalDistancePenalty?: number;
   /**
-   * Maximum bonus from capital distance (0-1).
-   * Default 0.5 (50% max bonus).
+   * Maximum penalty from capital distance (0-1).
+   * Default 0.5 (50% max penalty).
    */
-  otherTileCapitalDistanceBonusMax?: number;
+  otherTileCapitalDistancePenaltyMax?: number;
   /**
    * Percentage bonus (0-1) if tile is protected by at least one SAM.
    * Default 0.2 (20% bonus).

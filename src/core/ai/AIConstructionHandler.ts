@@ -40,6 +40,8 @@ export class AIConstructionHandler {
   private static readonly SAM_BASE_SCORE = 1e-5;
   private static readonly SAM_EVALUATION_INTERVAL = 10;
   private static readonly SAM_PLACEMENT_MIN_PLAYER_DIST = 10;
+  private static readonly LOG_INTERVAL = 20; // Log every ~1 second (assuming 20 ticks/sec)
+  private static readonly MIN_TILE_EVALUATIONS_BEFORE_BUILD = 50;
 
   // SAM evaluation state
   private _bestSAMScore: number = 0;
@@ -54,6 +56,7 @@ export class AIConstructionHandler {
   private _defensePostTile: TileRef | null = null;
   private _otherTileScore: number = 0;
   private _otherTile: TileRef | null = null;
+  private _tileEvaluationCount: number = 0; // Number of tiles evaluated since last clear/init
 
   private static readonly ALL_STRUCTURE_TYPES: UnitType[] = Object.values(
     UnitType,
@@ -106,6 +109,17 @@ export class AIConstructionHandler {
     // Every tick, evaluate a random tile for non-SAM structures
     this.tickTileEvaluation(player);
 
+    // Log saved scores every second
+    if (ticks % AIConstructionHandler.LOG_INTERVAL === 0) {
+      console.log(
+        `[AI Construction] ${player.name()}: evalCount=${this._tileEvaluationCount}, ` +
+          `portScore=${this._portTileScore.toFixed(3)} (tile=${this._portTile !== null}), ` +
+          `defenseScore=${this._defensePostTileScore.toFixed(3)} (tile=${this._defensePostTile !== null}), ` +
+          `otherScore=${this._otherTileScore.toFixed(3)} (tile=${this._otherTile !== null}), ` +
+          `samScore=${this._bestSAMScore.toFixed(3)}, target=${this.target}`,
+      );
+    }
+
     // Periodically re-score and potentially retarget.
     // Only switches if there's a strictly better target than the current.
     if (shouldRecalculate) {
@@ -142,6 +156,14 @@ export class AIConstructionHandler {
 
     // Only attempt placement if we can afford the target structure
     if (!this.canAffordTarget(player, this.target)) {
+      return;
+    }
+
+    // Require minimum tile evaluations before attempting construction
+    if (
+      this._tileEvaluationCount <
+      AIConstructionHandler.MIN_TILE_EVALUATIONS_BEFORE_BUILD
+    ) {
       return;
     }
 
@@ -622,6 +644,7 @@ export class AIConstructionHandler {
 
   /**
    * Clears the tile score for a given structure type and any other scores sharing the same tile.
+   * Also resets the tile evaluation counter to require fresh evaluations.
    */
   private clearTileScoresForTile(tile: TileRef): void {
     if (this._portTile === tile) {
@@ -636,6 +659,8 @@ export class AIConstructionHandler {
       this._otherTileScore = 0;
       this._otherTile = null;
     }
+    // Reset evaluation counter to require fresh tile draws
+    this._tileEvaluationCount = 0;
   }
 
   /**
@@ -643,33 +668,37 @@ export class AIConstructionHandler {
    * Returns 0 if port cannot be built, otherwise a score with penalties/bonuses.
    */
   private calculatePortTileScore(player: Player, tile: TileRef): number {
-    // Base check: can a port be built here?
-    if (player.canBuild(UnitType.Port, tile) === false) {
+    // Base check: can a port be built here? (ignores gold)
+    if (player.canBuildAtTile(UnitType.Port, tile) === false) {
       return 0;
     }
 
     let score = 1;
 
-    // Penalty if within avoid player distance from another player
+    // Linear penalty based on distance to closest other player's territory
+    // Penalty scales from maxPenalty at distance 0 to 0 at maxDistance
     const avoidPlayerDist = this.avoidPlayerDistanceFor(UnitType.Port);
     if (avoidPlayerDist > 0) {
-      const isNearPlayer = this.tileIsNearOtherPlayer(
+      const closestPlayerDist = this.closestOtherPlayerDistance(
         player,
         tile,
         avoidPlayerDist,
       );
-      if (isNearPlayer) {
-        const penalty = this.params.portTileNearPlayerPenalty ?? 0.5;
-        score *= 1 - penalty;
+      if (closestPlayerDist !== null) {
+        // Linear interpolation: penalty = maxPenalty * (1 - dist/maxDistance)
+        const maxPenalty = this.params.portTileNearPlayerPenalty ?? 0.5;
+        const penalty = maxPenalty * (1 - closestPlayerDist / avoidPlayerDist);
+        score *= 1 - Math.max(0, penalty);
       }
     }
 
-    // Penalty if within structure min distance from own structure
-    const structureMinDist = this.structureMinDistanceFor(UnitType.Port);
-    if (structureMinDist > 0) {
+    // Linear penalty based on distance to closest own structure
+    // Penalty scales from maxPenalty at distance 0 to 0 at maxDistance
+    const maxStructureDist = this.params.aiStructureMinDistance ?? 60;
+    if (maxStructureDist > 0) {
       const nearbyStructures = this.mg.nearbyUnits(
         tile,
-        structureMinDist,
+        maxStructureDist,
         AIConstructionHandler.DISTANCE_CHECK_STRUCTURE_TYPES,
       );
       // Filter to only structures owned by this player
@@ -677,20 +706,30 @@ export class AIConstructionHandler {
         ({ unit }) => unit.owner().id() === player.id(),
       );
       if (ownNearbyStructures.length > 0) {
-        const penalty = this.params.portTileNearStructurePenalty ?? 0.3;
-        score *= 1 - penalty;
+        // Find closest structure distance
+        let closestDistSq = Infinity;
+        for (const { unit } of ownNearbyStructures) {
+          const structTile = unit.tile();
+          const distSq = this.mg.euclideanDistSquared(tile, structTile);
+          if (distSq < closestDistSq) closestDistSq = distSq;
+        }
+        const closestDist = Math.sqrt(closestDistSq);
+        // Linear interpolation: penalty = maxPenalty * (1 - dist/maxDistance)
+        const maxPenalty = this.params.portTileNearStructurePenalty ?? 0.3;
+        const penalty = maxPenalty * (1 - closestDist / maxStructureDist);
+        score *= 1 - Math.max(0, penalty);
       }
     }
 
-    // Bonus proportional to distance from capital
+    // Penalty proportional to distance from capital (prefer building near capital)
     const capital = player.capital();
     if (capital !== null) {
       const capitalTile = this.mg.ref(capital.x, capital.y);
       const dist = Math.sqrt(this.mg.euclideanDistSquared(tile, capitalTile));
-      const bonusPerTile = this.params.portTileCapitalDistanceBonus ?? 0.01;
-      const maxBonus = this.params.portTileCapitalDistanceBonusMax ?? 0.5;
-      const bonus = Math.min(dist * bonusPerTile, maxBonus);
-      score *= 1 + bonus;
+      const penaltyPerTile = this.params.portTileCapitalDistancePenalty ?? 0.01;
+      const maxPenalty = this.params.portTileCapitalDistancePenaltyMax ?? 0.5;
+      const penalty = Math.min(dist * penaltyPerTile, maxPenalty);
+      score *= 1 - penalty;
     }
 
     // Bonus if tile is protected by SAM
@@ -727,33 +766,37 @@ export class AIConstructionHandler {
    * Returns 0 if structure cannot be built, otherwise a score with penalties/bonuses.
    */
   private calculateOtherTileScore(player: Player, tile: TileRef): number {
-    // Base check: can a city (proxy for other structures) be built here?
-    if (player.canBuild(UnitType.City, tile) === false) {
+    // Base check: can a city (proxy for other structures) be built here? (ignores gold)
+    if (player.canBuildAtTile(UnitType.City, tile) === false) {
       return 0;
     }
 
     let score = 1;
 
-    // Penalty if within avoid player distance from another player
+    // Linear penalty based on distance to closest other player's territory
+    // Penalty scales from maxPenalty at distance 0 to 0 at maxDistance
     const avoidPlayerDist = this.avoidPlayerDistanceFor(UnitType.City);
     if (avoidPlayerDist > 0) {
-      const isNearPlayer = this.tileIsNearOtherPlayer(
+      const closestPlayerDist = this.closestOtherPlayerDistance(
         player,
         tile,
         avoidPlayerDist,
       );
-      if (isNearPlayer) {
-        const penalty = this.params.otherTileNearPlayerPenalty ?? 0.5;
-        score *= 1 - penalty;
+      if (closestPlayerDist !== null) {
+        // Linear interpolation: penalty = maxPenalty * (1 - dist/maxDistance)
+        const maxPenalty = this.params.otherTileNearPlayerPenalty ?? 0.5;
+        const penalty = maxPenalty * (1 - closestPlayerDist / avoidPlayerDist);
+        score *= 1 - Math.max(0, penalty);
       }
     }
 
-    // Penalty if within structure min distance from own structure
-    const structureMinDist = this.structureMinDistanceFor(UnitType.City);
-    if (structureMinDist > 0) {
+    // Linear penalty based on distance to closest own structure
+    // Penalty scales from maxPenalty at distance 0 to 0 at maxDistance
+    const otherMaxStructureDist = this.params.aiStructureMinDistance ?? 60;
+    if (otherMaxStructureDist > 0) {
       const nearbyStructures = this.mg.nearbyUnits(
         tile,
-        structureMinDist,
+        otherMaxStructureDist,
         AIConstructionHandler.DISTANCE_CHECK_STRUCTURE_TYPES,
       );
       // Filter to only structures owned by this player
@@ -761,20 +804,31 @@ export class AIConstructionHandler {
         ({ unit }) => unit.owner().id() === player.id(),
       );
       if (ownNearbyStructures.length > 0) {
-        const penalty = this.params.otherTileNearStructurePenalty ?? 0.3;
-        score *= 1 - penalty;
+        // Find closest structure distance
+        let closestDistSq = Infinity;
+        for (const { unit } of ownNearbyStructures) {
+          const structTile = unit.tile();
+          const distSq = this.mg.euclideanDistSquared(tile, structTile);
+          if (distSq < closestDistSq) closestDistSq = distSq;
+        }
+        const closestDist = Math.sqrt(closestDistSq);
+        // Linear interpolation: penalty = maxPenalty * (1 - dist/maxDistance)
+        const maxPenalty = this.params.otherTileNearStructurePenalty ?? 0.3;
+        const penalty = maxPenalty * (1 - closestDist / otherMaxStructureDist);
+        score *= 1 - Math.max(0, penalty);
       }
     }
 
-    // Bonus proportional to distance from capital
+    // Penalty proportional to distance from capital (prefer building near capital)
     const capital = player.capital();
     if (capital !== null) {
       const capitalTile = this.mg.ref(capital.x, capital.y);
       const dist = Math.sqrt(this.mg.euclideanDistSquared(tile, capitalTile));
-      const bonusPerTile = this.params.otherTileCapitalDistanceBonus ?? 0.01;
-      const maxBonus = this.params.otherTileCapitalDistanceBonusMax ?? 0.5;
-      const bonus = Math.min(dist * bonusPerTile, maxBonus);
-      score *= 1 + bonus;
+      const penaltyPerTile =
+        this.params.otherTileCapitalDistancePenalty ?? 0.01;
+      const maxPenalty = this.params.otherTileCapitalDistancePenaltyMax ?? 0.5;
+      const penalty = Math.min(dist * penaltyPerTile, maxPenalty);
+      score *= 1 - penalty;
     }
 
     // Bonus if tile is protected by SAM
@@ -861,10 +915,13 @@ export class AIConstructionHandler {
     // Pick a random owned tile
     const tile = this.random.randElement(this._cachedTiles);
 
+    // Increment evaluation counter
+    this._tileEvaluationCount++;
+
     // Calculate port score with penalties and bonuses
     const portScore = this.calculatePortTileScore(player, tile);
     const defensePostScore =
-      player.canBuild(UnitType.DefensePost, tile) !== false ? 1 : 0;
+      player.canBuildAtTile(UnitType.DefensePost, tile) !== false ? 1 : 0;
     // Calculate other structure score with penalties and bonuses
     const otherScore = this.calculateOtherTileScore(player, tile);
 
@@ -1158,14 +1215,14 @@ export class AIConstructionHandler {
     for (let i = 0; i < 10; i++) {
       const tile = this.random.randElement(this._cachedTiles);
 
-      // Check if tile is far enough from other players (use sampled for quick eval)
-      if (
-        !this.tileIsNearOtherPlayer(
-          player,
-          tile,
-          AIConstructionHandler.SAM_PLACEMENT_MIN_PLAYER_DIST,
-        )
-      ) {
+      // Check if tile is far enough from other players
+      const closestPlayerDist = this.closestOtherPlayerDistance(
+        player,
+        tile,
+        AIConstructionHandler.SAM_PLACEMENT_MIN_PLAYER_DIST,
+      );
+      // If no enemy player within range, this tile is good
+      if (closestPlayerDist === null) {
         return tile;
       }
     }
@@ -1234,35 +1291,33 @@ export class AIConstructionHandler {
     return player.gold() >= cost;
   }
 
-  private structureMinDistanceFor(unitType: UnitType): number {
-    if (unitType === UnitType.DefensePost) return 0;
-    return Math.max(0, Math.floor(this.params.aiStructureMinDistance ?? 25)); // Reduced from 40
-  }
-
   private avoidPlayerDistanceFor(unitType: UnitType): number {
     if (unitType === UnitType.DefensePost) return 0;
     return Math.max(0, Math.floor(this.params.aiAvoidPlayerDistance ?? 8)); // Reduced from 10
   }
 
   /**
-   * Checks if there is another player's territory within the given radius.
+   * Finds the distance to the closest other player's territory within the given radius.
+   * Returns null if no other player territory is found within radius.
    * Exhaustively checks all tiles within the radius.
    */
-  private tileIsNearOtherPlayer(
+  private closestOtherPlayerDistance(
     player: Player,
     center: TileRef,
     radius: number,
-  ): boolean {
-    if (radius <= 0) return false;
+  ): number | null {
+    if (radius <= 0) return null;
 
     const radiusSq = radius * radius;
     const cx = this.mg.x(center);
     const cy = this.mg.y(center);
+    let closestDistSq: number | null = null;
 
     // Check all tiles within the radius
     for (let dy = -radius; dy <= radius; dy++) {
       for (let dx = -radius; dx <= radius; dx++) {
-        if (dx * dx + dy * dy > radiusSq) continue;
+        const distSq = dx * dx + dy * dy;
+        if (distSq > radiusSq) continue;
         const x = cx + dx;
         const y = cy + dy;
         if (!this.mg.isValidCoord(x, y)) continue;
@@ -1270,66 +1325,55 @@ export class AIConstructionHandler {
         if (!this.mg.hasOwner(t)) continue;
         const owner = this.mg.owner(t);
         if (!owner.isPlayer?.() || !owner.isPlayer()) continue;
-        if (owner.id() !== player.id()) return true;
+        if (owner.id() !== player.id()) {
+          if (closestDistSq === null || distSq < closestDistSq) {
+            closestDistSq = distSq;
+          }
+        }
       }
     }
 
-    return false;
+    return closestDistSq !== null ? Math.sqrt(closestDistSq) : null;
   }
 
   /**
-   * Re-validates a tile at build time to ensure it still passes placement rules.
-   * This catches any changes since the tile was originally evaluated.
+   * Re-validates a tile at build time by recalculating its score.
+   * If the new score is lower than the saved score, reject and reset.
+   * This keeps validation consistent with scoring logic.
    */
   private validateTileForConstruction(
     player: Player,
     tile: TileRef,
     unitType: UnitType,
   ): boolean {
-    // Defense posts have no special validation rules
-    if (unitType === UnitType.DefensePost) {
-      return true;
-    }
-
-    // Check if still buildable
-    if (player.canBuild(unitType, tile) === false) {
-      return false;
-    }
-
-    // Check near-player distance
-    const avoidPlayerDist = this.avoidPlayerDistanceFor(unitType);
-    if (avoidPlayerDist > 0) {
-      if (this.tileIsNearOtherPlayer(player, tile, avoidPlayerDist)) {
+    // Get the saved score and recalculate
+    if (unitType === UnitType.Port) {
+      const newScore = this.calculatePortTileScore(player, tile);
+      if (newScore < this._portTileScore) {
+        // Score dropped - reset and reject
+        this._portTileScore = 0;
+        this._portTile = null;
         return false;
       }
-    }
-
-    // Check structure min distance
-    const structureMinDist = this.structureMinDistanceFor(unitType);
-    if (structureMinDist > 0) {
-      const nearbyStructures = this.mg.nearbyUnits(
-        tile,
-        structureMinDist,
-        AIConstructionHandler.DISTANCE_CHECK_STRUCTURE_TYPES,
-      );
-      const ownNearbyStructures = nearbyStructures.filter(
-        ({ unit }) => unit.owner().id() === player.id(),
-      );
-      if (ownNearbyStructures.length > 0) {
+      return newScore > 0;
+    } else if (unitType === UnitType.DefensePost) {
+      const newScore =
+        player.canBuildAtTile(UnitType.DefensePost, tile) !== false ? 1 : 0;
+      if (newScore < this._defensePostTileScore) {
+        this._defensePostTileScore = 0;
+        this._defensePostTile = null;
         return false;
       }
-    }
-
-    // For non-port structures, check water proximity
-    if (unitType !== UnitType.Port) {
-      const waterCheckDist = this.params.otherTileWaterCheckDistance ?? 5;
-      if (waterCheckDist > 0) {
-        if (this.tileHasNearbyWater(tile, waterCheckDist)) {
-          return false;
-        }
+      return newScore > 0;
+    } else {
+      const newScore = this.calculateOtherTileScore(player, tile);
+      if (newScore < this._otherTileScore) {
+        // Score dropped - reset and reject
+        this._otherTileScore = 0;
+        this._otherTile = null;
+        return false;
       }
+      return newScore > 0;
     }
-
-    return true;
   }
 }

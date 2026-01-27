@@ -667,6 +667,11 @@ export interface Player {
   invalidateEffectiveUnitsCache(type: UnitType): void;
   buildableUnits(tile: TileRef): BuildableUnit[];
   canBuild(type: UnitType, targetTile: TileRef): TileRef | false;
+  /**
+   * Check if a structure can be built at a tile, ignoring gold cost.
+   * Used by AI for tile evaluation.
+   */
+  canBuildAtTile(type: UnitType, targetTile: TileRef): TileRef | false;
   buildUnit<T extends UnitType>(
     type: T,
     spawnTile: TileRef,
