@@ -3,6 +3,7 @@ import { TransportShipExecution } from "../execution/TransportShipExecution";
 import { closestTwoTiles } from "../execution/Util";
 import { Game, Player, PlayerID, PlayerType } from "../game/Game";
 import { TileRef } from "../game/GameMap";
+import { canBuildTransportShip } from "../game/TransportShipUtils";
 import { PseudoRandom } from "../PseudoRandom";
 import { AIBehaviorParams } from "./AIBehaviorParams";
 
@@ -18,9 +19,11 @@ export class AIBotAttackHandler {
   private playerShoreCache: { tiles: TileRef[]; tick: number } | null = null;
   private targetShoreCache: Map<PlayerID, { tiles: TileRef[]; tick: number }> =
     new Map();
+  private lastBoatAttackTick: number = 0;
   private static readonly UNREACHABLE_RECHECK_INTERVAL = 100;
   private static readonly NEIGHBOR_CACHE_INTERVAL = 10;
   private static readonly SHORE_CACHE_INTERVAL = 10;
+  private static readonly BOAT_ATTACK_COOLDOWN = 50; // ticks between boat attacks
 
   constructor(
     private mg: Game,
@@ -264,11 +267,24 @@ export class AIBotAttackHandler {
     }
 
     // Otherwise, try boat attack against the bot
+    // Rate-limit boat attacks to prevent sending multiple ships in quick succession
+    if (
+      currentTick - this.lastBoatAttackTick <
+      AIBotAttackHandler.BOAT_ATTACK_COOLDOWN
+    ) {
+      return;
+    }
+
     const playerShore = this.getPlayerShoreCached(player, currentTick);
     const targetShore = this.getTargetShoreCached(target, currentTick);
 
     const closest = closestTwoTiles(this.mg, playerShore, targetShore);
     if (closest !== null) {
+      // Validate that we can actually build a transport ship to this destination
+      if (canBuildTransportShip(this.mg, player, closest.y) === false) {
+        return;
+      }
+      this.lastBoatAttackTick = currentTick;
       this.mg.addExecution(
         new TransportShipExecution(
           player,
