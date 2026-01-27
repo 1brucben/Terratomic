@@ -41,6 +41,7 @@ export class AIConstructionHandler {
   private static readonly HOSPITAL_BASE_SCORE = 1e-3;
   private static readonly ACADEMY_BASE_SCORE = 1e-3;
   private static readonly RESEARCH_LAB_BASE_SCORE = 1;
+  private static readonly AIRFIELD_SCORE_MULTIPLIER = 1e-3;
 
   private static readonly NON_DEFENSE_STRUCTURE_TYPES: UnitType[] =
     Object.values(UnitType).filter(
@@ -245,6 +246,8 @@ export class AIConstructionHandler {
       baseScore = this.scoreAcademy(player);
     } else if (unitType === UnitType.ResearchLab) {
       baseScore = this.scoreResearchLab(player);
+    } else if (unitType === UnitType.Airfield) {
+      baseScore = this.scoreAirfield(player);
     }
 
     // For other structures, base score remains 0 (uses weight only)
@@ -478,6 +481,30 @@ export class AIConstructionHandler {
       AIConstructionHandler.RESEARCH_LAB_BASE_SCORE *
       researchSpending *
       labBonus
+    );
+  }
+
+  /**
+   * Computes the airfield base score based on enemy structures.
+   * Score = multiplier * (total non-self structures / (airfields owned + 1))
+   */
+  private scoreAirfield(player: Player): number {
+    // Count total structures not owned by this player, including levels
+    let totalNonSelfStructures = 0;
+    for (const other of this.mg.players()) {
+      if (other.id() === player.id()) continue;
+      if (!other.isAlive()) continue;
+      // Sum up all structure types including their levels (unitsOwned counts levels)
+      for (const structureType of AIConstructionHandler.NON_DEFENSE_STRUCTURE_TYPES) {
+        totalNonSelfStructures += other.unitsOwned(structureType);
+      }
+    }
+
+    const airfieldCount = player.unitsOwned(UnitType.Airfield);
+
+    return (
+      AIConstructionHandler.AIRFIELD_SCORE_MULTIPLIER *
+      (totalNonSelfStructures / (airfieldCount + 1))
     );
   }
 
