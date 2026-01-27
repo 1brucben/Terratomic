@@ -13,7 +13,9 @@ import {
 import { TileRef } from "../game/GameMap";
 import {
   isStackableStructure,
+  maxStackCount,
   playerMaxStructureLevel,
+  playerMaxStructureTechLevel,
 } from "../game/Upgradeables";
 import { PseudoRandom } from "../PseudoRandom";
 import { tradeIncomeModifiers } from "../tech/TechEffects";
@@ -30,8 +32,8 @@ export class AIConstructionHandler {
   private _cachedTiles: TileRef[] | null = null;
   private _cachedTilesPlayerTileCount: number = 0;
 
-  // Structure type blocked from consideration until another structure is built/upgraded
-  private _blockedStructure: UnitType | null = null;
+  // Structure types blocked from consideration until another structure is built/upgraded
+  private _blockedStructures: Set<UnitType> = new Set();
   private static readonly MAX_PLACEMENT_ATTEMPTS = 100;
 
   private static readonly AVOID_HUMAN_AI_SAMPLE_COUNT = 12; // Reduced from 30
@@ -41,7 +43,15 @@ export class AIConstructionHandler {
   private static readonly HOSPITAL_BASE_SCORE = 1e-3;
   private static readonly ACADEMY_BASE_SCORE = 1e-3;
   private static readonly RESEARCH_LAB_BASE_SCORE = 8e-1;
-  private static readonly AIRFIELD_SCORE_MULTIPLIER = 1e-2;
+  private static readonly AIRFIELD_SCORE_MULTIPLIER = 1e-1;
+  private static readonly SAM_EVALUATION_INTERVAL = 10;
+  private static readonly SAM_PLACEMENT_MIN_PLAYER_DIST = 10;
+
+  // SAM evaluation state
+  private _bestSAMScore: number = 0;
+  private _bestSAMTile: TileRef | null = null;
+  private _bestSAMIsUpgrade: boolean = false; // true if best option is stacking existing SAM
+  private _bestSAMUpgradeUnit: Unit | null = null; // the SAM unit to stack (if _bestSAMIsUpgrade)
 
   private static readonly NON_DEFENSE_STRUCTURE_TYPES: UnitType[] =
     Object.values(UnitType).filter(
@@ -73,6 +83,11 @@ export class AIConstructionHandler {
       return;
     }
 
+    // Periodically evaluate SAM placement candidates
+    if (ticks % AIConstructionHandler.SAM_EVALUATION_INTERVAL === 0) {
+      this.tickSAMEvaluation(player);
+    }
+
     // Periodically re-score and potentially retarget.
     // Only switches if there's a strictly better target than the current.
     if (shouldRecalculate) {
@@ -81,6 +96,29 @@ export class AIConstructionHandler {
 
     if (this.target === null) {
       this.target = this.pickTarget(null, player);
+      return;
+    }
+
+    // SAM has special construction path using pre-evaluated best tile/upgrade
+    if (this.target === UnitType.SAMLauncher) {
+      // Check if we can afford the SAM before attempting
+      if (!this.canAffordSAM(player)) {
+        return; // Just wait until we can afford it, don't block
+      }
+      const result = this.trySAMConstruction(player);
+      if (result === "success") {
+        this.clearBlockedStructures();
+        this.target = null;
+        return;
+      } else if (result === "blocked") {
+        // Permanent failure - block SAM and pick a different target
+        this._blockedStructures.add(UnitType.SAMLauncher);
+        const original = this.target;
+        const next = this.pickTarget(original, player);
+        this.target = next;
+        return;
+      }
+      // result === "retry" means temporary failure, just return and try again later
       return;
     }
 
@@ -111,7 +149,7 @@ export class AIConstructionHandler {
       this.mg.addExecution(
         new ConstructionExecution(player, this.target, placement),
       );
-      this._blockedStructure = null; // Clear block on successful build
+      this.clearBlockedStructures();
       this.target = null;
       return;
     }
@@ -119,7 +157,7 @@ export class AIConstructionHandler {
     // If we can't find a valid placement tile, prefer upgrading an existing
     // stackable structure of this type (if any) instead of switching targets.
     if (this.tryUpgradeExistingStructure(player, this.target)) {
-      this._blockedStructure = null; // Clear block on successful upgrade
+      this.clearBlockedStructures();
       this.target = null;
       return;
     }
@@ -135,13 +173,13 @@ export class AIConstructionHandler {
       this.mg.addExecution(
         new ConstructionExecution(player, this.target, relaxedPlacement),
       );
-      this._blockedStructure = null; // Clear block on successful build
+      this.clearBlockedStructures();
       this.target = null;
       return;
     }
 
     // Failed to place even with relaxed rules - block this structure until another is built
-    this._blockedStructure = this.target;
+    this._blockedStructures.add(this.target);
 
     // Pick a different target (re-score)
     const original = this.target;
@@ -181,12 +219,16 @@ export class AIConstructionHandler {
     }
 
     if (isRussia) {
+      const blockedStr =
+        this._blockedStructures.size > 0
+          ? ` [blocked: ${Array.from(this._blockedStructures).join(", ")}]`
+          : "";
       console.log(
         `[AI Construction] Russia scores:`,
         Object.entries(scoreMap)
           .sort(([, a], [, b]) => b - a)
           .map(([t, s]) => `${t}: ${s.toFixed(4)}`)
-          .join(", "),
+          .join(", ") + blockedStr,
       );
     }
 
@@ -226,8 +268,8 @@ export class AIConstructionHandler {
       candidates.push(UnitType.DefensePost);
     if (this.params.buildDoomsdayDevices ?? false)
       candidates.push(UnitType.DoomsdayDevice);
-    // Exclude blocked structure until another structure is successfully built
-    return candidates.filter((t) => t !== this._blockedStructure);
+    // Exclude blocked structures until another structure is successfully built
+    return candidates.filter((t) => !this._blockedStructures.has(t));
   }
 
   private scoreTarget(player: Player, unitType: UnitType): number {
@@ -248,6 +290,8 @@ export class AIConstructionHandler {
       baseScore = this.scoreResearchLab(player);
     } else if (unitType === UnitType.Airfield) {
       baseScore = this.scoreAirfield(player);
+    } else if (unitType === UnitType.SAMLauncher) {
+      baseScore = this.scoreSAMLauncher(player);
     }
 
     // For other structures, base score remains 0 (uses weight only)
@@ -506,6 +550,347 @@ export class AIConstructionHandler {
       AIConstructionHandler.AIRFIELD_SCORE_MULTIPLIER *
       (totalNonSelfStructures / (airfieldCount + 1))
     );
+  }
+
+  /**
+   * Returns the previously evaluated SAM score.
+   * The score is computed periodically by tickSAMEvaluation().
+   */
+  private scoreSAMLauncher(_player: Player): number {
+    return this._bestSAMScore;
+  }
+
+  /**
+   * Resets the SAM evaluation state after a SAM is built or stacked.
+   */
+  private resetSAMEvaluationState(): void {
+    this._bestSAMScore = 0;
+    this._bestSAMTile = null;
+    this._bestSAMIsUpgrade = false;
+    this._bestSAMUpgradeUnit = null;
+  }
+
+  /**
+   * Calculates the cost to build a new SAM or stack an existing one.
+   */
+  private getSAMCost(player: Player): bigint {
+    const baseCost = this.mg.unitInfo(UnitType.SAMLauncher).cost(player);
+
+    if (this._bestSAMIsUpgrade) {
+      // Cost to increase stack count (80% of base cost)
+      const multiplier = this.mg
+        .config()
+        .structureUpgradeCostMultiplier(UnitType.SAMLauncher);
+      return computeUpgradeStepCost(baseCost, multiplier);
+    } else {
+      // Cost to build a new SAM (ConstructionExecution handles tech level automatically)
+      return baseCost;
+    }
+  }
+
+  /**
+   * Checks if the player can afford the current best SAM option.
+   */
+  private canAffordSAM(player: Player): boolean {
+    if (this._bestSAMScore <= 0) {
+      return false; // No valid SAM option yet
+    }
+    return player.gold() >= this.getSAMCost(player);
+  }
+
+  /**
+   * Clears all blocked structures after a successful build/upgrade.
+   */
+  private clearBlockedStructures(): void {
+    this._blockedStructures.clear();
+  }
+
+  /**
+   * Attempts to build or upgrade a SAM using the pre-evaluated best option.
+   * Returns "success" if construction/upgrade was initiated,
+   * "blocked" if there's a permanent failure (should block SAM),
+   * "retry" if there's a temporary failure (should try again later).
+   */
+  private trySAMConstruction(player: Player): "success" | "blocked" | "retry" {
+    const isRussia = player.name() === "Russia";
+
+    // No evaluation data available - this is a permanent failure until re-evaluation finds something
+    if (this._bestSAMScore <= 0) {
+      if (isRussia) console.log(`[AI SAM] Russia trySAM: no score`);
+      return "blocked";
+    }
+
+    if (this._bestSAMIsUpgrade && this._bestSAMUpgradeUnit) {
+      // Stacking an existing SAM (increase stack count)
+      const samToStack = this._bestSAMUpgradeUnit;
+
+      // Verify the SAM still exists and is active
+      if (!samToStack.isActive()) {
+        if (isRussia)
+          console.log(`[AI SAM] Russia trySAM stack: SAM not active`);
+        this.resetSAMEvaluationState();
+        return "retry"; // SAM was destroyed, need to re-evaluate
+      }
+
+      // Check if the SAM can still be stacked
+      const currentStack = samToStack.stackCount?.() ?? 1;
+      const maxStack = maxStackCount(UnitType.SAMLauncher);
+      if (currentStack >= maxStack) {
+        if (isRussia)
+          console.log(`[AI SAM] Russia trySAM stack: already at max stack`);
+        this.resetSAMEvaluationState();
+        return "retry"; // Need to re-evaluate
+      }
+
+      if (isRussia)
+        console.log(
+          `[AI SAM] Russia trySAM stack: SUCCESS (stack ${currentStack}→${currentStack + 1})`,
+        );
+      this.mg.addExecution(new UpgradeStructureExecution(player, samToStack));
+      this.resetSAMEvaluationState();
+      return "success";
+    } else if (this._bestSAMTile) {
+      // Building a new SAM
+      const tile = this._bestSAMTile;
+
+      // Verify the tile is still owned by this player
+      if (!this.mg.hasOwner(tile) || this.mg.owner(tile).id() !== player.id()) {
+        if (isRussia) console.log(`[AI SAM] Russia trySAM new: tile not owned`);
+        this.resetSAMEvaluationState();
+        return "retry"; // Tile lost, need to re-evaluate
+      }
+
+      // Verify the tile can have a structure built on it
+      if (!player.canBuild(UnitType.SAMLauncher, tile)) {
+        if (isRussia) console.log(`[AI SAM] Russia trySAM new: canBuild=false`);
+        this.resetSAMEvaluationState();
+        return "retry"; // Something blocking, need to re-evaluate
+      }
+
+      if (isRussia) console.log(`[AI SAM] Russia trySAM new: SUCCESS`);
+
+      // Build the SAM - ConstructionExecution automatically builds at player's max researched level
+      this.mg.addExecution(
+        new ConstructionExecution(player, UnitType.SAMLauncher, tile),
+      );
+
+      this.resetSAMEvaluationState();
+      return "success";
+    }
+
+    if (isRussia) console.log(`[AI SAM] Russia trySAM: no tile or stack unit`);
+    return "blocked"; // No valid option stored
+  }
+
+  /**
+   * Computes the effective SAM range for a given tech level.
+   */
+  private getEffectiveSAMRange(techLevel: number): number {
+    const baseRange = this.mg.config().defaultSamRange();
+    const rangeBonus = this.mg.config().samRangeUpgradePercent();
+    if (techLevel <= 1) return baseRange;
+    return baseRange * Math.pow(1 + rangeBonus, techLevel - 1);
+  }
+
+  /**
+   * Computes the value of a structure based on its type and level.
+   * Uses base construction cost + upgrade costs for each level.
+   */
+  private getStructureValue(player: Player, structure: Unit): number {
+    const unitType = structure.type();
+    const baseCost = Number(this.mg.unitInfo(unitType).cost(player));
+    const level = structure.stackCount?.() ?? 1;
+
+    if (level <= 1) {
+      return baseCost;
+    }
+
+    // Add upgrade costs for each level beyond 1
+    // Upgrade cost is typically 80% of base cost per level
+    const upgradeMultiplier = 0.8;
+    let totalValue = baseCost;
+    for (let i = 2; i <= level; i++) {
+      totalValue += baseCost * upgradeMultiplier;
+    }
+    return totalValue;
+  }
+
+  /**
+   * Evaluates the score of placing a SAM at a given tile.
+   * Returns weighted sum of structure values where weight = 1/(1 + existing SAM coverage).
+   */
+  private evaluateSAMPlacementScore(
+    player: Player,
+    tile: TileRef,
+    sams: Unit[],
+    rangeSquared: number,
+  ): number {
+    let score = 0;
+
+    for (const structureType of AIConstructionHandler.NON_DEFENSE_STRUCTURE_TYPES) {
+      const structures = player
+        .units(structureType)
+        .filter((u) => u.isActive());
+
+      for (const structure of structures) {
+        const structureTile = structure.tile();
+
+        // Check if this structure would be covered by a SAM at the given tile
+        if (this.mg.euclideanDistSquared(tile, structureTile) > rangeSquared) {
+          continue; // Structure not in range
+        }
+
+        // Count existing SAM coverage
+        let existingCoverage = 0;
+        for (const sam of sams) {
+          if (
+            this.mg.euclideanDistSquared(sam.tile(), structureTile) <=
+            rangeSquared
+          ) {
+            existingCoverage++;
+          }
+        }
+
+        const structureValue = this.getStructureValue(player, structure);
+        const weight = 1 / (1 + existingCoverage);
+        score += structureValue * weight;
+      }
+    }
+
+    return score;
+  }
+
+  /**
+   * Periodically evaluates SAM placement candidates.
+   * Called every SAM_EVALUATION_INTERVAL ticks.
+   */
+  private tickSAMEvaluation(player: Player): void {
+    // Ensure cached tiles are up to date
+    const numTiles = player.numTilesOwned();
+    if (numTiles === 0) return;
+
+    if (
+      this._cachedTiles === null ||
+      this._cachedTilesPlayerTileCount !== numTiles
+    ) {
+      this._cachedTiles = Array.from(player.tiles());
+      this._cachedTilesPlayerTileCount = numTiles;
+    }
+
+    if (this._cachedTiles.length === 0) return;
+
+    // Get current SAMs and tech level info
+    const sams = player.units(UnitType.SAMLauncher).filter((u) => u.isActive());
+    // All SAMs have the same tech level (based on player's research)
+    const techLevel = playerMaxStructureTechLevel(player, UnitType.SAMLauncher);
+    const samRange = this.getEffectiveSAMRange(techLevel);
+    const samRangeSquared = samRange * samRange;
+
+    // Build list of evaluation options:
+    // 1. Build a new SAM at a random tile
+    // 2. Increase stack count on an existing SAM (if any exist and aren't maxed)
+    type EvalOption = { type: "new" } | { type: "stack"; sam: Unit };
+
+    const options: EvalOption[] = [];
+
+    // Always can evaluate building a new SAM
+    options.push({ type: "new" });
+
+    // Can evaluate stacking if there's an existing SAM that isn't at max stack
+    if (sams.length > 0) {
+      const samToConsider = this.random.randElement(sams);
+      const currentStack = samToConsider.stackCount?.() ?? 1;
+      const maxStack = maxStackCount(UnitType.SAMLauncher);
+      if (currentStack < maxStack) {
+        options.push({ type: "stack", sam: samToConsider });
+      }
+    }
+
+    // Randomly pick one option to evaluate this tick
+    const choice = this.random.randElement(options);
+    const isRussia = player.name() === "Russia";
+
+    if (choice.type === "new") {
+      // Evaluate placing a new SAM at a random tile
+      const tile = this.findSAMEvaluationTile(player);
+      if (tile === null) return;
+
+      const score = this.evaluateSAMPlacementScore(
+        player,
+        tile,
+        sams,
+        samRangeSquared,
+      );
+
+      if (isRussia) {
+        console.log(
+          `[AI SAM] Russia new SAM eval: score=${score.toFixed(2)}, best=${this._bestSAMScore.toFixed(2)}`,
+        );
+      }
+
+      if (score > this._bestSAMScore) {
+        this._bestSAMScore = score;
+        this._bestSAMTile = tile;
+        this._bestSAMIsUpgrade = false;
+        this._bestSAMUpgradeUnit = null;
+      }
+    } else {
+      // Evaluate increasing stack count on an existing SAM
+      const samToStack = choice.sam;
+
+      // Score is the same as the SAM's current coverage (no exclusion needed)
+      // since stacking just adds HP, doesn't change range
+      const score = this.evaluateSAMPlacementScore(
+        player,
+        samToStack.tile(),
+        sams,
+        samRangeSquared,
+      );
+
+      // Divide by 0.8 since stacking is cheaper (80% of base cost)
+      const adjustedScore = score / 0.8;
+
+      if (isRussia) {
+        console.log(
+          `[AI SAM] Russia stack SAM eval: score=${score.toFixed(2)}, adjusted=${adjustedScore.toFixed(2)}, best=${this._bestSAMScore.toFixed(2)}`,
+        );
+      }
+
+      if (adjustedScore > this._bestSAMScore) {
+        this._bestSAMScore = adjustedScore;
+        this._bestSAMTile = samToStack.tile();
+        this._bestSAMIsUpgrade = true;
+        this._bestSAMUpgradeUnit = samToStack;
+      }
+    }
+  }
+
+  /**
+   * Finds a random owned tile suitable for SAM evaluation.
+   * Must be at least SAM_PLACEMENT_MIN_PLAYER_DIST tiles away from other players.
+   */
+  private findSAMEvaluationTile(player: Player): TileRef | null {
+    if (!this._cachedTiles || this._cachedTiles.length === 0) return null;
+
+    // Try up to 10 random tiles to find one that passes the distance check
+    for (let i = 0; i < 10; i++) {
+      const tile = this.random.randElement(this._cachedTiles);
+
+      // Check if tile is far enough from other players
+      if (
+        !this.tileIsNearHumanOrAi(
+          player,
+          tile,
+          AIConstructionHandler.SAM_PLACEMENT_MIN_PLAYER_DIST,
+          AIConstructionHandler.AVOID_HUMAN_AI_SAMPLE_COUNT,
+          AIConstructionHandler.AVOID_HUMAN_AI_RING_POINTS,
+        )
+      ) {
+        return tile;
+      }
+    }
+
+    return null;
   }
 
   private getStructureWeight(unitType: UnitType): number {
