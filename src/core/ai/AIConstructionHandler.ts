@@ -11,6 +11,7 @@ import {
 } from "../game/Game";
 import { TileRef } from "../game/GameMap";
 import {
+  isStackableStructure,
   maxStackCount,
   playerMaxStructureTechLevel,
 } from "../game/Upgradeables";
@@ -42,6 +43,8 @@ export class AIConstructionHandler {
   private static readonly SAM_PLACEMENT_MIN_PLAYER_DIST = 10;
   private static readonly LOG_INTERVAL = 20; // Log every ~1 second (assuming 20 ticks/sec)
   private static readonly MIN_TILE_EVALUATIONS_BEFORE_BUILD = 50;
+  private static readonly TILE_EVALUATION_INTERVAL = 2;
+  private static readonly UPGRADE_SCORE_DIVISOR = 0.8;
 
   // SAM evaluation state
   private _bestSAMScore: number = 0;
@@ -52,11 +55,20 @@ export class AIConstructionHandler {
   // Tile evaluation state for non-SAM structures (ports, defense posts, others)
   private _portTileScore: number = 0;
   private _portTile: TileRef | null = null;
+  private _portEvalCount: number = 0;
   private _defensePostTileScore: number = 0;
   private _defensePostTile: TileRef | null = null;
+  private _defensePostEvalCount: number = 0;
   private _otherTileScore: number = 0;
   private _otherTile: TileRef | null = null;
-  private _tileEvaluationCount: number = 0; // Number of tiles evaluated since last clear/init
+  private _otherEvalCount: number = 0;
+
+  // Upgrade evaluation state for each stackable structure type (except SAM which has its own system)
+  // Maps UnitType -> { score: number, unit: Unit | null, evalCount: number }
+  private _upgradeScores: Map<
+    UnitType,
+    { score: number; unit: Unit | null; evalCount: number }
+  > = new Map();
 
   private static readonly ALL_STRUCTURE_TYPES: UnitType[] = Object.values(
     UnitType,
@@ -76,12 +88,28 @@ export class AIConstructionHandler {
         t !== UnitType.SAMLauncher,
     );
 
+  // Phase seed for spreading periodic actions across AIs
+  private readonly phaseSeed: number;
+
   constructor(
     private mg: Game,
     private playerId: PlayerID,
     private random: PseudoRandom,
     private params: AIBehaviorParams,
-  ) {}
+  ) {
+    // Stagger periodic actions across AIs using random offset
+    this.phaseSeed = random.nextInt(0, 0x7fffffff);
+  }
+
+  private periodicOffset(period: number): number {
+    const p = Math.max(1, Math.floor(period));
+    return this.phaseSeed % p;
+  }
+
+  private shouldRunPeriodic(ticks: number, period: number): boolean {
+    const p = Math.max(1, Math.floor(period));
+    return ticks % p === this.periodicOffset(p);
+  }
 
   private getPlayer(): Player | null {
     if (!this.mg.hasPlayer(this.playerId)) {
@@ -106,17 +134,32 @@ export class AIConstructionHandler {
       this.tickSAMEvaluation(player);
     }
 
-    // Every tick, evaluate a random tile for non-SAM structures
-    this.tickTileEvaluation(player);
+    // Periodically evaluate a random tile for non-SAM structures (spread across AIs)
+    if (
+      this.shouldRunPeriodic(
+        ticks,
+        AIConstructionHandler.TILE_EVALUATION_INTERVAL,
+      )
+    ) {
+      this.tickTileEvaluation(player);
+    }
 
     // Log saved scores every second
     if (ticks % AIConstructionHandler.LOG_INTERVAL === 0) {
+      // Build upgrade scores string
+      const upgradeScoresStr = Array.from(this._upgradeScores.entries())
+        .map(
+          ([type, data]) =>
+            `${type}=${data.score.toFixed(3)}(e${data.evalCount})`,
+        )
+        .join(", ");
       console.log(
-        `[AI Construction] ${player.name()}: evalCount=${this._tileEvaluationCount}, ` +
-          `portScore=${this._portTileScore.toFixed(3)} (tile=${this._portTile !== null}), ` +
-          `defenseScore=${this._defensePostTileScore.toFixed(3)} (tile=${this._defensePostTile !== null}), ` +
-          `otherScore=${this._otherTileScore.toFixed(3)} (tile=${this._otherTile !== null}), ` +
-          `samScore=${this._bestSAMScore.toFixed(3)}, target=${this.target}`,
+        `[AI Construction] ${player.name()}: ` +
+          `port=${this._portTileScore.toFixed(3)}(e${this._portEvalCount}), ` +
+          `defense=${this._defensePostTileScore.toFixed(3)}(e${this._defensePostEvalCount}), ` +
+          `other=${this._otherTileScore.toFixed(3)}(e${this._otherEvalCount}), ` +
+          `sam=${this._bestSAMScore.toFixed(3)}, target=${this.target}, ` +
+          `upgrades=[${upgradeScoresStr}]`,
       );
     }
 
@@ -160,13 +203,32 @@ export class AIConstructionHandler {
     }
 
     // Require minimum tile evaluations before attempting construction
-    if (
-      this._tileEvaluationCount <
-      AIConstructionHandler.MIN_TILE_EVALUATIONS_BEFORE_BUILD
-    ) {
+    const evalCount = this.getEvalCountForStructure(this.target);
+    if (evalCount < AIConstructionHandler.MIN_TILE_EVALUATIONS_BEFORE_BUILD) {
       return;
     }
 
+    // Check if upgrade is preferred over building new
+    const { isUpgrade } = this.getEffectiveScoreAndMode(this.target);
+
+    if (isUpgrade && isStackableStructure(this.target)) {
+      // Upgrade path: stack an existing structure
+      const result = this.tryStructureUpgrade(player, this.target);
+      if (result === "success") {
+        this.clearBlockedStructures();
+        this.target = null;
+        return;
+      } else if (result === "blocked") {
+        // Permanent failure - clear upgrade state and try again
+        this.clearUpgradeScoreForStructure(this.target);
+        this.target = null;
+        return;
+      }
+      // result === "retry" means temporary failure, just return and try again later
+      return;
+    }
+
+    // Build new path: construct at the saved tile
     // Get the saved tile for this structure type
     const savedTile = this.getSavedTileForStructure(this.target);
     if (savedTile === null) {
@@ -198,6 +260,90 @@ export class AIConstructionHandler {
     // Clear the score and tile for this structure type, and any others sharing the same tile
     this.clearTileScoresForTile(savedTile);
     this.target = null;
+  }
+
+  /**
+   * Attempts to upgrade (stack) an existing structure.
+   * Returns "success" if upgrade was initiated,
+   * "blocked" if there's a permanent failure (should clear upgrade state),
+   * "retry" if there's a temporary failure (should try again later).
+   */
+  private tryStructureUpgrade(
+    player: Player,
+    unitType: UnitType,
+  ): "success" | "blocked" | "retry" {
+    const upgradeUnit = this.getUpgradeUnitForStructure(unitType);
+
+    if (upgradeUnit === null) {
+      return "blocked";
+    }
+
+    // Validate the unit is still valid for upgrade
+    if (!upgradeUnit.isActive()) {
+      return "blocked";
+    }
+
+    if (upgradeUnit.owner().id() !== player.id()) {
+      return "blocked";
+    }
+
+    const currentStack = upgradeUnit.stackCount?.() ?? 1;
+    const maxStack = maxStackCount(unitType);
+    if (currentStack >= maxStack) {
+      return "blocked";
+    }
+
+    // Check if we can afford the upgrade
+    const baseCost = this.mg.unitInfo(unitType).cost(player);
+    const multiplier = this.mg
+      .config()
+      .structureUpgradeCostMultiplier(unitType);
+    const upgradeCost = computeUpgradeStepCost(baseCost, multiplier);
+    if (player.gold() < upgradeCost) {
+      return "retry"; // Can't afford yet, try again later
+    }
+
+    // Execute the upgrade
+    this.mg.addExecution(new UpgradeStructureExecution(player, upgradeUnit));
+    this.clearUpgradeScoreForStructure(unitType);
+    return "success";
+  }
+
+  /**
+   * Clears the upgrade score and unit for a given structure type.
+   */
+  private clearUpgradeScoreForStructure(unitType: UnitType): void {
+    // Defense posts cannot be stacked, SAM has its own system
+    if (
+      unitType === UnitType.DefensePost ||
+      unitType === UnitType.SAMLauncher
+    ) {
+      return;
+    }
+    this._upgradeScores.delete(unitType);
+  }
+
+  /**
+   * Gets the evaluation count for a structure type.
+   * Uses the max of tile eval count and upgrade eval count.
+   */
+  private getEvalCountForStructure(unitType: UnitType): number {
+    // Get tile evaluation count
+    let tileEvalCount: number;
+    if (unitType === UnitType.Port) {
+      tileEvalCount = this._portEvalCount;
+    } else if (unitType === UnitType.DefensePost) {
+      tileEvalCount = this._defensePostEvalCount;
+    } else {
+      tileEvalCount = this._otherEvalCount;
+    }
+
+    // Get upgrade evaluation count (if applicable)
+    const upgradeData = this._upgradeScores.get(unitType);
+    const upgradeEvalCount = upgradeData?.evalCount ?? 0;
+
+    // Return the max - we want enough evaluations in either category
+    return Math.max(tileEvalCount, upgradeEvalCount);
   }
 
   private recalculateTarget(player: Player): void {
@@ -310,16 +456,62 @@ export class AIConstructionHandler {
     // For other structures, base score remains 0 (uses weight only)
     const structureScore = baseScore * weight;
 
-    // Multiply by the appropriate tile score for non-SAM structures
+    // Get the upgrade score for this structure type (if stackable)
+    const upgradeData = this._upgradeScores.get(unitType);
+    const upgradeScore = upgradeData?.score ?? 0;
+
+    // Multiply by the max of tile score and upgrade score for non-SAM structures
     if (unitType === UnitType.SAMLauncher) {
       return structureScore; // SAM uses its own tile evaluation system
     } else if (unitType === UnitType.Port) {
-      return structureScore * this._portTileScore;
+      return structureScore * Math.max(this._portTileScore, upgradeScore);
     } else if (unitType === UnitType.DefensePost) {
-      return structureScore * this._defensePostTileScore;
+      return structureScore * this._defensePostTileScore; // Defense posts cannot be stacked
     } else {
-      return structureScore * this._otherTileScore;
+      return structureScore * Math.max(this._otherTileScore, upgradeScore);
     }
+  }
+
+  /**
+   * Gets the effective tile/upgrade score for a structure type, and whether upgrade is preferred.
+   * Returns { score, isUpgrade } where isUpgrade is true if the upgrade score is higher.
+   */
+  private getEffectiveScoreAndMode(unitType: UnitType): {
+    score: number;
+    isUpgrade: boolean;
+  } {
+    // Defense posts cannot be stacked, SAM has its own system
+    if (unitType === UnitType.DefensePost) {
+      return { score: this._defensePostTileScore, isUpgrade: false };
+    } else if (unitType === UnitType.SAMLauncher) {
+      return { score: 0, isUpgrade: false };
+    }
+
+    // Get upgrade score for this structure type
+    const upgradeData = this._upgradeScores.get(unitType);
+    const upgradeScore = upgradeData?.score ?? 0;
+
+    // Get tile score (port vs other)
+    const tileScore =
+      unitType === UnitType.Port ? this._portTileScore : this._otherTileScore;
+
+    const isUpgrade = upgradeScore > tileScore;
+    return { score: Math.max(tileScore, upgradeScore), isUpgrade };
+  }
+
+  /**
+   * Gets the upgrade unit for a structure type, if upgrade is the preferred mode.
+   */
+  private getUpgradeUnitForStructure(unitType: UnitType): Unit | null {
+    // Defense posts cannot be stacked, SAM has its own system
+    if (
+      unitType === UnitType.DefensePost ||
+      unitType === UnitType.SAMLauncher
+    ) {
+      return null;
+    }
+    const upgradeData = this._upgradeScores.get(unitType);
+    return upgradeData?.unit ?? null;
   }
 
   /**
@@ -650,17 +842,18 @@ export class AIConstructionHandler {
     if (this._portTile === tile) {
       this._portTileScore = 0;
       this._portTile = null;
+      this._portEvalCount = 0;
     }
     if (this._defensePostTile === tile) {
       this._defensePostTileScore = 0;
       this._defensePostTile = null;
+      this._defensePostEvalCount = 0;
     }
     if (this._otherTile === tile) {
       this._otherTileScore = 0;
       this._otherTile = null;
+      this._otherEvalCount = 0;
     }
-    // Reset evaluation counter to require fresh tile draws
-    this._tileEvaluationCount = 0;
   }
 
   /**
@@ -895,7 +1088,8 @@ export class AIConstructionHandler {
   }
 
   /**
-   * Evaluates a random owned tile and updates the saved scores/tiles for ports, defense posts, and other structures.
+   * Evaluates a random owned tile or existing structure and updates the saved scores.
+   * Randomly decides between evaluating a new tile and evaluating an existing structure for upgrade.
    */
   private tickTileEvaluation(player: Player): void {
     const numTiles = player.numTilesOwned();
@@ -912,11 +1106,27 @@ export class AIConstructionHandler {
 
     if (this._cachedTiles.length === 0) return;
 
+    // Randomly decide between evaluating a new tile or an existing structure for upgrade
+    const evaluateUpgrade = this.random.chance(0.5);
+
+    if (evaluateUpgrade) {
+      // Try to evaluate an upgrade candidate, fall back to new tile if none available
+      if (!this.evaluateUpgradeCandidate(player)) {
+        this.evaluateNewTile(player);
+      }
+    } else {
+      this.evaluateNewTile(player);
+    }
+  }
+
+  /**
+   * Evaluates a random owned tile for building new structures.
+   */
+  private evaluateNewTile(player: Player): void {
+    if (this._cachedTiles === null || this._cachedTiles.length === 0) return;
+
     // Pick a random owned tile
     const tile = this.random.randElement(this._cachedTiles);
-
-    // Increment evaluation counter
-    this._tileEvaluationCount++;
 
     // Calculate port score with penalties and bonuses
     const portScore = this.calculatePortTileScore(player, tile);
@@ -924,6 +1134,11 @@ export class AIConstructionHandler {
       player.canBuildAtTile(UnitType.DefensePost, tile) !== false ? 1 : 0;
     // Calculate other structure score with penalties and bonuses
     const otherScore = this.calculateOtherTileScore(player, tile);
+
+    // Increment evaluation counts for each type
+    this._portEvalCount++;
+    this._defensePostEvalCount++;
+    this._otherEvalCount++;
 
     // Update port tile if this score is strictly greater
     if (portScore > this._portTileScore) {
@@ -942,6 +1157,78 @@ export class AIConstructionHandler {
       this._otherTileScore = otherScore;
       this._otherTile = tile;
     }
+  }
+
+  /**
+   * Evaluates a random existing structure for potential upgrade/stacking.
+   * Uses the same scoring as new tiles but divides by UPGRADE_SCORE_DIVISOR.
+   * Returns true if a structure was evaluated, false if no upgradeable structures exist.
+   */
+  private evaluateUpgradeCandidate(player: Player): boolean {
+    // Get all stackable structures owned by this player (except SAM which has its own system)
+    const stackableTypes = [
+      UnitType.City,
+      UnitType.Port,
+      UnitType.Airfield,
+      UnitType.Hospital,
+      UnitType.Academy,
+      UnitType.ResearchLab,
+      UnitType.Factory,
+      UnitType.MissileSilo,
+    ];
+
+    // Collect all upgradeable structures
+    const upgradeableStructures: Unit[] = [];
+    for (const unitType of stackableTypes) {
+      const units = player.units(unitType).filter((u) => {
+        if (!u.isActive()) return false;
+        const currentStack = u.stackCount?.() ?? 1;
+        const maxStack = maxStackCount(unitType);
+        return currentStack < maxStack;
+      });
+      upgradeableStructures.push(...units);
+    }
+
+    if (upgradeableStructures.length === 0) return false;
+
+    // Pick a random upgradeable structure
+    const structure = this.random.randElement(upgradeableStructures);
+    const tile = structure.tile();
+    const unitType = structure.type();
+
+    // Calculate the score based on structure type (same as for new tiles)
+    let score: number;
+    if (unitType === UnitType.Port) {
+      score = this.calculatePortTileScore(player, tile);
+    } else {
+      score = this.calculateOtherTileScore(player, tile);
+    }
+
+    // Divide by UPGRADE_SCORE_DIVISOR (upgrades need to be better to win)
+    score /= AIConstructionHandler.UPGRADE_SCORE_DIVISOR;
+
+    // Get current upgrade data for this specific structure type
+    const currentData = this._upgradeScores.get(unitType);
+    const currentScore = currentData?.score ?? 0;
+    const currentEvalCount = currentData?.evalCount ?? 0;
+
+    // Update the upgrade score/unit for this structure type if this score is strictly greater
+    if (score > currentScore) {
+      this._upgradeScores.set(unitType, {
+        score,
+        unit: structure,
+        evalCount: currentEvalCount + 1,
+      });
+    } else {
+      // Still increment eval count even if score didn't improve
+      this._upgradeScores.set(unitType, {
+        score: currentScore,
+        unit: currentData?.unit ?? null,
+        evalCount: currentEvalCount + 1,
+      });
+    }
+
+    return true;
   }
 
   /**
@@ -1287,8 +1574,22 @@ export class AIConstructionHandler {
   }
 
   private canAffordTarget(player: Player, unitType: UnitType): boolean {
-    const cost = this.mg.unitInfo(unitType).cost(player);
-    return player.gold() >= cost;
+    // Check if we're upgrading or building new
+    const { isUpgrade } = this.getEffectiveScoreAndMode(unitType);
+
+    if (isUpgrade && isStackableStructure(unitType)) {
+      // Upgrade cost is based on structure upgrade multiplier
+      const baseCost = this.mg.unitInfo(unitType).cost(player);
+      const multiplier = this.mg
+        .config()
+        .structureUpgradeCostMultiplier(unitType);
+      const upgradeCost = computeUpgradeStepCost(baseCost, multiplier);
+      return player.gold() >= upgradeCost;
+    } else {
+      // New construction cost
+      const cost = this.mg.unitInfo(unitType).cost(player);
+      return player.gold() >= cost;
+    }
   }
 
   private avoidPlayerDistanceFor(unitType: UnitType): number {
