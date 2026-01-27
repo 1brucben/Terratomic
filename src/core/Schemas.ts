@@ -431,7 +431,7 @@ export const BuildUnitIntentSchema = BaseIntentSchema.extend({
   tile: z.number(),
   // Optional desired starting level for upgradeable structures.
   // Server will clamp based on type and game rules.
-  targetLevel: z.number().int().min(1).max(25).optional(),
+  targetLevel: z.number().int().min(1).max(99).optional(),
   // Optional desired bomber upgrade level for airfields.
   // Server will clamp based on maxUnitLevel(UnitType.Bomber).
   bomberLevel: z.number().int().min(1).max(99).optional(),

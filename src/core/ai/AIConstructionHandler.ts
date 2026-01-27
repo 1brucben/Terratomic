@@ -11,9 +11,7 @@ import {
 } from "../game/Game";
 import { TileRef } from "../game/GameMap";
 import {
-  isStackableStructure,
   maxStackCount,
-  playerMaxStructureLevel,
   playerMaxStructureTechLevel,
 } from "../game/Upgradeables";
 import { PseudoRandom } from "../PseudoRandom";
@@ -33,7 +31,6 @@ export class AIConstructionHandler {
 
   // Structure types blocked from consideration until another structure is built/upgraded
   private _blockedStructures: Set<UnitType> = new Set();
-  private static readonly MAX_PLACEMENT_ATTEMPTS = 100;
 
   private static readonly AVOID_PLAYER_SAMPLE_COUNT = 12; // Reduced from 30
   private static readonly AVOID_PLAYER_RING_POINTS = 8; // Reduced from 12
@@ -53,6 +50,14 @@ export class AIConstructionHandler {
   private _bestSAMIsUpgrade: boolean = false; // true if best option is stacking existing SAM
   private _bestSAMUpgradeUnit: Unit | null = null; // the SAM unit to stack (if _bestSAMIsUpgrade)
 
+  // Tile evaluation state for non-SAM structures (ports, defense posts, others)
+  private _portTileScore: number = 0;
+  private _portTile: TileRef | null = null;
+  private _defensePostTileScore: number = 0;
+  private _defensePostTile: TileRef | null = null;
+  private _otherTileScore: number = 0;
+  private _otherTile: TileRef | null = null;
+
   private static readonly ALL_STRUCTURE_TYPES: UnitType[] = Object.values(
     UnitType,
   ).filter((t) => isStructureType(t));
@@ -60,6 +65,15 @@ export class AIConstructionHandler {
   private static readonly NON_DEFENSE_STRUCTURE_TYPES: UnitType[] =
     Object.values(UnitType).filter(
       (t) => isStructureType(t) && t !== UnitType.DefensePost,
+    );
+
+  // Structure types to consider for distance checks (excludes defense posts and SAMs)
+  private static readonly DISTANCE_CHECK_STRUCTURE_TYPES: UnitType[] =
+    Object.values(UnitType).filter(
+      (t) =>
+        isStructureType(t) &&
+        t !== UnitType.DefensePost &&
+        t !== UnitType.SAMLauncher,
     );
 
   constructor(
@@ -91,6 +105,9 @@ export class AIConstructionHandler {
     if (ticks % AIConstructionHandler.SAM_EVALUATION_INTERVAL === 0) {
       this.tickSAMEvaluation(player);
     }
+
+    // Every tick, evaluate a random tile for non-SAM structures
+    this.tickTileEvaluation(player);
 
     // Periodically re-score and potentially retarget.
     // Only switches if there's a strictly better target than the current.
@@ -131,64 +148,29 @@ export class AIConstructionHandler {
       return;
     }
 
-    const structureMinDist = this.structureMinDistanceFor(this.target);
-    const avoidPlayerDist = this.avoidPlayerDistanceFor(this.target);
-    const avoidPlayerSampleCount =
-      AIConstructionHandler.AVOID_PLAYER_SAMPLE_COUNT;
-    const avoidPlayerRingPoints =
-      AIConstructionHandler.AVOID_PLAYER_RING_POINTS;
+    // Get the saved tile for this structure type
+    const savedTile = this.getSavedTileForStructure(this.target);
+    if (savedTile === null) {
+      // No tile evaluated yet, wait for tile evaluation
+      return;
+    }
 
-    const placement = this.findPlacement(player, this.target, 200, {
-      structureMinDist,
-      avoidPlayerDist,
-      avoidPlayerSampleCount,
-      avoidPlayerRingPoints,
-    });
-    if (placement !== null) {
-      // Recalculate right before building to ensure target is still optimal
-      this.recalculateTarget(player);
-      if (this.target === null || !this.canAffordTarget(player, this.target)) {
-        return;
-      }
+    // Attempt to build at the saved tile
+    const spawnTile = player.canBuild(this.target, savedTile);
+
+    if (spawnTile !== false && this.canAffordTarget(player, this.target)) {
       this.mg.addExecution(
-        new ConstructionExecution(player, this.target, placement),
+        new ConstructionExecution(player, this.target, spawnTile),
       );
       this.clearBlockedStructures();
-      this.target = null;
-      return;
+    } else {
+      // Failed to place - block this structure until another is built
+      this._blockedStructures.add(this.target);
     }
 
-    // If we can't find a valid placement tile, prefer upgrading an existing
-    // stackable structure of this type (if any) instead of switching targets.
-    if (this.tryUpgradeExistingStructure(player, this.target)) {
-      this.clearBlockedStructures();
-      this.target = null;
-      return;
-    }
-
-    // Fallback: try again with relaxed rules (no structure min dist, smaller player avoidance)
-    const relaxedPlacement = this.findPlacement(player, this.target, 200, {
-      structureMinDist: 0,
-      avoidPlayerDist: 5,
-      avoidPlayerSampleCount,
-      avoidPlayerRingPoints,
-    });
-    if (relaxedPlacement !== null) {
-      this.mg.addExecution(
-        new ConstructionExecution(player, this.target, relaxedPlacement),
-      );
-      this.clearBlockedStructures();
-      this.target = null;
-      return;
-    }
-
-    // Failed to place even with relaxed rules - block this structure until another is built
-    this._blockedStructures.add(this.target);
-
-    // Pick a different target (re-score)
-    const original = this.target;
-    const next = this.pickTarget(original, player);
-    this.target = next;
+    // Clear the score and tile for this structure type, and any others sharing the same tile
+    this.clearTileScoresForTile(savedTile);
+    this.target = null;
   }
 
   private recalculateTarget(player: Player): void {
@@ -299,7 +281,18 @@ export class AIConstructionHandler {
     }
 
     // For other structures, base score remains 0 (uses weight only)
-    return baseScore * weight;
+    const structureScore = baseScore * weight;
+
+    // Multiply by the appropriate tile score for non-SAM structures
+    if (unitType === UnitType.SAMLauncher) {
+      return structureScore; // SAM uses its own tile evaluation system
+    } else if (unitType === UnitType.Port) {
+      return structureScore * this._portTileScore;
+    } else if (unitType === UnitType.DefensePost) {
+      return structureScore * this._defensePostTileScore;
+    } else {
+      return structureScore * this._otherTileScore;
+    }
   }
 
   /**
@@ -607,6 +600,290 @@ export class AIConstructionHandler {
    */
   private clearBlockedStructures(): void {
     this._blockedStructures.clear();
+  }
+
+  /**
+   * Gets the saved tile for a given structure type.
+   */
+  private getSavedTileForStructure(unitType: UnitType): TileRef | null {
+    if (unitType === UnitType.Port) {
+      return this._portTile;
+    } else if (unitType === UnitType.DefensePost) {
+      return this._defensePostTile;
+    } else {
+      return this._otherTile;
+    }
+  }
+
+  /**
+   * Clears the tile score for a given structure type and any other scores sharing the same tile.
+   */
+  private clearTileScoresForTile(tile: TileRef): void {
+    if (this._portTile === tile) {
+      this._portTileScore = 0;
+      this._portTile = null;
+    }
+    if (this._defensePostTile === tile) {
+      this._defensePostTileScore = 0;
+      this._defensePostTile = null;
+    }
+    if (this._otherTile === tile) {
+      this._otherTileScore = 0;
+      this._otherTile = null;
+    }
+  }
+
+  /**
+   * Calculates the port tile score for a given tile.
+   * Returns 0 if port cannot be built, otherwise a score with penalties/bonuses.
+   */
+  private calculatePortTileScore(player: Player, tile: TileRef): number {
+    // Base check: can a port be built here?
+    if (player.canBuild(UnitType.Port, tile) === false) {
+      return 0;
+    }
+
+    let score = 1;
+
+    // Penalty if within avoid player distance from another player
+    const avoidPlayerDist = this.avoidPlayerDistanceFor(UnitType.Port);
+    if (avoidPlayerDist > 0) {
+      const isNearPlayer = this.tileIsNearOtherPlayer(
+        player,
+        tile,
+        avoidPlayerDist,
+        AIConstructionHandler.AVOID_PLAYER_SAMPLE_COUNT,
+        AIConstructionHandler.AVOID_PLAYER_RING_POINTS,
+      );
+      if (isNearPlayer) {
+        const penalty = this.params.portTileNearPlayerPenalty ?? 0.5;
+        score *= 1 - penalty;
+      }
+    }
+
+    // Penalty if within structure min distance from own structure
+    const structureMinDist = this.structureMinDistanceFor(UnitType.Port);
+    if (structureMinDist > 0) {
+      const nearbyStructures = this.mg.nearbyUnits(
+        tile,
+        structureMinDist,
+        AIConstructionHandler.DISTANCE_CHECK_STRUCTURE_TYPES,
+      );
+      // Filter to only structures owned by this player
+      const ownNearbyStructures = nearbyStructures.filter(
+        ({ unit }) => unit.owner().id() === player.id(),
+      );
+      if (ownNearbyStructures.length > 0) {
+        const penalty = this.params.portTileNearStructurePenalty ?? 0.3;
+        score *= 1 - penalty;
+      }
+    }
+
+    // Bonus proportional to distance from capital
+    const capital = player.capital();
+    if (capital !== null) {
+      const capitalTile = this.mg.ref(capital.x, capital.y);
+      const dist = Math.sqrt(this.mg.euclideanDistSquared(tile, capitalTile));
+      const bonusPerTile = this.params.portTileCapitalDistanceBonus ?? 0.01;
+      const maxBonus = this.params.portTileCapitalDistanceBonusMax ?? 0.5;
+      const bonus = Math.min(dist * bonusPerTile, maxBonus);
+      score *= 1 + bonus;
+    }
+
+    // Bonus if tile is protected by SAM
+    const sams = player.units(UnitType.SAMLauncher).filter((u) => u.isActive());
+    if (sams.length > 0) {
+      const techLevel = playerMaxStructureTechLevel(
+        player,
+        UnitType.SAMLauncher,
+      );
+      const samRange = this.getEffectiveSAMRange(techLevel);
+      const samRangeSquared = samRange * samRange;
+
+      // Count SAMs covering this tile
+      let samCoverage = 0;
+      for (const sam of sams) {
+        if (this.mg.euclideanDistSquared(sam.tile(), tile) <= samRangeSquared) {
+          samCoverage++;
+        }
+      }
+
+      if (samCoverage > 0) {
+        const bonusPerSAM = this.params.portTileSAMProtectionBonus ?? 0.2;
+        // Diminishing returns for multiple SAMs
+        const totalBonus = bonusPerSAM * (1 - Math.pow(0.5, samCoverage));
+        score *= 1 + totalBonus;
+      }
+    }
+
+    return score;
+  }
+
+  /**
+   * Calculates the other tile score for a given tile (non-port, non-defense post, non-SAM structures).
+   * Returns 0 if structure cannot be built, otherwise a score with penalties/bonuses.
+   */
+  private calculateOtherTileScore(player: Player, tile: TileRef): number {
+    // Base check: can a city (proxy for other structures) be built here?
+    if (player.canBuild(UnitType.City, tile) === false) {
+      return 0;
+    }
+
+    let score = 1;
+
+    // Penalty if within avoid player distance from another player
+    const avoidPlayerDist = this.avoidPlayerDistanceFor(UnitType.City);
+    if (avoidPlayerDist > 0) {
+      const isNearPlayer = this.tileIsNearOtherPlayer(
+        player,
+        tile,
+        avoidPlayerDist,
+        AIConstructionHandler.AVOID_PLAYER_SAMPLE_COUNT,
+        AIConstructionHandler.AVOID_PLAYER_RING_POINTS,
+      );
+      if (isNearPlayer) {
+        const penalty = this.params.otherTileNearPlayerPenalty ?? 0.5;
+        score *= 1 - penalty;
+      }
+    }
+
+    // Penalty if within structure min distance from own structure
+    const structureMinDist = this.structureMinDistanceFor(UnitType.City);
+    if (structureMinDist > 0) {
+      const nearbyStructures = this.mg.nearbyUnits(
+        tile,
+        structureMinDist,
+        AIConstructionHandler.DISTANCE_CHECK_STRUCTURE_TYPES,
+      );
+      // Filter to only structures owned by this player
+      const ownNearbyStructures = nearbyStructures.filter(
+        ({ unit }) => unit.owner().id() === player.id(),
+      );
+      if (ownNearbyStructures.length > 0) {
+        const penalty = this.params.otherTileNearStructurePenalty ?? 0.3;
+        score *= 1 - penalty;
+      }
+    }
+
+    // Bonus proportional to distance from capital
+    const capital = player.capital();
+    if (capital !== null) {
+      const capitalTile = this.mg.ref(capital.x, capital.y);
+      const dist = Math.sqrt(this.mg.euclideanDistSquared(tile, capitalTile));
+      const bonusPerTile = this.params.otherTileCapitalDistanceBonus ?? 0.01;
+      const maxBonus = this.params.otherTileCapitalDistanceBonusMax ?? 0.5;
+      const bonus = Math.min(dist * bonusPerTile, maxBonus);
+      score *= 1 + bonus;
+    }
+
+    // Bonus if tile is protected by SAM
+    const sams = player.units(UnitType.SAMLauncher).filter((u) => u.isActive());
+    if (sams.length > 0) {
+      const techLevel = playerMaxStructureTechLevel(
+        player,
+        UnitType.SAMLauncher,
+      );
+      const samRange = this.getEffectiveSAMRange(techLevel);
+      const samRangeSquared = samRange * samRange;
+
+      // Count SAMs covering this tile
+      let samCoverage = 0;
+      for (const sam of sams) {
+        if (this.mg.euclideanDistSquared(sam.tile(), tile) <= samRangeSquared) {
+          samCoverage++;
+        }
+      }
+
+      if (samCoverage > 0) {
+        const bonusPerSAM = this.params.otherTileSAMProtectionBonus ?? 0.2;
+        // Diminishing returns for multiple SAMs
+        const totalBonus = bonusPerSAM * (1 - Math.pow(0.5, samCoverage));
+        score *= 1 + totalBonus;
+      }
+    }
+
+    // Penalty if water is within X tiles
+    const waterCheckDist = this.params.otherTileWaterCheckDistance ?? 5;
+    if (waterCheckDist > 0) {
+      const hasNearbyWater = this.tileHasNearbyWater(tile, waterCheckDist);
+      if (hasNearbyWater) {
+        const penalty = this.params.otherTileNearWaterPenalty ?? 0.2;
+        score *= 1 - penalty;
+      }
+    }
+
+    return score;
+  }
+
+  /**
+   * Checks if there is water (ocean) within the given distance of a tile.
+   */
+  private tileHasNearbyWater(tile: TileRef, maxDist: number): boolean {
+    const cx = this.mg.x(tile);
+    const cy = this.mg.y(tile);
+    const maxDistSq = maxDist * maxDist;
+
+    // Sample tiles in the area to check for water
+    for (let dy = -maxDist; dy <= maxDist; dy++) {
+      for (let dx = -maxDist; dx <= maxDist; dx++) {
+        if (dx * dx + dy * dy > maxDistSq) continue;
+        const x = cx + dx;
+        const y = cy + dy;
+        if (!this.mg.isValidCoord(x, y)) continue;
+        const t = this.mg.ref(x, y);
+        if (this.mg.isOcean(t)) {
+          return true;
+        }
+      }
+    }
+    return false;
+  }
+
+  /**
+   * Evaluates a random owned tile and updates the saved scores/tiles for ports, defense posts, and other structures.
+   */
+  private tickTileEvaluation(player: Player): void {
+    const numTiles = player.numTilesOwned();
+    if (numTiles === 0) return;
+
+    // Ensure cached tiles are up to date
+    if (
+      this._cachedTiles === null ||
+      this._cachedTilesPlayerTileCount !== numTiles
+    ) {
+      this._cachedTiles = Array.from(player.tiles());
+      this._cachedTilesPlayerTileCount = numTiles;
+    }
+
+    if (this._cachedTiles.length === 0) return;
+
+    // Pick a random owned tile
+    const tile = this.random.randElement(this._cachedTiles);
+
+    // Calculate port score with penalties and bonuses
+    const portScore = this.calculatePortTileScore(player, tile);
+    const defensePostScore =
+      player.canBuild(UnitType.DefensePost, tile) !== false ? 1 : 0;
+    // Calculate other structure score with penalties and bonuses
+    const otherScore = this.calculateOtherTileScore(player, tile);
+
+    // Update port tile if this score is strictly greater
+    if (portScore > this._portTileScore) {
+      this._portTileScore = portScore;
+      this._portTile = tile;
+    }
+
+    // Update defense post tile if this score is strictly greater
+    if (defensePostScore > this._defensePostTileScore) {
+      this._defensePostTileScore = defensePostScore;
+      this._defensePostTile = tile;
+    }
+
+    // Update other structures tile if this score is strictly greater
+    if (otherScore > this._otherTileScore) {
+      this._otherTileScore = otherScore;
+      this._otherTile = tile;
+    }
   }
 
   /**
@@ -1030,188 +1307,5 @@ export class AIConstructionHandler {
     }
 
     return false;
-  }
-
-  private passesAiPlacementRules(
-    player: Player,
-    spawnTile: TileRef,
-    unitType: UnitType,
-    rules: {
-      structureMinDist: number;
-      avoidPlayerDist: number;
-      avoidPlayerSampleCount: number;
-      avoidPlayerRingPoints: number;
-    },
-  ): boolean {
-    if (unitType === UnitType.DefensePost) {
-      return true;
-    }
-
-    const {
-      structureMinDist,
-      avoidPlayerDist,
-      avoidPlayerSampleCount,
-      avoidPlayerRingPoints,
-    } = rules;
-
-    if (structureMinDist > 0) {
-      const near = this.mg.nearbyUnits(
-        spawnTile,
-        structureMinDist,
-        AIConstructionHandler.NON_DEFENSE_STRUCTURE_TYPES,
-      );
-      // Any nearby non-defense structure blocks placement.
-      if (near.length > 0) {
-        return false;
-      }
-    }
-
-    if (avoidPlayerDist > 0) {
-      // Local sampling around the candidate tile: reject if we detect nearby
-      // other player territory within the avoidance radius.
-      if (
-        this.tileIsNearOtherPlayer(
-          player,
-          spawnTile,
-          avoidPlayerDist,
-          avoidPlayerSampleCount,
-          avoidPlayerRingPoints,
-        )
-      ) {
-        return false;
-      }
-    }
-
-    return true;
-  }
-
-  private unitLevelLike(u: Unit): number {
-    const stack = u.stackCount?.() ?? 1;
-    const lvl = u.level?.() ?? 1;
-    return Math.max(stack, lvl);
-  }
-
-  private tryUpgradeExistingStructure(
-    player: Player,
-    unitType: UnitType,
-  ): boolean {
-    if (unitType === UnitType.DefensePost) {
-      return false;
-    }
-    if (!isStackableStructure(unitType)) {
-      return false;
-    }
-
-    const owned = player.units(unitType).filter((u) => u.isActive());
-    if (owned.length === 0) {
-      return false;
-    }
-
-    // Determine if we can afford at least one upgrade step.
-    const baseCost = this.mg.unitInfo(unitType).cost(player);
-    const multiplier = this.mg
-      .config()
-      .structureUpgradeCostMultiplier(unitType);
-    const upgradeCost = computeUpgradeStepCost(baseCost, multiplier);
-    if (player.gold() < upgradeCost) {
-      return false;
-    }
-
-    const maxLevel = playerMaxStructureLevel(player, unitType);
-    const upgradeable = owned.filter((u) => this.unitLevelLike(u) < maxLevel);
-    if (upgradeable.length === 0) {
-      return false;
-    }
-
-    const strategy = this.params.aiStackUpgradeStrategy ?? "lowest";
-
-    const selected =
-      strategy === "weighted"
-        ? this.weightedRandomUnit(upgradeable)
-        : this.lowestLevelUnit(upgradeable);
-
-    if (!selected) {
-      return false;
-    }
-
-    this.mg.addExecution(new UpgradeStructureExecution(player, selected));
-    return true;
-  }
-
-  private lowestLevelUnit(units: Unit[]): Unit | null {
-    let minLevel = Infinity;
-    let best: Unit[] = [];
-    for (const u of units) {
-      const lvl = this.unitLevelLike(u);
-      if (lvl < minLevel) {
-        minLevel = lvl;
-        best = [u];
-      } else if (lvl === minLevel) {
-        best.push(u);
-      }
-    }
-    if (best.length === 0) return null;
-    return this.random.randElement(best);
-  }
-
-  private weightedRandomUnit(units: Unit[]): Unit | null {
-    let total = 0;
-    const weights: number[] = [];
-    for (const u of units) {
-      const w = Math.max(1, this.unitLevelLike(u));
-      weights.push(w);
-      total += w;
-    }
-    if (total <= 0) return null;
-    // nextInt upper bound is exclusive
-    let r = this.random.nextInt(0, total);
-    for (let i = 0; i < units.length; i++) {
-      r -= weights[i];
-      if (r < 0) {
-        return units[i];
-      }
-    }
-    return units[units.length - 1] ?? null;
-  }
-
-  private findPlacement(
-    player: Player,
-    unitType: UnitType,
-    _maxAttempts: number,
-    rules: {
-      structureMinDist: number;
-      avoidPlayerDist: number;
-      avoidPlayerSampleCount: number;
-      avoidPlayerRingPoints: number;
-    },
-  ): TileRef | null {
-    // Use cached tile array if player's tile count hasn't changed
-    const currentTileCount = player.numTilesOwned();
-    if (
-      this._cachedTiles === null ||
-      this._cachedTilesPlayerTileCount !== currentTileCount
-    ) {
-      this._cachedTiles = Array.from(player.tiles());
-      this._cachedTilesPlayerTileCount = currentTileCount;
-    }
-
-    const ownedTiles = this._cachedTiles;
-    if (ownedTiles.length === 0) {
-      return null;
-    }
-
-    for (let i = 0; i < AIConstructionHandler.MAX_PLACEMENT_ATTEMPTS; i++) {
-      const tile = this.random.randElement(ownedTiles);
-      const spawnTile = player.canBuild(unitType, tile);
-      if (spawnTile === false) {
-        continue;
-      }
-      if (!this.passesAiPlacementRules(player, spawnTile, unitType, rules)) {
-        continue;
-      }
-      return spawnTile;
-    }
-
-    return null;
   }
 }

@@ -53,7 +53,7 @@ export function isUpgradeableUnit(type: UnitType): boolean {
   return UPGRADEABLE_UNITS.has(type);
 }
 
-const MAX_STACK_COUNT = 25;
+const MAX_STACK_COUNT = 99;
 
 // Maximum TECH upgrade level for structures (SAM, Airfield)
 // This is NOT the stack count - it's the quality tier from research.
@@ -68,7 +68,7 @@ export function maxStackCount(type: UnitType): number {
   return isStackableStructure(type) ? MAX_STACK_COUNT : 1;
 }
 
-// Legacy function - returns max stack count (25 for all stackable structures)
+// Legacy function - returns max stack count (99 for all stackable structures)
 export function maxStructureLevel(type: UnitType): number {
   return isStackableStructure(type) ? MAX_STACK_COUNT : 1;
 }
