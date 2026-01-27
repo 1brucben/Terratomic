@@ -39,9 +39,9 @@ export class AIConstructionHandler {
   private static readonly AVOID_HUMAN_AI_RING_POINTS = 8; // Reduced from 12
 
   private static readonly PORT_SCORE_MULTIPLIER = 100;
-  private static readonly HOSPITAL_BASE_SCORE = 100;
-  private static readonly ACADEMY_BASE_SCORE = 100;
-  private static readonly RESEARCH_LAB_BASE_SCORE = 100;
+  private static readonly HOSPITAL_BASE_SCORE = 1e-1;
+  private static readonly ACADEMY_BASE_SCORE = 1e-1;
+  private static readonly RESEARCH_LAB_BASE_SCORE = 10;
 
   private static readonly NON_DEFENSE_STRUCTURE_TYPES: UnitType[] =
     Object.values(UnitType).filter(
@@ -164,16 +164,33 @@ export class AIConstructionHandler {
       this.target = null;
     }
 
+    // Log scores for Russia
+    const isRussia = player.name() === "Russia";
+    const scoreMap: Record<string, number> = {};
+
     let bestScore = -Infinity;
     let best: UnitType[] = [];
     for (const t of candidates) {
       const s = this.scoreTarget(player, t);
+      if (isRussia) {
+        scoreMap[t] = s;
+      }
       if (s > bestScore) {
         bestScore = s;
         best = [t];
       } else if (s === bestScore) {
         best.push(t);
       }
+    }
+
+    if (isRussia) {
+      console.log(
+        `[AI Construction] Russia scores:`,
+        Object.entries(scoreMap)
+          .sort(([, a], [, b]) => b - a)
+          .map(([t, s]) => `${t}: ${s.toFixed(4)}`)
+          .join(", "),
+      );
     }
 
     if (best.length === 0) {
@@ -371,8 +388,10 @@ export class AIConstructionHandler {
    * Computes the hospital base score based on troop ratio and pop growth bonus.
    */
   private scoreHospital(player: Player): number {
+    const config = this.mg.config();
     const assumedPopPercent = this.params.aiAssumedPopPercent ?? 0.7;
     const targetTroopRatio = player.targetTroopRatio();
+    const maxPop = config.maxPopulation(player);
 
     // Calculate the bonus from constructing one additional hospital
     // Death multiplier formula: 0.6 + 0.4 * Math.pow(0.75, hospitals)
@@ -383,6 +402,7 @@ export class AIConstructionHandler {
 
     return (
       AIConstructionHandler.HOSPITAL_BASE_SCORE *
+      maxPop *
       targetTroopRatio *
       assumedPopPercent *
       hospitalBonus
@@ -393,8 +413,10 @@ export class AIConstructionHandler {
    * Computes the academy base score based on troop ratio and combat bonus.
    */
   private scoreAcademy(player: Player): number {
+    const config = this.mg.config();
     const assumedPopPercent = this.params.aiAssumedPopPercent ?? 0.7;
     const targetTroopRatio = player.targetTroopRatio();
+    const maxPop = config.maxPopulation(player);
 
     // Calculate the bonus from constructing one additional academy
     // Academy modifier formula: 1.2 - 0.2 * 0.5^(academies)
@@ -406,6 +428,7 @@ export class AIConstructionHandler {
 
     return (
       AIConstructionHandler.ACADEMY_BASE_SCORE *
+      maxPop *
       targetTroopRatio *
       assumedPopPercent *
       academyBonus
