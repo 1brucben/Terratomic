@@ -30,10 +30,10 @@
         "buildCities": true,
         "buildFactories": true,
         "buildPorts": true,
-        "buildHospitals": false,
-        "buildAcademies": false,
+        "buildHospitals": true,
+        "buildAcademies": true,
         "buildAirfields": false,
-        "buildResearchLabs": false,
+        "buildResearchLabs": true,
         "buildMissileSilos": false,
         "buildSAMLaunchers": false,
         "buildDefensePosts": false,
@@ -53,7 +53,7 @@
         "weightDefensePost": 1,
         "weightDoomsdayDevice": 1,
         "aiAssumedPopPercent": 0.7,
-        "aiFirstPortScore": 900
+        "aiFirstPortScore": 800
       }
     }
   ]
