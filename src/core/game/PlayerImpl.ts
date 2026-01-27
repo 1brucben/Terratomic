@@ -1644,6 +1644,28 @@ export class PlayerImpl implements Player {
     ) {
       return false;
     }
+    return this.canBuildAtTileInternal(unitType, targetTile, validTiles);
+  }
+
+  /**
+   * Check if a structure can be built at a tile, ignoring gold cost.
+   * Used by AI for tile evaluation.
+   */
+  canBuildAtTile(unitType: UnitType, targetTile: TileRef): TileRef | false {
+    if (!this.isAlive()) {
+      return false;
+    }
+    if (this.mg.config().isUnitDisabled(unitType)) {
+      return false;
+    }
+    return this.canBuildAtTileInternal(unitType, targetTile, null);
+  }
+
+  private canBuildAtTileInternal(
+    unitType: UnitType,
+    targetTile: TileRef,
+    validTiles: TileRef[] | null,
+  ): TileRef | false {
     switch (unitType) {
       case UnitType.MIRV:
         if (!this.mg.hasOwner(targetTile)) {
