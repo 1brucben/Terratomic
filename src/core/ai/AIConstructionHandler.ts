@@ -39,6 +39,9 @@ export class AIConstructionHandler {
   private static readonly AVOID_HUMAN_AI_RING_POINTS = 8; // Reduced from 12
 
   private static readonly PORT_SCORE_MULTIPLIER = 100;
+  private static readonly HOSPITAL_BASE_SCORE = 100;
+  private static readonly ACADEMY_BASE_SCORE = 100;
+  private static readonly RESEARCH_LAB_BASE_SCORE = 100;
 
   private static readonly NON_DEFENSE_STRUCTURE_TYPES: UnitType[] =
     Object.values(UnitType).filter(
@@ -222,6 +225,12 @@ export class AIConstructionHandler {
       baseScore = this.scoreFactory(player);
     } else if (unitType === UnitType.Port) {
       baseScore = this.scorePort(player);
+    } else if (unitType === UnitType.Hospital) {
+      baseScore = this.scoreHospital(player);
+    } else if (unitType === UnitType.Academy) {
+      baseScore = this.scoreAcademy(player);
+    } else if (unitType === UnitType.ResearchLab) {
+      baseScore = this.scoreResearchLab(player);
     }
 
     // For other structures, base score remains 0 (uses weight only)
@@ -259,7 +268,7 @@ export class AIConstructionHandler {
     const projectedWorkers = projectedTotalPop * (1 - targetTroopRatio);
 
     // Compute factory factor (unchanged by city construction)
-    const k = player.effectiveUnits(UnitType.Factory);
+    const k = player.unitsOwned(UnitType.Factory);
     const factoryFactor = Math.pow(1 + k, 0.35);
 
     // Compute productivity and multiplier (unchanged)
@@ -307,7 +316,7 @@ export class AIConstructionHandler {
     const workers = currentTotalPop * (1 - targetTroopRatio);
 
     // Factory factor changes with +1 factory
-    const k = player.effectiveUnits(UnitType.Factory);
+    const k = player.unitsOwned(UnitType.Factory);
     const currentFactoryFactor = Math.pow(1 + k, 0.35);
     const projectedFactoryFactor = Math.pow(1 + k + 1, 0.35);
 
@@ -332,7 +341,7 @@ export class AIConstructionHandler {
    * Computes the port base score based on trade demand.
    */
   private scorePort(player: Player): number {
-    const portCount = player.effectiveUnits(UnitType.Port);
+    const portCount = player.unitsOwned(UnitType.Port);
 
     // If AI has 0 ports, use the profile parameter for first port score
     if (portCount === 0) {
@@ -355,6 +364,83 @@ export class AIConstructionHandler {
       (1 + metrics.queueRatio) *
       (1 - metrics.availableRatio) *
       tradeIncomeMul
+    );
+  }
+
+  /**
+   * Computes the hospital base score based on troop ratio and pop growth bonus.
+   */
+  private scoreHospital(player: Player): number {
+    const assumedPopPercent = this.params.aiAssumedPopPercent ?? 0.7;
+    const targetTroopRatio = player.targetTroopRatio();
+
+    // Calculate the bonus from constructing one additional hospital
+    // Death multiplier formula: 0.6 + 0.4 * Math.pow(0.75, hospitals)
+    const currentHospitals = player.unitsOwned(UnitType.Hospital);
+    const currentDeathMul = 0.6 + 0.4 * Math.pow(0.75, currentHospitals);
+    const projectedDeathMul = 0.6 + 0.4 * Math.pow(0.75, currentHospitals + 1);
+    const hospitalBonus = currentDeathMul - projectedDeathMul;
+
+    return (
+      AIConstructionHandler.HOSPITAL_BASE_SCORE *
+      targetTroopRatio *
+      assumedPopPercent *
+      hospitalBonus
+    );
+  }
+
+  /**
+   * Computes the academy base score based on troop ratio and combat bonus.
+   */
+  private scoreAcademy(player: Player): number {
+    const assumedPopPercent = this.params.aiAssumedPopPercent ?? 0.7;
+    const targetTroopRatio = player.targetTroopRatio();
+
+    // Calculate the bonus from constructing one additional academy
+    // Academy modifier formula: 1.2 - 0.2 * 0.5^(academies)
+    // Higher modifier = more enemy casualties in combat
+    const currentAcademies = player.unitsOwned(UnitType.Academy);
+    const currentModifier = 1.2 - 0.2 * Math.pow(0.5, currentAcademies);
+    const projectedModifier = 1.2 - 0.2 * Math.pow(0.5, currentAcademies + 1);
+    const academyBonus = projectedModifier - currentModifier;
+
+    return (
+      AIConstructionHandler.ACADEMY_BASE_SCORE *
+      targetTroopRatio *
+      assumedPopPercent *
+      academyBonus
+    );
+  }
+
+  /**
+   * Computes the research lab base score based on research spending and lab bonus.
+   */
+  private scoreResearchLab(player: Player): number {
+    const config = this.mg.config();
+
+    // Calculate total effective research spending
+    const grossGold = config.grossGoldAdditionRate(player);
+    const investRate = player.researchInvestmentRate?.() ?? 0;
+    const researchSpending = grossGold * investRate;
+
+    if (researchSpending <= 0) {
+      return 0;
+    }
+
+    // Calculate the bonus from constructing one additional research lab
+    // Lab multiplier formula: 1 + (0.4 * (1 - 0.5^labs)) / 0.5
+    // This is a geometric series that caps at 1.8 as labs -> infinity
+    const currentLabs = player.unitsOwned(UnitType.ResearchLab);
+    const currentBoostSum =
+      currentLabs > 0 ? (0.4 * (1 - Math.pow(0.5, currentLabs))) / 0.5 : 0;
+    const projectedBoostSum =
+      (0.4 * (1 - Math.pow(0.5, currentLabs + 1))) / 0.5;
+    const labBonus = projectedBoostSum - currentBoostSum;
+
+    return (
+      AIConstructionHandler.RESEARCH_LAB_BASE_SCORE *
+      researchSpending *
+      labBonus
     );
   }
 
