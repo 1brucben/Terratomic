@@ -32,9 +32,6 @@ export class AIConstructionHandler {
   // Structure types blocked from consideration until another structure is built/upgraded
   private _blockedStructures: Set<UnitType> = new Set();
 
-  private static readonly AVOID_PLAYER_SAMPLE_COUNT = 12;
-  private static readonly AVOID_PLAYER_RING_POINTS = 8;
-
   private static readonly PORT_SCORE_MULTIPLIER = 100;
   private static readonly HOSPITAL_BASE_SCORE = 1e-3;
   private static readonly ACADEMY_BASE_SCORE = 1e-3;
@@ -656,7 +653,7 @@ export class AIConstructionHandler {
     // Penalty if within avoid player distance from another player
     const avoidPlayerDist = this.avoidPlayerDistanceFor(UnitType.Port);
     if (avoidPlayerDist > 0) {
-      const isNearPlayer = this.tileIsNearOtherPlayerSampled(
+      const isNearPlayer = this.tileIsNearOtherPlayer(
         player,
         tile,
         avoidPlayerDist,
@@ -740,7 +737,7 @@ export class AIConstructionHandler {
     // Penalty if within avoid player distance from another player
     const avoidPlayerDist = this.avoidPlayerDistanceFor(UnitType.City);
     if (avoidPlayerDist > 0) {
-      const isNearPlayer = this.tileIsNearOtherPlayerSampled(
+      const isNearPlayer = this.tileIsNearOtherPlayer(
         player,
         tile,
         avoidPlayerDist,
@@ -1163,7 +1160,7 @@ export class AIConstructionHandler {
 
       // Check if tile is far enough from other players (use sampled for quick eval)
       if (
-        !this.tileIsNearOtherPlayerSampled(
+        !this.tileIsNearOtherPlayer(
           player,
           tile,
           AIConstructionHandler.SAM_PLACEMENT_MIN_PLAYER_DIST,
@@ -1249,75 +1246,7 @@ export class AIConstructionHandler {
 
   /**
    * Checks if there is another player's territory within the given radius.
-   * Uses random sampling for fast approximate checking during scoring.
-   */
-  private tileIsNearOtherPlayerSampled(
-    player: Player,
-    center: TileRef,
-    radius: number,
-  ): boolean {
-    if (radius <= 0) return false;
-
-    const radiusSq = radius * radius;
-    const cx = this.mg.x(center);
-    const cy = this.mg.y(center);
-
-    const isOtherPlayer = (tile: TileRef): boolean => {
-      if (!this.mg.hasOwner(tile)) return false;
-      const owner = this.mg.owner(tile);
-      if (!owner.isPlayer?.() || !owner.isPlayer()) return false;
-      return owner.id() !== player.id();
-    };
-
-    // A few deterministic ring points at exactly radius
-    const ringPoints = AIConstructionHandler.AVOID_PLAYER_RING_POINTS;
-    if (ringPoints > 0) {
-      const seen = new Set<string>();
-      for (let i = 0; i < ringPoints; i++) {
-        const theta = (2 * Math.PI * i) / ringPoints;
-        const dx = Math.round(radius * Math.cos(theta));
-        const dy = Math.round(radius * Math.sin(theta));
-        if (dx === 0 && dy === 0) continue;
-        const key = `${dx},${dy}`;
-        if (seen.has(key)) continue;
-        seen.add(key);
-        const x = cx + dx;
-        const y = cy + dy;
-        if (!this.mg.isValidCoord(x, y)) continue;
-        const t = this.mg.ref(x, y);
-        if (isOtherPlayer(t)) return true;
-      }
-    }
-
-    // Random samples within the radius disk
-    const sampleCount = AIConstructionHandler.AVOID_PLAYER_SAMPLE_COUNT;
-    for (let i = 0; i < sampleCount; i++) {
-      let dx = 0;
-      let dy = 0;
-      // Rejection sample inside circle; cap retries to avoid worst-case loops
-      for (let tries = 0; tries < 6; tries++) {
-        dx = this.random.nextInt(-radius, radius + 1);
-        dy = this.random.nextInt(-radius, radius + 1);
-        if (dx * dx + dy * dy <= radiusSq) break;
-      }
-
-      if (dx * dx + dy * dy > radiusSq) {
-        continue;
-      }
-
-      const x = cx + dx;
-      const y = cy + dy;
-      if (!this.mg.isValidCoord(x, y)) continue;
-      const t = this.mg.ref(x, y);
-      if (isOtherPlayer(t)) return true;
-    }
-
-    return false;
-  }
-
-  /**
-   * Checks if there is another player's territory within the given radius.
-   * Exhaustively checks all tiles within the radius (used for final validation).
+   * Exhaustively checks all tiles within the radius.
    */
   private tileIsNearOtherPlayer(
     player: Player,
