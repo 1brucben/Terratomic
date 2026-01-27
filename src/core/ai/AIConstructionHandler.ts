@@ -6,7 +6,6 @@ import {
   isStructureType,
   Player,
   PlayerID,
-  PlayerType,
   Unit,
   UnitType,
 } from "../game/Game";
@@ -36,14 +35,15 @@ export class AIConstructionHandler {
   private _blockedStructures: Set<UnitType> = new Set();
   private static readonly MAX_PLACEMENT_ATTEMPTS = 100;
 
-  private static readonly AVOID_HUMAN_AI_SAMPLE_COUNT = 12; // Reduced from 30
-  private static readonly AVOID_HUMAN_AI_RING_POINTS = 8; // Reduced from 12
+  private static readonly AVOID_PLAYER_SAMPLE_COUNT = 12; // Reduced from 30
+  private static readonly AVOID_PLAYER_RING_POINTS = 8; // Reduced from 12
 
   private static readonly PORT_SCORE_MULTIPLIER = 100;
   private static readonly HOSPITAL_BASE_SCORE = 1e-3;
   private static readonly ACADEMY_BASE_SCORE = 1e-3;
   private static readonly RESEARCH_LAB_BASE_SCORE = 8e-1;
   private static readonly AIRFIELD_SCORE_MULTIPLIER = 1e-1;
+  private static readonly SAM_BASE_SCORE = 1e-6;
   private static readonly SAM_EVALUATION_INTERVAL = 10;
   private static readonly SAM_PLACEMENT_MIN_PLAYER_DIST = 10;
 
@@ -128,17 +128,17 @@ export class AIConstructionHandler {
     }
 
     const structureMinDist = this.structureMinDistanceFor(this.target);
-    const avoidHumanAiDist = this.avoidHumanAiDistanceFor(this.target);
-    const avoidHumanAiSampleCount =
-      AIConstructionHandler.AVOID_HUMAN_AI_SAMPLE_COUNT;
-    const avoidHumanAiRingPoints =
-      AIConstructionHandler.AVOID_HUMAN_AI_RING_POINTS;
+    const avoidPlayerDist = this.avoidPlayerDistanceFor(this.target);
+    const avoidPlayerSampleCount =
+      AIConstructionHandler.AVOID_PLAYER_SAMPLE_COUNT;
+    const avoidPlayerRingPoints =
+      AIConstructionHandler.AVOID_PLAYER_RING_POINTS;
 
     const placement = this.findPlacement(player, this.target, 200, {
       structureMinDist,
-      avoidHumanAiDist,
-      avoidHumanAiSampleCount,
-      avoidHumanAiRingPoints,
+      avoidPlayerDist,
+      avoidPlayerSampleCount,
+      avoidPlayerRingPoints,
     });
     if (placement !== null) {
       // Recalculate right before building to ensure target is still optimal
@@ -165,9 +165,9 @@ export class AIConstructionHandler {
     // Fallback: try again with relaxed rules (no structure min dist, smaller player avoidance)
     const relaxedPlacement = this.findPlacement(player, this.target, 200, {
       structureMinDist: 0,
-      avoidHumanAiDist: 5,
-      avoidHumanAiSampleCount,
-      avoidHumanAiRingPoints,
+      avoidPlayerDist: 5,
+      avoidPlayerSampleCount,
+      avoidPlayerRingPoints,
     });
     if (relaxedPlacement !== null) {
       this.mg.addExecution(
@@ -557,7 +557,7 @@ export class AIConstructionHandler {
    * The score is computed periodically by tickSAMEvaluation().
    */
   private scoreSAMLauncher(_player: Player): number {
-    return this._bestSAMScore;
+    return this._bestSAMScore * AIConstructionHandler.SAM_BASE_SCORE;
   }
 
   /**
@@ -878,12 +878,12 @@ export class AIConstructionHandler {
 
       // Check if tile is far enough from other players
       if (
-        !this.tileIsNearHumanOrAi(
+        !this.tileIsNearOtherPlayer(
           player,
           tile,
           AIConstructionHandler.SAM_PLACEMENT_MIN_PLAYER_DIST,
-          AIConstructionHandler.AVOID_HUMAN_AI_SAMPLE_COUNT,
-          AIConstructionHandler.AVOID_HUMAN_AI_RING_POINTS,
+          AIConstructionHandler.AVOID_PLAYER_SAMPLE_COUNT,
+          AIConstructionHandler.AVOID_PLAYER_RING_POINTS,
         )
       ) {
         return tile;
@@ -959,12 +959,12 @@ export class AIConstructionHandler {
     return Math.max(0, Math.floor(this.params.aiStructureMinDistance ?? 25)); // Reduced from 40
   }
 
-  private avoidHumanAiDistanceFor(unitType: UnitType): number {
+  private avoidPlayerDistanceFor(unitType: UnitType): number {
     if (unitType === UnitType.DefensePost) return 0;
-    return Math.max(0, Math.floor(this.params.aiAvoidHumanAiDistance ?? 8)); // Reduced from 10
+    return Math.max(0, Math.floor(this.params.aiAvoidPlayerDistance ?? 8)); // Reduced from 10
   }
 
-  private tileIsNearHumanOrAi(
+  private tileIsNearOtherPlayer(
     player: Player,
     center: TileRef,
     radius: number,
@@ -977,14 +977,11 @@ export class AIConstructionHandler {
     const cx = this.mg.x(center);
     const cy = this.mg.y(center);
 
-    const isHumanOrAiOwner = (tile: TileRef): boolean => {
+    const isOtherPlayer = (tile: TileRef): boolean => {
       if (!this.mg.hasOwner(tile)) return false;
       const owner = this.mg.owner(tile);
       if (!owner.isPlayer?.() || !owner.isPlayer()) return false;
-      if (owner.id() === player.id()) return false;
-      return (
-        owner.type() === PlayerType.Human || owner.type() === PlayerType.AI
-      );
+      return owner.id() !== player.id();
     };
 
     // A few deterministic ring points at exactly radius.
@@ -1002,7 +999,7 @@ export class AIConstructionHandler {
         const y = cy + dy;
         if (!this.mg.isValidCoord(x, y)) continue;
         const t = this.mg.ref(x, y);
-        if (isHumanOrAiOwner(t)) return true;
+        if (isOtherPlayer(t)) return true;
       }
     }
 
@@ -1025,7 +1022,7 @@ export class AIConstructionHandler {
       const y = cy + dy;
       if (!this.mg.isValidCoord(x, y)) continue;
       const t = this.mg.ref(x, y);
-      if (isHumanOrAiOwner(t)) return true;
+      if (isOtherPlayer(t)) return true;
     }
 
     return false;
@@ -1037,9 +1034,9 @@ export class AIConstructionHandler {
     unitType: UnitType,
     rules: {
       structureMinDist: number;
-      avoidHumanAiDist: number;
-      avoidHumanAiSampleCount: number;
-      avoidHumanAiRingPoints: number;
+      avoidPlayerDist: number;
+      avoidPlayerSampleCount: number;
+      avoidPlayerRingPoints: number;
     },
   ): boolean {
     if (unitType === UnitType.DefensePost) {
@@ -1048,9 +1045,9 @@ export class AIConstructionHandler {
 
     const {
       structureMinDist,
-      avoidHumanAiDist,
-      avoidHumanAiSampleCount,
-      avoidHumanAiRingPoints,
+      avoidPlayerDist,
+      avoidPlayerSampleCount,
+      avoidPlayerRingPoints,
     } = rules;
 
     if (structureMinDist > 0) {
@@ -1065,16 +1062,16 @@ export class AIConstructionHandler {
       }
     }
 
-    if (avoidHumanAiDist > 0) {
+    if (avoidPlayerDist > 0) {
       // Local sampling around the candidate tile: reject if we detect nearby
-      // Human/AI territory within the avoidance radius.
+      // other player territory within the avoidance radius.
       if (
-        this.tileIsNearHumanOrAi(
+        this.tileIsNearOtherPlayer(
           player,
           spawnTile,
-          avoidHumanAiDist,
-          avoidHumanAiSampleCount,
-          avoidHumanAiRingPoints,
+          avoidPlayerDist,
+          avoidPlayerSampleCount,
+          avoidPlayerRingPoints,
         )
       ) {
         return false;
@@ -1179,9 +1176,9 @@ export class AIConstructionHandler {
     _maxAttempts: number,
     rules: {
       structureMinDist: number;
-      avoidHumanAiDist: number;
-      avoidHumanAiSampleCount: number;
-      avoidHumanAiRingPoints: number;
+      avoidPlayerDist: number;
+      avoidPlayerSampleCount: number;
+      avoidPlayerRingPoints: number;
     },
   ): TileRef | null {
     // Use cached tile array if player's tile count hasn't changed
