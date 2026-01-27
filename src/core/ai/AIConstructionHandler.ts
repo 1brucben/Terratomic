@@ -64,10 +64,11 @@ export class AIConstructionHandler {
   private _otherEvalCount: number = 0;
 
   // Upgrade evaluation state for each stackable structure type (except SAM which has its own system)
-  // Maps UnitType -> { score: number, unit: Unit | null, evalCount: number }
+  // Maps UnitType -> { score: number, unit: Unit | null, evaluatedIds: Set<number> }
+  // evaluatedIds tracks which specific structure IDs have been evaluated this cycle
   private _upgradeScores: Map<
     UnitType,
-    { score: number; unit: Unit | null; evalCount: number }
+    { score: number; unit: Unit | null; evaluatedIds: Set<number> }
   > = new Map();
 
   private static readonly ALL_STRUCTURE_TYPES: UnitType[] = Object.values(
@@ -144,24 +145,24 @@ export class AIConstructionHandler {
       this.tickTileEvaluation(player);
     }
 
-    // Log saved scores every second
-    if (ticks % AIConstructionHandler.LOG_INTERVAL === 0) {
-      // Build upgrade scores string
-      const upgradeScoresStr = Array.from(this._upgradeScores.entries())
-        .map(
-          ([type, data]) =>
-            `${type}=${data.score.toFixed(3)}(e${data.evalCount})`,
-        )
-        .join(", ");
-      console.log(
-        `[AI Construction] ${player.name()}: ` +
-          `port=${this._portTileScore.toFixed(3)}(e${this._portEvalCount}), ` +
-          `defense=${this._defensePostTileScore.toFixed(3)}(e${this._defensePostEvalCount}), ` +
-          `other=${this._otherTileScore.toFixed(3)}(e${this._otherEvalCount}), ` +
-          `sam=${this._bestSAMScore.toFixed(3)}, target=${this.target}, ` +
-          `upgrades=[${upgradeScoresStr}]`,
-      );
-    }
+    // Log saved scores every second (disabled for debugging)
+    // if (ticks % AIConstructionHandler.LOG_INTERVAL === 0) {
+    //   // Build upgrade scores string
+    //   const upgradeScoresStr = Array.from(this._upgradeScores.entries())
+    //     .map(
+    //       ([type, data]) =>
+    //         `${type}=${data.score.toFixed(3)}(e${data.evalCount})`,
+    //     )
+    //     .join(", ");
+    //   console.log(
+    //     `[AI Construction] ${player.name()}: ` +
+    //       `port=${this._portTileScore.toFixed(3)}(e${this._portEvalCount}), ` +
+    //       `defense=${this._defensePostTileScore.toFixed(3)}(e${this._defensePostEvalCount}), ` +
+    //       `other=${this._otherTileScore.toFixed(3)}(e${this._otherEvalCount}), ` +
+    //       `sam=${this._bestSAMScore.toFixed(3)}, target=${this.target}, ` +
+    //       `upgrades=[${upgradeScoresStr}]`,
+    //   );
+    // }
 
     // Periodically re-score and potentially retarget.
     // Only switches if there's a strictly better target than the current.
@@ -239,7 +240,10 @@ export class AIConstructionHandler {
     // Re-validate the tile at build time to catch any changes since evaluation
     if (!this.validateTileForConstruction(player, savedTile, this.target)) {
       // Tile no longer valid - clear it and wait for fresh evaluation
-      this.clearTileScoresForTile(savedTile);
+      this.clearTileScoresForTile(
+        savedTile,
+        `validation failed for ${this.target}`,
+      );
       this.target = null;
       return;
     }
@@ -258,7 +262,10 @@ export class AIConstructionHandler {
     }
 
     // Clear the score and tile for this structure type, and any others sharing the same tile
-    this.clearTileScoresForTile(savedTile);
+    this.clearTileScoresForTile(
+      savedTile,
+      `build attempted for ${this.target} (success=${spawnTile !== false})`,
+    );
     this.target = null;
   }
 
@@ -325,7 +332,10 @@ export class AIConstructionHandler {
 
   /**
    * Gets the evaluation count for a structure type.
-   * Uses the max of tile eval count and upgrade eval count.
+   * Returns MIN_TILE_EVALUATIONS_BEFORE_BUILD if:
+   * - Tile eval count >= MIN_TILE_EVALUATIONS_BEFORE_BUILD, AND
+   * - All stackable structures of this type have been evaluated (or none exist)
+   * Otherwise returns a value less than MIN_TILE_EVALUATIONS_BEFORE_BUILD.
    */
   private getEvalCountForStructure(unitType: UnitType): number {
     // Get tile evaluation count
@@ -338,12 +348,56 @@ export class AIConstructionHandler {
       tileEvalCount = this._otherEvalCount;
     }
 
-    // Get upgrade evaluation count (if applicable)
-    const upgradeData = this._upgradeScores.get(unitType);
-    const upgradeEvalCount = upgradeData?.evalCount ?? 0;
+    // If tile eval count is below threshold, return it directly
+    if (
+      tileEvalCount < AIConstructionHandler.MIN_TILE_EVALUATIONS_BEFORE_BUILD
+    ) {
+      return tileEvalCount;
+    }
 
-    // Return the max - we want enough evaluations in either category
-    return Math.max(tileEvalCount, upgradeEvalCount);
+    // Check if all stackable structures of this type have been evaluated
+    if (isStackableStructure(unitType) && unitType !== UnitType.SAMLauncher) {
+      const allEvaluated = this.allStructuresEvaluatedForType(unitType);
+      if (!allEvaluated) {
+        // Return a value below threshold to block construction until all evaluated
+        return AIConstructionHandler.MIN_TILE_EVALUATIONS_BEFORE_BUILD - 1;
+      }
+    }
+
+    // Both conditions met
+    return tileEvalCount;
+  }
+
+  /**
+   * Checks if all upgradeable structures of a given type have been evaluated.
+   * Returns true if there are no upgradeable structures or all have been evaluated.
+   */
+  private allStructuresEvaluatedForType(unitType: UnitType): boolean {
+    const player = this.getPlayer();
+    if (!player) return true;
+
+    // Get all upgradeable structures of this type
+    const upgradeableUnits = player.units(unitType).filter((u) => {
+      if (!u.isActive()) return false;
+      const currentStack = u.stackCount?.() ?? 1;
+      const maxStack = maxStackCount(unitType);
+      return currentStack < maxStack;
+    });
+
+    // If no upgradeable structures, consider all evaluated
+    if (upgradeableUnits.length === 0) return true;
+
+    // Check if all have been evaluated
+    const upgradeData = this._upgradeScores.get(unitType);
+    if (!upgradeData) return false; // No evaluations done yet
+
+    const evaluatedIds = upgradeData.evaluatedIds;
+    for (const unit of upgradeableUnits) {
+      if (!evaluatedIds.has(unit.id())) {
+        return false;
+      }
+    }
+    return true;
   }
 
   private recalculateTarget(player: Player): void {
@@ -838,18 +892,27 @@ export class AIConstructionHandler {
    * Clears the tile score for a given structure type and any other scores sharing the same tile.
    * Also resets the tile evaluation counter to require fresh evaluations.
    */
-  private clearTileScoresForTile(tile: TileRef): void {
+  private clearTileScoresForTile(tile: TileRef, reason: string): void {
     if (this._portTile === tile) {
+      console.log(
+        `[AI Construction] Clearing portEvalCount (was ${this._portEvalCount}), reason: ${reason}`,
+      );
       this._portTileScore = 0;
       this._portTile = null;
       this._portEvalCount = 0;
     }
     if (this._defensePostTile === tile) {
+      console.log(
+        `[AI Construction] Clearing defensePostEvalCount (was ${this._defensePostEvalCount}), reason: ${reason}`,
+      );
       this._defensePostTileScore = 0;
       this._defensePostTile = null;
       this._defensePostEvalCount = 0;
     }
     if (this._otherTile === tile) {
+      console.log(
+        `[AI Construction] Clearing otherEvalCount (was ${this._otherEvalCount}), reason: ${reason}`,
+      );
       this._otherTileScore = 0;
       this._otherTile = null;
       this._otherEvalCount = 0;
@@ -1107,7 +1170,7 @@ export class AIConstructionHandler {
     if (this._cachedTiles.length === 0) return;
 
     // Randomly decide between evaluating a new tile or an existing structure for upgrade
-    const evaluateUpgrade = this.random.chance(0.5);
+    const evaluateUpgrade = this.random.chance(2); // 1/2 = 50% chance
 
     if (evaluateUpgrade) {
       // Try to evaluate an upgrade candidate, fall back to new tile if none available
@@ -1161,6 +1224,7 @@ export class AIConstructionHandler {
 
   /**
    * Evaluates a random existing structure for potential upgrade/stacking.
+   * Prioritizes structures that haven't been evaluated yet this cycle.
    * Uses the same scoring as new tiles but divides by UPGRADE_SCORE_DIVISOR.
    * Returns true if a structure was evaluated, false if no upgradeable structures exist.
    */
@@ -1191,8 +1255,18 @@ export class AIConstructionHandler {
 
     if (upgradeableStructures.length === 0) return false;
 
-    // Pick a random upgradeable structure
-    const structure = this.random.randElement(upgradeableStructures);
+    // Prioritize structures that haven't been evaluated yet
+    const unevaluatedStructures = upgradeableStructures.filter((u) => {
+      const data = this._upgradeScores.get(u.type());
+      return !data || !data.evaluatedIds.has(u.id());
+    });
+
+    // Pick from unevaluated if any exist, otherwise pick from all
+    const candidatePool =
+      unevaluatedStructures.length > 0
+        ? unevaluatedStructures
+        : upgradeableStructures;
+    const structure = this.random.randElement(candidatePool);
     const tile = structure.tile();
     const unitType = structure.type();
 
@@ -1210,21 +1284,25 @@ export class AIConstructionHandler {
     // Get current upgrade data for this specific structure type
     const currentData = this._upgradeScores.get(unitType);
     const currentScore = currentData?.score ?? 0;
-    const currentEvalCount = currentData?.evalCount ?? 0;
+    const currentEvaluatedIds = currentData?.evaluatedIds ?? new Set<number>();
+
+    // Add this structure to the evaluated set
+    const newEvaluatedIds = new Set(currentEvaluatedIds);
+    newEvaluatedIds.add(structure.id());
 
     // Update the upgrade score/unit for this structure type if this score is strictly greater
     if (score > currentScore) {
       this._upgradeScores.set(unitType, {
         score,
         unit: structure,
-        evalCount: currentEvalCount + 1,
+        evaluatedIds: newEvaluatedIds,
       });
     } else {
-      // Still increment eval count even if score didn't improve
+      // Still track that we evaluated this structure even if score didn't improve
       this._upgradeScores.set(unitType, {
         score: currentScore,
         unit: currentData?.unit ?? null,
-        evalCount: currentEvalCount + 1,
+        evaluatedIds: newEvaluatedIds,
       });
     }
 
