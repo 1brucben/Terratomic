@@ -53,6 +53,10 @@ export class AIConstructionHandler {
   private _bestSAMIsUpgrade: boolean = false; // true if best option is stacking existing SAM
   private _bestSAMUpgradeUnit: Unit | null = null; // the SAM unit to stack (if _bestSAMIsUpgrade)
 
+  private static readonly ALL_STRUCTURE_TYPES: UnitType[] = Object.values(
+    UnitType,
+  ).filter((t) => isStructureType(t));
+
   private static readonly NON_DEFENSE_STRUCTURE_TYPES: UnitType[] =
     Object.values(UnitType).filter(
       (t) => isStructureType(t) && t !== UnitType.DefensePost,
@@ -727,7 +731,7 @@ export class AIConstructionHandler {
   ): number {
     let score = 0;
 
-    for (const structureType of AIConstructionHandler.NON_DEFENSE_STRUCTURE_TYPES) {
+    for (const structureType of AIConstructionHandler.ALL_STRUCTURE_TYPES) {
       const structures = player
         .units(structureType)
         .filter((u) => u.isActive());
