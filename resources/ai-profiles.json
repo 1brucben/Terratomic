@@ -39,7 +39,7 @@
         "buildDefensePosts": false,
         "buildDoomsdayDevices": false,
         "aiStructureMinDistance": 40,
-        "aiAvoidHumanAiDistance": 40,
+        "aiAvoidPlayerDistance": 40,
         "aiStackUpgradeStrategy": "lowest",
         "weightCity": 1,
         "weightFactory": 1,
