@@ -53,7 +53,19 @@
         "weightDefensePost": 1,
         "weightDoomsdayDevice": 1,
         "aiAssumedPopPercent": 0.7,
-        "aiFirstPortScore": 800
+        "aiFirstPortScore": 800,
+        "portTileNearPlayerPenalty": 0.5,
+        "portTileNearStructurePenalty": 0.3,
+        "portTileCapitalDistanceBonus": 0.01,
+        "portTileCapitalDistanceBonusMax": 0.15,
+        "portTileSAMProtectionBonus": 0.2,
+        "otherTileNearPlayerPenalty": 0.5,
+        "otherTileNearStructurePenalty": 0.3,
+        "otherTileCapitalDistanceBonus": 0.01,
+        "otherTileCapitalDistanceBonusMax": 0.5,
+        "otherTileSAMProtectionBonus": 0.2,
+        "otherTileWaterCheckDistance": 5,
+        "otherTileNearWaterPenalty": 0.2
       }
     }
   ]

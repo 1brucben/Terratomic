@@ -141,6 +141,70 @@ export interface AIBehaviorParams {
    * Default 1.0.
    */
   aiFirstPortScore?: number;
+
+  // === Port Tile Scoring ===
+  /**
+   * Percentage penalty (0-1) for port tile if within avoid player distance from another player.
+   * Default 0.5 (50% penalty).
+   */
+  portTileNearPlayerPenalty?: number;
+  /**
+   * Percentage penalty (0-1) for port tile if within structure min distance from own structure.
+   * Default 0.3 (30% penalty).
+   */
+  portTileNearStructurePenalty?: number;
+  /**
+   * Percentage bonus per tile of distance from capital (0-1).
+   * Default 0.01 (1% bonus per tile).
+   */
+  portTileCapitalDistanceBonus?: number;
+  /**
+   * Maximum bonus from capital distance (0-1).
+   * Default 0.5 (50% max bonus).
+   */
+  portTileCapitalDistanceBonusMax?: number;
+  /**
+   * Percentage bonus (0-1) if tile is protected by at least one SAM.
+   * Default 0.2 (20% bonus).
+   */
+  portTileSAMProtectionBonus?: number;
+
+  // === Other Tile Scoring (non-port, non-defense post, non-SAM structures) ===
+  /**
+   * Percentage penalty (0-1) for other tile if within avoid player distance from another player.
+   * Default 0.5 (50% penalty).
+   */
+  otherTileNearPlayerPenalty?: number;
+  /**
+   * Percentage penalty (0-1) for other tile if within structure min distance from own structure.
+   * Default 0.3 (30% penalty).
+   */
+  otherTileNearStructurePenalty?: number;
+  /**
+   * Percentage bonus per tile of distance from capital (0-1).
+   * Default 0.01 (1% bonus per tile).
+   */
+  otherTileCapitalDistanceBonus?: number;
+  /**
+   * Maximum bonus from capital distance (0-1).
+   * Default 0.5 (50% max bonus).
+   */
+  otherTileCapitalDistanceBonusMax?: number;
+  /**
+   * Percentage bonus (0-1) if tile is protected by at least one SAM.
+   * Default 0.2 (20% bonus).
+   */
+  otherTileSAMProtectionBonus?: number;
+  /**
+   * Distance (in tiles) to check for nearby water.
+   * Default 5.
+   */
+  otherTileWaterCheckDistance?: number;
+  /**
+   * Percentage penalty (0-1) if water is within the water check distance.
+   * Default 0.2 (20% penalty).
+   */
+  otherTileNearWaterPenalty?: number;
 }
 
 export interface AIProfile {
