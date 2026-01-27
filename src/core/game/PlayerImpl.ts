@@ -36,6 +36,7 @@ import {
   GameMode,
   GameType,
   Gold,
+  isStructureType,
   MessageType,
   MutableAlliance,
   Player,
@@ -1648,8 +1649,11 @@ export class PlayerImpl implements Player {
   }
 
   /**
-   * Check if a structure can be built at a tile, ignoring gold cost.
-   * Used by AI for tile evaluation.
+   * Lightweight check if a structure can be built at a specific tile, ignoring gold cost.
+   * Used by AI for tile evaluation. Unlike canBuild(), this does NOT do a BFS search -
+   * it only validates the specific tile directly (ownership + structure spacing).
+   * For ports, it checks if the tile is an ocean shore owned by this player.
+   * For land structures, it checks if the tile is land owned by this player.
    */
   canBuildAtTile(unitType: UnitType, targetTile: TileRef): TileRef | false {
     if (!this.isAlive()) {
@@ -1658,7 +1662,37 @@ export class PlayerImpl implements Player {
     if (this.mg.config().isUnitDisabled(unitType)) {
       return false;
     }
-    return this.canBuildAtTileInternal(unitType, targetTile, null);
+
+    // Check ownership
+    if (this.mg.owner(targetTile) !== this) {
+      return false;
+    }
+
+    // Type-specific terrain checks
+    if (unitType === UnitType.Port) {
+      // Ports must be on ocean shore
+      if (!this.mg.isOceanShore(targetTile)) {
+        return false;
+      }
+    } else if (isStructureType(unitType)) {
+      // Land-based structures cannot be on ocean
+      if (this.mg.isOcean(targetTile)) {
+        return false;
+      }
+    }
+
+    // Check structure spacing - no existing structure within minDist
+    const minDist = this.mg.config().structureMinDist();
+    const types = Object.values(UnitType).filter((t) => {
+      return this.mg.config().unitInfo(t).territoryBound;
+    });
+    const nearbyUnits = this.mg.nearbyUnits(targetTile, minDist, types);
+    if (nearbyUnits.length > 0) {
+      // There's at least one structure too close
+      return false;
+    }
+
+    return targetTile;
   }
 
   private canBuildAtTileInternal(

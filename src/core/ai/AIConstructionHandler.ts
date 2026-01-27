@@ -924,7 +924,12 @@ export class AIConstructionHandler {
    * Returns 0 if port cannot be built, otherwise a score with penalties/bonuses.
    */
   private calculatePortTileScore(player: Player, tile: TileRef): number {
-    // Base check: can a port be built here? (ignores gold)
+    // Early terrain check: ports must be on ocean shore (skip canBuildAtTile entirely for non-shore tiles)
+    if (!this.mg.isOceanShore(tile)) {
+      return 0;
+    }
+
+    // Check ownership and structure spacing
     if (player.canBuildAtTile(UnitType.Port, tile) === false) {
       return 0;
     }
@@ -1022,7 +1027,12 @@ export class AIConstructionHandler {
    * Returns 0 if structure cannot be built, otherwise a score with penalties/bonuses.
    */
   private calculateOtherTileScore(player: Player, tile: TileRef): number {
-    // Base check: can a city (proxy for other structures) be built here? (ignores gold)
+    // Early terrain check: land structures cannot be on ocean (skip canBuildAtTile entirely for ocean tiles)
+    if (this.mg.isOcean(tile)) {
+      return 0;
+    }
+
+    // Check ownership and structure spacing
     if (player.canBuildAtTile(UnitType.City, tile) === false) {
       return 0;
     }
@@ -1191,12 +1201,19 @@ export class AIConstructionHandler {
     // Pick a random owned tile
     const tile = this.random.randElement(this._cachedTiles);
 
-    // Calculate port score with penalties and bonuses
+    // Early terrain classification to avoid redundant expensive checks
+    const isOceanTile = this.mg.isOcean(tile);
+
+    // Calculate port score with penalties and bonuses (only for ocean shore tiles)
     const portScore = this.calculatePortTileScore(player, tile);
-    const defensePostScore =
-      player.canBuildAtTile(UnitType.DefensePost, tile) !== false ? 1 : 0;
-    // Calculate other structure score with penalties and bonuses
-    const otherScore = this.calculateOtherTileScore(player, tile);
+
+    // Land structures (defense post and other) can only be built on non-ocean tiles
+    // We use otherScore > 0 as a proxy for whether the tile is valid for land structures,
+    // since both DefensePost and City use the same landBasedStructureSpawn logic
+    const otherScore = isOceanTile
+      ? 0
+      : this.calculateOtherTileScore(player, tile);
+    const defensePostScore = otherScore > 0 ? 1 : 0;
 
     // Increment evaluation counts for each type
     this._portEvalCount++;
@@ -1736,8 +1753,13 @@ export class AIConstructionHandler {
       }
       return newScore > 0;
     } else if (unitType === UnitType.DefensePost) {
-      const newScore =
-        player.canBuildAtTile(UnitType.DefensePost, tile) !== false ? 1 : 0;
+      // DefensePost uses same land-based spawn logic as other structures, so we can
+      // use calculateOtherTileScore > 0 as a proxy for validity (avoids separate canBuildAtTile call)
+      const newScore = this.mg.isOcean(tile)
+        ? 0
+        : this.calculateOtherTileScore(player, tile) > 0
+          ? 1
+          : 0;
       if (newScore < this._defensePostTileScore) {
         this._defensePostTileScore = 0;
         this._defensePostTile = null;
