@@ -77,7 +77,6 @@ export class AIBotAttackHandler {
     if (this.currentBotTarget === null) {
       return;
     }
-
     this.launchBotAttack(player, this.currentBotTarget);
   }
 

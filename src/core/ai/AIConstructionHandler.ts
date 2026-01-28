@@ -412,37 +412,16 @@ export class AIConstructionHandler {
       this.target = null;
     }
 
-    // Log scores for Russia
-    const isRussia = player.name() === "Russia";
-    const scoreMap: Record<string, number> = {};
-
     let bestScore = -Infinity;
     let best: UnitType[] = [];
     for (const t of candidates) {
       const s = this.scoreTarget(player, t);
-      if (isRussia) {
-        scoreMap[t] = s;
-      }
       if (s > bestScore) {
         bestScore = s;
         best = [t];
       } else if (s === bestScore) {
         best.push(t);
       }
-    }
-
-    if (isRussia) {
-      const blockedStr =
-        this._blockedStructures.size > 0
-          ? ` [blocked: ${Array.from(this._blockedStructures).join(", ")}]`
-          : "";
-      console.log(
-        `[AI Construction] Russia scores:`,
-        Object.entries(scoreMap)
-          .sort(([, a], [, b]) => b - a)
-          .map(([t, s]) => `${t}: ${s.toFixed(4)}`)
-          .join(", ") + blockedStr,
-      );
     }
 
     if (best.length === 0) {
@@ -894,25 +873,16 @@ export class AIConstructionHandler {
    */
   private clearTileScoresForTile(tile: TileRef, reason: string): void {
     if (this._portTile === tile) {
-      console.log(
-        `[AI Construction] Clearing portEvalCount (was ${this._portEvalCount}), reason: ${reason}`,
-      );
       this._portTileScore = 0;
       this._portTile = null;
       this._portEvalCount = 0;
     }
     if (this._defensePostTile === tile) {
-      console.log(
-        `[AI Construction] Clearing defensePostEvalCount (was ${this._defensePostEvalCount}), reason: ${reason}`,
-      );
       this._defensePostTileScore = 0;
       this._defensePostTile = null;
       this._defensePostEvalCount = 0;
     }
     if (this._otherTile === tile) {
-      console.log(
-        `[AI Construction] Clearing otherEvalCount (was ${this._otherEvalCount}), reason: ${reason}`,
-      );
       this._otherTileScore = 0;
       this._otherTile = null;
       this._otherEvalCount = 0;
@@ -1333,11 +1303,8 @@ export class AIConstructionHandler {
    * "retry" if there's a temporary failure (should try again later).
    */
   private trySAMConstruction(player: Player): "success" | "blocked" | "retry" {
-    const isRussia = player.name() === "Russia";
-
     // No evaluation data available - this is a permanent failure until re-evaluation finds something
     if (this._bestSAMScore <= 0) {
-      if (isRussia) console.log(`[AI SAM] Russia trySAM: no score`);
       return "blocked";
     }
 
@@ -1347,8 +1314,6 @@ export class AIConstructionHandler {
 
       // Verify the SAM still exists and is active
       if (!samToStack.isActive()) {
-        if (isRussia)
-          console.log(`[AI SAM] Russia trySAM stack: SAM not active`);
         this.resetSAMEvaluationState();
         return "retry"; // SAM was destroyed, need to re-evaluate
       }
@@ -1357,16 +1322,10 @@ export class AIConstructionHandler {
       const currentStack = samToStack.stackCount?.() ?? 1;
       const maxStack = maxStackCount(UnitType.SAMLauncher);
       if (currentStack >= maxStack) {
-        if (isRussia)
-          console.log(`[AI SAM] Russia trySAM stack: already at max stack`);
         this.resetSAMEvaluationState();
         return "retry"; // Need to re-evaluate
       }
 
-      if (isRussia)
-        console.log(
-          `[AI SAM] Russia trySAM stack: SUCCESS (stack ${currentStack}→${currentStack + 1})`,
-        );
       this.mg.addExecution(new UpgradeStructureExecution(player, samToStack));
       this.resetSAMEvaluationState();
       return "success";
@@ -1376,19 +1335,15 @@ export class AIConstructionHandler {
 
       // Verify the tile is still owned by this player
       if (!this.mg.hasOwner(tile) || this.mg.owner(tile).id() !== player.id()) {
-        if (isRussia) console.log(`[AI SAM] Russia trySAM new: tile not owned`);
         this.resetSAMEvaluationState();
         return "retry"; // Tile lost, need to re-evaluate
       }
 
       // Verify the tile can have a structure built on it
       if (!player.canBuild(UnitType.SAMLauncher, tile)) {
-        if (isRussia) console.log(`[AI SAM] Russia trySAM new: canBuild=false`);
         this.resetSAMEvaluationState();
         return "retry"; // Something blocking, need to re-evaluate
       }
-
-      if (isRussia) console.log(`[AI SAM] Russia trySAM new: SUCCESS`);
 
       // Build the SAM - ConstructionExecution automatically builds at player's max researched level
       this.mg.addExecution(
@@ -1399,7 +1354,6 @@ export class AIConstructionHandler {
       return "success";
     }
 
-    if (isRussia) console.log(`[AI SAM] Russia trySAM: no tile or stack unit`);
     return "blocked"; // No valid option stored
   }
 
@@ -1529,7 +1483,6 @@ export class AIConstructionHandler {
 
     // Randomly pick one option to evaluate this tick
     const choice = this.random.randElement(options);
-    const isRussia = player.name() === "Russia";
 
     if (choice.type === "new") {
       // Evaluate placing a new SAM at a random tile
@@ -1542,12 +1495,6 @@ export class AIConstructionHandler {
         sams,
         samRangeSquared,
       );
-
-      if (isRussia) {
-        console.log(
-          `[AI SAM] Russia new SAM eval: score=${score.toFixed(2)}, best=${this._bestSAMScore.toFixed(2)}`,
-        );
-      }
 
       if (score > this._bestSAMScore) {
         this._bestSAMScore = score;
@@ -1570,12 +1517,6 @@ export class AIConstructionHandler {
 
       // Divide by 0.8 since stacking is cheaper (80% of base cost)
       const adjustedScore = score / 0.8;
-
-      if (isRussia) {
-        console.log(
-          `[AI SAM] Russia stack SAM eval: score=${score.toFixed(2)}, adjusted=${adjustedScore.toFixed(2)}, best=${this._bestSAMScore.toFixed(2)}`,
-        );
-      }
 
       if (adjustedScore > this._bestSAMScore) {
         this._bestSAMScore = adjustedScore;
