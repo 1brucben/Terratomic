@@ -13,12 +13,15 @@ export class AITerraNulliusHandler {
   private pendingBoatTargets: Set<TileRef> = new Set();
   private currentSearchRange: number = 50;
   private tnExpansionDisabled: boolean = false;
+  private boatExpansionDisabled: boolean = false;
   private lastTNCheckTick: number = 0;
+  private lastBoatCheckTick: number = 0;
   private lastBoatAttemptTick: number = 0;
   private playerShoreCache: { tiles: TileRef[]; tick: number } | null = null;
   private tnBorderCache: { borders: boolean; tick: number } | null = null;
   private static readonly MAX_SEARCH_RANGE = 270;
   private static readonly TN_RECHECK_INTERVAL = 100; // ticks between re-checking if TN exists
+  private static readonly BOAT_RECHECK_INTERVAL = 100; // ticks between re-checking if boat TN reachable
   private static readonly BOAT_ATTEMPT_INTERVAL = 10; // only attempt boat attacks every N ticks
   private static readonly TN_BORDER_CACHE_INTERVAL = 20; // cache sharesBorderWith(tn) result
   private static readonly SHORE_CACHE_INTERVAL = 10;
@@ -113,6 +116,21 @@ export class AITerraNulliusHandler {
     }
 
     // Otherwise, try boat attack (rate-limited to avoid expensive shore searches)
+    // Check if boat expansion is disabled (no reachable TN ocean shore)
+    if (this.boatExpansionDisabled) {
+      if (
+        currentTick - this.lastBoatCheckTick >=
+        AITerraNulliusHandler.BOAT_RECHECK_INTERVAL
+      ) {
+        this.lastBoatCheckTick = currentTick;
+        // Re-enable to try again - if TN land tiles changed, there might be new boat targets
+        this.boatExpansionDisabled = false;
+        this.currentSearchRange = 50; // Reset search range for fresh attempt
+      } else {
+        return false;
+      }
+    }
+
     if (
       currentTick - this.lastBoatAttemptTick <
       AITerraNulliusHandler.BOAT_ATTEMPT_INTERVAL
@@ -134,12 +152,15 @@ export class AITerraNulliusHandler {
       AITerraNulliusHandler.MAX_SEARCH_RANGE,
     );
 
-    // If we've maxed out search range and still can't find TN, check if TN exists at all
+    // If we've maxed out search range and still can't find TN, disable boat expansion
     if (this.currentSearchRange >= AITerraNulliusHandler.MAX_SEARCH_RANGE) {
       if (!this.hasTNLandTiles()) {
         this.tnExpansionDisabled = true;
-        this.lastTNCheckTick = this.mg.ticks();
+        this.lastTNCheckTick = currentTick;
       }
+      // Disable boat expansion specifically - no reachable TN ocean shore found
+      this.boatExpansionDisabled = true;
+      this.lastBoatCheckTick = currentTick;
     }
 
     return false;
