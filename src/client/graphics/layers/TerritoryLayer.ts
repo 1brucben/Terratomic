@@ -65,11 +65,13 @@ export class TerritoryLayer implements Layer {
   // Cached map dimensions to avoid repeated method calls in hot render path
   private _width: number;
   private _height: number;
+  private lastSatelliteLayerEnabled = false;
 
   constructor(
     private game: GameView,
     private eventBus: EventBus,
     private transformHandler: TransformHandler,
+    private uiState: { satelliteLayerEnabled: boolean },
   ) {
     this.theme = game.config().theme();
     this._width = game.width();
@@ -88,6 +90,10 @@ export class TerritoryLayer implements Layer {
   }
 
   tick() {
+    if (this.uiState.satelliteLayerEnabled !== this.lastSatelliteLayerEnabled) {
+      this.lastSatelliteLayerEnabled = this.uiState.satelliteLayerEnabled;
+      this.redraw();
+    }
     this.game.recentlyUpdatedTiles().forEach((t) => this.enqueueTile(t));
     const updates = this.game.updatesSinceLastTick();
     const unitUpdates = updates !== null ? updates[GameUpdateType.Unit] : [];
@@ -580,7 +586,10 @@ export class TerritoryLayer implements Layer {
         const useBorderColor = playerIsFocused
           ? this.theme.focusedBorderColor()
           : this.theme.borderColor(owner);
-        this.paintTile(this.imageData, tile, useBorderColor, 255);
+        const color = this.uiState.satelliteLayerEnabled
+          ? useBorderColor.darken(0.2)
+          : useBorderColor;
+        this.paintTile(this.imageData, tile, color, 255);
       }
     } else {
       if (myPlayer) {
@@ -612,7 +621,9 @@ export class TerritoryLayer implements Layer {
         territoryColor = this.theme.territoryColor(owner);
         this.territoryColorCache.set(owner.id(), territoryColor);
       }
-      this.paintTile(this.imageData, tile, territoryColor, 150);
+      // If satellite is enabled, make it more opaque (higher alpha)
+      const alpha = this.uiState.satelliteLayerEnabled ? 175 : 150;
+      this.paintTile(this.imageData, tile, territoryColor, alpha);
     }
   }
 

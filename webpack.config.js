@@ -137,6 +137,21 @@ export default async (env, argv) => {
             },
           },
           {
+            from: path.resolve(__dirname, "resources/maps"),
+            to: path.resolve(__dirname, "static/maps"),
+            noErrorOnMissing: true,
+            globOptions: {
+              ignore: ["**/*.!(png)"], // Only copy pngs? User said [name]_Terrain.png. Let's be specific or just allowing pngs is cleaner.
+              // Actually, the user wants [MapName]_Terrain.png.
+              // Let's copy all pngs from maps/ to static/maps/ preserving structure?
+              // The original ignore was "resources/maps/**/*".
+              // We want to COPY "resources/maps/**/ *_Terrain.png"
+            },
+            filter: (resourcePath) => {
+              return resourcePath.endsWith("_Terrain.png");
+            },
+          },
+          {
             from: path.resolve(__dirname, "proprietary", "images"),
             to: path.resolve(__dirname, "static", "images"),
             noErrorOnMissing: true,

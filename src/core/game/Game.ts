@@ -58,41 +58,8 @@ export const ColoredTeams: Record<string, Team> = {
   Bot: "Bot",
 } as const;
 
-export enum GameMapType {
-  WorldMap = "World",
-  WorldMapGiant = "Giant World Map",
-  Europe = "Europe",
-  EuropeClassic = "Europe Classic",
-  EuropeV2 = "Europe V2",
-  Mena = "Mena",
-  NorthAmerica = "North America",
-  SouthAmerica = "South America",
-  Oceania = "Oceania",
-  BlackSea = "Black Sea",
-  Africa = "Africa",
-  Pangaea = "Pangaea",
-  Asia = "Asia",
-  Mars = "Mars",
-  Britannia = "Britannia",
-  GatewayToTheAtlantic = "Gateway to the Atlantic",
-  Australia = "Australia",
-  Iceland = "Iceland",
-  EastAsia = "East Asia",
-  BetweenTwoSeas = "Between Two Seas",
-  FaroeIslands = "Faroe Islands",
-  DeglaciatedAntarctica = "Deglaciated Antarctica",
-  FalklandIslands = "Falkland Islands",
-  Baikal = "Baikal",
-  Halkidiki = "Halkidiki",
-  StraitOfGibraltar = "Strait of Gibraltar",
-  Italia = "Italia",
-  Nukewars1024 = "Nukewars 1024",
-  NukeWars2 = "NukeWars 2",
-  NukeWars2000 = "NukeWars 2000",
-  NukeWarsQuad = "NukeWars Quad",
-}
-
-export type GameMapName = keyof typeof GameMapType;
+import { GameMapName, GameMapType } from "./GameMapType";
+export { GameMapName, GameMapType };
 
 import mapData from "../../../resources/maps/maps.json" with { type: "json" };
 

@@ -29,6 +29,7 @@ interface TerrainMap {
   magnitudes: Int16Array;
   shorelines: Uint8Array;
   oceans: Uint8Array;
+  cosmetics: Uint8Array;
 }
 
 function createTerrainMap(width: number, height: number): TerrainMap {
@@ -40,6 +41,7 @@ function createTerrainMap(width: number, height: number): TerrainMap {
     magnitudes: new Int16Array(size),
     shorelines: new Uint8Array(size),
     oceans: new Uint8Array(size),
+    cosmetics: new Uint8Array(size),
   };
 }
 
@@ -91,10 +93,50 @@ export async function generateMap(
     const b = data[idx + 2];
     const a = data[idx + 3];
 
-    // Original logic:
-    if (a < 20 || b === 106) {
-      // transparent
+    // Water Colors (Blue Channel)
+    // 106: Standard (#00006A)
+    // 160: L1 (#0000A0) -> Cosmetic 1
+    // 122: L2 (#00007A) -> Cosmetic 2
+    // 102: L3 (#000066) -> Cosmetic 3
+    // 81:  L4 (#000051) -> Cosmetic 4
+    // 63:  L5 (#00003F) -> Cosmetic 5
+    // 51:  L6 (#000033) -> Cosmetic 6
+    // 41:  L7 (#000029) -> Cosmetic 7
+    // 29:  L8 (#00001D) -> Cosmetic 8
+    // 17:  L9 (#000011) -> Cosmetic 9
+    // 5:   L10(#000005) -> Cosmetic 10
+
+    const bVal = b; // Aliasing for clarity
+    const isBlueWater =
+      r === 0 &&
+      g === 0 &&
+      (bVal === 106 ||
+        bVal === 160 || // Cosmetic 1 (Restored)
+        bVal === 122 ||
+        bVal === 102 ||
+        bVal === 81 ||
+        bVal === 63 ||
+        bVal === 51 ||
+        bVal === 41 ||
+        bVal === 29 ||
+        bVal === 17 ||
+        bVal === 5);
+
+    const isWater = a < 20 || isBlueWater;
+
+    if (isWater) {
+      // transparent or specific blue
       tm.types[i] = TerrainType.Water;
+      if (bVal === 160) tm.cosmetics[i] = 1;
+      else if (bVal === 122) tm.cosmetics[i] = 2;
+      else if (bVal === 102) tm.cosmetics[i] = 3;
+      else if (bVal === 81) tm.cosmetics[i] = 4;
+      else if (bVal === 63) tm.cosmetics[i] = 5;
+      else if (bVal === 51) tm.cosmetics[i] = 6;
+      else if (bVal === 41) tm.cosmetics[i] = 7;
+      else if (bVal === 29) tm.cosmetics[i] = 8;
+      else if (bVal === 17) tm.cosmetics[i] = 9;
+      else if (bVal === 5) tm.cosmetics[i] = 10;
     } else if (r === 0 && g === 0 && b === 0 && a === 255) {
       // Black = Barrier
       tm.types[i] = TerrainType.Barrier;
@@ -177,6 +219,7 @@ async function createMiniMap(tm: TerrainMap): Promise<TerrainMap> {
         miniTm.magnitudes[dstI] = tm.magnitudes[srcI];
         miniTm.shorelines[dstI] = tm.shorelines[srcI];
         miniTm.oceans[dstI] = tm.oceans[srcI];
+        miniTm.cosmetics[dstI] = tm.cosmetics[srcI];
       }
     }
   }
@@ -370,6 +413,7 @@ function removeSmallIslands(tm: TerrainMap, removeSmall: boolean) {
         const idx = indices[k];
         tm.types[idx] = TerrainType.Water;
         tm.magnitudes[idx] = 0;
+        tm.cosmetics[idx] = 0;
       }
     }
   }
@@ -406,7 +450,19 @@ function packTerrain(tm: TerrainMap): Uint8Array {
       byte |= 31;
     } else {
       // Water
-      byte |= Math.min(Math.ceil(tm.magnitudes[i] / 2), 31); // Magnitude division logic preserved
+      let mag = Math.min(Math.ceil(tm.magnitudes[i] / 2), 31);
+      // Clamp standard water to 20 to reserve 21+ for cosmetics
+      // Using 20 as max standard water depth
+      if (mag > 20) mag = 20;
+
+      // Apply cosmetics (mag 21-30)
+      if (tm.cosmetics[i] > 0) {
+        // Map cosmetic ID 1..10 to 21..30
+        // Override standard magnitude completely
+        mag = 20 + tm.cosmetics[i];
+      }
+
+      byte |= mag;
     }
 
     // We are iterating row-major (y*width+x), which is what packTerrain expects.

@@ -29,6 +29,20 @@ export class PastelThemeDark implements Theme {
   private water = colord({ r: 36, g: 43, b: 95 });
   private shorelineWater = colord({ r: 50, g: 50, b: 50 });
 
+  // 10-level water gradient (L1-L10) - Same colors as requested
+  private waterLevels = [
+    colord("#465E85"), // Mag 21 (Soft Steel Blue)
+    colord("#3F5478"), // Mag 22
+    colord("#384B6B"), // Mag 23
+    colord("#31415E"), // Mag 24
+    colord("#2A3851"), // Mag 25
+    colord("#232E44"), // Mag 26
+    colord("#1C2537"), // Mag 27
+    colord("#161C2B"), // Mag 28
+    colord("#0F121E"), // Mag 29
+    colord("#080912"), // Mag 30 (Almost Black, faint blue tint)
+  ];
+
   private _selfColor = colord({ r: 0, g: 255, b: 0 });
   private _allyColor = colord({ r: 255, g: 255, b: 0 });
   private _enemyColor = colord({ r: 255, g: 0, b: 0 });
@@ -94,6 +108,11 @@ export class PastelThemeDark implements Theme {
 
   terrainColor(gm: GameMap, tile: TileRef): Colord {
     const mag = gm.magnitude(tile);
+    // Check for cosmetic overrides (Mag 21-30) FIRST
+    if (mag >= 21 && mag <= 30 && gm.isWater(tile)) {
+      return this.waterLevels[mag - 21];
+    }
+
     if (gm.isShore(tile)) {
       return this.shore;
     }

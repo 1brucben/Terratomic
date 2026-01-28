@@ -1,0 +1,52 @@
+{
+  "name": "singapore",
+  "width": 1673,
+  "height": 1028,
+  "nations": [
+    {
+      "coordinates": [771, 409],
+      "name": "Singapore",
+      "strength": 3
+    },
+    {
+      "coordinates": [1322, 450],
+      "name": "Some rich guy",
+      "strength": 2
+    },
+    {
+      "coordinates": [112, 109],
+      "name": "Malaysia",
+      "strength": 3
+    },
+    {
+      "coordinates": [308, 738],
+      "name": "Jurong Island",
+      "strength": 2
+    },
+    {
+      "coordinates": [792, 148],
+      "name": "Woodlands",
+      "strength": 1
+    },
+    {
+      "coordinates": [443, 306],
+      "name": "Some other rich guy",
+      "strength": 2
+    },
+    {
+      "coordinates": [586, 29],
+      "name": "Johor Bahru",
+      "strength": 2
+    },
+    {
+      "coordinates": [128, 664],
+      "name": "Tuas",
+      "strength": 2
+    },
+    {
+      "coordinates": [1131, 74],
+      "name": "Pasir Gudang",
+      "strength": 2
+    }
+  ]
+}

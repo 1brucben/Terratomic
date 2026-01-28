@@ -65,6 +65,7 @@ export class MapDisplay extends LitElement {
     .option-image {
       width: 100%;
       aspect-ratio: 4/2;
+      object-fit: cover;
       color: var(--ui-text-muted);
       transition: transform 0.2s ease-in-out;
       border-radius: 8px;

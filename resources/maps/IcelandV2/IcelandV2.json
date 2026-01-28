@@ -1,0 +1,49 @@
+{
+  "name": "Iceland_Upgrade",
+  "width": 2460,
+  "height": 1676,
+  "nations": [
+    {
+      "coordinates": [561, 507],
+      "name": "Westfjords",
+      "strength": 2,
+      "flag": "is"
+    },
+    {
+      "coordinates": [651, 887],
+      "name": "Western reigon",
+      "strength": 2,
+      "flag": "is"
+    },
+    {
+      "coordinates": [689, 1203],
+      "name": "Reykjavik",
+      "strength": 3,
+      "flag": "is"
+    },
+    {
+      "coordinates": [1139, 1314],
+      "name": "Southern Reigon",
+      "strength": 3,
+      "flag": "is"
+    },
+    {
+      "coordinates": [1928, 944],
+      "name": "Eastern Reigon",
+      "strength": 3,
+      "flag": "is"
+    },
+    {
+      "coordinates": [1626, 522],
+      "name": "Northeastern Reigon",
+      "strength": 3,
+      "flag": "is"
+    },
+    {
+      "coordinates": [973, 691],
+      "name": "Northwestern Reigon",
+      "strength": 2,
+      "flag": "is"
+    }
+  ]
+}

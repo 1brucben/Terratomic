@@ -1,0 +1,97 @@
+{
+  "name": "Madagascar_Map",
+  "width": 1458,
+  "height": 2500,
+  "nations": [
+    {
+      "coordinates": [1176, 470],
+      "name": "Diana",
+      "strength": 2
+    },
+    {
+      "coordinates": [903, 715],
+      "name": "Sofia",
+      "strength": 2
+    },
+    {
+      "coordinates": [1138, 935],
+      "name": "Analanjirofo",
+      "strength": 1
+    },
+    {
+      "coordinates": [629, 868],
+      "name": "Boeny",
+      "strength": 1
+    },
+    {
+      "coordinates": [731, 1033],
+      "name": "Betsiboka",
+      "strength": 1
+    },
+    {
+      "coordinates": [1055, 1288],
+      "name": "Atsinanana",
+      "strength": 2
+    },
+    {
+      "coordinates": [982, 1110],
+      "name": "Alaotra Mangoro",
+      "strength": 1
+    },
+    {
+      "coordinates": [776, 1253],
+      "name": "Analamanga",
+      "strength": 2
+    },
+    {
+      "coordinates": [728, 1383],
+      "name": "Itasy",
+      "strength": 3
+    },
+    {
+      "coordinates": [435, 1056],
+      "name": "Melaky",
+      "strength": 2
+    },
+    {
+      "coordinates": [448, 1447],
+      "name": "Menabe",
+      "strength": 2
+    },
+    {
+      "coordinates": [288, 1881],
+      "name": "Atsimo-Andrefana",
+      "strength": 3
+    },
+    {
+      "coordinates": [446, 2209],
+      "name": "Androy",
+      "strength": 2
+    },
+    {
+      "coordinates": [663, 2140],
+      "name": "Anosy",
+      "strength": 2
+    },
+    {
+      "coordinates": [598, 1900],
+      "name": "Ihorombe",
+      "strength": 2
+    },
+    {
+      "coordinates": [842, 1927],
+      "name": "Atsimo-Atsinanana",
+      "strength": 2
+    },
+    {
+      "coordinates": [929, 1680],
+      "name": "Vatovavy-Fitovinany",
+      "strength": 2
+    },
+    {
+      "coordinates": [667, 1661],
+      "name": "Haute-Matsiatra",
+      "strength": 2
+    }
+  ]
+}

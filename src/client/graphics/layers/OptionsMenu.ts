@@ -17,6 +17,7 @@ import {
   UI_SCALE_DEFAULT_PERCENT,
   UI_SCALE_STEP_PERCENT,
 } from "../../uiScale";
+import { UIState } from "../UIState";
 import { Layer } from "./Layer";
 
 const button = ({
@@ -52,6 +53,7 @@ export class OptionsMenu extends LitElement implements Layer {
   layerName = "OptionsMenu";
   public game: GameView;
   public eventBus: EventBus;
+  public uiState!: UIState; // Injected
   private userSettings: UserSettings = new UserSettings();
 
   @state()
@@ -85,6 +87,16 @@ export class OptionsMenu extends LitElement implements Layer {
   private onTerrainButtonClick() {
     this.alternateView = !this.alternateView;
     this.eventBus.emit(new AlternateViewEvent(this.alternateView));
+    this.requestUpdate();
+  }
+
+  private onToggleSatelliteLayer() {
+    this.uiState.satelliteLayerEnabled = !this.uiState.satelliteLayerEnabled;
+    this.requestUpdate();
+  }
+
+  private onToggleDetailedWater() {
+    this.uiState.detailedWaterEnabled = !this.uiState.detailedWaterEnabled;
     this.requestUpdate();
   }
 
@@ -323,6 +335,24 @@ export class OptionsMenu extends LitElement implements Layer {
             title: "Toggle Special effects",
             children: "💥: " + (this.userSettings.fxLayer() ? "On" : "Off"),
           })}
+          
+          <div class="flex gap-2">
+            ${button({
+              classes: "flex-1",
+              onClick: () => this.onToggleSatelliteLayer(),
+              title: "Toggle Satellite Layer",
+              children:
+                "🦆: " + (this.uiState?.satelliteLayerEnabled ? "On" : "Off"),
+            })}
+            ${button({
+              classes: "flex-1",
+              onClick: () => this.onToggleDetailedWater(),
+              title: "Toggle Detailed Water",
+              children:
+                "🛥️: " + (this.uiState?.detailedWaterEnabled ? "On" : "Off"),
+            })}
+          </div>
+
           ${button({
             onClick: this.onToggleTutorialsButtonClick,
             title: "Toggle Tutorial Tips",

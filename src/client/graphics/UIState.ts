@@ -11,4 +11,6 @@ export interface UIState {
   bomberUpgradeMode: boolean;
   // Local client-side unit levels (id -> level)
   unitLevels: Record<number, number>;
+  satelliteLayerEnabled: boolean;
+  detailedWaterEnabled: boolean;
 }

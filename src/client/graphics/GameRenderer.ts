@@ -33,6 +33,7 @@ import { RangeOverlayLayer } from "./layers/RangeOverlayLayer";
 import { ReplayPanel } from "./layers/ReplayPanel";
 import { ResearchToggleButton } from "./layers/ResearchToggleButton";
 import { RoadLayer } from "./layers/RoadLayer";
+import { SatelliteLayer } from "./layers/SatelliteLayer";
 import { SpawnTimer } from "./layers/SpawnTimer";
 import { StructureLayer } from "./layers/StructureLayer";
 import { TeamStats } from "./layers/TeamStats";
@@ -44,6 +45,7 @@ import { TutorialToast } from "./layers/TutorialToast";
 import { TutorialTriggers } from "./layers/TutorialTriggers";
 import { UILayer } from "./layers/UILayer";
 import { UnitLayer } from "./layers/UnitLayer";
+import { WaterWaveLayer } from "./layers/WaterWaveLayer";
 import { WinModal } from "./layers/WinModal";
 
 // Debug flags (keep off for normal gameplay)
@@ -75,6 +77,8 @@ export function createRenderer(
     upgradeMode: false,
     bomberUpgradeMode: false,
     unitLevels: {},
+    satelliteLayerEnabled: false,
+    detailedWaterEnabled: true,
   };
 
   //hide when the game renders
@@ -206,6 +210,7 @@ export function createRenderer(
   }
   optionsMenu.eventBus = eventBus;
   optionsMenu.game = game;
+  optionsMenu.uiState = uiState;
 
   const replayPanel = document.querySelector("replay-panel") as ReplayPanel;
   if (!(replayPanel instanceof ReplayPanel)) {
@@ -270,8 +275,10 @@ export function createRenderer(
   const structureLayer = new StructureLayer(game, eventBus, transformHandler);
 
   const layers: Layer[] = [
-    new TerrainLayer(game, transformHandler),
-    new TerritoryLayer(game, eventBus, transformHandler),
+    new TerrainLayer(game, transformHandler, uiState),
+    new SatelliteLayer(game, uiState),
+    new WaterWaveLayer(game, transformHandler),
+    new TerritoryLayer(game, eventBus, transformHandler, uiState),
     new RoadLayer(game, transformHandler),
     new CargoTruckLayer(game, transformHandler),
     // World-space ring overlay for Defense Posts/SAMs

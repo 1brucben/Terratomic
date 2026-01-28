@@ -1,0 +1,122 @@
+{
+  "name": "BlackSeaV2",
+  "mapInfoState": {
+    "width": 3508,
+    "height": 1889,
+    "originalWidth": 3508,
+    "originalHeight": 1889,
+    "cropData": {
+      "isCropped": false,
+      "cropX": 0,
+      "cropY": 0,
+      "cropWidth": 0,
+      "cropHeight": 0,
+      "originalWidth": 0,
+      "originalHeight": 0
+    },
+    "colorMappings": []
+  },
+  "nations": [
+    {
+      "coordinates": [3471, 1715],
+      "name": "Iran",
+      "strength": 1,
+      "flag": "ir"
+    },
+    {
+      "coordinates": [3426, 1276],
+      "name": "Azerbaijan",
+      "strength": 1,
+      "flag": "az"
+    },
+    {
+      "coordinates": [68, 260],
+      "name": "Hungary",
+      "strength": 1,
+      "flag": "hu"
+    },
+    {
+      "coordinates": [115, 40],
+      "name": "Slovakia",
+      "strength": 1,
+      "flag": "sk"
+    },
+    {
+      "coordinates": [821, 681],
+      "name": "Romania",
+      "strength": 1,
+      "flag": "ro"
+    },
+    {
+      "coordinates": [990, 393],
+      "name": "Moldova",
+      "strength": 1,
+      "flag": "md"
+    },
+    {
+      "coordinates": [1094, 341],
+      "name": "Transnistria",
+      "strength": 1
+    },
+    {
+      "coordinates": [616, 1130],
+      "name": "Bulgaria",
+      "strength": 1,
+      "flag": "bg"
+    },
+    {
+      "coordinates": [211, 1837],
+      "name": "Greece",
+      "strength": 1,
+      "flag": "gr"
+    },
+    {
+      "coordinates": [73, 1302],
+      "name": "North Macedonia",
+      "strength": 1,
+      "flag": "mk"
+    },
+    {
+      "coordinates": [94, 1045],
+      "name": "Serbia",
+      "strength": 1,
+      "flag": "rs"
+    },
+    {
+      "coordinates": [21, 754],
+      "name": "Croatia",
+      "strength": 1,
+      "flag": "hr"
+    },
+    {
+      "coordinates": [1569, 1616],
+      "name": "Türkiye",
+      "strength": 2,
+      "flag": "tr"
+    },
+    {
+      "coordinates": [3247, 1538],
+      "name": "Armenia",
+      "strength": 1,
+      "flag": "am"
+    },
+    {
+      "coordinates": [2764, 1169],
+      "name": "Georgia",
+      "strength": 1,
+      "flag": "ge"
+    },
+    {
+      "coordinates": [1723, 214],
+      "name": "Ukraine",
+      "strength": 2,
+      "flag": "ua"
+    },
+    {
+      "coordinates": [2637, 63],
+      "name": "Russia",
+      "strength": 3,
+      "flag": "ru"
+    }
+  ]
+}

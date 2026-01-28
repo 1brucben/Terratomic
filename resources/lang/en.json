@@ -173,12 +173,17 @@
     "baikal": "Baikal",
     "halkidiki": "Halkidiki",
     "straitofgibraltar": "Strait of Gibraltar",
-    "italia": "Italia",
+    "italy": "Italy",
     "nukewars1024": "Nukewars 1",
     "nukewars2": "Nukewars 2",
     "nukewars2000": "Nukewars",
     "nukewarsquad": "Nukewars Quad",
-    "europev2": "Europe V2"
+    "europev2": "Europe V2",
+    "blackseav2": "Black Sea V2",
+    "denmark": "Denmark",
+    "icelandv2": "Iceland V2",
+    "madagascar": "Madagascar",
+    "singapore": "Singapore"
   },
   "map_categories": {
     "continental": "Continental",

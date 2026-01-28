@@ -4,42 +4,45 @@
     "displayName": "World",
     "category": "continental",
     "frequency": 3,
-    "playerCounts": [75, 40, 25]
+    "playerCounts": [75, 40, 25],
+    "waveSpeed": 0.028,
+    "waveDistance": 10
   },
   {
     "fileName": "WorldMapGiant",
     "displayName": "Giant World Map",
     "category": "continental",
     "frequency": 1,
-    "playerCounts": [75, 50, 30]
+    "playerCounts": [75, 50, 30],
+    "waveSpeed": 0.07,
+    "waveDistance": 15
   },
   {
     "fileName": "NorthAmerica",
     "displayName": "North America",
     "category": "continental",
     "frequency": 1,
-    "playerCounts": [40, 30, 25]
+    "playerCounts": [40, 30, 25],
+    "waveSpeed": 0.045,
+    "waveDistance": 20
   },
   {
     "fileName": "SouthAmerica",
     "displayName": "South America",
     "category": "continental",
     "frequency": 1,
-    "playerCounts": [35, 25, 20]
+    "playerCounts": [35, 25, 20],
+    "waveSpeed": 0.04,
+    "waveDistance": 20
   },
   {
     "fileName": "Europe",
     "displayName": "Europe",
     "category": "continental",
     "frequency": 2,
-    "playerCounts": [40, 25, 15]
-  },
-  {
-    "fileName": "EuropeV2",
-    "displayName": "Europe V2",
-    "category": "continental",
-    "frequency": 2,
-    "playerCounts": [40, 25, 15]
+    "playerCounts": [40, 25, 15],
+    "waveSpeed": 0.06,
+    "waveDistance": 20
   },
   {
     "fileName": "EuropeClassic",
@@ -70,13 +73,6 @@
     "playerCounts": [15, 10, 5]
   },
   {
-    "fileName": "BlackSea",
-    "displayName": "Black Sea",
-    "category": "regional",
-    "frequency": 1,
-    "playerCounts": [20, 25, 15]
-  },
-  {
     "fileName": "Britannia",
     "displayName": "Britannia",
     "category": "regional",
@@ -96,13 +92,6 @@
     "category": "regional",
     "frequency": 1,
     "playerCounts": [20, 25, 15]
-  },
-  {
-    "fileName": "Iceland",
-    "displayName": "Iceland",
-    "category": "regional",
-    "frequency": 1,
-    "playerCounts": [25, 20, 15]
   },
   {
     "fileName": "EastAsia",
@@ -157,15 +146,13 @@
     "fileName": "StraitOfGibraltar",
     "displayName": "Strait of Gibraltar",
     "category": "regional",
-    "notes": "No source PNG found for regeneration",
     "frequency": 0,
     "playerCounts": [25, 20, 15]
   },
   {
-    "fileName": "italia",
-    "displayName": "Italia",
+    "fileName": "Italy",
+    "displayName": "Italy",
     "category": "regional",
-    "notes": "No source PNG found for regeneration",
     "frequency": 0,
     "playerCounts": [25, 20, 15]
   },
@@ -219,5 +206,42 @@
     "category": "fantasy",
     "frequency": 1,
     "playerCounts": [25, 20, 15]
+  },
+  {
+    "fileName": "Denmark",
+    "displayName": "Denmark",
+    "category": "regional",
+    "frequency": 2,
+    "playerCounts": [40, 25, 15]
+  },
+  {
+    "fileName": "IcelandV2",
+    "displayName": "Iceland V2",
+    "category": "regional",
+    "frequency": 2,
+    "playerCounts": [40, 25, 15],
+    "waveSpeed": 0.08,
+    "waveDistance": 50
+  },
+  {
+    "fileName": "Madagascar",
+    "displayName": "Madagascar",
+    "category": "regional",
+    "frequency": 2,
+    "playerCounts": [40, 25, 15]
+  },
+  {
+    "fileName": "Singapore",
+    "displayName": "Singapore",
+    "category": "regional",
+    "frequency": 2,
+    "playerCounts": [40, 25, 15]
+  },
+  {
+    "fileName": "BlackSeaV2",
+    "displayName": "Black Sea V2",
+    "category": "regional",
+    "frequency": 2,
+    "playerCounts": [40, 25, 15]
   }
 ]
