@@ -15,7 +15,7 @@
         "terraNulliusMaxDistance": 300,
         "terraNulliusBoatSpacing": 30,
         "botAttackTroopThreshold": 0.5,
-        "botAttackMaxDistance": 200,
+        "botAttackMaxDistance": 300,
         "botAttackOwnTroopPercent": 0.3,
         "botAttackEnemyTroopMultiplier": 1.5,
         "defendingTroopTarget": 0.5,
