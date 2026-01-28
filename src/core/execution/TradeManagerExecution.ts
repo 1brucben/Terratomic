@@ -58,6 +58,10 @@ export class TradeManagerExecution implements Execution {
   private cachedShips: Unit[] = [];
   private cachedPorts: Unit[] = [];
   private cacheTickStamp: number = -1;
+  // Per-processPortSupply cache: portId -> active ship count for that port
+  private activeSupplyCache: Map<number, number> = new Map();
+  // Per-processPortSupply cache: portId -> Port unit
+  private portByIdCache: Map<number, Unit> = new Map();
 
   // --- Debug helpers (human owners only) ---
   // Logging removed per request; retain no-op stubs to avoid refactor churn
@@ -233,10 +237,12 @@ export class TradeManagerExecution implements Execution {
     const delay = this.mg.config().tradeShipReplacementDelayTicks();
     const targetSupplyFor = (port: Unit) => basePerPort * port.level();
 
+    // Build per-tick caches for O(1) lookups
+    this.buildPortSupplyCaches();
+
     // 1) Update current home-port assignments and track current owners
     const currentShipIds = new Set<number>();
-    const shipsSnapshot = [...this.cachedShips];
-    for (const ship of shipsSnapshot) {
+    for (const ship of this.cachedShips) {
       // Remove trade ships owned by eliminated players
       if (!ship.owner().isAlive()) {
         // Delete without messages; considered a consequence of elimination
@@ -270,31 +276,14 @@ export class TradeManagerExecution implements Execution {
         );
         const homePortId = this.shipHomePortById.get(sid);
         if (homePortId !== undefined) {
-          const port = this.mg
-            .units(UnitType.Port)
-            .find((p) => p.id() === homePortId && p.isActive());
-          if (
-            port &&
-            this.activeHomeSupplyCount(port) < targetSupplyFor(port)
-          ) {
-            const list = this.replacementDueAt.get(homePortId) ?? [];
-            const target = targetSupplyFor(port);
-            const active = this.activeHomeSupplyCount(port);
-            const pending = list.length;
-            const missing = Math.max(0, target - (active + pending));
-            if (missing > 0) {
-              const newList = [...list];
-              for (let i = 0; i < missing; i++) newList.push(ticks + delay);
-              this.replacementDueAt.set(homePortId, newList);
-              const homePortObj = this.mg
-                .units(UnitType.Port)
-                .find((p) => p.id() === homePortId && p.isActive());
-              if (homePortObj)
-                (homePortObj as any).setPendingTradeShipDueTicks(newList);
-              this.log(
-                `t=${ticks} schedule replacement after capture homePort=${homePortId} add=${missing} due=${ticks + delay}`,
-              );
-            }
+          const port = this.portByIdCache.get(homePortId);
+          if (port) {
+            this.scheduleReplacementsIfNeeded(
+              port,
+              targetSupplyFor,
+              ticks,
+              delay,
+            );
           }
         }
         // Clear home assignment after capture
@@ -325,31 +314,14 @@ export class TradeManagerExecution implements Execution {
         );
         const homePortId = this.shipHomePortById.get(sid);
         if (homePortId !== undefined) {
-          const port = this.mg
-            .units(UnitType.Port)
-            .find((p) => p.id() === homePortId && p.isActive());
-          if (
-            port &&
-            this.activeHomeSupplyCount(port) < targetSupplyFor(port)
-          ) {
-            const list = this.replacementDueAt.get(homePortId) ?? [];
-            const target = targetSupplyFor(port);
-            const active = this.activeHomeSupplyCount(port);
-            const pending = list.length;
-            const missing = Math.max(0, target - (active + pending));
-            if (missing > 0) {
-              const newList = [...list];
-              for (let i = 0; i < missing; i++) newList.push(ticks + delay);
-              this.replacementDueAt.set(homePortId, newList);
-              const homePortObj2 = this.mg
-                .units(UnitType.Port)
-                .find((p) => p.id() === homePortId && p.isActive());
-              if (homePortObj2)
-                (homePortObj2 as any).setPendingTradeShipDueTicks(newList);
-              this.log(
-                `t=${ticks} schedule replacement (ship lost) homePort=${homePortId} add=${missing} due=${ticks + delay}`,
-              );
-            }
+          const port = this.portByIdCache.get(homePortId);
+          if (port) {
+            this.scheduleReplacementsIfNeeded(
+              port,
+              targetSupplyFor,
+              ticks,
+              delay,
+            );
           }
         }
         this.shipOwnerById.delete(sid);
@@ -368,41 +340,11 @@ export class TradeManagerExecution implements Execution {
       const prevLevel = this.portLevelById.get(port.id());
       if (prevOwner && prevOwner !== port.owner()) {
         // Port captured: ensure new owner can reach level-scaled supply target
-        if (this.activeHomeSupplyCount(port) < targetSupplyFor(port)) {
-          const list = this.replacementDueAt.get(port.id()) ?? [];
-          const target = targetSupplyFor(port);
-          const active = this.activeHomeSupplyCount(port);
-          const pending = list.length;
-          const missing = Math.max(0, target - (active + pending));
-          if (missing > 0) {
-            const newList = [...list];
-            for (let i = 0; i < missing; i++) newList.push(ticks + delay);
-            this.replacementDueAt.set(port.id(), newList);
-            (port as any).setPendingTradeShipDueTicks(newList);
-            this.log(
-              `t=${ticks} portCapture port=${port.id()} level=${currentLevel} add=${missing} due=${ticks + delay}`,
-            );
-          }
-        }
+        this.scheduleReplacementsIfNeeded(port, targetSupplyFor, ticks, delay);
       }
       // Detect level upgrade
       if (prevLevel !== undefined && currentLevel > prevLevel) {
-        if (this.activeHomeSupplyCount(port) < targetSupplyFor(port)) {
-          const list = this.replacementDueAt.get(port.id()) ?? [];
-          const target = targetSupplyFor(port);
-          const active = this.activeHomeSupplyCount(port);
-          const pending = list.length;
-          const missing = Math.max(0, target - (active + pending));
-          if (missing > 0) {
-            const newList = [...list];
-            for (let i = 0; i < missing; i++) newList.push(ticks + delay);
-            this.replacementDueAt.set(port.id(), newList);
-            (port as any).setPendingTradeShipDueTicks(newList);
-            this.log(
-              `t=${ticks} portUpgrade port=${port.id()} oldLevel=${prevLevel} newLevel=${currentLevel} add=${missing} due=${ticks + delay}`,
-            );
-          }
-        }
+        this.scheduleReplacementsIfNeeded(port, targetSupplyFor, ticks, delay);
       }
       // Track current owner
       this.portOwnerById.set(port.id(), port.owner());
@@ -410,19 +352,7 @@ export class TradeManagerExecution implements Execution {
       this.portLevelById.set(port.id(), currentLevel);
       if (!this.knownPortIds.has(port.id())) {
         // New port detected
-        if (this.activeHomeSupplyCount(port) < targetSupplyFor(port)) {
-          const list = this.replacementDueAt.get(port.id()) ?? [];
-          const target = targetSupplyFor(port);
-          const active = this.activeHomeSupplyCount(port);
-          const pending = list.length;
-          const missing = Math.max(0, target - (active + pending));
-          if (missing > 0) {
-            const newList = [...list];
-            for (let i = 0; i < missing; i++) newList.push(ticks + delay);
-            this.replacementDueAt.set(port.id(), newList);
-            (port as any).setPendingTradeShipDueTicks(newList);
-          }
-        }
+        this.scheduleReplacementsIfNeeded(port, targetSupplyFor, ticks, delay);
         this.knownPortIds.add(port.id());
       }
     }
@@ -438,9 +368,7 @@ export class TradeManagerExecution implements Execution {
     for (const [portID, dueList] of Array.from(
       this.replacementDueAt.entries(),
     )) {
-      const port = this.mg
-        .units(UnitType.Port)
-        .find((p) => p.id() === portID && p.isActive());
+      const port = this.portByIdCache.get(portID);
       if (!port) {
         this.replacementDueAt.delete(portID);
         continue;
@@ -449,7 +377,7 @@ export class TradeManagerExecution implements Execution {
       let remaining = dueList.filter((d) => d > ticks);
       const ready = dueList.filter((d) => d <= ticks);
       for (const dueTick of ready) {
-        if (this.activeHomeSupplyCount(port) >= targetSupplyFor(port)) {
+        if (this.getCachedActiveSupply(port) >= targetSupplyFor(port)) {
           remaining = [];
           break;
         }
@@ -468,6 +396,11 @@ export class TradeManagerExecution implements Execution {
             );
             this.shipOwnerById.set(newShip.id(), newShip.owner());
             this.shipHomePortById.set(newShip.id(), portID);
+            // Update cache to reflect the new ship
+            this.activeSupplyCache.set(
+              portID,
+              (this.activeSupplyCache.get(portID) ?? 0) + 1,
+            );
             this.logShip(
               newShip,
               `spawned replacement port=${portID} owner='${owner.displayName()}' due=${dueTick}`,
@@ -477,7 +410,7 @@ export class TradeManagerExecution implements Execution {
       }
       // After spawns, schedule additional if still missing
       const target = targetSupplyFor(port);
-      const active = this.activeHomeSupplyCount(port);
+      const active = this.getCachedActiveSupply(port);
       const pending = remaining.length;
       const missing = Math.max(0, target - (active + pending));
       if (missing > 0) {
@@ -526,6 +459,11 @@ export class TradeManagerExecution implements Execution {
   }
 
   private activeHomeSupplyCount(port: Unit): number {
+    // Fallback for any callers outside processPortSupply (e.g., assignRoutes)
+    // Uses cached value if available, otherwise computes directly
+    const cached = this.activeSupplyCache.get(port.id());
+    if (cached !== undefined) return cached;
+
     let count = 0;
     const pid = port.id();
     for (const ship of this.cachedShips) {
@@ -534,6 +472,70 @@ export class TradeManagerExecution implements Execution {
       if (this.shipHomePortById.get(ship.id()) === pid) count++;
     }
     return count;
+  }
+
+  /**
+   * Build caches for O(1) lookups during processPortSupply.
+   * - activeSupplyCache: portId -> count of active ships homed to that port (matching owner)
+   * - portByIdCache: portId -> Port unit
+   */
+  private buildPortSupplyCaches(): void {
+    this.activeSupplyCache.clear();
+    this.portByIdCache.clear();
+
+    // Build port lookup cache
+    for (const port of this.cachedPorts) {
+      if (port.isActive()) {
+        this.portByIdCache.set(port.id(), port);
+      }
+    }
+
+    // Build active supply cache: count ships per home port (only if owner matches)
+    for (const ship of this.cachedShips) {
+      if (!ship.isActive()) continue;
+      const homePortId = this.shipHomePortById.get(ship.id());
+      if (homePortId === undefined) continue;
+      const port = this.portByIdCache.get(homePortId);
+      // Only count if ship owner matches port owner
+      if (port && ship.owner() === port.owner()) {
+        this.activeSupplyCache.set(
+          homePortId,
+          (this.activeSupplyCache.get(homePortId) ?? 0) + 1,
+        );
+      }
+    }
+  }
+
+  /**
+   * Get cached active supply count for a port (O(1) lookup).
+   */
+  private getCachedActiveSupply(port: Unit): number {
+    return this.activeSupplyCache.get(port.id()) ?? 0;
+  }
+
+  /**
+   * Schedule replacement ships if the port is below target supply.
+   * Uses cached active supply count for efficiency.
+   */
+  private scheduleReplacementsIfNeeded(
+    port: Unit,
+    targetSupplyFor: (port: Unit) => number,
+    ticks: Tick,
+    delay: number,
+  ): void {
+    const active = this.getCachedActiveSupply(port);
+    const target = targetSupplyFor(port);
+    if (active >= target) return;
+
+    const list = this.replacementDueAt.get(port.id()) ?? [];
+    const pending = list.length;
+    const missing = Math.max(0, target - (active + pending));
+    if (missing > 0) {
+      const newList = [...list];
+      for (let i = 0; i < missing; i++) newList.push(ticks + delay);
+      this.replacementDueAt.set(port.id(), newList);
+      (port as any).setPendingTradeShipDueTicks(newList);
+    }
   }
 
   private assignRoutes(carryOverMode: boolean, ticks: Tick): void {
