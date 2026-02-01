@@ -50,6 +50,11 @@ import { Config, GameEnv, NukeMagnitude, ServerConfig, Theme } from "./Config";
 import { PastelTheme } from "./PastelTheme";
 import { PastelThemeDark } from "./PastelThemeDark";
 
+// Gold multiplier system settings
+export const StartingGoldMultiplier = 2;
+// 15 minutes * 60 seconds * 10 ticks/sec = 9000 ticks
+export const GoldMultiplierDecayDuration = 15 * 60 * 10;
+
 const JwksSchema = z.object({
   keys: z
     .object({
@@ -213,6 +218,27 @@ export class DefaultConfig implements Config {
     private _userSettings: UserSettings | null,
     private _isReplay: boolean,
   ) {}
+
+  // Gold multiplier config getters
+  startingGoldMultiplier(): number {
+    return StartingGoldMultiplier;
+  }
+  goldMultiplierDecayDuration(): number {
+    return GoldMultiplierDecayDuration;
+  }
+
+  /**
+   * Returns the gold multiplier for the current tick.
+   * @param currentTick The current game tick
+   * @returns Multiplier (never below 1.0)
+   */
+  getGoldMultiplier(currentTick: number): number {
+    const start = this.startingGoldMultiplier();
+    const decay = this.goldMultiplierDecayDuration();
+    if (currentTick >= decay) return 1;
+    const m = start - (start - 1) * (currentTick / decay);
+    return Math.max(m, 1);
+  }
   isReplay(): boolean {
     return this._isReplay;
   }
@@ -1170,7 +1196,15 @@ export class DefaultConfig implements Config {
     const productivity = player.productivity();
     const k = player.effectiveUnits(UnitType.Factory);
     const factoryFactor = Math.pow(1 + k, 0.35);
-    const multiplier = this._gameConfig.goldMultiplier ?? 1;
+    // Use tick-based gold multiplier
+    let currentTick = 0;
+    if (
+      typeof (player as any).game === "object" &&
+      typeof (player as any).game.ticks === "function"
+    ) {
+      currentTick = (player as any).game.ticks();
+    }
+    const multiplier = this.getGoldMultiplier(currentTick);
     // Apply tech/policy-based domestic income multiplier
     const incomeMods = incomeModifiers(player);
     const grossGold =
