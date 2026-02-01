@@ -890,11 +890,39 @@ export class AIConstructionHandler {
   }
 
   /**
-   * Calculates the port tile score for a given tile.
-   * Returns 0 if port cannot be built, otherwise a score with penalties/bonuses.
+   * Logistic (sigmoid) function: σ(z) = 1 / (1 + e^(-z))
+   * Maps any real number z ∈ (-∞, +∞) to (0, 1).
+   */
+  private static sigmoid(z: number): number {
+    return 1 / (1 + Math.exp(-z));
+  }
+
+  /**
+   * Calculates the port tile score for a given tile using a logistic function.
+   *
+   * ## Mathematical Model
+   *
+   * The tile score is computed as:
+   *
+   *   score = σ(z) = 1 / (1 + e^(-z))
+   *
+   * where z is a linear combination of features:
+   *
+   *   z = w₀ + w₁·x₁ + w₂·x₂ + w₃·x₃
+   *
+   * Features (xᵢ) and their weights (wᵢ):
+   *   - w₀ = bias term (default 0, so σ(0) = 0.5 as baseline)
+   *   - x₁ = max(0, (maxDist - closestPlayerDist) / maxDist) ∈ [0, 1], bounded below
+   *         w₁ = -portTileNearPlayerPenalty (negative = penalty for being close to enemies)
+   *   - x₂ = total structure levels within range (sum of stackCount for nearby structures)
+   *         w₂ = -portTileNearStructurePenalty (fixed penalty per structure level)
+   *   - x₃ = dist / maxMapDim, normalized by larger map dimension
+   *         w₃ = -portTileCapitalDistancePenalty (negative = penalty for being far from capital)
+   *
+   * Returns 0 if port cannot be built (hard constraint), otherwise score ∈ (0, 1).
    */
   private calculatePortTileScore(player: Player, tile: TileRef): number {
-    // Early terrain check: ports must be on ocean shore (skip canBuildAtTile entirely for non-shore tiles)
+    // Early terrain check: ports must be on ocean shore
     if (!this.mg.isOceanShore(tile)) {
       return 0;
     }
@@ -904,10 +932,12 @@ export class AIConstructionHandler {
       return 0;
     }
 
-    let score = 1;
+    // Initialize linear combination: z = w₀ (bias)
+    let z = 0;
 
-    // Linear penalty based on distance to closest other player's territory
-    // Penalty scales from maxPenalty at distance 0 to 0 at maxDistance
+    // Feature 1: Enemy proximity penalty
+    // x₁ = max(0, (maxDist - dist) / maxDist), bounded below at 0
+    // x₁ = 1 when dist = 0 (very close), x₁ = 0 when dist >= maxDist
     const avoidPlayerDist = this.avoidPlayerDistanceFor(UnitType.Port);
     if (avoidPlayerDist > 0) {
       const closestPlayerDist = this.closestOtherPlayerDistance(
@@ -916,15 +946,17 @@ export class AIConstructionHandler {
         avoidPlayerDist,
       );
       if (closestPlayerDist !== null) {
-        // Linear interpolation: penalty = maxPenalty * (1 - dist/maxDistance)
-        const maxPenalty = this.params.portTileNearPlayerPenalty ?? 0.5;
-        const penalty = maxPenalty * (1 - closestPlayerDist / avoidPlayerDist);
-        score *= 1 - Math.max(0, penalty);
+        const x1 = Math.max(
+          0,
+          (avoidPlayerDist - closestPlayerDist) / avoidPlayerDist,
+        );
+        const w1 = -(this.params.portTileNearPlayerPenalty ?? 2.0);
+        z += w1 * x1;
       }
     }
 
-    // Linear penalty based on distance to closest own structure
-    // Penalty scales from maxPenalty at distance 0 to 0 at maxDistance
+    // Feature 2: Own structure proximity penalty (count-based)
+    // x₂ = total structure levels within range
     const maxStructureDist = this.params.aiStructureMinDistance ?? 60;
     if (maxStructureDist > 0) {
       const nearbyStructures = this.mg.nearbyUnits(
@@ -932,72 +964,64 @@ export class AIConstructionHandler {
         maxStructureDist,
         AIConstructionHandler.DISTANCE_CHECK_STRUCTURE_TYPES,
       );
-      // Filter to only structures owned by this player
       const ownNearbyStructures = nearbyStructures.filter(
         ({ unit }) => unit.owner().id() === player.id(),
       );
       if (ownNearbyStructures.length > 0) {
-        // Find closest structure distance
-        let closestDistSq = Infinity;
+        // Count total structure levels (sum of stackCount for all nearby structures)
+        let totalLevels = 0;
         for (const { unit } of ownNearbyStructures) {
-          const structTile = unit.tile();
-          const distSq = this.mg.euclideanDistSquared(tile, structTile);
-          if (distSq < closestDistSq) closestDistSq = distSq;
+          totalLevels += unit.stackCount?.() ?? 1;
         }
-        const closestDist = Math.sqrt(closestDistSq);
-        // Linear interpolation: penalty = maxPenalty * (1 - dist/maxDistance)
-        const maxPenalty = this.params.portTileNearStructurePenalty ?? 0.3;
-        const penalty = maxPenalty * (1 - closestDist / maxStructureDist);
-        score *= 1 - Math.max(0, penalty);
+        const x2 = totalLevels;
+        const w2 = -(this.params.portTileNearStructurePenalty ?? 0.3);
+        z += w2 * x2;
       }
     }
 
-    // Penalty proportional to distance from capital (prefer building near capital)
+    // Feature 3: Capital distance penalty
+    // x₃ = dist / maxMapDim, normalized by larger map dimension
     const capital = player.capital();
     if (capital !== null) {
       const capitalTile = this.mg.ref(capital.x, capital.y);
       const dist = Math.sqrt(this.mg.euclideanDistSquared(tile, capitalTile));
-      const penaltyPerTile = this.params.portTileCapitalDistancePenalty ?? 0.01;
-      const maxPenalty = this.params.portTileCapitalDistancePenaltyMax ?? 0.5;
-      const penalty = Math.min(dist * penaltyPerTile, maxPenalty);
-      score *= 1 - penalty;
+      const maxMapDim = Math.max(this.mg.width(), this.mg.height());
+      const x3 = dist / maxMapDim;
+      const w3 = -(this.params.portTileCapitalDistancePenalty ?? 1.0);
+      z += w3 * x3;
     }
 
-    // Bonus if tile is protected by SAM
-    const sams = player.units(UnitType.SAMLauncher).filter((u) => u.isActive());
-    if (sams.length > 0) {
-      const techLevel = playerMaxStructureTechLevel(
-        player,
-        UnitType.SAMLauncher,
-      );
-      const samRange = this.getEffectiveSAMRange(techLevel);
-      const samRangeSquared = samRange * samRange;
-
-      // Count SAMs covering this tile
-      let samCoverage = 0;
-      for (const sam of sams) {
-        if (this.mg.euclideanDistSquared(sam.tile(), tile) <= samRangeSquared) {
-          samCoverage++;
-        }
-      }
-
-      if (samCoverage > 0) {
-        const bonusPerSAM = this.params.portTileSAMProtectionBonus ?? 0.2;
-        // Diminishing returns for multiple SAMs
-        const totalBonus = bonusPerSAM * (1 - Math.pow(0.5, samCoverage));
-        score *= 1 + totalBonus;
-      }
-    }
-
-    return score;
+    return AIConstructionHandler.sigmoid(z);
   }
 
   /**
-   * Calculates the other tile score for a given tile (non-port, non-defense post, non-SAM structures).
-   * Returns 0 if structure cannot be built, otherwise a score with penalties/bonuses.
+   * Calculates the other tile score for land structures using a logistic function.
+   *
+   * ## Mathematical Model
+   *
+   * The tile score is computed as:
+   *
+   *   score = σ(z) = 1 / (1 + e^(-z))
+   *
+   * where z is a linear combination of features:
+   *
+   *   z = w₀ + w₁·x₁ + w₂·x₂ + w₃·x₃ + w₄·x₄
+   *
+   * Features (xᵢ) and their weights (wᵢ):
+   *   - w₀ = bias term (default 0, so σ(0) = 0.5 as baseline)
+   *   - x₁ = max(0, (maxDist - closestPlayerDist) / maxDist) ∈ [0, 1], bounded below
+   *         w₁ = -otherTileNearPlayerPenalty (negative = penalty for being close to enemies)
+   *   - x₂ = total structure levels within range (sum of stackCount for nearby structures)
+   *         w₂ = -otherTileNearStructurePenalty (fixed penalty per structure level)
+   *   - x₃ = dist / maxMapDim, normalized by larger map dimension
+   *         w₃ = -otherTileCapitalDistancePenalty (negative = penalty for being far from capital)
+   *   - x₄ = nearby water indicator: 1 if water within distance, 0 otherwise
+   *         w₄ = -otherTileNearWaterPenalty (negative = penalty for being near coast)
+   *
+   * Returns 0 if structure cannot be built (hard constraint), otherwise score ∈ (0, 1).
    */
   private calculateOtherTileScore(player: Player, tile: TileRef): number {
-    // Early terrain check: land structures cannot be on ocean (skip canBuildAtTile entirely for ocean tiles)
+    // Early terrain check: land structures cannot be on ocean
     if (this.mg.isOcean(tile)) {
       return 0;
     }
@@ -1007,10 +1031,12 @@ export class AIConstructionHandler {
       return 0;
     }
 
-    let score = 1;
+    // Initialize linear combination: z = w₀ (bias)
+    let z = 0;
 
-    // Linear penalty based on distance to closest other player's territory
-    // Penalty scales from maxPenalty at distance 0 to 0 at maxDistance
+    // Feature 1: Enemy proximity penalty
+    // x₁ = max(0, (maxDist - dist) / maxDist), bounded below at 0
+    // x₁ = 1 when dist = 0 (very close), x₁ = 0 when dist >= maxDist
     const avoidPlayerDist = this.avoidPlayerDistanceFor(UnitType.City);
     if (avoidPlayerDist > 0) {
       const closestPlayerDist = this.closestOtherPlayerDistance(
@@ -1019,91 +1045,64 @@ export class AIConstructionHandler {
         avoidPlayerDist,
       );
       if (closestPlayerDist !== null) {
-        // Linear interpolation: penalty = maxPenalty * (1 - dist/maxDistance)
-        const maxPenalty = this.params.otherTileNearPlayerPenalty ?? 0.5;
-        const penalty = maxPenalty * (1 - closestPlayerDist / avoidPlayerDist);
-        score *= 1 - Math.max(0, penalty);
+        const x1 = Math.max(
+          0,
+          (avoidPlayerDist - closestPlayerDist) / avoidPlayerDist,
+        );
+        const w1 = -(this.params.otherTileNearPlayerPenalty ?? 2.0);
+        z += w1 * x1;
       }
     }
 
-    // Linear penalty based on distance to closest own structure
-    // Penalty scales from maxPenalty at distance 0 to 0 at maxDistance
-    const otherMaxStructureDist = this.params.aiStructureMinDistance ?? 60;
-    if (otherMaxStructureDist > 0) {
+    // Feature 2: Own structure proximity penalty (count-based)
+    // x₂ = total structure levels within range
+    const maxStructureDist = this.params.aiStructureMinDistance ?? 60;
+    if (maxStructureDist > 0) {
       const nearbyStructures = this.mg.nearbyUnits(
         tile,
-        otherMaxStructureDist,
+        maxStructureDist,
         AIConstructionHandler.DISTANCE_CHECK_STRUCTURE_TYPES,
       );
-      // Filter to only structures owned by this player
       const ownNearbyStructures = nearbyStructures.filter(
         ({ unit }) => unit.owner().id() === player.id(),
       );
       if (ownNearbyStructures.length > 0) {
-        // Find closest structure distance
-        let closestDistSq = Infinity;
+        // Count total structure levels (sum of stackCount for all nearby structures)
+        let totalLevels = 0;
         for (const { unit } of ownNearbyStructures) {
-          const structTile = unit.tile();
-          const distSq = this.mg.euclideanDistSquared(tile, structTile);
-          if (distSq < closestDistSq) closestDistSq = distSq;
+          totalLevels += unit.stackCount?.() ?? 1;
         }
-        const closestDist = Math.sqrt(closestDistSq);
-        // Linear interpolation: penalty = maxPenalty * (1 - dist/maxDistance)
-        const maxPenalty = this.params.otherTileNearStructurePenalty ?? 0.3;
-        const penalty = maxPenalty * (1 - closestDist / otherMaxStructureDist);
-        score *= 1 - Math.max(0, penalty);
+        const x2 = totalLevels;
+        const w2 = -(this.params.otherTileNearStructurePenalty ?? 0.3);
+        z += w2 * x2;
       }
     }
 
-    // Penalty proportional to distance from capital (prefer building near capital)
+    // Feature 3: Capital distance penalty
+    // x₃ = dist / maxMapDim, normalized by larger map dimension
     const capital = player.capital();
     if (capital !== null) {
       const capitalTile = this.mg.ref(capital.x, capital.y);
       const dist = Math.sqrt(this.mg.euclideanDistSquared(tile, capitalTile));
-      const penaltyPerTile =
-        this.params.otherTileCapitalDistancePenalty ?? 0.01;
-      const maxPenalty = this.params.otherTileCapitalDistancePenaltyMax ?? 0.5;
-      const penalty = Math.min(dist * penaltyPerTile, maxPenalty);
-      score *= 1 - penalty;
+      const maxMapDim = Math.max(this.mg.width(), this.mg.height());
+      const x3 = dist / maxMapDim;
+      const w3 = -(this.params.otherTileCapitalDistancePenalty ?? 1.0);
+      z += w3 * x3;
     }
 
-    // Bonus if tile is protected by SAM
-    const sams = player.units(UnitType.SAMLauncher).filter((u) => u.isActive());
-    if (sams.length > 0) {
-      const techLevel = playerMaxStructureTechLevel(
-        player,
-        UnitType.SAMLauncher,
-      );
-      const samRange = this.getEffectiveSAMRange(techLevel);
-      const samRangeSquared = samRange * samRange;
-
-      // Count SAMs covering this tile
-      let samCoverage = 0;
-      for (const sam of sams) {
-        if (this.mg.euclideanDistSquared(sam.tile(), tile) <= samRangeSquared) {
-          samCoverage++;
-        }
-      }
-
-      if (samCoverage > 0) {
-        const bonusPerSAM = this.params.otherTileSAMProtectionBonus ?? 0.2;
-        // Diminishing returns for multiple SAMs
-        const totalBonus = bonusPerSAM * (1 - Math.pow(0.5, samCoverage));
-        score *= 1 + totalBonus;
-      }
-    }
-
-    // Penalty if water is within X tiles
+    // Feature 4: Nearby water penalty (binary feature)
+    // x₄ = 1 if water is within distance, 0 otherwise
     const waterCheckDist = this.params.otherTileWaterCheckDistance ?? 5;
     if (waterCheckDist > 0) {
       const hasNearbyWater = this.tileHasNearbyWater(tile, waterCheckDist);
       if (hasNearbyWater) {
-        const penalty = this.params.otherTileNearWaterPenalty ?? 0.2;
-        score *= 1 - penalty;
+        const x4 = 1;
+        const w4 = -(this.params.otherTileNearWaterPenalty ?? 0.8);
+        z += w4 * x4;
       }
     }
 
-    return score;
+    return AIConstructionHandler.sigmoid(z);
   }
 
   /**

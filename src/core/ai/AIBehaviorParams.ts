@@ -159,16 +159,6 @@ export interface AIBehaviorParams {
    * Tiles farther from capital get penalized. Default 0.01 (1% penalty per tile).
    */
   portTileCapitalDistancePenalty?: number;
-  /**
-   * Maximum penalty from capital distance (0-1).
-   * Default 0.5 (50% max penalty).
-   */
-  portTileCapitalDistancePenaltyMax?: number;
-  /**
-   * Percentage bonus (0-1) if tile is protected by at least one SAM.
-   * Default 0.2 (20% bonus).
-   */
-  portTileSAMProtectionBonus?: number;
 
   // === Other Tile Scoring (non-port, non-defense post, non-SAM structures) ===
   /**
@@ -187,16 +177,6 @@ export interface AIBehaviorParams {
    * Tiles farther from capital get penalized. Default 0.01 (1% penalty per tile).
    */
   otherTileCapitalDistancePenalty?: number;
-  /**
-   * Maximum penalty from capital distance (0-1).
-   * Default 0.5 (50% max penalty).
-   */
-  otherTileCapitalDistancePenaltyMax?: number;
-  /**
-   * Percentage bonus (0-1) if tile is protected by at least one SAM.
-   * Default 0.2 (20% bonus).
-   */
-  otherTileSAMProtectionBonus?: number;
   /**
    * Distance (in tiles) to check for nearby water.
    * Default 5.
