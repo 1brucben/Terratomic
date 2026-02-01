@@ -622,6 +622,7 @@ export interface Player {
   workers(): number;
   troops(): number;
   attackingTroops(): number;
+  militaryStrength(): number;
   targetTroopRatio(): number;
   productivity(): number; // Returns the productivity rate based on investment rate
   updateProductivity(): void;
