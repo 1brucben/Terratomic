@@ -216,6 +216,7 @@ export class PlayerImpl implements Player {
       tradeDemandQueueLength: (this.mg as any).tradeDemandQueueLength?.() ?? 0,
       troops: this.troops(),
       attackingTroops: this.attackingTroops(),
+      militaryStrength: this.militaryStrength(),
       targetTroopRatio: this.targetTroopRatio(),
       productivity: this.productivity(),
       productivityGrowthPerMinute: this.productivityGrowthPerMinute(),
@@ -1388,6 +1389,12 @@ export class PlayerImpl implements Player {
     const toRemove = minInt(this._troops, toInt(troops));
     this._troops -= toRemove;
     return Number(toRemove);
+  }
+
+  militaryStrength(): number {
+    return (
+      this.troops() + 0.25 * this.attackingTroops() + Number(this._gold) / 100
+    );
   }
 
   productivity(): number {

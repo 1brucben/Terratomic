@@ -412,6 +412,9 @@ export class PlayerView {
   troops(): number {
     return this.data.troops;
   }
+  militaryStrength(): number {
+    return this.data.militaryStrength;
+  }
   productivity(): number {
     return this.data.productivity;
   }

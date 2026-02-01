@@ -216,6 +216,7 @@ export interface PlayerUpdate {
   roadNetPixelsPerSecond?: number;
   troops: number;
   attackingTroops: number;
+  militaryStrength: number;
   targetTroopRatio: number;
   allies: number[];
   // Diplomacy: explicit wars (smallIDs), separate from trade embargoes
