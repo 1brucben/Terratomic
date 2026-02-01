@@ -4,6 +4,7 @@ import { PseudoRandom } from "../PseudoRandom";
 import { TradeShipExecution } from "./TradeShipExecution";
 
 export class PortExecution implements Execution {
+  executionName = "PortExecution";
   private active = true;
   private mg: Game | null = null;
   private port: Unit | null = null;
