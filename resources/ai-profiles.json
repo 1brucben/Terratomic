@@ -55,10 +55,10 @@
         "aiAssumedPopPercent": 0.7,
         "aiFirstPortScore": 800,
         "portTileNearPlayerPenalty": 0.5,
-        "portTileNearStructurePenalty": 0.3,
+        "portTileNearStructurePenalty": 0.1,
         "portTileCapitalDistancePenalty": 0.001,
         "otherTileNearPlayerPenalty": 0.5,
-        "otherTileNearStructurePenalty": 0.3,
+        "otherTileNearStructurePenalty": 0.1,
         "otherTileCapitalDistancePenalty": 0.001,
         "otherTileWaterCheckDistance": 10,
         "otherTileNearWaterPenalty": 0.2
