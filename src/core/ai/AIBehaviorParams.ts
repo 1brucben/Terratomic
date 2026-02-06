@@ -37,6 +37,11 @@ export interface AIBehaviorParams {
   botAttackOwnTroopPercent?: number;
   /** Multiplier of bot troops to cap attack size (beta) */
   botAttackEnemyTroopMultiplier?: number;
+  /**
+   * How much the boat search range grows per failed attempt.
+   * Default 0.5 (tiles per attempt).
+   */
+  botAttackBoatSearchRangeGrowth?: number;
 
   // === AI/Human Attack Behavior ===
   /** Minimum troop ratio (troops / maxTroops) before attacking AI/Human players (0-1) */

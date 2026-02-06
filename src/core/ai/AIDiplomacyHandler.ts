@@ -403,7 +403,7 @@ export class AIDiplomacyHandler {
       if (totalEnemyStrength > 0) {
         const strengthRatio = Math.min(
           effectiveOwnStrength / totalEnemyStrength,
-          7,
+          5,
         );
         score += militaryStrengthWeight * strengthRatio;
       }
