@@ -104,15 +104,6 @@ export interface AIBehaviorParams {
    */
   aiAvoidPlayerDistance?: number;
 
-  /**
-   * When no valid placement tile is found for a stackable structure and the AI
-   * already owns at least one of that structure type, decide which existing one
-   * to upgrade.
-   * - "weighted": random selection weighted by current level/stackCount
-   * - "lowest": pick the lowest level/stackCount (ties broken randomly)
-   */
-  aiStackUpgradeStrategy?: "weighted" | "lowest";
-
   // === Structure Build Weights ===
   // Multipliers for structure build scoring (default 1 for all)
   /** Weight for city build priority */
