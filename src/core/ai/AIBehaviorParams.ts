@@ -133,6 +133,13 @@ export interface AIBehaviorParams {
   weightMissileSilo?: number;
   /** Weight for SAM launcher build priority */
   weightSAMLauncher?: number;
+  /**
+   * Decay rate for SAM coverage penalty sigmoid.
+   * score *= sigmoid(-samCoverageDecay * existingCoverage).
+   * Higher values penalize redundant SAM coverage more sharply.
+   * Default 0.05.
+   */
+  samCoverageDecay?: number;
   /** Weight for defense post build priority */
   weightDefensePost?: number;
   /** Weight for doomsday device build priority */

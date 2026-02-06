@@ -1480,7 +1480,8 @@ export class AIConstructionHandler {
         }
 
         const structureValue = this.getStructureValue(player, structure);
-        const weight = 1 / (1 + existingCoverage);
+        const decay = this.params.samCoverageDecay ?? 0.05;
+        const weight = 1 / (1 + Math.exp(decay * existingCoverage));
         score += structureValue * weight;
       }
     }
