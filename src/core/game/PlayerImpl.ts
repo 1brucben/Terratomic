@@ -108,6 +108,9 @@ export class PlayerImpl implements Player {
   private _hasAirfieldCache: boolean = false;
   private _hasAirfieldCacheDirty: boolean = true;
 
+  // Neighbor cache: stores smallIDs of all players (including TerraNullius=0) bordering this player
+  private _neighborCache: Set<number> | null = null;
+
   // Phase 2 Optimization: Cache casualty modifiers (invalidated on tech research)
   private _attackCasualtyModifiersCache: DefenseCasualtyModifiers | null = null;
   private _defenseCasualtyModifiersCache: DefenseCasualtyModifiers | null =
@@ -783,17 +786,35 @@ export class PlayerImpl implements Player {
   }
 
   sharesBorderWith(other: Player | TerraNullius): boolean {
-    for (const border of this._borderTiles) {
-      for (const neighbor of this.mg.map().neighbors(border)) {
-        if (
-          this.mg.map().isLand(neighbor) &&
-          this.mg.map().ownerID(neighbor) === other.smallID()
-        ) {
-          return true;
+    return this.neighborSmallIDs().has(other.smallID());
+  }
+
+  /**
+   * Returns the cached set of neighbor smallIDs, computing it if needed.
+   * Includes TerraNullius (smallID=0) if bordering unclaimed land.
+   */
+  private neighborSmallIDs(): Set<number> {
+    if (this._neighborCache === null) {
+      this._neighborCache = new Set();
+      for (const border of this._borderTiles) {
+        for (const neighbor of this.mg.map().neighbors(border)) {
+          if (this.mg.map().isLand(neighbor)) {
+            const ownerID = this.mg.map().ownerID(neighbor);
+            if (ownerID !== this.smallID()) {
+              this._neighborCache.add(ownerID);
+            }
+          }
         }
       }
     }
-    return false;
+    return this._neighborCache;
+  }
+
+  /**
+   * Invalidates the neighbor cache. Called when tile ownership changes.
+   */
+  invalidateNeighborCache(): void {
+    this._neighborCache = null;
   }
   numTilesOwned(): number {
     return this._tiles.size;
@@ -808,20 +829,12 @@ export class PlayerImpl implements Player {
   }
 
   neighbors(): (Player | TerraNullius)[] {
-    const ns: Set<Player | TerraNullius> = new Set();
-    for (const border of this.borderTiles()) {
-      for (const neighbor of this.mg.map().neighbors(border)) {
-        if (this.mg.map().isLand(neighbor)) {
-          const owner = this.mg.map().ownerID(neighbor);
-          if (owner !== this.smallID()) {
-            ns.add(
-              this.mg.playerBySmallID(owner) satisfies Player | TerraNullius,
-            );
-          }
-        }
-      }
+    const smallIDs = this.neighborSmallIDs();
+    const result: (Player | TerraNullius)[] = [];
+    for (const id of smallIDs) {
+      result.push(this.mg.playerBySmallID(id));
     }
-    return Array.from(ns);
+    return result;
   }
 
   isPlayer(): this is Player {

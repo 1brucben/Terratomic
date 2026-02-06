@@ -843,10 +843,13 @@ export class GameImpl implements Game {
       if (!this.hasOwner(t)) {
         continue;
       }
+      const owner = this.owner(t) as PlayerImpl;
+      // Invalidate neighbor cache for affected players
+      owner.invalidateNeighborCache();
       if (this.calcIsBorder(t)) {
-        (this.owner(t) as PlayerImpl)._borderTiles.add(t);
+        owner._borderTiles.add(t);
       } else {
-        (this.owner(t) as PlayerImpl)._borderTiles.delete(t);
+        owner._borderTiles.delete(t);
       }
     }
   }
