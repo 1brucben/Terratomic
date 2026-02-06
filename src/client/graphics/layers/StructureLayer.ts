@@ -16,7 +16,10 @@ import { Theme } from "../../../core/configuration/Config";
 import { EventBus } from "../../../core/EventBus";
 import { computeUpgradeStepCost } from "../../../core/game/Costs";
 import { Cell, PlayerID, UnitType } from "../../../core/game/Game";
-import { GameUpdateType } from "../../../core/game/GameUpdates";
+import {
+  GameUpdateType,
+  type PlayerUpdate,
+} from "../../../core/game/GameUpdates";
 import { GameView, UnitView } from "../../../core/game/GameView";
 import { getUnitUpgradeCost } from "../../../core/game/UnitUpgrades";
 import {
@@ -257,6 +260,33 @@ export class StructureLayer implements Layer {
 
   tick() {
     const updates = this.game.updatesSinceLastTick();
+
+    // Handle player updates for research tech changes (rebuild textures for SAM/Airfield stars)
+    const playerUpdates =
+      updates !== null
+        ? (updates[GameUpdateType.Player] as PlayerUpdate[])
+        : [];
+    for (const playerUpdate of playerUpdates) {
+      if (
+        playerUpdate.researchTreeTechs &&
+        playerUpdate.researchTreeTechs.length > 0
+      ) {
+        // Research tech unlocked - rebuild textures for SAM and Airfield structures
+        // to update their star indicators
+        for (const r of this.renders) {
+          const unitType = r.unit.type();
+          if (
+            (unitType === UnitType.SAMLauncher ||
+              unitType === UnitType.Airfield) &&
+            r.unit.owner().id() === playerUpdate.id
+          ) {
+            r.pixiSprite.texture = this.createTexture(r.unit);
+            this.shouldRedraw = true;
+          }
+        }
+      }
+    }
+
     const unitUpdates = updates !== null ? updates[GameUpdateType.Unit] : [];
     for (const u of unitUpdates) {
       const unitView = this.game.unit(u.id);
