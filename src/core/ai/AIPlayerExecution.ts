@@ -141,12 +141,15 @@ export class AIPlayerExecution implements Execution {
       this.terraNulliusHandler?.handleTerraNulliusAttack() ?? false;
 
     // Handle bot attacks every tick (skip if TN already attacked)
+    let botAttacked = false;
     if (!tnAttacked) {
-      this.botAttackHandler?.handleBotAttack();
+      botAttacked = this.botAttackHandler?.handleBotAttack() ?? false;
     }
 
-    // Handle attacks against AI/Human players we're at war with
-    this.attackHandler?.handleAttack();
+    // Handle attacks against AI/Human players we're at war with (skip if already attacked)
+    if (!tnAttacked && !botAttacked) {
+      this.attackHandler?.handleAttack();
+    }
 
     // Handle diplomacy (war declarations, etc.)
     this.diplomacyHandler?.tickDiplomacy(ticks);

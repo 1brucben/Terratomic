@@ -40,10 +40,10 @@ export class AIBotAttackHandler {
     return this.mg.player(this.playerId);
   }
 
-  handleBotAttack(): void {
+  handleBotAttack(): boolean {
     const player = this.getPlayer();
     if (!player || !player.isAlive()) {
-      return;
+      return false;
     }
 
     const attackThreshold =
@@ -55,14 +55,14 @@ export class AIBotAttackHandler {
 
     // Only attack bots if we have enough troops
     if (troopRatio < attackThreshold) {
-      return;
+      return false;
     }
 
     // Check if we have enough defending troops at home
     const defendingTroopTarget = this.params.defendingTroopTarget ?? 0.5;
     const defendingRatio = player.troops() / totalTroops;
     if (defendingRatio < defendingTroopTarget) {
-      return;
+      return false;
     }
 
     // If no bot target, or target is dead, or target became unreachable, find a new one
@@ -75,9 +75,9 @@ export class AIBotAttackHandler {
     }
 
     if (this.currentBotTarget === null) {
-      return;
+      return false;
     }
-    this.launchBotAttack(player, this.currentBotTarget);
+    return this.launchBotAttack(player, this.currentBotTarget);
   }
 
   private findBotTarget(player: Player): Player | null {
@@ -245,7 +245,7 @@ export class AIBotAttackHandler {
     return tiles;
   }
 
-  private launchBotAttack(player: Player, target: Player): void {
+  private launchBotAttack(player: Player, target: Player): boolean {
     const alpha = this.params.botAttackOwnTroopPercent ?? 0.2;
     const beta = this.params.botAttackEnemyTroopMultiplier ?? 1.5;
 
@@ -254,7 +254,7 @@ export class AIBotAttackHandler {
     const troops = Math.min(troopsFromOwn, troopsFromEnemy);
 
     if (troops < 1) {
-      return;
+      return false;
     }
 
     const currentTick = this.mg.ticks();
@@ -262,7 +262,7 @@ export class AIBotAttackHandler {
     // Check if we share a land border - if so, use land attack
     if (this.isNeighborCached(player, target, currentTick)) {
       this.mg.addExecution(new AttackExecution(troops, player, target.id()));
-      return;
+      return true;
     }
 
     // Otherwise, try boat attack against the bot
@@ -271,7 +271,7 @@ export class AIBotAttackHandler {
       currentTick - this.lastBoatAttackTick <
       AIBotAttackHandler.BOAT_ATTACK_COOLDOWN
     ) {
-      return;
+      return false;
     }
 
     const playerShore = this.getPlayerShoreCached(player, currentTick);
@@ -281,7 +281,7 @@ export class AIBotAttackHandler {
     if (closest !== null) {
       // Validate that we can actually build a transport ship to this destination
       if (canBuildTransportShip(this.mg, player, closest.y) === false) {
-        return;
+        return false;
       }
       this.lastBoatAttackTick = currentTick;
       this.mg.addExecution(
@@ -293,6 +293,8 @@ export class AIBotAttackHandler {
           null,
         ),
       );
+      return true;
     }
+    return false;
   }
 }
