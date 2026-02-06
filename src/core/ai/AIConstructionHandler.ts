@@ -1020,13 +1020,13 @@ export class AIConstructionHandler {
     }
 
     // Feature 3: Capital distance penalty
-    // x₃ = dist / maxMapDim, normalized by larger map dimension
+    // x₃ = dist / mapDim, normalized by geometric mean of map dimensions
     const capital = player.capital();
     if (capital !== null) {
       const capitalTile = this.mg.ref(capital.x, capital.y);
       const dist = Math.sqrt(this.mg.euclideanDistSquared(tile, capitalTile));
-      const maxMapDim = Math.max(this.mg.width(), this.mg.height());
-      const x3 = dist / maxMapDim;
+      const mapDim = Math.sqrt(this.mg.width() * this.mg.height());
+      const x3 = dist / mapDim;
       const w3 = -(this.params.portTileCapitalDistancePenalty ?? 1.0);
       z += w3 * x3;
     }
@@ -1133,13 +1133,13 @@ export class AIConstructionHandler {
     }
 
     // Feature 3: Capital distance penalty
-    // x₃ = dist / maxMapDim, normalized by larger map dimension
+    // x₃ = dist / mapDim, normalized by geometric mean of map dimensions
     const capital = player.capital();
     if (capital !== null) {
       const capitalTile = this.mg.ref(capital.x, capital.y);
       const dist = Math.sqrt(this.mg.euclideanDistSquared(tile, capitalTile));
-      const maxMapDim = Math.max(this.mg.width(), this.mg.height());
-      const x3 = dist / maxMapDim;
+      const mapDim = Math.sqrt(this.mg.width() * this.mg.height());
+      const x3 = dist / mapDim;
       const w3 = -(this.params.otherTileCapitalDistancePenalty ?? 1.0);
       z += w3 * x3;
     }
