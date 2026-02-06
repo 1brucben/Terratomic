@@ -706,6 +706,12 @@ export interface Player {
   sharesBorderWith(other: Player | TerraNullius): boolean;
   /** Returns the number of border tiles shared with another player. */
   sharedBorderLength(other: Player | TerraNullius): number;
+  /** Returns true if this player has any border tiles on the ocean. Cached. */
+  bordersOcean(): boolean;
+  /** Returns up to 4 extremum ocean shore tiles (min/max X/Y). Cached. */
+  oceanShoreExtrema(): readonly TileRef[];
+  /** Returns all ocean shore tiles. Cached. */
+  oceanShoreTiles(): readonly TileRef[];
   /** Invalidates the cached neighbor set. Called internally when tile ownership changes. */
   invalidateNeighborCache(): void;
   relation(other: Player): Relation;

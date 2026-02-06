@@ -231,6 +231,21 @@ export interface AIBehaviorParams {
    * Default 0.
    */
   warScoreAllyPenalty?: number;
+
+  /**
+   * Weight for distance penalty when target is only reachable by boat.
+   * Penalty = weight * (shoreDistance / sqrt(mapWidth * mapHeight))^2.
+   * Higher values discourage attacking distant ocean targets.
+   * Default 0.
+   */
+  warScoreDistancePenaltyWeight?: number;
+
+  /**
+   * Percentage of troops to send on boat attacks against AI/Human players.
+   * Lower than land attacks since boats are riskier.
+   * Default 0.1 (10%).
+   */
+  attackBoatTroopPercent?: number;
 }
 
 export interface AIProfile {

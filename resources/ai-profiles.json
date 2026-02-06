@@ -21,6 +21,7 @@
         "attackTroopThreshold": 0.5,
         "attackOwnTroopPercent": 0.2,
         "attackEnemyTroopMultiplier": 1.5,
+        "attackBoatTroopPercent": 0.1,
         "defendingTroopTarget": 0.5,
         "productivityInvestmentRate": 0.1,
         "researchInvestmentRate": 0.2,
@@ -69,7 +70,8 @@
         "warScoreSharedBorderWeight": 0,
         "warScoreMilitaryStrengthWeight": 70,
         "warScoreNonReachableEnemyWeight": 0.2,
-        "warScoreAllyPenalty": 0
+        "warScoreAllyPenalty": 0,
+        "warScoreDistancePenaltyWeight": 600
       }
     }
   ]
