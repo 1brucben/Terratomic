@@ -41,7 +41,6 @@ export class AIConstructionHandler {
   private static readonly AIRFIELD_SCORE_MULTIPLIER = 1e-1;
   private static readonly SAM_BASE_SCORE = 1e-5;
   private static readonly DEFENSE_POST_BASE_SCORE = 5e3;
-  private static readonly SAM_PLACEMENT_MIN_PLAYER_DIST = 10;
   private static readonly LOG_INTERVAL = 20; // Log every ~1 second (assuming 20 ticks/sec)
   private static readonly MIN_TILE_EVALUATIONS_BEFORE_BUILD = 50;
   private static readonly TILE_EVALUATION_INTERVAL = 2;
@@ -1310,16 +1309,29 @@ export class AIConstructionHandler {
     if (!this.mg.hasOwner(tile) || this.mg.owner(tile).id() !== player.id())
       return 0;
 
-    // SAMs should not be placed too close to enemies
-    const closestPlayerDist = this.closestOtherPlayerDistance(
-      player,
-      tile,
-      AIConstructionHandler.SAM_PLACEMENT_MIN_PLAYER_DIST,
-    );
-    if (closestPlayerDist !== null) return 0;
-
     // Check if a SAM can be built here
     if (player.canBuildAtTile(UnitType.SAMLauncher, tile) === false) return 0;
+
+    // Enemy proximity penalty via sigmoid (only the distance term)
+    let z = 0;
+    const avoidPlayerDist = this.avoidPlayerDistanceFor(UnitType.SAMLauncher);
+    if (avoidPlayerDist > 0) {
+      const closestPlayerDist = this.closestOtherPlayerDistance(
+        player,
+        tile,
+        avoidPlayerDist,
+      );
+      if (closestPlayerDist !== null) {
+        const linearX = Math.max(
+          0,
+          (avoidPlayerDist - closestPlayerDist) / avoidPlayerDist,
+        );
+        const x = linearX * linearX; // Quadratic
+        const w = -(this.params.otherTileNearPlayerPenalty ?? 2.0);
+        z += w * x;
+      }
+    }
+    const proximityMultiplier = AIConstructionHandler.sigmoid(z);
 
     // Get current SAMs and range info
     const sams = player.units(UnitType.SAMLauncher).filter((u) => u.isActive());
@@ -1327,7 +1339,10 @@ export class AIConstructionHandler {
     const samRange = this.getEffectiveSAMRange(techLevel);
     const rangeSquared = samRange * samRange;
 
-    return this.evaluateSAMPlacementScore(player, tile, sams, rangeSquared);
+    return (
+      this.evaluateSAMPlacementScore(player, tile, sams, rangeSquared) *
+      proximityMultiplier
+    );
   }
 
   /**
