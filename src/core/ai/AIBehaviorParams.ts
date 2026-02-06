@@ -219,11 +219,11 @@ export interface AIBehaviorParams {
   warScoreMilitaryStrengthWeight?: number;
 
   /**
-   * Weight multiplier for non-bordering enemies in military strength calculation.
-   * Enemies that don't share a border are less threatening (can't attack directly).
-   * Value between 0-1; default 0.2 means non-bordering enemies count as 20% threat.
+   * Weight multiplier for non-reachable enemies in military strength calculation.
+   * Enemies that can't reach us are less threatening (can't attack directly).
+   * Value between 0-1; default 0.2 means non-reachable enemies count as 20% threat.
    */
-  warScoreNonBorderEnemyWeight?: number;
+  warScoreNonReachableEnemyWeight?: number;
 
   /**
    * Penalty applied to war score if target is an ally.
