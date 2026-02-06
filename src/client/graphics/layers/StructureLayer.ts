@@ -118,6 +118,8 @@ export class StructureLayer implements Layer {
     number,
     { samLevel: number; airfieldLevel: number }
   >();
+  private techLevelCheckCounter = 0;
+  private static readonly TECH_LEVEL_CHECK_INTERVAL = 10;
 
   // Icons registry
   private structures: Map<
@@ -267,51 +269,57 @@ export class StructureLayer implements Layer {
     const updates = this.game.updatesSinceLastTick();
 
     // Handle player updates for research tech changes (rebuild textures for SAM/Airfield stars)
-    // Only rebuild when tech level actually changes to avoid per-tick texture recreation
-    const playerUpdates =
-      updates !== null
-        ? (updates[GameUpdateType.Player] as PlayerUpdate[])
-        : [];
-    for (const playerUpdate of playerUpdates) {
-      const player = this.game.playerBySmallID(playerUpdate.smallID);
-      // Skip if player not found or is TerraNullius (no research)
-      if (!player || !("hasUpgrade" in player)) continue;
+    // Only check every 10 ticks — research is rare and a brief delay is imperceptible
+    this.techLevelCheckCounter++;
+    if (
+      this.techLevelCheckCounter >= StructureLayer.TECH_LEVEL_CHECK_INTERVAL
+    ) {
+      this.techLevelCheckCounter = 0;
+      const playerUpdates =
+        updates !== null
+          ? (updates[GameUpdateType.Player] as PlayerUpdate[])
+          : [];
+      for (const playerUpdate of playerUpdates) {
+        const player = this.game.playerBySmallID(playerUpdate.smallID);
+        // Skip if player not found or is TerraNullius (no research)
+        if (!player || !("hasUpgrade" in player)) continue;
 
-      const currentSamLevel = playerMaxStructureTechLevel(
-        player,
-        UnitType.SAMLauncher,
-      );
-      const currentAirfieldLevel = playerMaxStructureTechLevel(
-        player,
-        UnitType.Airfield,
-      );
-      const cached = this.lastPlayerTechLevels.get(playerUpdate.smallID);
+        const currentSamLevel = playerMaxStructureTechLevel(
+          player,
+          UnitType.SAMLauncher,
+        );
+        const currentAirfieldLevel = playerMaxStructureTechLevel(
+          player,
+          UnitType.Airfield,
+        );
+        const cached = this.lastPlayerTechLevels.get(playerUpdate.smallID);
 
-      // Check if tech levels changed since last tick
-      if (
-        !cached ||
-        cached.samLevel !== currentSamLevel ||
-        cached.airfieldLevel !== currentAirfieldLevel
-      ) {
-        // Update cache with new levels
-        this.lastPlayerTechLevels.set(playerUpdate.smallID, {
-          samLevel: currentSamLevel,
-          airfieldLevel: currentAirfieldLevel,
-        });
+        // Check if tech levels changed since last tick
+        if (
+          !cached ||
+          cached.samLevel !== currentSamLevel ||
+          cached.airfieldLevel !== currentAirfieldLevel
+        ) {
+          // Update cache with new levels
+          this.lastPlayerTechLevels.set(playerUpdate.smallID, {
+            samLevel: currentSamLevel,
+            airfieldLevel: currentAirfieldLevel,
+          });
 
-        // Rebuild textures only for structures whose tech level changed
-        for (const r of this.renders) {
-          const unitType = r.unit.type();
-          if (r.unit.owner().smallID() !== playerUpdate.smallID) continue;
+          // Rebuild textures only for structures whose tech level changed
+          for (const r of this.renders) {
+            const unitType = r.unit.type();
+            if (r.unit.owner().smallID() !== playerUpdate.smallID) continue;
 
-          if (
-            (unitType === UnitType.SAMLauncher &&
-              cached?.samLevel !== currentSamLevel) ||
-            (unitType === UnitType.Airfield &&
-              cached?.airfieldLevel !== currentAirfieldLevel)
-          ) {
-            r.pixiSprite.texture = this.createTexture(r.unit);
-            this.shouldRedraw = true;
+            if (
+              (unitType === UnitType.SAMLauncher &&
+                cached?.samLevel !== currentSamLevel) ||
+              (unitType === UnitType.Airfield &&
+                cached?.airfieldLevel !== currentAirfieldLevel)
+            ) {
+              r.pixiSprite.texture = this.createTexture(r.unit);
+              this.shouldRedraw = true;
+            }
           }
         }
       }
