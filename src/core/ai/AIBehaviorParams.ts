@@ -187,6 +187,13 @@ export interface AIBehaviorParams {
    * Default 0.2 (20% penalty).
    */
   otherTileNearWaterPenalty?: number;
+
+  // === Diplomacy ===
+  /**
+   * War score threshold above which the AI will declare war on another player.
+   * Higher values make the AI less aggressive. Default 1.0.
+   */
+  warDeclarationThreshold?: number;
 }
 
 export interface AIProfile {
