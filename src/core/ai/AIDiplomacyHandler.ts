@@ -7,12 +7,16 @@ import { AIBehaviorParams } from "./AIBehaviorParams";
  */
 export class AIDiplomacyHandler {
   private static readonly WAR_SCORE_EVALUATION_INTERVAL = 10;
+  private static readonly WAR_SCORE_HISTORY_LENGTH = 10; // 10 samples * 10 ticks = 100 ticks window
 
   // Phase seed for spreading periodic actions across AIs
   private readonly phaseSeed: number;
 
-  // Cached war scores for each player (keyed by PlayerID)
+  // Current war scores for each player (keyed by PlayerID)
   private _warScores: Map<PlayerID, number> = new Map();
+
+  // Historical war scores for moving average (keyed by PlayerID -> circular buffer of scores)
+  private _warScoreHistory: Map<PlayerID, number[]> = new Map();
 
   constructor(
     private mg: Game,
@@ -58,6 +62,7 @@ export class AIDiplomacyHandler {
       )
     ) {
       this.evaluateWarScores(player);
+      this.updateWarScoreHistory();
       this.maybeDeclarWars(player);
     }
   }
@@ -116,18 +121,60 @@ export class AIDiplomacyHandler {
   }
 
   /**
-   * Declares war on players whose war score exceeds the threshold.
+   * Updates the war score history for moving average calculation.
+   * Adds current scores to history and removes old entries.
+   */
+  private updateWarScoreHistory(): void {
+    // Add current scores to history
+    for (const [otherId, score] of this._warScores) {
+      let history = this._warScoreHistory.get(otherId);
+      if (!history) {
+        history = [];
+        this._warScoreHistory.set(otherId, history);
+      }
+      history.push(score);
+      // Keep only the last N samples
+      if (history.length > AIDiplomacyHandler.WAR_SCORE_HISTORY_LENGTH) {
+        history.shift();
+      }
+    }
+
+    // Clean up history for players no longer in war scores (e.g., died, allied, at war)
+    for (const otherId of this._warScoreHistory.keys()) {
+      if (!this._warScores.has(otherId)) {
+        this._warScoreHistory.delete(otherId);
+      }
+    }
+  }
+
+  /**
+   * Calculates the moving average war score for a player.
+   */
+  private getMovingAverageWarScore(otherId: PlayerID): number {
+    const history = this._warScoreHistory.get(otherId);
+    if (!history || history.length === 0) {
+      return 0;
+    }
+    const sum = history.reduce((acc, score) => acc + score, 0);
+    return sum / history.length;
+  }
+
+  /**
+   * Declares war on players whose moving average war score exceeds the threshold.
    */
   private maybeDeclarWars(player: Player): void {
     const threshold = this.params.warDeclarationThreshold ?? 1.0;
 
-    for (const [otherId, score] of this._warScores) {
-      if (score > threshold) {
+    for (const [otherId] of this._warScores) {
+      const avgScore = this.getMovingAverageWarScore(otherId);
+      if (avgScore > threshold) {
         const other = this.mg.player(otherId);
         if (other && other.isAlive() && !player.isAtWarWith(other)) {
           // Declare war (mutual)
           player.setWarWith(other);
           other.setWarWith(player);
+          // Clear history after declaring war
+          this._warScoreHistory.delete(otherId);
         }
       }
     }
