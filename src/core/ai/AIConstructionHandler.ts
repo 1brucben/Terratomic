@@ -39,6 +39,7 @@ export class AIConstructionHandler {
   private static readonly RESEARCH_LAB_BASE_SCORE = 8e-1;
   private static readonly AIRFIELD_SCORE_MULTIPLIER = 1e-1;
   private static readonly SAM_BASE_SCORE = 1e-5;
+  private static readonly DEFENSE_POST_BASE_SCORE = 50000;
   private static readonly SAM_EVALUATION_INTERVAL = 10;
   private static readonly SAM_PLACEMENT_MIN_PLAYER_DIST = 10;
   private static readonly LOG_INTERVAL = 20; // Log every ~1 second (assuming 20 ticks/sec)
@@ -485,6 +486,8 @@ export class AIConstructionHandler {
       baseScore = this.scoreAirfield(player);
     } else if (unitType === UnitType.SAMLauncher) {
       baseScore = this.scoreSAMLauncher(player);
+    } else if (unitType === UnitType.DefensePost) {
+      baseScore = this.scoreDefensePost(player);
     }
 
     // For other structures, base score remains 0 (uses weight only)
@@ -527,6 +530,8 @@ export class AIConstructionHandler {
       return this.scoreAirfield(player);
     } else if (unitType === UnitType.SAMLauncher) {
       return this.scoreSAMLauncher(player);
+    } else if (unitType === UnitType.DefensePost) {
+      return this.scoreDefensePost(player);
     }
     return 0;
   }
@@ -833,6 +838,17 @@ export class AIConstructionHandler {
    */
   private scoreSAMLauncher(_player: Player): number {
     return this._bestSAMScore * AIConstructionHandler.SAM_BASE_SCORE;
+  }
+
+  /**
+   * Computes the defense post base score as baseScoreParam / cost.
+   * Cost scales with number of defense posts owned: min(250k, (owned+1) * 50k).
+   */
+  private scoreDefensePost(player: Player): number {
+    const cost = this.mg.unitInfo(UnitType.DefensePost).cost(player);
+    const costNum = Number(cost);
+    if (costNum <= 0) return 0;
+    return AIConstructionHandler.DEFENSE_POST_BASE_SCORE / costNum;
   }
 
   /**
@@ -1160,6 +1176,65 @@ export class AIConstructionHandler {
   }
 
   /**
+   * Calculates the defense post tile score based on nearby enemy threat.
+   *
+   * Score = Σ over each nearby enemy player:
+   *   militaryStrength(enemy) * borderRatio * distanceFactor
+   *
+   * where:
+   *   borderRatio = sharedBorderLength(enemy) / ownTotalBorderLength
+   *   x = closestEnemyBorderDist / defensePostRadius, clamped to [0, 1]
+   *   distanceFactor = -x² + 2x  (peaks at 1.0 when x=1, so enemy border at radius edge)
+   *
+   * Returns 0 if tile is ocean or not owned by the player.
+   */
+  private calculateDefensePostTileScore(player: Player, tile: TileRef): number {
+    if (this.mg.isOcean(tile)) return 0;
+    if (!this.mg.hasOwner(tile) || this.mg.owner(tile).id() !== player.id())
+      return 0;
+
+    const defensePostRadius = this.mg.config().defensePostRange();
+    if (defensePostRadius <= 0) return 0;
+
+    const radiusSquared = defensePostRadius * defensePostRadius;
+    const ownTotalBorderLength = player.borderTiles().size;
+    if (ownTotalBorderLength === 0) return 0;
+
+    let score = 0;
+
+    for (const other of this.mg.players()) {
+      if (other.id() === player.id()) continue;
+      if (!other.isAlive()) continue;
+
+      // Border weight: shared border length ratio
+      const sharedBorder = player.sharedBorderLength(other);
+      if (sharedBorder === 0) continue;
+      const borderRatio = sharedBorder / ownTotalBorderLength;
+
+      // Find closest border tile of this enemy to the candidate tile
+      let closestDistSq = Infinity;
+      for (const borderTile of other.borderTiles()) {
+        const distSq = this.mg.euclideanDistSquared(tile, borderTile);
+        if (distSq < closestDistSq) {
+          closestDistSq = distSq;
+        }
+      }
+
+      // Skip if enemy border is beyond the defense post radius
+      if (closestDistSq > radiusSquared) continue;
+
+      // x = closestDist / radius, clamped to [0, 1]
+      const x = Math.min(1, Math.sqrt(closestDistSq) / defensePostRadius);
+      // distanceFactor = -x² + 2x (parabola peaking at 1.0 when x = 1)
+      const distanceFactor = -x * x + 2 * x;
+
+      score += other.militaryStrength() * borderRatio * distanceFactor;
+    }
+
+    return score;
+  }
+
+  /**
    * Checks if there is water (ocean) within the given distance of a tile.
    */
   private tileHasNearbyWater(tile: TileRef, maxDist: number): boolean {
@@ -1231,12 +1306,12 @@ export class AIConstructionHandler {
     const portScore = this.calculatePortTileScore(player, tile);
 
     // Land structures (defense post and other) can only be built on non-ocean tiles
-    // We use otherScore > 0 as a proxy for whether the tile is valid for land structures,
-    // since both DefensePost and City use the same landBasedStructureSpawn logic
     const otherScore = isOceanTile
       ? 0
       : this.calculateOtherTileScore(player, tile);
-    const defensePostScore = otherScore > 0 ? 1 : 0;
+    const defensePostScore = isOceanTile
+      ? 0
+      : this.calculateDefensePostTileScore(player, tile);
 
     // Increment evaluation counts for each type
     this._portEvalCount++;
@@ -1748,13 +1823,7 @@ export class AIConstructionHandler {
       }
       return newScore > 0;
     } else if (unitType === UnitType.DefensePost) {
-      // DefensePost uses same land-based spawn logic as other structures, so we can
-      // use calculateOtherTileScore > 0 as a proxy for validity (avoids separate canBuildAtTile call)
-      const newScore = this.mg.isOcean(tile)
-        ? 0
-        : this.calculateOtherTileScore(player, tile) > 0
-          ? 1
-          : 0;
+      const newScore = this.calculateDefensePostTileScore(player, tile);
       if (newScore < this._defensePostTileScore) {
         this._defensePostTileScore = 0;
         this._defensePostTile = null;
