@@ -294,9 +294,17 @@ export class StructureLayer implements Layer {
         );
         const cached = this.lastPlayerTechLevels.get(playerUpdate.smallID);
 
-        // Check if tech levels changed since last tick
+        // First encounter: seed cache without rebuilding (textures already correct)
+        if (!cached) {
+          this.lastPlayerTechLevels.set(playerUpdate.smallID, {
+            samLevel: currentSamLevel,
+            airfieldLevel: currentAirfieldLevel,
+          });
+          continue;
+        }
+
+        // Check if tech levels actually changed
         if (
-          !cached ||
           cached.samLevel !== currentSamLevel ||
           cached.airfieldLevel !== currentAirfieldLevel
         ) {
@@ -313,9 +321,9 @@ export class StructureLayer implements Layer {
 
             if (
               (unitType === UnitType.SAMLauncher &&
-                cached?.samLevel !== currentSamLevel) ||
+                cached.samLevel !== currentSamLevel) ||
               (unitType === UnitType.Airfield &&
-                cached?.airfieldLevel !== currentAirfieldLevel)
+                cached.airfieldLevel !== currentAirfieldLevel)
             ) {
               r.pixiSprite.texture = this.createTexture(r.unit);
               this.shouldRedraw = true;
