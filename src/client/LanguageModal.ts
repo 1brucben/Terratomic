@@ -94,11 +94,13 @@ export class LanguageModal extends LitElement {
     const filteredList = this.languageList.filter((lang) => {
       const search = this.searchQuery.trim();
       if (!search) return true;
+      /* eslint-disable @typescript-eslint/prefer-nullish-coalescing */
       return (
         lang.native.toLowerCase().includes(search) ||
         lang.en.toLowerCase().includes(search) ||
         lang.code.toLowerCase().includes(search)
       );
+      /* eslint-enable @typescript-eslint/prefer-nullish-coalescing */
     });
 
     return html`
