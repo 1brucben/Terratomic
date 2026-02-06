@@ -130,16 +130,59 @@ export class AIDiplomacyHandler {
     }
 
     // Factor 2: Military strength ratio
-    // ownMilitaryStrength / totalEnemyStrength
+    // effectiveOwnStrength / totalEnemyStrength
+    // effectiveOwnStrength = own + allies against target (scaled by target's share of their wars)
     // totalEnemyStrength = target + sum of current enemies (weighted by border status)
     const militaryStrengthWeight =
       this.params.warScoreMilitaryStrengthWeight ?? 0;
     if (militaryStrengthWeight !== 0) {
-      const ownStrength = player.militaryStrength();
+      const nonBorderWeight = this.params.warScoreNonBorderEnemyWeight ?? 0.2;
+      let effectiveOwnStrength = player.militaryStrength();
+
+      // Add military strength of others already at war with target, scaled by
+      // how much of their attention is on the target
+      for (const ally of this.mg.players()) {
+        if (
+          ally.id() !== player.id() &&
+          ally.id() !== other.id() &&
+          ally.isAlive() &&
+          ally.isAtWarWith(other)
+        ) {
+          // Calculate total military strength of all players at war with this ally
+          // weighted by whether they border the ally
+          let totalEnemyStrengthOfAlly = 0;
+          for (const allyEnemy of this.mg.players()) {
+            if (
+              allyEnemy.id() !== ally.id() &&
+              allyEnemy.isAlive() &&
+              ally.isAtWarWith(allyEnemy)
+            ) {
+              const enemyStrength = allyEnemy.militaryStrength();
+              if (ally.sharesBorderWith(allyEnemy)) {
+                totalEnemyStrengthOfAlly += enemyStrength;
+              } else {
+                totalEnemyStrengthOfAlly += enemyStrength * nonBorderWeight;
+              }
+            }
+          }
+
+          // Scale ally's contribution by target's share of their total enemies
+          // Also scale by whether the ally borders the target
+          if (totalEnemyStrengthOfAlly > 0) {
+            let targetStrengthForAlly = other.militaryStrength();
+            if (!ally.sharesBorderWith(other)) {
+              targetStrengthForAlly *= nonBorderWeight;
+            }
+            const targetShare =
+              targetStrengthForAlly / totalEnemyStrengthOfAlly;
+            effectiveOwnStrength += ally.militaryStrength() * targetShare;
+          }
+        }
+      }
+
       let totalEnemyStrength = other.militaryStrength();
 
       // Add military strength of all players we're already at war with
-      const nonBorderWeight = this.params.warScoreNonBorderEnemyWeight ?? 0.2;
       for (const enemy of this.mg.players()) {
         if (
           enemy.id() !== player.id() &&
@@ -159,7 +202,7 @@ export class AIDiplomacyHandler {
       }
 
       if (totalEnemyStrength > 0) {
-        const strengthRatio = ownStrength / totalEnemyStrength;
+        const strengthRatio = effectiveOwnStrength / totalEnemyStrength;
         score += militaryStrengthWeight * strengthRatio;
       }
     }
