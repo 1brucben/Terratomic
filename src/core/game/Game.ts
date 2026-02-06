@@ -704,6 +704,8 @@ export interface Player {
   // Relations & Diplomacy
   neighbors(): (Player | TerraNullius)[];
   sharesBorderWith(other: Player | TerraNullius): boolean;
+  /** Returns the number of border tiles shared with another player. */
+  sharedBorderLength(other: Player | TerraNullius): number;
   /** Invalidates the cached neighbor set. Called internally when tile ownership changes. */
   invalidateNeighborCache(): void;
   relation(other: Player): Relation;

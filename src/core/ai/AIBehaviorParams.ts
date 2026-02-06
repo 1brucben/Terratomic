@@ -194,6 +194,20 @@ export interface AIBehaviorParams {
    * Higher values make the AI less aggressive. Default 1.0.
    */
   warDeclarationThreshold?: number;
+
+  /**
+   * Weight for shared border length ratio in war score calculation.
+   * Score contribution = weight * (sharedBorderLength / ownTotalBorderLength).
+   * Default 0.
+   */
+  warScoreSharedBorderWeight?: number;
+
+  /**
+   * Penalty applied to war score if target is an ally.
+   * Score contribution = -penalty (subtracted from total).
+   * Default 0.
+   */
+  warScoreAllyPenalty?: number;
 }
 
 export interface AIProfile {

@@ -107,17 +107,30 @@ export class AIDiplomacyHandler {
   /**
    * Calculates the war score against a specific player.
    * Higher score = more likely to declare war.
-   * Returns a value where higher = more desire to go to war.
+   * Returns a linear combination of weighted factors.
    */
-  private calculateWarScore(_player: Player, _other: Player): number {
-    // TODO: Implement actual war score calculation based on:
-    // - Relative strength (troops, territory, structures)
-    // - Border proximity (do we share a border?)
-    // - Threat level (are they expanding toward us?)
-    // - Opportunity (are they at war with others?)
-    // - Relations (historical aggression, broken alliances)
-    // For now, return 0 to prevent any war declarations
-    return 0;
+  private calculateWarScore(player: Player, other: Player): number {
+    let score = 0;
+
+    // Factor 1: Shared border length ratio
+    // sharedBorderLength / ownTotalBorderLength
+    const sharedBorderWeight = this.params.warScoreSharedBorderWeight ?? 0;
+    if (sharedBorderWeight !== 0) {
+      const ownTotalBorderLength = player.borderTiles().size;
+      if (ownTotalBorderLength > 0) {
+        const sharedBorderLength = player.sharedBorderLength(other);
+        const borderRatio = sharedBorderLength / ownTotalBorderLength;
+        score += sharedBorderWeight * borderRatio;
+      }
+    }
+
+    // Factor 2: Ally penalty (negative contribution)
+    const allyPenalty = this.params.warScoreAllyPenalty ?? 0;
+    if (allyPenalty !== 0 && player.isAlliedWith(other)) {
+      score -= allyPenalty;
+    }
+
+    return score;
   }
 
   /**

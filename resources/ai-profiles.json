@@ -62,7 +62,9 @@
         "otherTileCapitalDistancePenalty": 0.0001,
         "otherTileWaterCheckDistance": 20,
         "otherTileNearWaterPenalty": 0.2,
-        "warDeclarationThreshold": 100
+        "warDeclarationThreshold": 100,
+        "warScoreSharedBorderWeight": 0,
+        "warScoreAllyPenalty": 0
       }
     }
   ]
