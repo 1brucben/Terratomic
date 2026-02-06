@@ -110,6 +110,8 @@ export class PlayerImpl implements Player {
 
   // Neighbor cache: stores smallIDs of all players (including TerraNullius=0) bordering this player
   private _neighborCache: Set<number> | null = null;
+  // Shared border length cache: stores count of border tiles adjacent to each neighbor (keyed by smallID)
+  private _sharedBorderLengthCache: Map<number, number> | null = null;
 
   // Phase 2 Optimization: Cache casualty modifiers (invalidated on tech research)
   private _attackCasualtyModifiersCache: DefenseCasualtyModifiers | null = null;
@@ -792,18 +794,28 @@ export class PlayerImpl implements Player {
   /**
    * Returns the cached set of neighbor smallIDs, computing it if needed.
    * Includes TerraNullius (smallID=0) if bordering unclaimed land.
+   * Also populates the shared border length cache.
    */
   private neighborSmallIDs(): Set<number> {
     if (this._neighborCache === null) {
       this._neighborCache = new Set();
+      this._sharedBorderLengthCache = new Map();
       for (const border of this._borderTiles) {
+        // Track which neighbors this border tile touches (to count each tile only once per neighbor)
+        const touchedNeighbors = new Set<number>();
         for (const neighbor of this.mg.map().neighbors(border)) {
           if (this.mg.map().isLand(neighbor)) {
             const ownerID = this.mg.map().ownerID(neighbor);
             if (ownerID !== this.smallID()) {
               this._neighborCache.add(ownerID);
+              touchedNeighbors.add(ownerID);
             }
           }
+        }
+        // Increment shared border length for each neighbor this tile touches
+        for (const ownerID of touchedNeighbors) {
+          const current = this._sharedBorderLengthCache.get(ownerID) ?? 0;
+          this._sharedBorderLengthCache.set(ownerID, current + 1);
         }
       }
     }
@@ -815,6 +827,17 @@ export class PlayerImpl implements Player {
    */
   invalidateNeighborCache(): void {
     this._neighborCache = null;
+    this._sharedBorderLengthCache = null;
+  }
+
+  /**
+   * Returns the number of border tiles shared with another player.
+   * Uses cached value if available.
+   */
+  sharedBorderLength(other: Player | TerraNullius): number {
+    // Ensure cache is populated
+    this.neighborSmallIDs();
+    return this._sharedBorderLengthCache?.get(other.smallID()) ?? 0;
   }
   numTilesOwned(): number {
     return this._tiles.size;
