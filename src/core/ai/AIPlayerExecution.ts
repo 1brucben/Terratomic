@@ -5,6 +5,7 @@ import { simpleHash } from "../Util";
 import { AIBehaviorParams } from "./AIBehaviorParams";
 import { AIBotAttackHandler } from "./AIBotAttackHandler";
 import { AIConstructionHandler } from "./AIConstructionHandler";
+import { AIDiplomacyHandler } from "./AIDiplomacyHandler";
 import { AISpawnHandler } from "./AISpawnHandler";
 import { AITerraNulliusHandler } from "./AITerraNulliusHandler";
 
@@ -21,6 +22,7 @@ export class AIPlayerExecution implements Execution {
   private terraNulliusHandler: AITerraNulliusHandler | null = null;
   private botAttackHandler: AIBotAttackHandler | null = null;
   private constructionHandler: AIConstructionHandler | null = null;
+  private diplomacyHandler: AIDiplomacyHandler | null = null;
   private initialInvestmentSet = false;
   private roadInvestmentSet = false;
 
@@ -79,6 +81,12 @@ export class AIPlayerExecution implements Execution {
       this.random,
       this.params,
     );
+    this.diplomacyHandler = new AIDiplomacyHandler(
+      mg,
+      this.nation.playerInfo.id,
+      this.random,
+      this.params,
+    );
   }
 
   isActive(): boolean {
@@ -127,6 +135,9 @@ export class AIPlayerExecution implements Execution {
     if (!tnAttacked) {
       this.botAttackHandler?.handleBotAttack();
     }
+
+    // Handle diplomacy (war declarations, etc.)
+    this.diplomacyHandler?.tickDiplomacy(ticks);
   }
 
   private updateSliders(ticks: number): void {
