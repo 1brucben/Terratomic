@@ -327,6 +327,9 @@ export class AIAttackHandler {
     }
 
     this.lastBoatAttackTick = this.mg.ticks();
+    console.log(
+      `[AI Attack] ${player.name()} launching boat attack against ${target.name()} (troops=${Math.floor(troops)})`,
+    );
     this.mg.addExecution(
       new TransportShipExecution(player, target.id(), targetTile, troops, null),
     );
