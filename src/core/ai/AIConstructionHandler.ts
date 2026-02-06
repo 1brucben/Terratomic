@@ -414,6 +414,7 @@ export class AIConstructionHandler {
 
     let bestScore = -Infinity;
     let best: UnitType[] = [];
+
     for (const t of candidates) {
       const s = this.scoreTarget(player, t);
       if (s > bestScore) {
@@ -503,6 +504,31 @@ export class AIConstructionHandler {
     } else {
       return structureScore * Math.max(this._otherTileScore, upgradeScore);
     }
+  }
+
+  /**
+   * Gets the base score for a structure type (without weight or tile multiplier).
+   * Used for debugging/logging purposes.
+   */
+  private getBaseScoreForType(player: Player, unitType: UnitType): number {
+    if (unitType === UnitType.City) {
+      return this.scoreCity(player);
+    } else if (unitType === UnitType.Factory) {
+      return this.scoreFactory(player);
+    } else if (unitType === UnitType.Port) {
+      return this.scorePort(player);
+    } else if (unitType === UnitType.Hospital) {
+      return this.scoreHospital(player);
+    } else if (unitType === UnitType.Academy) {
+      return this.scoreAcademy(player);
+    } else if (unitType === UnitType.ResearchLab) {
+      return this.scoreResearchLab(player);
+    } else if (unitType === UnitType.Airfield) {
+      return this.scoreAirfield(player);
+    } else if (unitType === UnitType.SAMLauncher) {
+      return this.scoreSAMLauncher(player);
+    }
+    return 0;
   }
 
   /**
@@ -912,7 +938,7 @@ export class AIConstructionHandler {
    *
    * Features (xᵢ) and their weights (wᵢ):
    *   - w₀ = bias term (default 0, so σ(0) = 0.5 as baseline)
-   *   - x₁ = max(0, (maxDist - closestPlayerDist) / maxDist) ∈ [0, 1], bounded below
+   *   - x₁ = (max(0, (maxDist - closestPlayerDist) / maxDist))² ∈ [0, 1], quadratic
    *         w₁ = -portTileNearPlayerPenalty (negative = penalty for being close to enemies)
    *   - x₂ = total structure levels within range (sum of stackCount for nearby structures)
    *         w₂ = -portTileNearStructurePenalty (fixed penalty per structure level)
@@ -921,23 +947,36 @@ export class AIConstructionHandler {
    *
    * Returns 0 if port cannot be built (hard constraint), otherwise score ∈ (0, 1).
    */
-  private calculatePortTileScore(player: Player, tile: TileRef): number {
+  private calculatePortTileScore(
+    player: Player,
+    tile: TileRef,
+    skipSpacingCheck: boolean = false,
+  ): number {
     // Early terrain check: ports must be on ocean shore
     if (!this.mg.isOceanShore(tile)) {
       return 0;
     }
 
-    // Check ownership and structure spacing
-    if (player.canBuildAtTile(UnitType.Port, tile) === false) {
+    // Check ownership and structure spacing (skip for upgrade evaluation)
+    if (
+      !skipSpacingCheck &&
+      player.canBuildAtTile(UnitType.Port, tile) === false
+    ) {
+      return 0;
+    }
+
+    // For upgrades, still check basic ownership
+    if (skipSpacingCheck && this.mg.owner(tile) !== player) {
       return 0;
     }
 
     // Initialize linear combination: z = w₀ (bias)
     let z = 0;
 
-    // Feature 1: Enemy proximity penalty
-    // x₁ = max(0, (maxDist - dist) / maxDist), bounded below at 0
+    // Feature 1: Enemy proximity penalty (quadratic)
+    // x₁ = (max(0, (maxDist - dist) / maxDist))², bounded below at 0
     // x₁ = 1 when dist = 0 (very close), x₁ = 0 when dist >= maxDist
+    // Quadratic makes penalty more severe when enemies are very close
     const avoidPlayerDist = this.avoidPlayerDistanceFor(UnitType.Port);
     if (avoidPlayerDist > 0) {
       const closestPlayerDist = this.closestOtherPlayerDistance(
@@ -946,10 +985,11 @@ export class AIConstructionHandler {
         avoidPlayerDist,
       );
       if (closestPlayerDist !== null) {
-        const x1 = Math.max(
+        const linearX1 = Math.max(
           0,
           (avoidPlayerDist - closestPlayerDist) / avoidPlayerDist,
         );
+        const x1 = linearX1 * linearX1; // Quadratic
         const w1 = -(this.params.portTileNearPlayerPenalty ?? 2.0);
         z += w1 * x1;
       }
@@ -1009,7 +1049,7 @@ export class AIConstructionHandler {
    *
    * Features (xᵢ) and their weights (wᵢ):
    *   - w₀ = bias term (default 0, so σ(0) = 0.5 as baseline)
-   *   - x₁ = max(0, (maxDist - closestPlayerDist) / maxDist) ∈ [0, 1], bounded below
+   *   - x₁ = (max(0, (maxDist - closestPlayerDist) / maxDist))² ∈ [0, 1], quadratic
    *         w₁ = -otherTileNearPlayerPenalty (negative = penalty for being close to enemies)
    *   - x₂ = total structure levels within range (sum of stackCount for nearby structures)
    *         w₂ = -otherTileNearStructurePenalty (fixed penalty per structure level)
@@ -1020,23 +1060,36 @@ export class AIConstructionHandler {
    *
    * Returns 0 if structure cannot be built (hard constraint), otherwise score ∈ (0, 1).
    */
-  private calculateOtherTileScore(player: Player, tile: TileRef): number {
+  private calculateOtherTileScore(
+    player: Player,
+    tile: TileRef,
+    skipSpacingCheck: boolean = false,
+  ): number {
     // Early terrain check: land structures cannot be on ocean
     if (this.mg.isOcean(tile)) {
       return 0;
     }
 
-    // Check ownership and structure spacing
-    if (player.canBuildAtTile(UnitType.City, tile) === false) {
+    // Check ownership and structure spacing (skip for upgrade evaluation)
+    if (
+      !skipSpacingCheck &&
+      player.canBuildAtTile(UnitType.City, tile) === false
+    ) {
+      return 0;
+    }
+
+    // For upgrades, still check basic ownership
+    if (skipSpacingCheck && this.mg.owner(tile) !== player) {
       return 0;
     }
 
     // Initialize linear combination: z = w₀ (bias)
     let z = 0;
 
-    // Feature 1: Enemy proximity penalty
-    // x₁ = max(0, (maxDist - dist) / maxDist), bounded below at 0
+    // Feature 1: Enemy proximity penalty (quadratic)
+    // x₁ = (max(0, (maxDist - dist) / maxDist))², bounded below at 0
     // x₁ = 1 when dist = 0 (very close), x₁ = 0 when dist >= maxDist
+    // Quadratic makes penalty more severe when enemies are very close
     const avoidPlayerDist = this.avoidPlayerDistanceFor(UnitType.City);
     if (avoidPlayerDist > 0) {
       const closestPlayerDist = this.closestOtherPlayerDistance(
@@ -1045,10 +1098,11 @@ export class AIConstructionHandler {
         avoidPlayerDist,
       );
       if (closestPlayerDist !== null) {
-        const x1 = Math.max(
+        const linearX1 = Math.max(
           0,
           (avoidPlayerDist - closestPlayerDist) / avoidPlayerDist,
         );
+        const x1 = linearX1 * linearX1; // Quadratic
         const w1 = -(this.params.otherTileNearPlayerPenalty ?? 2.0);
         z += w1 * x1;
       }
@@ -1256,12 +1310,12 @@ export class AIConstructionHandler {
     const tile = structure.tile();
     const unitType = structure.type();
 
-    // Calculate the score based on structure type (same as for new tiles)
+    // Calculate the score based on structure type (skip spacing check for upgrades)
     let score: number;
     if (unitType === UnitType.Port) {
-      score = this.calculatePortTileScore(player, tile);
+      score = this.calculatePortTileScore(player, tile, true);
     } else {
-      score = this.calculateOtherTileScore(player, tile);
+      score = this.calculateOtherTileScore(player, tile, true);
     }
 
     // Divide by UPGRADE_SCORE_DIVISOR (upgrades need to be better to win)
