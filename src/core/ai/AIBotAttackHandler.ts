@@ -24,7 +24,7 @@ export class AIBotAttackHandler {
   private static readonly UNREACHABLE_RECHECK_INTERVAL = 100;
   private static readonly NEIGHBOR_CACHE_INTERVAL = 10;
   private static readonly SHORE_CACHE_INTERVAL = 10;
-  private static readonly BOAT_ATTACK_COOLDOWN = 60; // ticks between boat attacks
+  private static readonly BOAT_ATTACK_COOLDOWN = 100; // ticks between boat attacks
   private static readonly MAX_BOAT_SEARCH_RANGE = 270;
 
   constructor(
@@ -287,8 +287,9 @@ export class AIBotAttackHandler {
         Math.abs(this.mg.y(closest.x) - this.mg.y(closest.y));
       if (dist > this.currentBoatSearchRange) {
         // Too far — grow the range for next attempt
+        const growth = this.params.botAttackBoatSearchRangeGrowth ?? 0.5;
         this.currentBoatSearchRange = Math.min(
-          this.currentBoatSearchRange + 1,
+          this.currentBoatSearchRange + growth,
           AIBotAttackHandler.MAX_BOAT_SEARCH_RANGE,
         );
         return false;
