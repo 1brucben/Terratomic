@@ -704,6 +704,8 @@ export interface Player {
   // Relations & Diplomacy
   neighbors(): (Player | TerraNullius)[];
   sharesBorderWith(other: Player | TerraNullius): boolean;
+  /** Invalidates the cached neighbor set. Called internally when tile ownership changes. */
+  invalidateNeighborCache(): void;
   relation(other: Player): Relation;
   allRelationsSorted(): { player: Player; relation: Relation }[];
   updateRelation(other: Player, delta: number): void;

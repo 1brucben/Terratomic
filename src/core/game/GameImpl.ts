@@ -861,6 +861,8 @@ export class GameImpl implements Game {
         return;
       }
       const owner = this.owner(t) as PlayerImpl;
+      // Invalidate neighbor cache for affected players
+      owner.invalidateNeighborCache();
       if (this.calcIsBorder(t)) {
         owner._borderTiles.add(t);
       } else {
