@@ -64,6 +64,8 @@
         "otherTileNearWaterPenalty": 0.2,
         "warDeclarationThreshold": 100,
         "warScoreSharedBorderWeight": 0,
+        "warScoreMilitaryStrengthWeight": 0,
+        "warScoreNonBorderEnemyWeight": 0.2,
         "warScoreAllyPenalty": 0
       }
     }

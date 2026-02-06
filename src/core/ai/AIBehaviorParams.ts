@@ -203,6 +203,21 @@ export interface AIBehaviorParams {
   warScoreSharedBorderWeight?: number;
 
   /**
+   * Weight for military strength ratio in war score calculation.
+   * Score contribution = weight * (ownMilitaryStrength / totalEnemyStrength).
+   * totalEnemyStrength includes target plus current war enemies (weighted by border).
+   * Default 0.
+   */
+  warScoreMilitaryStrengthWeight?: number;
+
+  /**
+   * Weight multiplier for non-bordering enemies in military strength calculation.
+   * Enemies that don't share a border are less threatening (can't attack directly).
+   * Value between 0-1; default 0.2 means non-bordering enemies count as 20% threat.
+   */
+  warScoreNonBorderEnemyWeight?: number;
+
+  /**
    * Penalty applied to war score if target is an ally.
    * Score contribution = -penalty (subtracted from total).
    * Default 0.

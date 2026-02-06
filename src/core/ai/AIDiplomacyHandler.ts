@@ -110,6 +110,11 @@ export class AIDiplomacyHandler {
    * Returns a linear combination of weighted factors.
    */
   private calculateWarScore(player: Player, other: Player): number {
+    // No point declaring war on someone we can't attack
+    if (!player.sharesBorderWith(other)) {
+      return 0;
+    }
+
     let score = 0;
 
     // Factor 1: Shared border length ratio
@@ -124,7 +129,42 @@ export class AIDiplomacyHandler {
       }
     }
 
-    // Factor 2: Ally penalty (negative contribution)
+    // Factor 2: Military strength ratio
+    // ownMilitaryStrength / totalEnemyStrength
+    // totalEnemyStrength = target + sum of current enemies (weighted by border status)
+    const militaryStrengthWeight =
+      this.params.warScoreMilitaryStrengthWeight ?? 0;
+    if (militaryStrengthWeight !== 0) {
+      const ownStrength = player.militaryStrength();
+      let totalEnemyStrength = other.militaryStrength();
+
+      // Add military strength of all players we're already at war with
+      const nonBorderWeight = this.params.warScoreNonBorderEnemyWeight ?? 0.2;
+      for (const enemy of this.mg.players()) {
+        if (
+          enemy.id() !== player.id() &&
+          enemy.id() !== other.id() &&
+          enemy.isAlive() &&
+          player.isAtWarWith(enemy)
+        ) {
+          const enemyStrength = enemy.militaryStrength();
+          if (player.sharesBorderWith(enemy)) {
+            // Bordering enemy: full weight
+            totalEnemyStrength += enemyStrength;
+          } else {
+            // Non-bordering enemy: reduced weight (harder for them to attack us)
+            totalEnemyStrength += enemyStrength * nonBorderWeight;
+          }
+        }
+      }
+
+      if (totalEnemyStrength > 0) {
+        const strengthRatio = ownStrength / totalEnemyStrength;
+        score += militaryStrengthWeight * strengthRatio;
+      }
+    }
+
+    // Factor 3: Ally penalty (negative contribution)
     const allyPenalty = this.params.warScoreAllyPenalty ?? 0;
     if (allyPenalty !== 0 && player.isAlliedWith(other)) {
       score -= allyPenalty;
