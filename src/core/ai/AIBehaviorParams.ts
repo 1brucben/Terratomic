@@ -38,6 +38,14 @@ export interface AIBehaviorParams {
   /** Multiplier of bot troops to cap attack size (beta) */
   botAttackEnemyTroopMultiplier?: number;
 
+  // === AI/Human Attack Behavior ===
+  /** Minimum troop ratio (troops / maxTroops) before attacking AI/Human players (0-1) */
+  attackTroopThreshold?: number;
+  /** Percent of own troops to use in attack (alpha) */
+  attackOwnTroopPercent?: number;
+  /** Multiplier of enemy troops to cap attack size (beta) */
+  attackEnemyTroopMultiplier?: number;
+
   // === Defense ===
   /** Minimum ratio of defending troops (player.troops() / totalTroops) required before attacking (0-1) */
   defendingTroopTarget?: number;

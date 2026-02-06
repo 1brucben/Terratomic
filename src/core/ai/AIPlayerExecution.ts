@@ -2,6 +2,7 @@ import { Execution, Game, Nation, Player, UpgradeType } from "../game/Game";
 import { PseudoRandom } from "../PseudoRandom";
 import { GameID } from "../Schemas";
 import { simpleHash } from "../Util";
+import { AIAttackHandler } from "./AIAttackHandler";
 import { AIBehaviorParams } from "./AIBehaviorParams";
 import { AIBotAttackHandler } from "./AIBotAttackHandler";
 import { AIConstructionHandler } from "./AIConstructionHandler";
@@ -21,6 +22,7 @@ export class AIPlayerExecution implements Execution {
   private spawnHandler: AISpawnHandler | null = null;
   private terraNulliusHandler: AITerraNulliusHandler | null = null;
   private botAttackHandler: AIBotAttackHandler | null = null;
+  private attackHandler: AIAttackHandler | null = null;
   private constructionHandler: AIConstructionHandler | null = null;
   private diplomacyHandler: AIDiplomacyHandler | null = null;
   private initialInvestmentSet = false;
@@ -69,6 +71,13 @@ export class AIPlayerExecution implements Execution {
       thresholdOffset,
     );
     this.botAttackHandler = new AIBotAttackHandler(
+      mg,
+      this.nation.playerInfo.id,
+      this.random,
+      this.params,
+      thresholdOffset,
+    );
+    this.attackHandler = new AIAttackHandler(
       mg,
       this.nation.playerInfo.id,
       this.random,
@@ -135,6 +144,9 @@ export class AIPlayerExecution implements Execution {
     if (!tnAttacked) {
       this.botAttackHandler?.handleBotAttack();
     }
+
+    // Handle attacks against AI/Human players we're at war with
+    this.attackHandler?.handleAttack();
 
     // Handle diplomacy (war declarations, etc.)
     this.diplomacyHandler?.tickDiplomacy(ticks);
