@@ -40,7 +40,7 @@
         "buildResearchLabs": true,
         "buildMissileSilos": false,
         "buildSAMLaunchers": true,
-        "buildDefensePosts": false,
+        "buildDefensePosts": true,
         "buildDoomsdayDevices": false,
         "aiStructureMinDistance": 60,
         "aiAvoidPlayerDistance": 40,

@@ -342,6 +342,7 @@ export class AIDiplomacyHandler {
           ally.id() !== player.id() &&
           ally.id() !== other.id() &&
           ally.isAlive() &&
+          ally.type() !== PlayerType.Bot &&
           ally.isAtWarWith(other)
         ) {
           // Calculate total military strength of all players at war with this ally
@@ -351,6 +352,7 @@ export class AIDiplomacyHandler {
             if (
               allyEnemy.id() !== ally.id() &&
               allyEnemy.isAlive() &&
+              allyEnemy.type() !== PlayerType.Bot &&
               ally.isAtWarWith(allyEnemy)
             ) {
               const enemyStrength = allyEnemy.militaryStrength();
@@ -384,6 +386,7 @@ export class AIDiplomacyHandler {
           enemy.id() !== player.id() &&
           enemy.id() !== other.id() &&
           enemy.isAlive() &&
+          enemy.type() !== PlayerType.Bot &&
           player.isAtWarWith(enemy)
         ) {
           const enemyStrength = enemy.militaryStrength();

@@ -6,6 +6,7 @@ import {
   isStructureType,
   Player,
   PlayerID,
+  PlayerType,
   Unit,
   UnitType,
 } from "../game/Game";
@@ -39,32 +40,28 @@ export class AIConstructionHandler {
   private static readonly RESEARCH_LAB_BASE_SCORE = 8e-1;
   private static readonly AIRFIELD_SCORE_MULTIPLIER = 1e-1;
   private static readonly SAM_BASE_SCORE = 1e-5;
-  private static readonly DEFENSE_POST_BASE_SCORE = 50000;
-  private static readonly SAM_EVALUATION_INTERVAL = 10;
+  private static readonly DEFENSE_POST_BASE_SCORE = 5e3;
   private static readonly SAM_PLACEMENT_MIN_PLAYER_DIST = 10;
   private static readonly LOG_INTERVAL = 20; // Log every ~1 second (assuming 20 ticks/sec)
   private static readonly MIN_TILE_EVALUATIONS_BEFORE_BUILD = 50;
   private static readonly TILE_EVALUATION_INTERVAL = 2;
   private static readonly UPGRADE_SCORE_DIVISOR = 0.8;
 
-  // SAM evaluation state
-  private _bestSAMScore: number = 0;
-  private _bestSAMTile: TileRef | null = null;
-  private _bestSAMIsUpgrade: boolean = false; // true if best option is stacking existing SAM
-  private _bestSAMUpgradeUnit: Unit | null = null; // the SAM unit to stack (if _bestSAMIsUpgrade)
-
-  // Tile evaluation state for non-SAM structures (ports, defense posts, others)
+  // Tile evaluation state (ports, defense posts, SAMs, others)
   private _portTileScore: number = 0;
   private _portTile: TileRef | null = null;
   private _portEvalCount: number = 0;
   private _defensePostTileScore: number = 0;
   private _defensePostTile: TileRef | null = null;
   private _defensePostEvalCount: number = 0;
+  private _samTileScore: number = 0;
+  private _samTile: TileRef | null = null;
+  private _samEvalCount: number = 0;
   private _otherTileScore: number = 0;
   private _otherTile: TileRef | null = null;
   private _otherEvalCount: number = 0;
 
-  // Upgrade evaluation state for each stackable structure type (except SAM which has its own system)
+  // Upgrade evaluation state for each stackable structure type
   // Maps UnitType -> { score: number, unit: Unit | null, evaluatedIds: Set<number> }
   // evaluatedIds tracks which specific structure IDs have been evaluated this cycle
   private _upgradeScores: Map<
@@ -131,12 +128,7 @@ export class AIConstructionHandler {
       return;
     }
 
-    // Periodically evaluate SAM placement candidates
-    if (ticks % AIConstructionHandler.SAM_EVALUATION_INTERVAL === 0) {
-      this.tickSAMEvaluation(player);
-    }
-
-    // Periodically evaluate a random tile for non-SAM structures (spread across AIs)
+    // Periodically evaluate a random tile for structures (spread across AIs)
     if (
       this.shouldRunPeriodic(
         ticks,
@@ -146,24 +138,19 @@ export class AIConstructionHandler {
       this.tickTileEvaluation(player);
     }
 
-    // Log saved scores every second (disabled for debugging)
-    // if (ticks % AIConstructionHandler.LOG_INTERVAL === 0) {
-    //   // Build upgrade scores string
-    //   const upgradeScoresStr = Array.from(this._upgradeScores.entries())
-    //     .map(
-    //       ([type, data]) =>
-    //         `${type}=${data.score.toFixed(3)}(e${data.evalCount})`,
-    //     )
-    //     .join(", ");
-    //   console.log(
-    //     `[AI Construction] ${player.name()}: ` +
-    //       `port=${this._portTileScore.toFixed(3)}(e${this._portEvalCount}), ` +
-    //       `defense=${this._defensePostTileScore.toFixed(3)}(e${this._defensePostEvalCount}), ` +
-    //       `other=${this._otherTileScore.toFixed(3)}(e${this._otherEvalCount}), ` +
-    //       `sam=${this._bestSAMScore.toFixed(3)}, target=${this.target}, ` +
-    //       `upgrades=[${upgradeScoresStr}]`,
-    //   );
-    // }
+    // Log total scores every second (China only)
+    if (
+      ticks % AIConstructionHandler.LOG_INTERVAL === 0 &&
+      player.name() === "China"
+    ) {
+      const candidates = this.candidateTargets();
+      const scoresStr = candidates
+        .map((t) => `${t}=${this.scoreTarget(player, t).toFixed(6)}`)
+        .join(", ");
+      console.log(
+        `[AI Construction] ${player.name()}: target=${this.target}, scores=[${scoresStr}]`,
+      );
+    }
 
     // Periodically re-score and potentially retarget.
     // Only switches if there's a strictly better target than the current.
@@ -173,29 +160,6 @@ export class AIConstructionHandler {
 
     if (this.target === null) {
       this.target = this.pickTarget(null, player);
-      return;
-    }
-
-    // SAM has special construction path using pre-evaluated best tile/upgrade
-    if (this.target === UnitType.SAMLauncher) {
-      // Check if we can afford the SAM before attempting
-      if (!this.canAffordSAM(player)) {
-        return; // Just wait until we can afford it, don't block
-      }
-      const result = this.trySAMConstruction(player);
-      if (result === "success") {
-        this.clearBlockedStructures();
-        this.target = null;
-        return;
-      } else if (result === "blocked") {
-        // Permanent failure - block SAM and pick a different target
-        this._blockedStructures.add(UnitType.SAMLauncher);
-        const original = this.target;
-        const next = this.pickTarget(original, player);
-        this.target = next;
-        return;
-      }
-      // result === "retry" means temporary failure, just return and try again later
       return;
     }
 
@@ -246,6 +210,14 @@ export class AIConstructionHandler {
         `validation failed for ${this.target}`,
       );
       this.target = null;
+      return;
+    }
+
+    // Score was updated by validation — re-check if this target is still the best
+    const previousTarget = this.target;
+    this.recalculateTarget(player);
+    if (this.target !== previousTarget) {
+      // A different target now scores higher, switch to it instead of building
       return;
     }
 
@@ -321,11 +293,8 @@ export class AIConstructionHandler {
    * Clears the upgrade score and unit for a given structure type.
    */
   private clearUpgradeScoreForStructure(unitType: UnitType): void {
-    // Defense posts cannot be stacked, SAM has its own system
-    if (
-      unitType === UnitType.DefensePost ||
-      unitType === UnitType.SAMLauncher
-    ) {
+    // Defense posts cannot be stacked
+    if (unitType === UnitType.DefensePost) {
       return;
     }
     this._upgradeScores.delete(unitType);
@@ -345,6 +314,8 @@ export class AIConstructionHandler {
       tileEvalCount = this._portEvalCount;
     } else if (unitType === UnitType.DefensePost) {
       tileEvalCount = this._defensePostEvalCount;
+    } else if (unitType === UnitType.SAMLauncher) {
+      tileEvalCount = this._samEvalCount;
     } else {
       tileEvalCount = this._otherEvalCount;
     }
@@ -357,7 +328,7 @@ export class AIConstructionHandler {
     }
 
     // Check if all stackable structures of this type have been evaluated
-    if (isStackableStructure(unitType) && unitType !== UnitType.SAMLauncher) {
+    if (isStackableStructure(unitType)) {
       const allEvaluated = this.allStructuresEvaluatedForType(unitType);
       if (!allEvaluated) {
         // Return a value below threshold to block construction until all evaluated
@@ -401,7 +372,60 @@ export class AIConstructionHandler {
     return true;
   }
 
+  /**
+   * Recalculates the saved tile scores for each category by re-scoring
+   * the currently saved best tile against the current game state.
+   * If a tile's score dropped to 0, it's cleared.
+   */
+  private refreshTileScores(player: Player): void {
+    if (this._portTile !== null) {
+      const newScore = this.calculatePortTileScore(player, this._portTile);
+      if (newScore <= 0) {
+        this._portTileScore = 0;
+        this._portTile = null;
+      } else {
+        this._portTileScore = newScore;
+      }
+    }
+
+    if (this._defensePostTile !== null) {
+      const newScore = this.calculateDefensePostTileScore(
+        player,
+        this._defensePostTile,
+      );
+      if (newScore <= 0) {
+        this._defensePostTileScore = 0;
+        this._defensePostTile = null;
+      } else {
+        this._defensePostTileScore = newScore;
+      }
+    }
+
+    if (this._samTile !== null) {
+      const newScore = this.calculateSAMTileScore(player, this._samTile);
+      if (newScore <= 0) {
+        this._samTileScore = 0;
+        this._samTile = null;
+      } else {
+        this._samTileScore = newScore;
+      }
+    }
+
+    if (this._otherTile !== null) {
+      const newScore = this.calculateOtherTileScore(player, this._otherTile);
+      if (newScore <= 0) {
+        this._otherTileScore = 0;
+        this._otherTile = null;
+      } else {
+        this._otherTileScore = newScore;
+      }
+    }
+  }
+
   private recalculateTarget(player: Player): void {
+    // Refresh saved tile scores by recalculating against current game state
+    this.refreshTileScores(player);
+
     const candidates = this.candidateTargets();
     if (candidates.length === 0) {
       this.target = null;
@@ -497,13 +521,13 @@ export class AIConstructionHandler {
     const upgradeData = this._upgradeScores.get(unitType);
     const upgradeScore = upgradeData?.score ?? 0;
 
-    // Multiply by the max of tile score and upgrade score for non-SAM structures
-    if (unitType === UnitType.SAMLauncher) {
-      return structureScore; // SAM uses its own tile evaluation system
-    } else if (unitType === UnitType.Port) {
+    // Multiply by the max of tile score and upgrade score
+    if (unitType === UnitType.Port) {
       return structureScore * Math.max(this._portTileScore, upgradeScore);
     } else if (unitType === UnitType.DefensePost) {
       return structureScore * this._defensePostTileScore; // Defense posts cannot be stacked
+    } else if (unitType === UnitType.SAMLauncher) {
+      return structureScore * Math.max(this._samTileScore, upgradeScore);
     } else {
       return structureScore * Math.max(this._otherTileScore, upgradeScore);
     }
@@ -544,20 +568,24 @@ export class AIConstructionHandler {
     score: number;
     isUpgrade: boolean;
   } {
-    // Defense posts cannot be stacked, SAM has its own system
+    // Defense posts cannot be stacked
     if (unitType === UnitType.DefensePost) {
       return { score: this._defensePostTileScore, isUpgrade: false };
-    } else if (unitType === UnitType.SAMLauncher) {
-      return { score: 0, isUpgrade: false };
     }
 
     // Get upgrade score for this structure type
     const upgradeData = this._upgradeScores.get(unitType);
     const upgradeScore = upgradeData?.score ?? 0;
 
-    // Get tile score (port vs other)
-    const tileScore =
-      unitType === UnitType.Port ? this._portTileScore : this._otherTileScore;
+    // Get tile score by category
+    let tileScore: number;
+    if (unitType === UnitType.Port) {
+      tileScore = this._portTileScore;
+    } else if (unitType === UnitType.SAMLauncher) {
+      tileScore = this._samTileScore;
+    } else {
+      tileScore = this._otherTileScore;
+    }
 
     const isUpgrade = upgradeScore > tileScore;
     return { score: Math.max(tileScore, upgradeScore), isUpgrade };
@@ -567,11 +595,8 @@ export class AIConstructionHandler {
    * Gets the upgrade unit for a structure type, if upgrade is the preferred mode.
    */
   private getUpgradeUnitForStructure(unitType: UnitType): Unit | null {
-    // Defense posts cannot be stacked, SAM has its own system
-    if (
-      unitType === UnitType.DefensePost ||
-      unitType === UnitType.SAMLauncher
-    ) {
+    // Defense posts cannot be stacked
+    if (unitType === UnitType.DefensePost) {
       return null;
     }
     const upgradeData = this._upgradeScores.get(unitType);
@@ -833,60 +858,26 @@ export class AIConstructionHandler {
   }
 
   /**
-   * Returns the previously evaluated SAM score.
-   * The score is computed periodically by tickSAMEvaluation().
+   * Computes the SAM launcher base score.
+   * Uses SAM_BASE_SCORE as a fixed multiplier, similar to other structures.
    */
   private scoreSAMLauncher(_player: Player): number {
-    return this._bestSAMScore * AIConstructionHandler.SAM_BASE_SCORE;
+    return AIConstructionHandler.SAM_BASE_SCORE;
   }
 
   /**
-   * Computes the defense post base score as baseScoreParam / cost.
+   * Computes the defense post base score as baseScoreParam / (cost * ownMilitaryStrength).
    * Cost scales with number of defense posts owned: min(250k, (owned+1) * 50k).
+   * Dividing by own military strength means weaker players value defense posts more.
    */
   private scoreDefensePost(player: Player): number {
     const cost = this.mg.unitInfo(UnitType.DefensePost).cost(player);
     const costNum = Number(cost);
     if (costNum <= 0) return 0;
-    return AIConstructionHandler.DEFENSE_POST_BASE_SCORE / costNum;
-  }
-
-  /**
-   * Resets the SAM evaluation state after a SAM is built or stacked.
-   */
-  private resetSAMEvaluationState(): void {
-    this._bestSAMScore = 0;
-    this._bestSAMTile = null;
-    this._bestSAMIsUpgrade = false;
-    this._bestSAMUpgradeUnit = null;
-  }
-
-  /**
-   * Calculates the cost to build a new SAM or stack an existing one.
-   */
-  private getSAMCost(player: Player): bigint {
-    const baseCost = this.mg.unitInfo(UnitType.SAMLauncher).cost(player);
-
-    if (this._bestSAMIsUpgrade) {
-      // Cost to increase stack count (80% of base cost)
-      const multiplier = this.mg
-        .config()
-        .structureUpgradeCostMultiplier(UnitType.SAMLauncher);
-      return computeUpgradeStepCost(baseCost, multiplier);
-    } else {
-      // Cost to build a new SAM (ConstructionExecution handles tech level automatically)
-      return baseCost;
-    }
-  }
-
-  /**
-   * Checks if the player can afford the current best SAM option.
-   */
-  private canAffordSAM(player: Player): boolean {
-    if (this._bestSAMScore <= 0) {
-      return false; // No valid SAM option yet
-    }
-    return player.gold() >= this.getSAMCost(player);
+    const ownStrength = Math.max(1, player.militaryStrength());
+    return (
+      AIConstructionHandler.DEFENSE_POST_BASE_SCORE / (costNum * ownStrength)
+    );
   }
 
   /**
@@ -904,6 +895,8 @@ export class AIConstructionHandler {
       return this._portTile;
     } else if (unitType === UnitType.DefensePost) {
       return this._defensePostTile;
+    } else if (unitType === UnitType.SAMLauncher) {
+      return this._samTile;
     } else {
       return this._otherTile;
     }
@@ -923,6 +916,11 @@ export class AIConstructionHandler {
       this._defensePostTileScore = 0;
       this._defensePostTile = null;
       this._defensePostEvalCount = 0;
+    }
+    if (this._samTile === tile) {
+      this._samTileScore = 0;
+      this._samTile = null;
+      this._samEvalCount = 0;
     }
     if (this._otherTile === tile) {
       this._otherTileScore = 0;
@@ -1205,6 +1203,7 @@ export class AIConstructionHandler {
     for (const other of this.mg.players()) {
       if (other.id() === player.id()) continue;
       if (!other.isAlive()) continue;
+      if (other.type() === PlayerType.Bot) continue;
 
       // Border weight: shared border length ratio
       const sharedBorder = player.sharedBorderLength(other);
@@ -1229,6 +1228,42 @@ export class AIConstructionHandler {
       const distanceFactor = -x * x + 2 * x;
 
       score += other.militaryStrength() * borderRatio * distanceFactor;
+    }
+
+    if (score <= 0) return 0;
+
+    // Penalize overlap with existing defense posts (same radius circles)
+    const existingDPs = player
+      .units(UnitType.DefensePost)
+      .filter((u) => u.isActive());
+    if (existingDPs.length > 0) {
+      const r = defensePostRadius;
+      const circleArea = Math.PI * r * r;
+      let totalOverlapArea = 0;
+
+      for (const dp of existingDPs) {
+        const distSq = this.mg.euclideanDistSquared(tile, dp.tile());
+        const d = Math.sqrt(distSq);
+
+        if (d >= 2 * r) {
+          // No overlap
+          continue;
+        } else if (d <= 0) {
+          // Full overlap
+          totalOverlapArea += circleArea;
+        } else {
+          // Partial overlap of two equal-radius circles:
+          // area = 2r²·arccos(d/(2r)) - (d/2)·√(4r²-d²)
+          const halfD = d / 2;
+          const overlapArea =
+            2 * r * r * Math.acos(halfD / r) -
+            halfD * Math.sqrt(4 * r * r - d * d);
+          totalOverlapArea += overlapArea;
+        }
+      }
+
+      const overlapFraction = Math.min(1, totalOverlapArea / circleArea);
+      score *= 1 - overlapFraction;
     }
 
     return score;
@@ -1256,6 +1291,43 @@ export class AIConstructionHandler {
       }
     }
     return false;
+  }
+
+  /**
+   * Calculates the SAM tile score for a given tile.
+   *
+   * Score = Σ over each owned structure:
+   *   structureValue * weight
+   *
+   * where weight = 1 / (1 + e^(decay * existingCoverage))
+   * and existingCoverage = number of existing SAMs already covering the structure.
+   *
+   * Returns 0 if the tile is ocean, not owned, or too close to enemies.
+   * The raw score is structure-value-weighted and NOT normalized to (0,1).
+   */
+  private calculateSAMTileScore(player: Player, tile: TileRef): number {
+    if (this.mg.isOcean(tile)) return 0;
+    if (!this.mg.hasOwner(tile) || this.mg.owner(tile).id() !== player.id())
+      return 0;
+
+    // SAMs should not be placed too close to enemies
+    const closestPlayerDist = this.closestOtherPlayerDistance(
+      player,
+      tile,
+      AIConstructionHandler.SAM_PLACEMENT_MIN_PLAYER_DIST,
+    );
+    if (closestPlayerDist !== null) return 0;
+
+    // Check if a SAM can be built here
+    if (player.canBuildAtTile(UnitType.SAMLauncher, tile) === false) return 0;
+
+    // Get current SAMs and range info
+    const sams = player.units(UnitType.SAMLauncher).filter((u) => u.isActive());
+    const techLevel = playerMaxStructureTechLevel(player, UnitType.SAMLauncher);
+    const samRange = this.getEffectiveSAMRange(techLevel);
+    const rangeSquared = samRange * samRange;
+
+    return this.evaluateSAMPlacementScore(player, tile, sams, rangeSquared);
   }
 
   /**
@@ -1305,17 +1377,19 @@ export class AIConstructionHandler {
     // Calculate port score with penalties and bonuses (only for ocean shore tiles)
     const portScore = this.calculatePortTileScore(player, tile);
 
-    // Land structures (defense post and other) can only be built on non-ocean tiles
+    // Land structures (defense post, SAM, and other) can only be built on non-ocean tiles
     const otherScore = isOceanTile
       ? 0
       : this.calculateOtherTileScore(player, tile);
     const defensePostScore = isOceanTile
       ? 0
       : this.calculateDefensePostTileScore(player, tile);
+    const samScore = isOceanTile ? 0 : this.calculateSAMTileScore(player, tile);
 
     // Increment evaluation counts for each type
     this._portEvalCount++;
     this._defensePostEvalCount++;
+    this._samEvalCount++;
     this._otherEvalCount++;
 
     // Update port tile if this score is strictly greater
@@ -1328,6 +1402,12 @@ export class AIConstructionHandler {
     if (defensePostScore > this._defensePostTileScore) {
       this._defensePostTileScore = defensePostScore;
       this._defensePostTile = tile;
+    }
+
+    // Update SAM tile if this score is strictly greater
+    if (samScore > this._samTileScore) {
+      this._samTileScore = samScore;
+      this._samTile = tile;
     }
 
     // Update other structures tile if this score is strictly greater
@@ -1344,7 +1424,7 @@ export class AIConstructionHandler {
    * Returns true if a structure was evaluated, false if no upgradeable structures exist.
    */
   private evaluateUpgradeCandidate(player: Player): boolean {
-    // Get all stackable structures owned by this player (except SAM which has its own system)
+    // Get all stackable structures owned by this player
     const stackableTypes = [
       UnitType.City,
       UnitType.Port,
@@ -1354,6 +1434,7 @@ export class AIConstructionHandler {
       UnitType.ResearchLab,
       UnitType.Factory,
       UnitType.MissileSilo,
+      UnitType.SAMLauncher,
     ];
 
     // Collect all upgradeable structures
@@ -1389,6 +1470,8 @@ export class AIConstructionHandler {
     let score: number;
     if (unitType === UnitType.Port) {
       score = this.calculatePortTileScore(player, tile, true);
+    } else if (unitType === UnitType.SAMLauncher) {
+      score = this.calculateSAMTileScore(player, tile);
     } else {
       score = this.calculateOtherTileScore(player, tile, true);
     }
@@ -1422,67 +1505,6 @@ export class AIConstructionHandler {
     }
 
     return true;
-  }
-
-  /**
-   * Attempts to build or upgrade a SAM using the pre-evaluated best option.
-   * Returns "success" if construction/upgrade was initiated,
-   * "blocked" if there's a permanent failure (should block SAM),
-   * "retry" if there's a temporary failure (should try again later).
-   */
-  private trySAMConstruction(player: Player): "success" | "blocked" | "retry" {
-    // No evaluation data available - this is a permanent failure until re-evaluation finds something
-    if (this._bestSAMScore <= 0) {
-      return "blocked";
-    }
-
-    if (this._bestSAMIsUpgrade && this._bestSAMUpgradeUnit) {
-      // Stacking an existing SAM (increase stack count)
-      const samToStack = this._bestSAMUpgradeUnit;
-
-      // Verify the SAM still exists and is active
-      if (!samToStack.isActive()) {
-        this.resetSAMEvaluationState();
-        return "retry"; // SAM was destroyed, need to re-evaluate
-      }
-
-      // Check if the SAM can still be stacked
-      const currentStack = samToStack.stackCount?.() ?? 1;
-      const maxStack = maxStackCount(UnitType.SAMLauncher);
-      if (currentStack >= maxStack) {
-        this.resetSAMEvaluationState();
-        return "retry"; // Need to re-evaluate
-      }
-
-      this.mg.addExecution(new UpgradeStructureExecution(player, samToStack));
-      this.resetSAMEvaluationState();
-      return "success";
-    } else if (this._bestSAMTile) {
-      // Building a new SAM
-      const tile = this._bestSAMTile;
-
-      // Verify the tile is still owned by this player
-      if (!this.mg.hasOwner(tile) || this.mg.owner(tile).id() !== player.id()) {
-        this.resetSAMEvaluationState();
-        return "retry"; // Tile lost, need to re-evaluate
-      }
-
-      // Verify the tile can have a structure built on it
-      if (!player.canBuild(UnitType.SAMLauncher, tile)) {
-        this.resetSAMEvaluationState();
-        return "retry"; // Something blocking, need to re-evaluate
-      }
-
-      // Build the SAM - ConstructionExecution automatically builds at player's max researched level
-      this.mg.addExecution(
-        new ConstructionExecution(player, UnitType.SAMLauncher, tile),
-      );
-
-      this.resetSAMEvaluationState();
-      return "success";
-    }
-
-    return "blocked"; // No valid option stored
   }
 
   /**
@@ -1562,124 +1584,6 @@ export class AIConstructionHandler {
     }
 
     return score;
-  }
-
-  /**
-   * Periodically evaluates SAM placement candidates.
-   * Called every SAM_EVALUATION_INTERVAL ticks.
-   */
-  private tickSAMEvaluation(player: Player): void {
-    // Ensure cached tiles are up to date
-    const numTiles = player.numTilesOwned();
-    if (numTiles === 0) return;
-
-    if (
-      this._cachedTiles === null ||
-      this._cachedTilesPlayerTileCount !== numTiles
-    ) {
-      this._cachedTiles = Array.from(player.tiles());
-      this._cachedTilesPlayerTileCount = numTiles;
-    }
-
-    if (this._cachedTiles.length === 0) return;
-
-    // Get current SAMs and tech level info
-    const sams = player.units(UnitType.SAMLauncher).filter((u) => u.isActive());
-    // All SAMs have the same tech level (based on player's research)
-    const techLevel = playerMaxStructureTechLevel(player, UnitType.SAMLauncher);
-    const samRange = this.getEffectiveSAMRange(techLevel);
-    const samRangeSquared = samRange * samRange;
-
-    // Build list of evaluation options:
-    // 1. Build a new SAM at a random tile
-    // 2. Increase stack count on an existing SAM (if any exist and aren't maxed)
-    type EvalOption = { type: "new" } | { type: "stack"; sam: Unit };
-
-    const options: EvalOption[] = [];
-
-    // Always can evaluate building a new SAM
-    options.push({ type: "new" });
-
-    // Can evaluate stacking if there's an existing SAM that isn't at max stack
-    if (sams.length > 0) {
-      const samToConsider = this.random.randElement(sams);
-      const currentStack = samToConsider.stackCount?.() ?? 1;
-      const maxStack = maxStackCount(UnitType.SAMLauncher);
-      if (currentStack < maxStack) {
-        options.push({ type: "stack", sam: samToConsider });
-      }
-    }
-
-    // Randomly pick one option to evaluate this tick
-    const choice = this.random.randElement(options);
-
-    if (choice.type === "new") {
-      // Evaluate placing a new SAM at a random tile
-      const tile = this.findSAMEvaluationTile(player);
-      if (tile === null) return;
-
-      const score = this.evaluateSAMPlacementScore(
-        player,
-        tile,
-        sams,
-        samRangeSquared,
-      );
-
-      if (score > this._bestSAMScore) {
-        this._bestSAMScore = score;
-        this._bestSAMTile = tile;
-        this._bestSAMIsUpgrade = false;
-        this._bestSAMUpgradeUnit = null;
-      }
-    } else {
-      // Evaluate increasing stack count on an existing SAM
-      const samToStack = choice.sam;
-
-      // Score is the same as the SAM's current coverage (no exclusion needed)
-      // since stacking just adds HP, doesn't change range
-      const score = this.evaluateSAMPlacementScore(
-        player,
-        samToStack.tile(),
-        sams,
-        samRangeSquared,
-      );
-
-      // Divide by 0.8 since stacking is cheaper (80% of base cost)
-      const adjustedScore = score / 0.8;
-
-      if (adjustedScore > this._bestSAMScore) {
-        this._bestSAMScore = adjustedScore;
-        this._bestSAMTile = samToStack.tile();
-        this._bestSAMIsUpgrade = true;
-        this._bestSAMUpgradeUnit = samToStack;
-      }
-    }
-  }
-
-  /**
-   * Finds a random owned tile suitable for SAM evaluation.
-   * Must be at least SAM_PLACEMENT_MIN_PLAYER_DIST tiles away from other players.
-   */
-  private findSAMEvaluationTile(player: Player): TileRef | null {
-    if (!this._cachedTiles || this._cachedTiles.length === 0) return null;
-
-    // Try up to 10 random tiles to find one that passes the distance check
-    for (let i = 0; i < 10; i++) {
-      const tile = this.random.randElement(this._cachedTiles);
-
-      // Check if tile is far enough from other players
-      const closestPlayerDist = this.closestOtherPlayerDistance(
-        player,
-        tile,
-        AIConstructionHandler.SAM_PLACEMENT_MIN_PLAYER_DIST,
-      );
-      // If no enemy player within range, this tile is good
-      if (closestPlayerDist === null) {
-        return tile;
-      }
-    }
-
-    return null;
   }
 
   private getStructureWeight(unitType: UnitType): number {
@@ -1804,40 +1708,32 @@ export class AIConstructionHandler {
 
   /**
    * Re-validates a tile at build time by recalculating its score.
-   * If the new score is lower than the saved score, reject and reset.
-   * This keeps validation consistent with scoring logic.
+   * Updates the saved score to the fresh value. If score dropped to 0,
+   * rejects the tile. Even if the score decreased, the tile may still be the
+   * best option so we keep it rather than doing a full reset.
    */
   private validateTileForConstruction(
     player: Player,
     tile: TileRef,
     unitType: UnitType,
   ): boolean {
-    // Get the saved score and recalculate
+    // Recalculate the score for the current best tile
     if (unitType === UnitType.Port) {
       const newScore = this.calculatePortTileScore(player, tile);
-      if (newScore < this._portTileScore) {
-        // Score dropped - reset and reject
-        this._portTileScore = 0;
-        this._portTile = null;
-        return false;
-      }
+      // Update saved score to current value (tile may still be the best even if score dropped)
+      this._portTileScore = newScore;
       return newScore > 0;
     } else if (unitType === UnitType.DefensePost) {
       const newScore = this.calculateDefensePostTileScore(player, tile);
-      if (newScore < this._defensePostTileScore) {
-        this._defensePostTileScore = 0;
-        this._defensePostTile = null;
-        return false;
-      }
+      this._defensePostTileScore = newScore;
+      return newScore > 0;
+    } else if (unitType === UnitType.SAMLauncher) {
+      const newScore = this.calculateSAMTileScore(player, tile);
+      this._samTileScore = newScore;
       return newScore > 0;
     } else {
       const newScore = this.calculateOtherTileScore(player, tile);
-      if (newScore < this._otherTileScore) {
-        // Score dropped - reset and reject
-        this._otherTileScore = 0;
-        this._otherTile = null;
-        return false;
-      }
+      this._otherTileScore = newScore;
       return newScore > 0;
     }
   }
