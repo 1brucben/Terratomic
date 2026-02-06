@@ -282,7 +282,7 @@ export class StructureLayer implements Layer {
       for (const playerUpdate of playerUpdates) {
         const player = this.game.playerBySmallID(playerUpdate.smallID);
         // Skip if player not found or is TerraNullius (no research)
-        if (!player || !("hasUpgrade" in player)) continue;
+        if (!player || !player.isPlayer()) continue;
 
         const currentSamLevel = playerMaxStructureTechLevel(
           player,
@@ -294,36 +294,29 @@ export class StructureLayer implements Layer {
         );
         const cached = this.lastPlayerTechLevels.get(playerUpdate.smallID);
 
-        // First encounter: seed cache without rebuilding (textures already correct)
-        if (!cached) {
-          this.lastPlayerTechLevels.set(playerUpdate.smallID, {
-            samLevel: currentSamLevel,
-            airfieldLevel: currentAirfieldLevel,
-          });
-          continue;
-        }
+        // Check if levels changed (or first encounter with upgraded levels)
+        const samChanged = !cached
+          ? currentSamLevel > 1
+          : cached.samLevel !== currentSamLevel;
+        const airfieldChanged = !cached
+          ? currentAirfieldLevel > 1
+          : cached.airfieldLevel !== currentAirfieldLevel;
 
-        // Check if tech levels actually changed
-        if (
-          cached.samLevel !== currentSamLevel ||
-          cached.airfieldLevel !== currentAirfieldLevel
-        ) {
-          // Update cache with new levels
-          this.lastPlayerTechLevels.set(playerUpdate.smallID, {
-            samLevel: currentSamLevel,
-            airfieldLevel: currentAirfieldLevel,
-          });
+        // Always update cache with current levels
+        this.lastPlayerTechLevels.set(playerUpdate.smallID, {
+          samLevel: currentSamLevel,
+          airfieldLevel: currentAirfieldLevel,
+        });
 
-          // Rebuild textures only for structures whose tech level changed
+        // Rebuild textures if levels changed
+        if (samChanged || airfieldChanged) {
           for (const r of this.renders) {
             const unitType = r.unit.type();
             if (r.unit.owner().smallID() !== playerUpdate.smallID) continue;
 
             if (
-              (unitType === UnitType.SAMLauncher &&
-                cached.samLevel !== currentSamLevel) ||
-              (unitType === UnitType.Airfield &&
-                cached.airfieldLevel !== currentAirfieldLevel)
+              (unitType === UnitType.SAMLauncher && samChanged) ||
+              (unitType === UnitType.Airfield && airfieldChanged)
             ) {
               r.pixiSprite.texture = this.createTexture(r.unit);
               this.shouldRedraw = true;
