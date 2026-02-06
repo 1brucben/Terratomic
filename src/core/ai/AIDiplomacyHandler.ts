@@ -46,6 +46,15 @@ export class AIDiplomacyHandler {
   }
 
   /**
+   * Determines if one player can reach another for military purposes.
+   * For now, this is equivalent to sharing a border.
+   * In the future, this could include boat accessibility.
+   */
+  private isReachable(from: Player, to: Player): boolean {
+    return from.sharesBorderWith(to);
+  }
+
+  /**
    * Main tick function for diplomacy handling.
    */
   tickDiplomacy(ticks: number): void {
@@ -110,8 +119,8 @@ export class AIDiplomacyHandler {
    * Returns a linear combination of weighted factors.
    */
   private calculateWarScore(player: Player, other: Player): number {
-    // No point declaring war on someone we can't attack
-    if (!player.sharesBorderWith(other)) {
+    // No point declaring war on someone we can't reach
+    if (!this.isReachable(player, other)) {
       return 0;
     }
 
@@ -136,7 +145,8 @@ export class AIDiplomacyHandler {
     const militaryStrengthWeight =
       this.params.warScoreMilitaryStrengthWeight ?? 0;
     if (militaryStrengthWeight !== 0) {
-      const nonBorderWeight = this.params.warScoreNonBorderEnemyWeight ?? 0.2;
+      const nonReachableWeight =
+        this.params.warScoreNonReachableEnemyWeight ?? 0.2;
       let effectiveOwnStrength = player.militaryStrength();
 
       // Add military strength of others already at war with target, scaled by
@@ -149,7 +159,7 @@ export class AIDiplomacyHandler {
           ally.isAtWarWith(other)
         ) {
           // Calculate total military strength of all players at war with this ally
-          // weighted by whether they border the ally
+          // weighted by whether they can reach the ally
           let totalEnemyStrengthOfAlly = 0;
           for (const allyEnemy of this.mg.players()) {
             if (
@@ -158,20 +168,20 @@ export class AIDiplomacyHandler {
               ally.isAtWarWith(allyEnemy)
             ) {
               const enemyStrength = allyEnemy.militaryStrength();
-              if (ally.sharesBorderWith(allyEnemy)) {
+              if (this.isReachable(allyEnemy, ally)) {
                 totalEnemyStrengthOfAlly += enemyStrength;
               } else {
-                totalEnemyStrengthOfAlly += enemyStrength * nonBorderWeight;
+                totalEnemyStrengthOfAlly += enemyStrength * nonReachableWeight;
               }
             }
           }
 
           // Scale ally's contribution by target's share of their total enemies
-          // Also scale by whether the ally borders the target
+          // Also scale by whether the ally can reach the target
           if (totalEnemyStrengthOfAlly > 0) {
             let targetStrengthForAlly = other.militaryStrength();
-            if (!ally.sharesBorderWith(other)) {
-              targetStrengthForAlly *= nonBorderWeight;
+            if (!this.isReachable(ally, other)) {
+              targetStrengthForAlly *= nonReachableWeight;
             }
             const targetShare =
               targetStrengthForAlly / totalEnemyStrengthOfAlly;
@@ -191,12 +201,12 @@ export class AIDiplomacyHandler {
           player.isAtWarWith(enemy)
         ) {
           const enemyStrength = enemy.militaryStrength();
-          if (player.sharesBorderWith(enemy)) {
-            // Bordering enemy: full weight
+          if (this.isReachable(enemy, player)) {
+            // Reachable enemy: full weight
             totalEnemyStrength += enemyStrength;
           } else {
-            // Non-bordering enemy: reduced weight (harder for them to attack us)
-            totalEnemyStrength += enemyStrength * nonBorderWeight;
+            // Non-reachable enemy: reduced weight (harder for them to attack us)
+            totalEnemyStrength += enemyStrength * nonReachableWeight;
           }
         }
       }

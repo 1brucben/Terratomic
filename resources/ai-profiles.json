@@ -68,7 +68,7 @@
         "warDeclarationThreshold": 100,
         "warScoreSharedBorderWeight": 0,
         "warScoreMilitaryStrengthWeight": 70,
-        "warScoreNonBorderEnemyWeight": 0.2,
+        "warScoreNonReachableEnemyWeight": 0.2,
         "warScoreAllyPenalty": 0
       }
     }
