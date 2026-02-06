@@ -71,7 +71,7 @@
         "warScoreMilitaryStrengthWeight": 70,
         "warScoreNonReachableEnemyWeight": 0.2,
         "warScoreAllyPenalty": 0,
-        "warScoreDistancePenaltyWeight": 600
+        "warScoreDistancePenaltyWeight": 650
       }
     }
   ]
