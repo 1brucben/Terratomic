@@ -112,6 +112,12 @@ export class PlayerImpl implements Player {
   private _neighborCache: Set<number> | null = null;
   // Shared border length cache: stores count of border tiles adjacent to each neighbor (keyed by smallID)
   private _sharedBorderLengthCache: Map<number, number> | null = null;
+  // Cache for whether this player borders the ocean
+  private _bordersOceanCache: boolean | null = null;
+  // Cache for ocean shore extrema tiles (min/max X/Y)
+  private _oceanShoreExtremaCache: TileRef[] | null = null;
+  // Cache for all ocean shore tiles
+  private _oceanShoreTilesCache: TileRef[] | null = null;
 
   // Phase 2 Optimization: Cache casualty modifiers (invalidated on tech research)
   private _attackCasualtyModifiersCache: DefenseCasualtyModifiers | null = null;
@@ -828,6 +834,9 @@ export class PlayerImpl implements Player {
   invalidateNeighborCache(): void {
     this._neighborCache = null;
     this._sharedBorderLengthCache = null;
+    this._bordersOceanCache = null;
+    this._oceanShoreExtremaCache = null;
+    this._oceanShoreTilesCache = null;
   }
 
   /**
@@ -838,6 +847,93 @@ export class PlayerImpl implements Player {
     // Ensure cache is populated
     this.neighborSmallIDs();
     return this._sharedBorderLengthCache?.get(other.smallID()) ?? 0;
+  }
+
+  /**
+   * Returns true if this player has any border tiles on the ocean.
+   * Uses cached value if available.
+   */
+  bordersOcean(): boolean {
+    if (this._bordersOceanCache === null) {
+      this._bordersOceanCache = false;
+      for (const tile of this._borderTiles) {
+        if (this.mg.isOceanShore(tile)) {
+          this._bordersOceanCache = true;
+          break;
+        }
+      }
+    }
+    return this._bordersOceanCache;
+  }
+
+  /**
+   * Returns all ocean shore tiles. Cached.
+   */
+  oceanShoreTiles(): readonly TileRef[] {
+    if (this._oceanShoreTilesCache === null) {
+      this._oceanShoreTilesCache = [];
+      for (const tile of this._borderTiles) {
+        if (this.mg.isOceanShore(tile)) {
+          this._oceanShoreTilesCache.push(tile);
+        }
+      }
+    }
+    return this._oceanShoreTilesCache;
+  }
+
+  /**
+   * Returns up to 4 extremum ocean shore tiles (min/max X/Y).
+   * Uses cached value if available.
+   */
+  oceanShoreExtrema(): readonly TileRef[] {
+    if (this._oceanShoreExtremaCache === null) {
+      const oceanShores = this.oceanShoreTiles();
+      this._oceanShoreExtremaCache = [];
+
+      if (oceanShores.length === 0) {
+        return this._oceanShoreExtremaCache;
+      }
+
+      let minX = oceanShores[0],
+        maxX = oceanShores[0],
+        minY = oceanShores[0],
+        maxY = oceanShores[0];
+      let minXVal = this.mg.x(oceanShores[0]),
+        maxXVal = minXVal,
+        minYVal = this.mg.y(oceanShores[0]),
+        maxYVal = minYVal;
+
+      for (const tile of oceanShores) {
+        const x = this.mg.x(tile);
+        const y = this.mg.y(tile);
+        if (x < minXVal) {
+          minXVal = x;
+          minX = tile;
+        }
+        if (x > maxXVal) {
+          maxXVal = x;
+          maxX = tile;
+        }
+        if (y < minYVal) {
+          minYVal = y;
+          minY = tile;
+        }
+        if (y > maxYVal) {
+          maxYVal = y;
+          maxY = tile;
+        }
+      }
+
+      // Deduplicate
+      const seen = new Set<TileRef>();
+      for (const t of [minX, maxX, minY, maxY]) {
+        if (!seen.has(t)) {
+          seen.add(t);
+          this._oceanShoreExtremaCache.push(t);
+        }
+      }
+    }
+    return this._oceanShoreExtremaCache;
   }
   numTilesOwned(): number {
     return this._tiles.size;

@@ -1,13 +1,31 @@
 import { Game, Player, PlayerID, PlayerType } from "../game/Game";
+import { TileRef } from "../game/GameMap";
 import { PseudoRandom } from "../PseudoRandom";
 import { AIBehaviorParams } from "./AIBehaviorParams";
+
+/**
+ * Cached ocean shore sample for a player.
+ * Contains extremum tiles (min/max X/Y) plus a random sample.
+ */
+interface OceanShoreSample {
+  extrema: TileRef[]; // Up to 4 tiles: minX, maxX, minY, maxY
+  randomSample: TileRef[]; // Small random sample
+  closestRandom: TileRef | null; // Best random tile from last calculation
+  lastUpdate: number; // Tick when extrema were last refreshed
+}
 
 /**
  * Handles AI diplomacy decisions: war declarations, peace requests, etc.
  */
 export class AIDiplomacyHandler {
-  private static readonly WAR_SCORE_EVALUATION_INTERVAL = 10;
-  private static readonly WAR_SCORE_HISTORY_LENGTH = 10; // 10 samples * 10 ticks = 100 ticks window
+  // 10 ticks/second * 5 seconds = 50 ticks between evaluations
+  private static readonly WAR_SCORE_EVALUATION_INTERVAL = 50;
+  // 30 seconds / 5 seconds per sample = 6 samples for moving average
+  private static readonly WAR_SCORE_HISTORY_LENGTH = 6;
+  // Invalidate shore sample cache every 100 ticks (10 seconds)
+  private static readonly SHORE_SAMPLE_CACHE_TTL = 100;
+  // Number of random shore tiles to sample (in addition to 4 extrema)
+  private static readonly RANDOM_SHORE_SAMPLE_SIZE = 4;
 
   // Phase seed for spreading periodic actions across AIs
   private readonly phaseSeed: number;
@@ -17,6 +35,12 @@ export class AIDiplomacyHandler {
 
   // Historical war scores for moving average (keyed by PlayerID -> circular buffer of scores)
   private _warScoreHistory: Map<PlayerID, number[]> = new Map();
+
+  // Cache for shore distances between player pairs (keyed by "fromId:toId")
+  private _shoreDistanceCache: Map<string, number | null> = new Map();
+
+  // Cache for ocean shore samples per player (keyed by PlayerID)
+  private _oceanShoreSampleCache: Map<PlayerID, OceanShoreSample> = new Map();
 
   constructor(
     private mg: Game,
@@ -47,11 +71,167 @@ export class AIDiplomacyHandler {
 
   /**
    * Determines if one player can reach another for military purposes.
-   * For now, this is equivalent to sharing a border.
-   * In the future, this could include boat accessibility.
+   * Players are reachable if they share a border OR both border the ocean.
    */
   private isReachable(from: Player, to: Player): boolean {
-    return from.sharesBorderWith(to);
+    if (from.sharesBorderWith(to)) {
+      return true;
+    }
+    // Check ocean reachability: both must border ocean (uses cached values)
+    return from.bordersOcean() && to.bordersOcean();
+  }
+
+  /**
+   * Gets the closest manhattan distance between ocean shore tiles of two players.
+   * Returns null if either player doesn't border the ocean.
+   * Uses extremum tiles + random sampling for efficiency.
+   */
+  private closestOceanShoreDistance(
+    from: Player,
+    to: Player,
+    currentTick: number,
+  ): number | null {
+    // Check cache first
+    const cacheKey = `${from.id()}:${to.id()}`;
+    if (this._shoreDistanceCache.has(cacheKey)) {
+      return this._shoreDistanceCache.get(cacheKey)!;
+    }
+
+    // Fast path: check if either doesn't border ocean
+    if (!from.bordersOcean() || !to.bordersOcean()) {
+      this._shoreDistanceCache.set(cacheKey, null);
+      return null;
+    }
+
+    // Get shore samples for both players
+    const fromSample = this.getOceanShoreSample(from, currentTick);
+    const toSample = this.getOceanShoreSample(to, currentTick);
+
+    if (fromSample === null || toSample === null) {
+      this._shoreDistanceCache.set(cacheKey, null);
+      return null;
+    }
+
+    // Combine extrema + closestRandom + randomSample for each player
+    const fromTiles = this.getSampleTiles(fromSample);
+    const toTiles = this.getSampleTiles(toSample);
+
+    if (fromTiles.length === 0 || toTiles.length === 0) {
+      this._shoreDistanceCache.set(cacheKey, null);
+      return null;
+    }
+
+    // Find minimum distance and track closest random tiles
+    let minDist = Infinity;
+    let closestFromRandom: TileRef | null = null;
+    let closestToRandom: TileRef | null = null;
+
+    for (const fromTile of fromTiles) {
+      const isFromRandom = fromSample.randomSample.includes(fromTile);
+      for (const toTile of toTiles) {
+        const dist = this.mg.manhattanDist(fromTile, toTile);
+        if (dist < minDist) {
+          minDist = dist;
+          if (isFromRandom) closestFromRandom = fromTile;
+          if (toSample.randomSample.includes(toTile)) closestToRandom = toTile;
+        }
+      }
+    }
+
+    // Update closestRandom for future iterations
+    if (closestFromRandom !== null) {
+      fromSample.closestRandom = closestFromRandom;
+    }
+    if (closestToRandom !== null) {
+      toSample.closestRandom = closestToRandom;
+    }
+
+    this._shoreDistanceCache.set(cacheKey, minDist);
+    return minDist;
+  }
+
+  /**
+   * Gets combined sample tiles: extrema + closestRandom (if any) + randomSample.
+   */
+  private getSampleTiles(sample: OceanShoreSample): TileRef[] {
+    const tiles = [...sample.extrema];
+    if (sample.closestRandom !== null) {
+      tiles.push(sample.closestRandom);
+    }
+    tiles.push(...sample.randomSample);
+    return tiles;
+  }
+
+  /**
+   * Gets or creates an ocean shore sample for a player.
+   * Refreshes extrema if TTL expired, keeps closestRandom, replaces random sample.
+   */
+  private getOceanShoreSample(
+    player: Player,
+    currentTick: number,
+  ): OceanShoreSample | null {
+    const cached = this._oceanShoreSampleCache.get(player.id());
+    const needsRefresh =
+      !cached ||
+      currentTick - cached.lastUpdate >
+        AIDiplomacyHandler.SHORE_SAMPLE_CACHE_TTL;
+
+    if (!needsRefresh && cached) {
+      return cached;
+    }
+
+    // Use cached ocean shore tiles from Player
+    const oceanShores = player.oceanShoreTiles();
+    if (oceanShores.length === 0) {
+      this._oceanShoreSampleCache.delete(player.id());
+      return null;
+    }
+
+    // Use cached extrema from Player
+    const extrema = [...player.oceanShoreExtrema()];
+
+    // Create set of extrema tiles to exclude from random sampling
+    const extremaSet = new Set(extrema);
+
+    // Get random sample (excluding extrema and closestRandom)
+    const closestRandom = cached?.closestRandom ?? null;
+    const availableForSampling = oceanShores.filter(
+      (t) => !extremaSet.has(t) && t !== closestRandom,
+    );
+
+    const randomSample = this.sampleTiles(
+      availableForSampling,
+      AIDiplomacyHandler.RANDOM_SHORE_SAMPLE_SIZE,
+    );
+
+    const sample: OceanShoreSample = {
+      extrema,
+      randomSample,
+      closestRandom,
+      lastUpdate: currentTick,
+    };
+
+    this._oceanShoreSampleCache.set(player.id(), sample);
+    return sample;
+  }
+
+  /**
+   * Randomly samples n tiles from the array.
+   */
+  private sampleTiles(tiles: readonly TileRef[], n: number): TileRef[] {
+    if (tiles.length <= n) {
+      return [...tiles];
+    }
+    const result: TileRef[] = [];
+    const indices = new Set<number>();
+    while (result.length < n) {
+      const idx = this.random.nextInt(0, tiles.length);
+      if (!indices.has(idx)) {
+        indices.add(idx);
+        result.push(tiles[idx]);
+      }
+    }
+    return result;
   }
 
   /**
@@ -70,7 +250,7 @@ export class AIDiplomacyHandler {
         AIDiplomacyHandler.WAR_SCORE_EVALUATION_INTERVAL,
       )
     ) {
-      this.evaluateWarScores(player);
+      this.evaluateWarScores(player, ticks);
       this.updateWarScoreHistory();
       this.maybeDeclarWars(player);
     }
@@ -79,8 +259,10 @@ export class AIDiplomacyHandler {
   /**
    * Evaluates war scores for all other human and AI players.
    */
-  private evaluateWarScores(player: Player): void {
+  private evaluateWarScores(player: Player, ticks: number): void {
     this._warScores.clear();
+    // Clear distance cache so new samples can affect results
+    this._shoreDistanceCache.clear();
 
     for (const other of this.mg.players()) {
       // Skip self
@@ -108,7 +290,7 @@ export class AIDiplomacyHandler {
         continue;
       }
 
-      const score = this.calculateWarScore(player, other);
+      const score = this.calculateWarScore(player, other, ticks);
       this._warScores.set(other.id(), score);
     }
   }
@@ -118,7 +300,11 @@ export class AIDiplomacyHandler {
    * Higher score = more likely to declare war.
    * Returns a linear combination of weighted factors.
    */
-  private calculateWarScore(player: Player, other: Player): number {
+  private calculateWarScore(
+    player: Player,
+    other: Player,
+    ticks: number,
+  ): number {
     // No point declaring war on someone we can't reach
     if (!this.isReachable(player, other)) {
       return 0;
@@ -212,7 +398,10 @@ export class AIDiplomacyHandler {
       }
 
       if (totalEnemyStrength > 0) {
-        const strengthRatio = effectiveOwnStrength / totalEnemyStrength;
+        const strengthRatio = Math.min(
+          effectiveOwnStrength / totalEnemyStrength,
+          10,
+        );
         score += militaryStrengthWeight * strengthRatio;
       }
     }
@@ -221,6 +410,24 @@ export class AIDiplomacyHandler {
     const allyPenalty = this.params.warScoreAllyPenalty ?? 0;
     if (allyPenalty !== 0 && player.isAlliedWith(other)) {
       score -= allyPenalty;
+    }
+
+    // Factor 4: Distance penalty for non-bordering players
+    // Penalizes distant ocean-only targets
+    const distancePenaltyWeight =
+      this.params.warScoreDistancePenaltyWeight ?? 0;
+    if (distancePenaltyWeight !== 0 && !player.sharesBorderWith(other)) {
+      const shoreDist = this.closestOceanShoreDistance(player, other, ticks);
+      if (shoreDist !== null && shoreDist > 0) {
+        // Normalize by geometric mean of map dimensions
+        const mapWidth = this.mg.width();
+        const mapHeight = this.mg.height();
+        const geoMean = Math.sqrt(mapWidth * mapHeight);
+        const normalizedDist = shoreDist / geoMean;
+        // Squared penalty
+        const penalty = normalizedDist * normalizedDist;
+        score -= distancePenaltyWeight * penalty;
+      }
     }
 
     return score;
