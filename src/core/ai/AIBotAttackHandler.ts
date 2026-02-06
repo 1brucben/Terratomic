@@ -20,10 +20,12 @@ export class AIBotAttackHandler {
   private targetShoreCache: Map<PlayerID, { tiles: TileRef[]; tick: number }> =
     new Map();
   private lastBoatAttackTick: number = 0;
+  private currentBoatSearchRange: number = 50;
   private static readonly UNREACHABLE_RECHECK_INTERVAL = 100;
   private static readonly NEIGHBOR_CACHE_INTERVAL = 10;
   private static readonly SHORE_CACHE_INTERVAL = 10;
-  private static readonly BOAT_ATTACK_COOLDOWN = 50; // ticks between boat attacks
+  private static readonly BOAT_ATTACK_COOLDOWN = 60; // ticks between boat attacks
+  private static readonly MAX_BOAT_SEARCH_RANGE = 270;
 
   constructor(
     private mg: Game,
@@ -279,6 +281,19 @@ export class AIBotAttackHandler {
 
     const closest = closestTwoTiles(this.mg, playerShore, targetShore);
     if (closest !== null) {
+      // Check if the closest shore pair is within the current growing search range
+      const dist =
+        Math.abs(this.mg.x(closest.x) - this.mg.x(closest.y)) +
+        Math.abs(this.mg.y(closest.x) - this.mg.y(closest.y));
+      if (dist > this.currentBoatSearchRange) {
+        // Too far — grow the range for next attempt
+        this.currentBoatSearchRange = Math.min(
+          this.currentBoatSearchRange + 1,
+          AIBotAttackHandler.MAX_BOAT_SEARCH_RANGE,
+        );
+        return false;
+      }
+
       // Validate that we can actually build a transport ship to this destination
       if (canBuildTransportShip(this.mg, player, closest.y) === false) {
         return false;
