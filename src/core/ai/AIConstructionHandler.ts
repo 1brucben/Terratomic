@@ -40,7 +40,7 @@ export class AIConstructionHandler {
   private static readonly RESEARCH_LAB_BASE_SCORE = 8e-1;
   private static readonly AIRFIELD_SCORE_MULTIPLIER = 1e-1;
   private static readonly SAM_BASE_SCORE = 1e-5;
-  private static readonly DEFENSE_POST_BASE_SCORE = 1.3e5;
+  private static readonly DEFENSE_POST_BASE_SCORE = 3e6;
   private static readonly LOG_INTERVAL = 20; // Log every ~1 second (assuming 20 ticks/sec)
   private static readonly MIN_TILE_EVALUATIONS_BEFORE_BUILD = 50;
   private static readonly TILE_EVALUATION_INTERVAL = 2;
@@ -135,20 +135,6 @@ export class AIConstructionHandler {
       )
     ) {
       this.tickTileEvaluation(player);
-    }
-
-    // Log total scores every second (China only)
-    if (
-      ticks % AIConstructionHandler.LOG_INTERVAL === 0 &&
-      player.name() === "China"
-    ) {
-      const candidates = this.candidateTargets();
-      const scoresStr = candidates
-        .map((t) => `${t}=${this.scoreTarget(player, t).toFixed(6)}`)
-        .join(", ");
-      console.log(
-        `[AI Construction] ${player.name()}: target=${this.target}, scores=[${scoresStr}]`,
-      );
     }
 
     // Periodically re-score and potentially retarget.
