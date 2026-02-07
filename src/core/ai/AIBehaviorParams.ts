@@ -118,12 +118,6 @@ export interface AIBehaviorParams {
   nukeScoreMultiplier?: number;
 
   /**
-   * Multiplier applied to the nuke score used in the construction handler's
-   * shouldDeferToNukes threshold check. Default 1.0.
-   */
-  nukeScoreConstructionMultiplier?: number;
-
-  /**
    * Minimum distance (in tiles) required between non-defense-post structures.
    * This is applied by the AI on top of the game's own placement rules.
    */

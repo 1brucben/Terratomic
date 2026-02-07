@@ -45,7 +45,7 @@ export class AIConstructionHandler {
   private static readonly RESEARCH_LAB_BASE_SCORE = 8e-1;
   private static readonly AIRFIELD_SCORE_MULTIPLIER = 1e-1;
   private static readonly SAM_BASE_SCORE = 1e-5;
-  private static readonly DEFENSE_POST_BASE_SCORE = 3e6;
+  private static readonly DEFENSE_POST_BASE_SCORE = 4e6;
   private static readonly LOG_INTERVAL = 20; // Log every ~1 second (assuming 20 ticks/sec)
   private static readonly MIN_TILE_EVALUATIONS_BEFORE_BUILD = 50;
   private static readonly TILE_EVALUATION_INTERVAL = 2;
@@ -94,11 +94,8 @@ export class AIConstructionHandler {
   // Phase seed for spreading periodic actions across AIs
   private readonly phaseSeed: number;
 
-  /**
-   * Internal multiplier applied to nuke scores in shouldDeferToNukes.
-   * Adjustable at runtime independently of the profile.
-   */
-  public nukeScoreConstructionInternalMultiplier = 1;
+  /** Internal multiplier applied to nuke scores in shouldDeferToNukes. */
+  private static readonly NUKE_SCORE_CONSTRUCTION_INTERNAL_MULTIPLIER = 1;
 
   constructor(
     private mg: Game,
@@ -163,6 +160,22 @@ export class AIConstructionHandler {
     // If nuke sequence has paused construction, skip
     if (this._paused) {
       return;
+    }
+
+    // Log nuke vs construction scores every ~1 second for China
+    if (
+      player.name() === "China" &&
+      ticks % AIConstructionHandler.LOG_INTERVAL === 0 &&
+      this.nukeEvaluator
+    ) {
+      const atomScore = this.nukeEvaluator.bestAtomTarget()?.score ?? 0;
+      const hydrogenScore = this.nukeEvaluator.bestHydrogenTarget()?.score ?? 0;
+      const bestNuke = Math.max(atomScore, hydrogenScore);
+      const constructionScore = this.scoreTarget(player, this.target);
+      const threshold = this.params.nukeScoreConstructionThreshold ?? 0;
+      console.log(
+        `[China nuke] constructionScore=${constructionScore.toFixed(4)} threshold=${threshold} bestNukeScore=${bestNuke.toFixed(4)}`,
+      );
     }
 
     // If nuke score threshold is set, skip construction when nuke value is higher
@@ -1708,12 +1721,12 @@ export class AIConstructionHandler {
 
     if (bestNukeScore <= 0) return false;
 
-    // Apply multiplicative modifiers
-    const profileMultiplier = this.params.nukeScoreConstructionMultiplier ?? 1;
+    // Apply internal multiplier
     bestNukeScore *=
-      profileMultiplier * this.nukeScoreConstructionInternalMultiplier;
+      AIConstructionHandler.NUKE_SCORE_CONSTRUCTION_INTERNAL_MULTIPLIER;
 
     const constructionScore = this.scoreTarget(player, this.target);
+
     return constructionScore < threshold * bestNukeScore;
   }
 

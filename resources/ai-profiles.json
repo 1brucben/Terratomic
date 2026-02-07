@@ -72,10 +72,9 @@
         "warScoreNonReachableEnemyWeight": 0.2,
         "warScoreAllyPenalty": 0,
         "warScoreDistancePenaltyWeight": 850,
-        "nukeScoreConstructionThreshold": 0,
+        "nukeScoreConstructionThreshold": 1.0,
         "nukeFriendlyDamageWeight": 1.0,
-        "nukeScoreMultiplier": 1.0,
-        "nukeScoreConstructionMultiplier": 1.0
+        "nukeScoreMultiplier": 1.0
       }
     }
   ]
