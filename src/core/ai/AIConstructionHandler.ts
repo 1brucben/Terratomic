@@ -9,6 +9,7 @@ import {
   PlayerType,
   Unit,
   UnitType,
+  UpgradeType,
 } from "../game/Game";
 import { TileRef } from "../game/GameMap";
 import {
@@ -19,6 +20,7 @@ import {
 import { PseudoRandom } from "../PseudoRandom";
 import { tradeIncomeModifiers } from "../tech/TechEffects";
 import { AIBehaviorParams } from "./AIBehaviorParams";
+import { AINukeEvaluator } from "./AINukeEvaluator";
 
 /**
  * Handles structure construction for AI players.
@@ -94,6 +96,7 @@ export class AIConstructionHandler {
     private playerId: PlayerID,
     private random: PseudoRandom,
     private params: AIBehaviorParams,
+    private nukeEvaluator: AINukeEvaluator | null = null,
   ) {
     // Stagger periodic actions across AIs using random offset
     this.phaseSeed = random.nextInt(0, 0x7fffffff);
@@ -145,6 +148,11 @@ export class AIConstructionHandler {
 
     if (this.target === null) {
       this.target = this.pickTarget(null, player);
+      return;
+    }
+
+    // If nuke score threshold is set, skip construction when nuke value is higher
+    if (this.shouldDeferToNukes(player)) {
       return;
     }
 
@@ -1660,6 +1668,34 @@ export class AIConstructionHandler {
       const cost = this.mg.unitInfo(unitType).cost(player);
       return player.gold() >= cost;
     }
+  }
+
+  /**
+   * Returns true if construction should be deferred because nuke value
+   * exceeds the construction target score (scaled by threshold param).
+   * Only considers hydrogen bomb score if the player has ThermonuclearStaging.
+   */
+  private shouldDeferToNukes(player: Player): boolean {
+    const threshold = this.params.nukeScoreConstructionThreshold ?? 0;
+    if (threshold <= 0 || !this.nukeEvaluator || this.target === null)
+      return false;
+
+    // Get the best nuke scores
+    const atomTarget = this.nukeEvaluator.bestAtomTarget();
+    let bestNukeScore = atomTarget?.score ?? 0;
+
+    // Only consider hydrogen bomb if player has researched ThermonuclearStaging
+    if (player.hasUpgrade(UpgradeType.ThermonuclearStaging)) {
+      const hydrogenTarget = this.nukeEvaluator.bestHydrogenTarget();
+      if (hydrogenTarget && hydrogenTarget.score > bestNukeScore) {
+        bestNukeScore = hydrogenTarget.score;
+      }
+    }
+
+    if (bestNukeScore <= 0) return false;
+
+    const constructionScore = this.scoreTarget(player, this.target);
+    return constructionScore < threshold * bestNukeScore;
   }
 
   private avoidPlayerDistanceFor(unitType: UnitType): number {
