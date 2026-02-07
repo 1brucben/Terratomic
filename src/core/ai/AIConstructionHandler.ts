@@ -33,6 +33,9 @@ export class AIConstructionHandler {
   private _cachedTiles: TileRef[] | null = null;
   private _cachedTilesPlayerTileCount: number = 0;
 
+  // Whether construction is paused (e.g. during a nuke sequence)
+  private _paused: boolean = false;
+
   // Structure types blocked from consideration until another structure is built/upgraded
   private _blockedStructures: Set<UnitType> = new Set();
 
@@ -148,6 +151,11 @@ export class AIConstructionHandler {
 
     if (this.target === null) {
       this.target = this.pickTarget(null, player);
+      return;
+    }
+
+    // If nuke sequence has paused construction, skip
+    if (this._paused) {
       return;
     }
 
@@ -1696,6 +1704,40 @@ export class AIConstructionHandler {
 
     const constructionScore = this.scoreTarget(player, this.target);
     return constructionScore < threshold * bestNukeScore;
+  }
+
+  /**
+   * Pause or resume construction (e.g. during a nuke sequence).
+   */
+  setPaused(paused: boolean): void {
+    this._paused = paused;
+  }
+
+  /**
+   * Returns the best construction score across all candidate structure types.
+   */
+  bestConstructionScore(): number {
+    const player = this.getPlayer();
+    if (!player) return 0;
+    const candidates = this.candidateTargets();
+    let best = 0;
+    for (const t of candidates) {
+      const s = this.scoreTarget(player, t);
+      if (s > best) best = s;
+    }
+    return best;
+  }
+
+  /**
+   * Consume the current "other" tile for silo placement during a nuke sequence.
+   * Returns the tile and clears it (same as after a normal build).
+   */
+  consumeOtherTile(): TileRef | null {
+    const tile = this._otherTile;
+    if (tile !== null) {
+      this.clearTileScoresForTile(tile, "consumed for nuke silo");
+    }
+    return tile;
   }
 
   private avoidPlayerDistanceFor(unitType: UnitType): number {

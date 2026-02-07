@@ -269,14 +269,28 @@ export class AINukeHandler {
 
     // Subtract silo cost for any missing silo capacity.
     // Total bombs needed = 1 (the nuke) + SAM levels (one atom bomb each).
-    // Available capacity = sum of stackCount() across our silos.
+    // If a silo already exists, assume upgrading it: all levels at upgrade cost.
+    // If no silo exists, assume building new: first level at base cost, rest at upgrade cost.
     const bombsNeeded = 1 + samLevels;
     const siloCapacity = this.getPlayerSiloCapacity();
     if (siloCapacity < bombsNeeded) {
       const siloCost = Number(
         this.mg.unitInfo(UnitType.MissileSilo).cost(this.player!),
       );
-      totalScore -= (bombsNeeded - siloCapacity) * siloCost;
+      const levelsNeeded = bombsNeeded - siloCapacity;
+      let siloPenalty: number;
+      if (siloCapacity > 0) {
+        // Existing silo — all additional levels at upgrade cost
+        siloPenalty =
+          levelsNeeded * siloCost * AINukeHandler.UPGRADE_MULTIPLIER;
+      } else {
+        // No silo — first level at full cost, rest at upgrade cost
+        siloPenalty = siloCost;
+        for (let i = 1; i < levelsNeeded; i++) {
+          siloPenalty += siloCost * AINukeHandler.UPGRADE_MULTIPLIER;
+        }
+      }
+      totalScore -= siloPenalty;
     }
 
     return totalScore;
@@ -286,7 +300,7 @@ export class AINukeHandler {
    * Count total SAM levels within SAM range of the tile.
    * Each SAM's range depends on the owning player's tech level.
    */
-  private calculateSAMPenalty(tile: TileRef): number {
+  calculateSAMPenalty(tile: TileRef): number {
     const allSAMs = this.mg.units(UnitType.SAMLauncher);
     let totalSAMLevels = 0;
 
@@ -329,7 +343,7 @@ export class AINukeHandler {
    * Get the silo launch capacity for this AI player.
    * Returns the stack count of the player's largest silo, or 0 if none exist.
    */
-  private getPlayerSiloCapacity(): number {
+  getPlayerSiloCapacity(): number {
     let maxCapacity = 0;
     for (const silo of this.mg.units(UnitType.MissileSilo)) {
       if (!silo.isActive()) continue;
@@ -344,7 +358,7 @@ export class AINukeHandler {
   /**
    * Compute the effective SAM range for a player's tech level.
    */
-  private getEffectiveSAMRange(player: Player): number {
+  getEffectiveSAMRange(player: Player): number {
     const baseRange = this.mg.config().defaultSamRange();
     const rangeBonus = this.mg.config().samRangeUpgradePercent();
     const techLevel = this.getPlayerSAMTechLevel(player);
@@ -355,7 +369,45 @@ export class AINukeHandler {
   /**
    * Get a player's SAM tech level.
    */
-  private getPlayerSAMTechLevel(player: Player): number {
+  getPlayerSAMTechLevel(player: Player): number {
     return playerMaxStructureTechLevel(player, UnitType.SAMLauncher);
+  }
+
+  /**
+   * Returns the list of SAM units (with their tiles) that are in range of
+   * the given tile. Each SAM appears once; the caller should use
+   * stackCount() to determine how many atom bombs to target at each.
+   */
+  getSAMsInRange(tile: TileRef): Unit[] {
+    const result: Unit[] = [];
+    for (const sam of this.mg.units(UnitType.SAMLauncher)) {
+      if (!sam.isActive()) continue;
+      const owner = sam.owner();
+      const samRange = this.getEffectiveSAMRange(owner);
+      const samRangeSquared = samRange * samRange;
+      if (this.mg.euclideanDistSquared(tile, sam.tile()) <= samRangeSquared) {
+        result.push(sam);
+      }
+    }
+    return result;
+  }
+
+  /**
+   * Reset all cached best-target scores and tiles. Call after a nuke
+   * sequence completes so the handler starts fresh.
+   */
+  resetScores(): void {
+    this._bestAtomScore = 0;
+    this._bestAtomTile = null;
+    this._bestHydrogenScore = 0;
+    this._bestHydrogenTile = null;
+  }
+
+  /**
+   * How many bomb launches are needed for a strike at the given tile:
+   * 1 (main bomb) + total SAM levels in range.
+   */
+  bombsNeeded(tile: TileRef): number {
+    return 1 + this.calculateSAMPenalty(tile);
   }
 }
