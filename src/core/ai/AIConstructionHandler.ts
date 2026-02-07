@@ -94,6 +94,12 @@ export class AIConstructionHandler {
   // Phase seed for spreading periodic actions across AIs
   private readonly phaseSeed: number;
 
+  /**
+   * Internal multiplier applied to nuke scores in shouldDeferToNukes.
+   * Adjustable at runtime independently of the profile.
+   */
+  public nukeScoreConstructionInternalMultiplier = 1;
+
   constructor(
     private mg: Game,
     private playerId: PlayerID,
@@ -1701,6 +1707,11 @@ export class AIConstructionHandler {
     }
 
     if (bestNukeScore <= 0) return false;
+
+    // Apply multiplicative modifiers
+    const profileMultiplier = this.params.nukeScoreConstructionMultiplier ?? 1;
+    bestNukeScore *=
+      profileMultiplier * this.nukeScoreConstructionInternalMultiplier;
 
     const constructionScore = this.scoreTarget(player, this.target);
     return constructionScore < threshold * bestNukeScore;

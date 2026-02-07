@@ -83,6 +83,12 @@ export class AIPlayerExecution implements Execution {
   private nukeState: NukeSequenceState | null = null;
   private static readonly MAIN_BOMB_DELAY_TICKS = 30;
 
+  /**
+   * Internal multiplier applied to nuke scores when comparing against
+   * construction scores. Adjustable at runtime independently of the profile.
+   */
+  public nukeScoreInternalMultiplier = 1;
+
   constructor(
     private gameID: GameID,
     private nation: Nation,
@@ -295,6 +301,10 @@ export class AIPlayerExecution implements Execution {
     }
 
     if (bestScore <= 0 || bestTile === null) return;
+
+    // Apply multiplicative modifiers
+    const profileMultiplier = this.params.nukeScoreMultiplier ?? 1;
+    bestScore *= profileMultiplier * this.nukeScoreInternalMultiplier;
 
     // Compare against best construction score
     const constructionScore = this.constructionHandler.bestConstructionScore();
