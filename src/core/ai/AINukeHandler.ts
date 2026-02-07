@@ -326,18 +326,19 @@ export class AINukeHandler {
   }
 
   /**
-   * Get the total silo launch capacity for this AI player.
-   * Each silo contributes its stackCount (stacked silos fire multiple times
-   * before cooldown).
+   * Get the silo launch capacity for this AI player.
+   * Returns the stack count of the player's largest silo, or 0 if none exist.
    */
   private getPlayerSiloCapacity(): number {
-    let capacity = 0;
+    let maxCapacity = 0;
     for (const silo of this.mg.units(UnitType.MissileSilo)) {
       if (!silo.isActive()) continue;
       if (silo.owner().id() !== this.playerId) continue;
-      capacity += silo.stackCount();
+      if (silo.stackCount() > maxCapacity) {
+        maxCapacity = silo.stackCount();
+      }
     }
-    return capacity;
+    return maxCapacity;
   }
 
   /**
