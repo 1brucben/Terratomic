@@ -760,13 +760,14 @@ export class AIConstructionHandler {
         ? 1 - globalShipsUnderConstruction / globalPortCount
         : 1;
 
-    // Base score = multiplier * (1 + queueRatio) * (1 - availableRatio) * tradeIncomeMods * constructionRatioMul
+    // Base score = multiplier * (1 + queueRatio) * (1 - availableRatio) * tradeIncomeMods * constructionRatioMul * productivity
     return (
       AIConstructionHandler.PORT_SCORE_MULTIPLIER *
       (1 + metrics.queueRatio) *
       (1 - metrics.availableRatio) *
       tradeIncomeMul *
-      Math.max(0, constructionRatioMul)
+      Math.max(0, constructionRatioMul) *
+      player.productivity()
     );
   }
 
