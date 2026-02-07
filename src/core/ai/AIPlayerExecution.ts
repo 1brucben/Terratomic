@@ -7,6 +7,7 @@ import { AIBehaviorParams } from "./AIBehaviorParams";
 import { AIBotAttackHandler } from "./AIBotAttackHandler";
 import { AIConstructionHandler } from "./AIConstructionHandler";
 import { AIDiplomacyHandler } from "./AIDiplomacyHandler";
+import { AINukeEvaluator } from "./AINukeEvaluator";
 import { AISpawnHandler } from "./AISpawnHandler";
 import { AITerraNulliusHandler } from "./AITerraNulliusHandler";
 
@@ -25,6 +26,7 @@ export class AIPlayerExecution implements Execution {
   private attackHandler: AIAttackHandler | null = null;
   private constructionHandler: AIConstructionHandler | null = null;
   private diplomacyHandler: AIDiplomacyHandler | null = null;
+  private nukeEvaluator: AINukeEvaluator | null = null;
   private initialInvestmentSet = false;
   private roadInvestmentSet = false;
 
@@ -96,6 +98,7 @@ export class AIPlayerExecution implements Execution {
       this.random,
       this.params,
     );
+    this.nukeEvaluator = AINukeEvaluator.getInstance(this.gameID, mg);
   }
 
   isActive(): boolean {
@@ -153,6 +156,9 @@ export class AIPlayerExecution implements Execution {
 
     // Handle diplomacy (war declarations, etc.)
     this.diplomacyHandler?.tickDiplomacy(ticks);
+
+    // Update shared nuke target evaluation
+    this.nukeEvaluator?.tick(this.random, ticks);
   }
 
   private updateSliders(ticks: number): void {
