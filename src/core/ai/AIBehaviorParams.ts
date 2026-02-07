@@ -105,6 +105,13 @@ export interface AIBehaviorParams {
   nukeScoreConstructionThreshold?: number;
 
   /**
+   * Weight multiplier for collateral damage to non-enemy player structures
+   * when evaluating nuke targets. Higher values make the AI more cautious
+   * about hitting friendly/neutral structures. Default 1.0.
+   */
+  nukeFriendlyDamageWeight?: number;
+
+  /**
    * Minimum distance (in tiles) required between non-defense-post structures.
    * This is applied by the AI on top of the game's own placement rules.
    */
