@@ -263,8 +263,21 @@ export class AINukeHandler {
     const atomBombCost = Number(
       this.mg.unitInfo(UnitType.AtomBomb).cost(this.player!),
     );
-    const samPenalty = this.calculateSAMPenalty(tile) * atomBombCost;
+    const samLevels = this.calculateSAMPenalty(tile);
+    const samPenalty = samLevels * atomBombCost;
     totalScore -= samPenalty;
+
+    // Subtract silo cost for any missing silo capacity.
+    // Total bombs needed = 1 (the nuke) + SAM levels (one atom bomb each).
+    // Available capacity = sum of stackCount() across our silos.
+    const bombsNeeded = 1 + samLevels;
+    const siloCapacity = this.getPlayerSiloCapacity();
+    if (siloCapacity < bombsNeeded) {
+      const siloCost = Number(
+        this.mg.unitInfo(UnitType.MissileSilo).cost(this.player!),
+      );
+      totalScore -= (bombsNeeded - siloCapacity) * siloCost;
+    }
 
     return totalScore;
   }
@@ -310,6 +323,21 @@ export class AINukeHandler {
       totalValue += baseCost * AINukeHandler.UPGRADE_MULTIPLIER;
     }
     return totalValue;
+  }
+
+  /**
+   * Get the total silo launch capacity for this AI player.
+   * Each silo contributes its stackCount (stacked silos fire multiple times
+   * before cooldown).
+   */
+  private getPlayerSiloCapacity(): number {
+    let capacity = 0;
+    for (const silo of this.mg.units(UnitType.MissileSilo)) {
+      if (!silo.isActive()) continue;
+      if (silo.owner().id() !== this.playerId) continue;
+      capacity += silo.stackCount();
+    }
+    return capacity;
   }
 
   /**
