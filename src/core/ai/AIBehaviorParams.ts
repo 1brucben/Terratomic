@@ -98,6 +98,13 @@ export interface AIBehaviorParams {
   buildDoomsdayDevices?: boolean;
 
   /**
+   * If the best construction target score is less than this multiplier times
+   * the best nuke score, skip construction in favor of saving for nukes.
+   * Set to 0 to disable. Default 0 (disabled).
+   */
+  nukeScoreConstructionThreshold?: number;
+
+  /**
    * Minimum distance (in tiles) required between non-defense-post structures.
    * This is applied by the AI on top of the game's own placement rules.
    */

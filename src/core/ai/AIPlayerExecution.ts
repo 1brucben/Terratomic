@@ -91,6 +91,7 @@ export class AIPlayerExecution implements Execution {
       this.nation.playerInfo.id,
       this.random,
       this.params,
+      AINukeEvaluator.getInstance(this.gameID, mg),
     );
     this.diplomacyHandler = new AIDiplomacyHandler(
       mg,
