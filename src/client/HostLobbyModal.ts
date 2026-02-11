@@ -108,15 +108,54 @@ export class HostLobbyModal extends LitElement {
         @media (max-width: 1024px) {
           .sp-layout {
             grid-template-columns: 1fr;
+            grid-template-rows: auto auto;
             height: auto;
-            max-height: 85vh;
-            overflow-y: auto;
+            max-height: none;
+            overflow: visible;
           }
           .sp-layout.with-chat {
             grid-template-columns: 1fr;
+            grid-template-rows: auto auto auto;
           }
           .sp-map-col {
-            height: 40vh;
+            height: auto;
+            min-height: 0;
+            flex-shrink: 1;
+            overflow: visible;
+          }
+          .sp-scroll-area {
+            overflow-y: visible;
+            padding-right: 0;
+            padding-bottom: 8px;
+            max-height: none;
+          }
+          .sp-settings-col {
+            height: auto;
+            min-height: 0;
+            overflow: visible;
+            padding-bottom: calc(8px + env(safe-area-inset-bottom, 0px));
+          }
+          .sp-settings-scroll {
+            overflow-y: visible;
+            padding-right: 0;
+            padding-bottom: 0;
+            min-height: 0;
+            max-height: none;
+          }
+          .sp-player-area {
+            max-height: none;
+            min-height: 0;
+            margin-top: 12px;
+            padding-bottom: calc(8px + env(safe-area-inset-bottom, 0px));
+          }
+          .team-scroll-wrapper {
+            max-height: none;
+            overflow-y: visible;
+            padding-right: 0;
+          }
+          .sp-chat-col {
+            max-height: none;
+            overflow: visible;
           }
         }
 
@@ -636,7 +675,7 @@ export class HostLobbyModal extends LitElement {
         title=${translateText("host_modal.title")}
         max-width="1600px"
         max-height="85vh"
-        content-overflow="hidden"
+        content-overflow="auto"
       >
         <div class="sp-layout ${this.chatEnabled ? "with-chat" : ""}">
           <!-- LEFT COLUMN: Maps -->

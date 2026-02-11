@@ -374,6 +374,11 @@ export class RadialMenu implements Layer {
   }
 
   private onContextMenu(event: ContextMenuEvent) {
+    // Don't open radial menu when mobile UI is active
+    if (document.body.classList.contains("mobile-ui-enabled")) {
+      return;
+    }
+
     if (this.lastClosed + 200 > new Date().getTime()) return;
     if (this.isVisible) {
       this.hideRadialMenu();

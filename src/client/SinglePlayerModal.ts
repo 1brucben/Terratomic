@@ -85,12 +85,35 @@ export class SinglePlayerModal extends LitElement {
         @media (max-width: 1024px) {
           .sp-layout {
             grid-template-columns: 1fr;
+            grid-template-rows: auto auto;
             height: auto;
-            max-height: 80vh;
-            overflow-y: auto;
+            max-height: none;
+            overflow: visible;
           }
           .sp-map-col {
-            height: 40vh; /* Fixed height for maps on mobile */
+            height: auto;
+            min-height: 0;
+            flex-shrink: 1;
+            overflow: visible;
+          }
+          .sp-scroll-area {
+            overflow-y: visible;
+            padding-right: 0;
+            padding-bottom: 8px;
+            max-height: none;
+          }
+          .sp-settings-col {
+            height: auto;
+            min-height: 0;
+            overflow: visible;
+            padding-bottom: calc(12px + env(safe-area-inset-bottom, 0px));
+          }
+          .sp-settings-scroll {
+            overflow-y: visible;
+            padding-right: 0;
+            padding-bottom: 0;
+            min-height: 0;
+            max-height: none;
           }
         }
 
@@ -391,7 +414,7 @@ export class SinglePlayerModal extends LitElement {
         title=${translateText("single_modal.title")}
         max-width="1600px"
         max-height="85vh"
-        content-overflow="hidden"
+        content-overflow="auto"
       >
         <div class="sp-layout">
           <!-- LEFT COLUMN: Maps -->

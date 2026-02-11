@@ -13,10 +13,12 @@ export default {
     "^bad-words$": "<rootDir>/tests/__mocks__/bad-words.ts",
   },
   transform: {
-    "^.+\\.tsx?$": ["@swc/jest"],
+    "^.+\\.[tj]sx?$": ["@swc/jest"],
   },
 
-  transformIgnorePatterns: ["node_modules/(?!(node:)/)"],
+  transformIgnorePatterns: [
+    "node_modules/(?!(node:|lit|lit-html|lit-element|@lit)/)",
+  ],
   collectCoverageFrom: ["src/**/*.ts", "!src/**/*.d.ts"],
   coverageThreshold: {
     global: {

@@ -89,6 +89,33 @@
         transform-origin: top;
         transition: transform 0.3s ease-in-out;
       }
+
+      body.mobile-landscape-lobby {
+        overflow-y: auto;
+      }
+
+      body.mobile-landscape-lobby main {
+        padding-top: 0.5rem;
+      }
+
+      body.mobile-landscape-lobby .scale-container {
+        transform: none !important;
+        margin-bottom: 0 !important;
+      }
+
+      body.mobile-landscape-lobby .container {
+        max-width: min(500px, 94vw) !important;
+        padding: 1rem !important;
+        gap: 0.85rem !important;
+      }
+
+      body.mobile-landscape-lobby .container img[alt="Terratomic Logo"] {
+        max-width: 12rem !important;
+      }
+
+      body.mobile-landscape-lobby public-lobby button {
+        height: 7rem !important;
+      }
     </style>
 
     <!-- Immediate execution to prevent FOUC -->
@@ -235,7 +262,7 @@
     <div id="app"></div>
     <div id="radialMenu" class="radial-menu"></div>
     <div
-      class="flex gap-2 fixed right-[10px] top-[10px] z-50 flex-col items-end"
+      class="flex gap-2 fixed right-[10px] top-[10px] z-50 flex-col items-end desktop-hud"
     >
       <div
         class="flex flex-col gap-2 w-max ui-scale-surface"
@@ -246,14 +273,10 @@
       </div>
       <player-info-overlay style="width: max-content"></player-info-overlay>
     </div>
-    <div
-      class="fixed bottom-[30px] sm:bottom-auto sm:top-[20px] z-50 mx-auto max-w-max inset-x-0 items-center"
-    >
-      <heads-up-message></heads-up-message>
-    </div>
+    <heads-up-message></heads-up-message>
 
     <div
-      class="bottom-0 w-full flex z-50 justify-between items-end overflow-hidden"
+      class="bottom-0 w-full flex z-50 justify-between items-end overflow-hidden desktop-hud"
       style="position: fixed; pointer-events: none"
     >
       <div
@@ -347,6 +370,7 @@
 
     <player-panel></player-panel>
     <help-modal></help-modal>
+    <mobile-help-modal></mobile-help-modal>
     <rankings-modal></rankings-modal>
     <div
       id="quick-toggle-container"
@@ -378,6 +402,18 @@
     <!-- Adaptive JS scaling for .scale-container -->
     <script>
       (function () {
+        function isPhoneLandscape() {
+          var isLandscape = window.matchMedia(
+            "(orientation: landscape)",
+          ).matches;
+          var isMobileWidth = window.matchMedia("(max-width: 1024px)").matches;
+          var hasCoarsePointer = window.matchMedia("(pointer: coarse)").matches;
+          var mobileUA = /Android|iPhone|iPod|Mobile/i.test(
+            navigator.userAgent,
+          );
+          return isLandscape && isMobileWidth && (hasCoarsePointer || mobileUA);
+        }
+
         function computeScale() {
           var height = Math.max(
             document.documentElement.clientHeight,
@@ -391,6 +427,19 @@
         function applyScale() {
           var container = document.querySelector(".scale-container");
           if (!container) return;
+
+          var mobileLandscape = isPhoneLandscape();
+          document.body.classList.toggle(
+            "mobile-landscape-lobby",
+            mobileLandscape,
+          );
+
+          if (mobileLandscape) {
+            container.style.transform = "none";
+            container.style.marginBottom = "0px";
+            return;
+          }
+
           var scale = computeScale();
           container.style.transform = "scale(" + scale + ")";
           // Compensate layout gap created by transform (which doesn't affect flow height)

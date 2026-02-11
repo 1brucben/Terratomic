@@ -1,4 +1,4 @@
-import { LitElement, html } from "lit";
+import { LitElement, css, html } from "lit";
 import { customElement, state } from "lit/decorators.js";
 import { GameView } from "../../../core/game/GameView";
 import { UserSettings } from "../../../core/game/UserSettings";
@@ -14,6 +14,50 @@ export class HeadsUpMessage extends LitElement implements Layer {
   private isVisible = false;
 
   private settings = new UserSettings();
+
+  static styles = css`
+    .heads-up-container {
+      position: fixed;
+      left: 0;
+      right: 0;
+      z-index: 1600;
+      display: flex;
+      justify-content: center;
+      padding: 0 16px;
+    }
+
+    /* Desktop positioning */
+    body:not(.mobile-ui-enabled) .heads-up-container {
+      top: 20px;
+    }
+
+    /* Mobile positioning - below spawn timer */
+    body.mobile-ui-enabled .heads-up-container {
+      top: calc(env(safe-area-inset-top, 0px) + 54px);
+    }
+
+    .heads-up-message {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: rgba(0, 0, 0, 0.6);
+      backdrop-filter: blur(8px);
+      -webkit-backdrop-filter: blur(8px);
+      color: white;
+      border-radius: 8px;
+      padding: 8px 16px;
+      font-size: 14px;
+      font-weight: 500;
+      user-select: none;
+    }
+
+    /* Desktop larger styling */
+    body:not(.mobile-ui-enabled) .heads-up-message {
+      font-size: 20px;
+      padding: 12px 24px;
+      border-radius: 12px;
+    }
+  `;
 
   createRenderRoot() {
     return this;
@@ -37,15 +81,22 @@ export class HeadsUpMessage extends LitElement implements Layer {
       return html``;
     }
 
+    // Inject styles into document head if not already present
+    if (!document.querySelector("style[data-heads-up-message]")) {
+      const styleEl = document.createElement("style");
+      styleEl.setAttribute("data-heads-up-message", "");
+      styleEl.textContent = HeadsUpMessage.styles.cssText;
+      document.head.appendChild(styleEl);
+    }
+
     return html`
-      <div
-        class="flex items-center 
-                    w-full justify-evenly h-8 lg:h-10 top-0 lg:top-4 left-0 lg:left-4 
-                    bg-opacity-60 bg-gray-900 rounded-md lg:rounded-lg 
-                    backdrop-blur-md text-white text-md lg:text-xl p-1 lg:p-2"
-        @contextmenu=${(e: MouseEvent) => e.preventDefault()}
-      >
-        ${translateText("heads_up_message.choose_spawn")}
+      <div class="heads-up-container">
+        <div
+          class="heads-up-message"
+          @contextmenu=${(e: MouseEvent) => e.preventDefault()}
+        >
+          ${translateText("heads_up_message.choose_spawn")}
+        </div>
       </div>
     `;
   }
