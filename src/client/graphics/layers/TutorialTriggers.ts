@@ -2,6 +2,9 @@ import { EventBus } from "../../../core/EventBus";
 import { PlayerType, UnitType } from "../../../core/game/Game";
 import { GameUpdateType, PlayerUpdate } from "../../../core/game/GameUpdates";
 import { GameView } from "../../../core/game/GameView";
+import { MobileDetector } from "../../mobile/MobileDetector";
+import "../../mobile/overlays/MobileResearchPriorityModal";
+import type { MobileResearchPriorityModal } from "../../mobile/overlays/MobileResearchPriorityModal";
 import "../../ResearchPriorityModal";
 import type { ResearchPriorityModal } from "../../ResearchPriorityModal";
 import { tutorialManager } from "../../TutorialManager";
@@ -302,14 +305,36 @@ export class TutorialTriggers implements Layer {
 
     // Small delay to let the game UI settle after spawn phase transition
     setTimeout(() => {
-      const modal = document.querySelector(
+      const shouldUseMobileModal =
+        document.body.classList.contains("mobile-ui-enabled") ||
+        MobileDetector.isMobile();
+
+      if (shouldUseMobileModal) {
+        let mobileModal = document.querySelector(
+          "mobile-research-priority-modal",
+        ) as MobileResearchPriorityModal | null;
+
+        if (!mobileModal) {
+          mobileModal = document.createElement(
+            "mobile-research-priority-modal",
+          ) as MobileResearchPriorityModal;
+          document.body.appendChild(mobileModal);
+        }
+
+        mobileModal.game = this.game;
+        mobileModal.eventBus = this.eventBus;
+        mobileModal.open();
+        return;
+      }
+
+      const desktopModal = document.querySelector(
         "research-priority-modal",
       ) as ResearchPriorityModal | null;
 
-      if (modal) {
-        modal.game = this.game;
-        modal.eventBus = this.eventBus;
-        modal.open();
+      if (desktopModal) {
+        desktopModal.game = this.game;
+        desktopModal.eventBus = this.eventBus;
+        desktopModal.open();
       }
     }, 500);
   }

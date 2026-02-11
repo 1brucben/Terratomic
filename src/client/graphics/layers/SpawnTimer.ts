@@ -1,5 +1,6 @@
 import { GameMode, Team } from "../../../core/game/Game";
 import { GameView } from "../../../core/game/GameView";
+import { MobileDetector } from "../../mobile/MobileDetector";
 import { TransformHandler } from "../TransformHandler";
 import { Layer } from "./Layer";
 
@@ -60,6 +61,7 @@ export class SpawnTimer implements Layer {
 
     const barHeight = 10;
     const barWidth = this.transformHandler.width();
+    const barY = this.getBarYOffset();
 
     let x = 0;
     let filledRatio = 0;
@@ -68,11 +70,17 @@ export class SpawnTimer implements Layer {
       const segmentWidth = barWidth * ratio;
 
       context.fillStyle = this.colors[i];
-      context.fillRect(x, 0, segmentWidth, barHeight);
+      context.fillRect(x, barY, segmentWidth, barHeight);
 
       x += segmentWidth;
       filledRatio += ratio;
     }
+  }
+
+  private getBarYOffset(): number {
+    if (!document.body.classList.contains("mobile-ui-enabled")) return 0;
+    const safeAreaTop = MobileDetector.getSafeAreaInsets().top;
+    return safeAreaTop + 44;
   }
 }
 

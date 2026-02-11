@@ -45,8 +45,10 @@ export class UpgradeStructureExecution implements Execution {
       return;
     }
     const currentLevel = this.unit.level?.call(this.unit) ?? 1;
+    const currentStack = this.unit.stackCount?.() ?? 1;
     // Use player-specific max level (e.g., SAM launchers depend on SAM tech level)
-    if (currentLevel >= playerMaxStructureLevel(this.player, unitType)) {
+    const maxLevel = playerMaxStructureLevel(this.player, unitType);
+    if (currentLevel >= maxLevel) {
       this._isActive = false;
       return;
     }
@@ -59,11 +61,12 @@ export class UpgradeStructureExecution implements Execution {
       this._isActive = false;
       return;
     }
+
     this.player.removeGold(upgradeCost);
     // Increment stack count first, then apply HP bonus
-    const currentStack = this.unit.stackCount?.() ?? 1;
     (this.unit as UnitImpl).setStackCount(currentStack + 1);
     (this.unit as UnitImpl).upgradeStructure();
+
     this._isActive = false;
     return;
   }

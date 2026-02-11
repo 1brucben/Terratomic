@@ -573,9 +573,12 @@ export class StructureLayer implements Layer {
         if (this.hoveredStructure && this.hoveredStructure.id() === unit.id()) {
           this.updateLabels();
         }
-        // If stack count changed and we're in upgrade mode, re-render texture so highlight state updates
+        if (prevLevel !== serverStackCount && this.isMobileUIEnabled()) {
+          this.updateLabels();
+          this.shouldRedraw = true;
+        }
+        // If stack count changed, refresh texture when upgrade highlights may change
         if (prevLevel !== serverStackCount && this.upgradeMode) {
-          // Refresh texture so highlight state updates based on new level
           const target = this.renders.find((r) => r.unit.id() === unit.id());
           if (target) {
             target.pixiSprite.texture = this.createTexture(unit);
@@ -876,6 +879,13 @@ export class StructureLayer implements Layer {
     ctx.lineTo(cx, cy - outerRadius);
     ctx.closePath();
     ctx.fill();
+  }
+
+  private isMobileUIEnabled(): boolean {
+    return (
+      typeof document !== "undefined" &&
+      document.body.classList.contains("mobile-ui-enabled")
+    );
   }
 
   private shouldHighlight(unit: UnitView): boolean {
@@ -1259,6 +1269,77 @@ export class StructureLayer implements Layer {
           tPrimary.y = bgY + Math.round((pillHeight - tPrimary.height) / 2);
           this.labelContainer.addChild(tPrimary);
         }
+      }
+    }
+
+    if (this.isMobileUIEnabled()) {
+      const mobileBadgeStyleCache = new Map<string, PIXI.TextStyle>();
+      for (const r of this.renders) {
+        const u = r.unit;
+        if (!u.isActive()) continue;
+        if (u.type() === UnitType.Construction) continue;
+        const stackCount = u.stackCount();
+        if (stackCount <= 1) continue;
+
+        const tile = u.tile();
+        const worldX = this.game.x(tile);
+        const worldY = this.game.y(tile);
+        const screenPos = this.transformHandler.worldToScreenCoordinates(
+          new Cell(worldX, worldY),
+        );
+        const shape: BgShape =
+          STRUCTURE_BG_SHAPES[u.type() as UnitType] ?? "circle";
+        const iconDim = ICON_SIZES[shape] ?? ICON_SIZE;
+        const iconScale = this.iconScreenScale();
+        const labelScale = iconScale * ICON_TEXTURE_QUALITY;
+
+        const fontSize = Math.round(iconDim * labelScale * 0.24);
+        const baseColorStr = this.relationshipColorHexStr(u);
+        const baseRaw = baseColorStr.replace(/^#/, "");
+        const baseFill = parseInt(baseRaw, 16);
+        const styleKey = `${fontSize}:${baseFill}`;
+        let style = mobileBadgeStyleCache.get(styleKey);
+        if (!style) {
+          style = new PIXI.TextStyle({
+            fontFamily:
+              "system-ui, -apple-system, Segoe UI, Roboto, sans-serif",
+            fontSize,
+            fontWeight: "600",
+            fill: baseFill,
+            align: "center",
+          });
+          mobileBadgeStyleCache.set(styleKey, style);
+        }
+        const t = new PIXI.Text(String(stackCount), style);
+
+        const paddingX = Math.max(2, Math.round(fontSize * 0.45));
+        const paddingY = Math.max(1, Math.round(fontSize * 0.3));
+        const badgeW = t.width + paddingX * 2;
+        const badgeH = t.height + paddingY * 2;
+        const badgeX = Math.round(screenPos.x - badgeW / 2);
+        const badgeY = Math.round(
+          screenPos.y -
+            (iconDim * labelScale) / 2 -
+            badgeH -
+            Math.round(1 * labelScale),
+        );
+
+        const bg = new PIXI.Graphics();
+        bg.roundRect(
+          badgeX,
+          badgeY,
+          badgeW,
+          badgeH,
+          Math.min(14, fontSize),
+        ).fill({
+          color: 0x000000,
+          alpha: 0.55,
+        });
+        this.labelContainer.addChild(bg);
+
+        t.x = badgeX + Math.round((badgeW - t.width) / 2);
+        t.y = badgeY + Math.round((badgeH - t.height) / 2);
+        this.labelContainer.addChild(t);
       }
     }
 

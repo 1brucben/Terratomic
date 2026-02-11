@@ -54,6 +54,8 @@ import {
 import { createCanvas } from "./Utils";
 import { createRenderer, GameRenderer } from "./graphics/GameRenderer";
 import { WinModal } from "./graphics/layers/WinModal";
+import { MobileDetector } from "./mobile/MobileDetector";
+import type { MobileUI } from "./mobile/MobileUI";
 import { AVAILABLE_STATS, computeStatValue } from "./stats/StatDefinitions";
 import statsStore from "./stats/StatsStore";
 import { PerformanceMetrics } from "./utilities/PerformanceMetrics";
@@ -172,6 +174,17 @@ export async function createClientGame(
   console.log("inited path finder");
   const canvas = createCanvas();
   const gameRenderer = createRenderer(canvas, gameView, eventBus);
+
+  if (MobileDetector.isMobile()) {
+    const mobileUI = (window as Window & { __MOBILE_UI__?: MobileUI })
+      .__MOBILE_UI__;
+    if (mobileUI) {
+      mobileUI.setActive(true);
+      mobileUI.setTransformHandler(gameRenderer.transformHandler);
+      mobileUI.initializeGestureDetection(canvas);
+      mobileUI.updateGameState(gameView);
+    }
+  }
 
   console.log(
     `creating private game got difficulty: ${lobbyConfig.gameStartInfo.config.difficulty}`,

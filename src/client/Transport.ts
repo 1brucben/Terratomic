@@ -123,6 +123,10 @@ export class SendResearchTreeSelectIntentEvent implements GameEvent {
   constructor(public readonly techId: string) {}
 }
 
+export class SendResearchTreeSelectBatchIntentEvent implements GameEvent {
+  constructor(public readonly techIds: string[]) {}
+}
+
 export class SendTargetPlayerIntentEvent implements GameEvent {
   constructor(public readonly targetID: PlayerID) {}
 }
@@ -361,6 +365,9 @@ export class Transport {
 
     this.eventBus.on(SendResearchTreeSelectIntentEvent, (e) =>
       this.onSendResearchTreeSelectIntent(e),
+    );
+    this.eventBus.on(SendResearchTreeSelectBatchIntentEvent, (e) =>
+      this.onSendResearchTreeSelectBatchIntent(e),
     );
 
     this.eventBus.on(BuildUnitIntentEvent, (e) => this.onBuildUnitIntent(e));
@@ -775,14 +782,14 @@ export class Transport {
     }
 
     console.log(
-      `[Transport] Sending build_unit intent for ${event.unit} at tile ${event.tile}, stackCount=${stackCount}`,
+      `[Transport] Sending build_unit intent for ${event.unit} at tile ${event.tile}, stackCount=${stackCount ?? 1}`,
     );
     this.sendIntent({
       type: "build_unit",
       clientID: this.lobbyConfig.clientID,
       unit: event.unit,
       tile: event.tile,
-      targetLevel: stackCount, // Renamed semantically but keeping wire format for now
+      targetLevel: stackCount ?? undefined, // Renamed semantically but keeping wire format for now
       bomberLevel,
     });
   }
@@ -813,6 +820,18 @@ export class Transport {
       clientID: this.lobbyConfig.clientID,
       techId: event.techId,
     });
+  }
+
+  private onSendResearchTreeSelectBatchIntent(
+    event: SendResearchTreeSelectBatchIntentEvent,
+  ) {
+    for (const techId of event.techIds) {
+      this.sendIntent({
+        type: "research_tree_select",
+        clientID: this.lobbyConfig.clientID,
+        techId,
+      });
+    }
   }
 
   private onPauseGameEvent(event: PauseGameEvent) {

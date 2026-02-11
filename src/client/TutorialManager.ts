@@ -30,6 +30,11 @@ export class TutorialManager {
     force: boolean = false,
     highlightTarget?: string,
   ): void {
+    // Tutorials are disabled entirely while mobile UI is active
+    if (this.isMobileUIActive()) {
+      return;
+    }
+
     // Check if tutorials are enabled
     if (!this.settings.tutorialEnabled() && !force) {
       return;
@@ -204,6 +209,11 @@ export class TutorialManager {
     if (!state) {
       this.settings.resetTutorialProgress();
     }
+  }
+
+  private isMobileUIActive(): boolean {
+    if (typeof document === "undefined") return false;
+    return document.body.classList.contains("mobile-ui-enabled");
   }
 }
 

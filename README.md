@@ -45,6 +45,18 @@ Until then, open issues, submit pull requests, or join the discussion [on Discor
 - `src/scripts` – Dev or build-time scripts
 - `resources/` – Static assets (flags, fonts, icons, maps, sprites, images)
 - `tests/` – Unit and integration tests for client, core logic, and utilities
+- `docs/mobile/` – Mobile UI documentation (see below)
+
+---
+
+## 📱 Mobile UI Docs
+
+Touch-first mobile layer built with Lit web components under `src/client/mobile/`.
+
+- [Architecture](docs/mobile/MOBILE-ARCHITECTURE.md) — component map, activation lifecycle, event bus, file inventory
+- [Feature Matrix](docs/mobile/MOBILE-FEATURE-MATRIX.md) — desktop → mobile parity table, HUD layout, z-index map
+- [Gestures & Haptics](docs/mobile/MOBILE-GESTURES-HAPTICS.md) — gesture detection config, haptic patterns, usage by area
+- [Action Grid Catalog](docs/mobile/MOBILE-ACTION-GRID-CATALOG.md) — tile category resolution, full action tables per context
 
 ---
 
