@@ -37,6 +37,8 @@ export enum GameUpdateType {
   DisplayChatEvent,
   AllianceRequest,
   AllianceRequestReply,
+  PeaceRequest,
+  PeaceRequestReply,
   BrokeAlliance,
   AllianceExpired,
   TargetPlayer,
@@ -82,6 +84,8 @@ export type GameUpdate =
   | PlayerUpdate
   | AllianceRequestUpdate
   | AllianceRequestReplyUpdate
+  | PeaceRequestUpdate
+  | PeaceRequestReplyUpdate
   | BrokeAllianceUpdate
   | AllianceExpiredUpdate
   | AllianceExtensionAcceptedUpdate
@@ -228,6 +232,7 @@ export interface PlayerUpdate {
   outgoingAttacks: AttackUpdate[];
   incomingAttacks: AttackUpdate[];
   outgoingAllianceRequests: PlayerID[];
+  outgoingPeaceRequests: PlayerID[];
   hasSpawned: boolean;
   betrayals?: bigint;
   effectiveUnits: Record<UnitType, number>;
@@ -253,6 +258,19 @@ export interface AllianceRequestUpdate {
 export interface AllianceRequestReplyUpdate {
   type: GameUpdateType.AllianceRequestReply;
   request: AllianceRequestUpdate;
+  accepted: boolean;
+}
+
+export interface PeaceRequestUpdate {
+  type: GameUpdateType.PeaceRequest;
+  requestorID: number;
+  recipientID: number;
+  createdAt: Tick;
+}
+
+export interface PeaceRequestReplyUpdate {
+  type: GameUpdateType.PeaceRequestReply;
+  request: PeaceRequestUpdate;
   accepted: boolean;
 }
 

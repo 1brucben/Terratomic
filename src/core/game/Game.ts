@@ -396,6 +396,14 @@ export interface AllianceRequest {
   createdAt(): Tick;
 }
 
+export interface PeaceRequest {
+  accept(): void;
+  reject(): void;
+  requestor(): Player;
+  recipient(): Player;
+  createdAt(): Tick;
+}
+
 export interface Alliance {
   requestor(): Player;
   recipient(): Player;
@@ -735,6 +743,10 @@ export interface Player {
   canSendAllianceRequest(other: Player): boolean;
   breakAlliance(alliance: Alliance): void;
   createAllianceRequest(recipient: Player): AllianceRequest | null;
+  incomingPeaceRequests(): PeaceRequest[];
+  outgoingPeaceRequests(): PeaceRequest[];
+  canSendPeaceRequest(other: Player): boolean;
+  createPeaceRequest(recipient: Player): PeaceRequest | null;
 
   // Targeting
   canTarget(other: Player): boolean;
@@ -988,6 +1000,9 @@ export enum MessageType {
   ALLIANCE_EXPIRED,
   WAR_DECLARED,
   PEACE_MADE,
+  PEACE_REQUEST,
+  PEACE_ACCEPTED,
+  PEACE_REJECTED,
   // Trade ship lifecycle events (new)
   TRADE_SHIP_CAPTURED,
   TRADE_SHIP_SUNK,
@@ -1036,6 +1051,9 @@ export const MESSAGE_TYPE_CATEGORIES: Record<MessageType, MessageCategory> = {
   [MessageType.ALLIANCE_EXPIRED]: MessageCategory.ALLIANCE,
   [MessageType.WAR_DECLARED]: MessageCategory.ALLIANCE,
   [MessageType.PEACE_MADE]: MessageCategory.ALLIANCE,
+  [MessageType.PEACE_REQUEST]: MessageCategory.ALLIANCE,
+  [MessageType.PEACE_ACCEPTED]: MessageCategory.ALLIANCE,
+  [MessageType.PEACE_REJECTED]: MessageCategory.ALLIANCE,
   [MessageType.WARN]: MessageCategory.ALLIANCE,
   [MessageType.PEACE_TIMER_BLOCKED]: MessageCategory.ATTACK,
   [MessageType.TRADE_SHIP_CAPTURED]: MessageCategory.ATTACK,

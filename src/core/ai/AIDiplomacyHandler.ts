@@ -26,6 +26,11 @@ export class AIDiplomacyHandler {
   private static readonly SHORE_SAMPLE_CACHE_TTL = 100;
   // Number of random shore tiles to sample (in addition to 4 extrema)
   private static readonly RANDOM_SHORE_SAMPLE_SIZE = 4;
+  // Peace score evaluation interval (100 ticks = 10 seconds)
+  private static readonly PEACE_SCORE_EVALUATION_INTERVAL = 100;
+
+  // Static registry of all active handlers for cross-AI peace request evaluation
+  private static readonly registry = new Map<PlayerID, AIDiplomacyHandler>();
 
   // Phase seed for spreading periodic actions across AIs
   private readonly phaseSeed: number;
@@ -42,6 +47,13 @@ export class AIDiplomacyHandler {
   // Cache for ocean shore samples per player (keyed by PlayerID)
   private _oceanShoreSampleCache: Map<PlayerID, OceanShoreSample> = new Map();
 
+  // Ordered list of peace candidate PlayerIDs (sorted by peace score ascending)
+  private _pendingPeaceCandidates: PlayerID[] = [];
+  // Current index into the pending peace candidates list
+  private _currentPeaceCandidateIndex = 0;
+  // Whether peace was successfully made this evaluation cycle
+  private _peaceCompletedThisCycle = false;
+
   constructor(
     private mg: Game,
     private playerId: PlayerID,
@@ -50,6 +62,8 @@ export class AIDiplomacyHandler {
   ) {
     // Stagger periodic actions across AIs using random offset
     this.phaseSeed = random.nextInt(0, 0x7fffffff);
+    // Register this handler for cross-AI peace request evaluation
+    AIDiplomacyHandler.registry.set(this.playerId, this);
   }
 
   private periodicOffset(period: number): number {
@@ -254,6 +268,19 @@ export class AIDiplomacyHandler {
       this.updateWarScoreHistory();
       this.maybeDeclarWars(player);
     }
+
+    // Periodically evaluate peace scores and rebuild candidate list
+    if (
+      this.shouldRunPeriodic(
+        ticks,
+        AIDiplomacyHandler.PEACE_SCORE_EVALUATION_INTERVAL,
+      )
+    ) {
+      this.evaluatePeaceScores(player, ticks);
+    }
+
+    // Try peace negotiation each tick (advances through candidate list)
+    this.tryPeaceNegotiation(player, ticks);
   }
 
   /**
@@ -546,5 +573,145 @@ export class AIDiplomacyHandler {
    */
   getAllWarScores(): Map<PlayerID, number> {
     return new Map(this._warScores);
+  }
+
+  // ---------------------------------------------------------------------------
+  // Peace handling
+  // ---------------------------------------------------------------------------
+
+  /**
+   * Returns the peace threshold for this AI.
+   * Peace threshold = warDeclarationThreshold - peaceThresholdGap.
+   * A war score below this value means the AI is willing to make peace.
+   */
+  private get peaceThreshold(): number {
+    const warThreshold = this.params.warDeclarationThreshold ?? 1.0;
+    const gap = this.params.peaceThresholdGap ?? 30;
+    return warThreshold - gap;
+  }
+
+  /**
+   * Evaluates peace scores for all players we are currently at war with.
+   * Builds a sorted candidate list of enemies whose peace score is below the
+   * peace threshold. Resets the negotiation state for this cycle.
+   */
+  private evaluatePeaceScores(player: Player, ticks: number): void {
+    // Clear distance cache so fresh samples are used
+    this._shoreDistanceCache.clear();
+
+    const peaceScores: { id: PlayerID; score: number }[] = [];
+
+    for (const other of this.mg.players()) {
+      if (other.id() === player.id()) continue;
+      if (other.type() === PlayerType.Bot) continue;
+      if (!other.isAlive()) continue;
+      if (!player.isAtWarWith(other)) continue;
+
+      // Peace score is calculated identically to war score, treating the
+      // target as if we are NOT currently at war with them.
+      // calculateWarScore already does this: it counts the target as the
+      // primary enemy and adds OTHER current enemies separately (excluding
+      // the target via the enemy.id() !== other.id() check).
+      const score = this.calculateWarScore(player, other, ticks);
+
+      if (score < this.peaceThreshold) {
+        peaceScores.push({ id: other.id(), score });
+      }
+    }
+
+    // Sort ascending: lowest score = most desirable peace partner
+    peaceScores.sort((a, b) => a.score - b.score);
+
+    this._pendingPeaceCandidates = peaceScores.map((e) => e.id);
+    this._currentPeaceCandidateIndex = 0;
+    this._peaceCompletedThisCycle = false;
+  }
+
+  /**
+   * Attempts peace negotiation with the current candidate. Called each tick.
+   * For AI targets: pre-checks acceptance, then creates the request (auto-accepted).
+   * For human targets: creates a pending request (human will reply via UI).
+   * If declined or cannot send, advances to the next candidate on the next tick.
+   */
+  private tryPeaceNegotiation(player: Player, ticks: number): void {
+    // Already made peace this cycle, or no candidates left
+    if (this._peaceCompletedThisCycle) return;
+    if (this._currentPeaceCandidateIndex >= this._pendingPeaceCandidates.length)
+      return;
+
+    const candidateId =
+      this._pendingPeaceCandidates[this._currentPeaceCandidateIndex];
+
+    // Validate candidate is still a valid target
+    if (!this.mg.hasPlayer(candidateId)) {
+      this._currentPeaceCandidateIndex++;
+      return;
+    }
+
+    const candidate = this.mg.player(candidateId);
+    if (!candidate.isAlive() || !player.isAtWarWith(candidate)) {
+      this._currentPeaceCandidateIndex++;
+      return;
+    }
+
+    // Can't send if there's already a pending request or cooldown
+    if (!player.canSendPeaceRequest(candidate)) {
+      this._currentPeaceCandidateIndex++;
+      return;
+    }
+
+    // For AI targets: pre-check if they would accept before creating request
+    if (candidate.type() === PlayerType.AI) {
+      const otherHandler = AIDiplomacyHandler.registry.get(candidateId);
+      if (
+        otherHandler &&
+        !otherHandler.evaluateIncomingPeaceRequest(player, ticks)
+      ) {
+        // Declined – advance to next candidate on next tick
+        this._currentPeaceCandidateIndex++;
+        return;
+      }
+    }
+
+    // Create the peace request (for humans it stays pending; for AI it will be auto-accepted by handleIncomingPeaceRequests)
+    player.createPeaceRequest(candidate);
+    this._peaceCompletedThisCycle = true;
+
+    // Clear war score history so fresh evaluation starts if relations worsen again
+    this._warScoreHistory.delete(candidateId);
+  }
+
+  /**
+   * Handles incoming peace requests for this AI player.
+   * Evaluates each request and accepts/rejects based on peace score threshold.
+   * Called each tick by the AI execution loop.
+   */
+  handleIncomingPeaceRequests(ticks: number): void {
+    const player = this.getPlayer();
+    if (!player || !player.isAlive()) return;
+
+    for (const request of player.incomingPeaceRequests()) {
+      const sender = request.requestor();
+      if (this.evaluateIncomingPeaceRequest(sender, ticks)) {
+        request.accept();
+      } else {
+        request.reject();
+      }
+    }
+  }
+
+  /**
+   * Evaluates whether this AI should accept an incoming peace request
+   * from the given player. Returns true if the peace score for the sender
+   * is below this AI's peace threshold.
+   */
+  evaluateIncomingPeaceRequest(sender: Player, ticks: number): boolean {
+    const player = this.getPlayer();
+    if (!player || !player.isAlive()) return false;
+    if (!player.isAtWarWith(sender)) return false;
+
+    // Calculate the war score for the sender as if not at war with them
+    const score = this.calculateWarScore(player, sender, ticks);
+    return score < this.peaceThreshold;
   }
 }

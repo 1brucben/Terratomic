@@ -29,6 +29,7 @@ import { NoOpExecution } from "./NoOpExecution";
 import { ParatrooperAttackExecution } from "./ParatrooperAttackExecution";
 import { ParatrooperRetreatExecution } from "./ParatrooperRetreatExecution";
 import { PeaceRequestExecution } from "./PeaceRequestExecution";
+import { PeaceRequestReplyExecution } from "./PeaceRequestReplyExecution";
 import { QuickChatExecution } from "./QuickChatExecution";
 import { ResearchTreeSelectExecution } from "./ResearchTreeSelectExecution";
 import { RetreatExecution } from "./RetreatExecution";
@@ -129,6 +130,12 @@ export class Executor {
         return new BreakAllianceExecution(player, intent.recipient);
       case "peaceRequest":
         return new PeaceRequestExecution(player, intent.recipient);
+      case "peaceRequestReply":
+        return new PeaceRequestReplyExecution(
+          intent.requestor,
+          player,
+          intent.accept,
+        );
       case "declareWar":
         return new DeclareWarExecution(player, intent.recipient);
       case "targetPlayer":
