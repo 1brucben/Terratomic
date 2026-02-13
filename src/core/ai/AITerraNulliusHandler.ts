@@ -168,15 +168,14 @@ export class AITerraNulliusHandler {
 
   /**
    * Check if any Terra Nullius land tiles exist in the game.
-   * TN tiles = total land tiles - fallout tiles - all player-owned tiles
+   * TN tiles = total land tiles - all player-owned tiles
    */
   private hasTNLandTiles(): boolean {
     const totalLand = this.mg.numLandTiles();
-    const fallout = this.mg.numTilesWithFallout();
     const playerOwned = this.mg
       .players()
       .reduce((sum, p) => sum + p.numTilesOwned(), 0);
-    const tnTiles = totalLand - fallout - playerOwned;
+    const tnTiles = totalLand - playerOwned;
     return tnTiles > 0;
   }
 
