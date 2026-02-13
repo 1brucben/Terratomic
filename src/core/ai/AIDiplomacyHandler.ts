@@ -26,8 +26,10 @@ export class AIDiplomacyHandler {
   private static readonly SHORE_SAMPLE_CACHE_TTL = 100;
   // Number of random shore tiles to sample (in addition to 4 extrema)
   private static readonly RANDOM_SHORE_SAMPLE_SIZE = 4;
-  // Peace score evaluation interval (100 ticks = 10 seconds)
-  private static readonly PEACE_SCORE_EVALUATION_INTERVAL = 100;
+  // Peace score evaluation interval (50 ticks = 5 seconds, same as war score)
+  private static readonly PEACE_SCORE_EVALUATION_INTERVAL = 50;
+  // 30 seconds / 5 seconds per sample = 6 samples for peace moving average
+  private static readonly PEACE_SCORE_HISTORY_LENGTH = 6;
 
   // Static registry of all active handlers for cross-AI peace request evaluation
   private static readonly registry = new Map<PlayerID, AIDiplomacyHandler>();
@@ -46,6 +48,12 @@ export class AIDiplomacyHandler {
 
   // Cache for ocean shore samples per player (keyed by PlayerID)
   private _oceanShoreSampleCache: Map<PlayerID, OceanShoreSample> = new Map();
+
+  // Current peace scores for each player we're at war with (keyed by PlayerID)
+  private _peaceScores: Map<PlayerID, number> = new Map();
+
+  // Historical peace scores for moving average (keyed by PlayerID -> buffer of scores)
+  private _peaceScoreHistory: Map<PlayerID, number[]> = new Map();
 
   // Ordered list of peace candidate PlayerIDs (sorted by peace score ascending)
   private _pendingPeaceCandidates: PlayerID[] = [];
@@ -323,6 +331,204 @@ export class AIDiplomacyHandler {
   }
 
   /**
+   * Logs each component of the war score for debugging AI decisions against
+   * human players. Called when declaring war or sending peace requests.
+   */
+  private logWarScoreBreakdown(
+    player: Player,
+    other: Player,
+    ticks: number,
+    action: "DECLARE_WAR" | "PEACE_REQUEST",
+  ): void {
+    const reachable = this.isReachable(player, other);
+    if (!reachable) {
+      console.log(
+        `[AI Diplomacy] ${action}: ${player.name()} -> ${other.name()} | NOT REACHABLE (score = 0)`,
+      );
+      return;
+    }
+
+    const factors: Record<string, number> = {};
+    let total = 0;
+
+    // Factor 1: Shared border
+    const sharedBorderWeight = this.params.warScoreSharedBorderWeight ?? 0;
+    if (sharedBorderWeight !== 0) {
+      const ownTotalBorderLength = player.borderTiles().size;
+      if (ownTotalBorderLength > 0) {
+        const sharedBorderLength = player.sharedBorderLength(other);
+        const borderRatio = sharedBorderLength / ownTotalBorderLength;
+        const val = sharedBorderWeight * borderRatio;
+        factors["sharedBorder"] = val;
+        total += val;
+      } else {
+        factors["sharedBorder"] = 0;
+      }
+    }
+
+    // Factor 2: Military strength ratio
+    const militaryStrengthWeight =
+      this.params.warScoreMilitaryStrengthWeight ?? 0;
+    if (militaryStrengthWeight !== 0) {
+      const nonReachableWeight =
+        this.params.warScoreNonReachableEnemyWeight ?? 0.2;
+      const coBelligerentDiscount =
+        this.params.warScoreCoBelligerentDiscount ?? 0.9;
+      let effectiveOwnStrength = player.militaryStrength();
+      let coBelligerentSum = 0;
+      for (const ally of this.mg.players()) {
+        if (
+          ally.id() !== player.id() &&
+          ally.id() !== other.id() &&
+          ally.isAlive() &&
+          ally.type() !== PlayerType.Bot &&
+          ally.isAtWarWith(other)
+        ) {
+          let totalEnemyStrengthOfAlly = 0;
+          for (const allyEnemy of this.mg.players()) {
+            if (
+              allyEnemy.id() !== ally.id() &&
+              allyEnemy.isAlive() &&
+              allyEnemy.type() !== PlayerType.Bot &&
+              ally.isAtWarWith(allyEnemy)
+            ) {
+              const enemyStrength = allyEnemy.militaryStrength();
+              if (this.isReachable(allyEnemy, ally)) {
+                totalEnemyStrengthOfAlly += enemyStrength;
+              } else {
+                totalEnemyStrengthOfAlly += enemyStrength * nonReachableWeight;
+              }
+            }
+          }
+          if (totalEnemyStrengthOfAlly > 0) {
+            let targetStrengthForAlly = other.militaryStrength();
+            if (!this.isReachable(ally, other)) {
+              targetStrengthForAlly *= nonReachableWeight;
+            }
+            const targetShare =
+              targetStrengthForAlly / totalEnemyStrengthOfAlly;
+            coBelligerentSum += ally.militaryStrength() * targetShare;
+          }
+        }
+      }
+      effectiveOwnStrength += coBelligerentSum * coBelligerentDiscount;
+      let totalEnemyStrength = other.militaryStrength();
+      for (const enemy of this.mg.players()) {
+        if (
+          enemy.id() !== player.id() &&
+          enemy.id() !== other.id() &&
+          enemy.isAlive() &&
+          enemy.type() !== PlayerType.Bot &&
+          player.isAtWarWith(enemy)
+        ) {
+          const enemyStrength = enemy.militaryStrength();
+          if (this.isReachable(enemy, player)) {
+            totalEnemyStrength += enemyStrength;
+          } else {
+            totalEnemyStrength += enemyStrength * nonReachableWeight;
+          }
+        }
+      }
+      if (totalEnemyStrength > 0) {
+        const strengthRatio = Math.min(
+          effectiveOwnStrength / totalEnemyStrength,
+          4,
+        );
+        const val = militaryStrengthWeight * strengthRatio;
+        factors["militaryStrength"] = val;
+        factors["_effectiveOwnStrength"] = effectiveOwnStrength;
+        factors["_totalEnemyStrength"] = totalEnemyStrength;
+        factors["_strengthRatio"] = strengthRatio;
+        total += val;
+      } else {
+        factors["militaryStrength"] = 0;
+      }
+    }
+
+    // Factor 3: Ally penalty
+    const allyPenalty = this.params.warScoreAllyPenalty ?? 0;
+    if (allyPenalty !== 0 && player.isAlliedWith(other)) {
+      factors["allyPenalty"] = -allyPenalty;
+      total -= allyPenalty;
+    }
+
+    // Factor 4: Distance penalty
+    const distancePenaltyWeight =
+      this.params.warScoreDistancePenaltyWeight ?? 0;
+    if (distancePenaltyWeight !== 0 && !player.sharesBorderWith(other)) {
+      const shoreDist = this.closestOceanShoreDistance(player, other, ticks);
+      if (shoreDist !== null && shoreDist > 0) {
+        const mapWidth = this.mg.width();
+        const mapHeight = this.mg.height();
+        const geoMean = Math.sqrt(mapWidth * mapHeight);
+        const normalizedDist = shoreDist / geoMean;
+        const penalty = normalizedDist * normalizedDist;
+        const val = -(distancePenaltyWeight * penalty);
+        factors["distancePenalty"] = val;
+        factors["_shoreDist"] = shoreDist;
+        total += val;
+      }
+    }
+
+    // Factor 5: Dominance bonus
+    const dominanceWeight = this.params.warScoreDominanceWeight ?? 0;
+    if (dominanceWeight !== 0) {
+      let totalGameStrength = 0;
+      let highestStrength = 0;
+      let secondHighestStrength = 0;
+      for (const p of this.mg.players()) {
+        if (!p.isAlive() || p.type() === PlayerType.Bot) continue;
+        const s = p.militaryStrength();
+        totalGameStrength += s;
+        if (s > highestStrength) {
+          secondHighestStrength = highestStrength;
+          highestStrength = s;
+        } else if (s > secondHighestStrength) {
+          secondHighestStrength = s;
+        }
+      }
+      const targetStrength = other.militaryStrength();
+      if (
+        totalGameStrength > 0 &&
+        targetStrength >= highestStrength &&
+        targetStrength > 0
+      ) {
+        const targetShare = targetStrength / totalGameStrength;
+        const denominator = 0.8 - targetShare;
+        if (denominator > 0 && secondHighestStrength > 0) {
+          const gapPercent =
+            (targetStrength - secondHighestStrength) / secondHighestStrength;
+          const val = dominanceWeight * (gapPercent / denominator);
+          factors["dominanceBonus"] = val;
+          total += val;
+        }
+      }
+    }
+
+    const warMovingAvg = this.getMovingAverageWarScore(other.id());
+    const peaceMovingAvg = this.getMovingAveragePeaceScore(other.id());
+    const threshold = this.params.warDeclarationThreshold ?? 1.0;
+    const gap = this.params.peaceThresholdGap ?? 30;
+    const peaceThresh = threshold - gap;
+
+    const factorEntries = Object.entries(factors)
+      .map(([k, v]) => `${k}=${v.toFixed(4)}`)
+      .join(", ");
+
+    const movingAvgStr =
+      action === "DECLARE_WAR"
+        ? `warMovingAvg=${warMovingAvg.toFixed(4)}`
+        : `peaceMovingAvg=${peaceMovingAvg.toFixed(4)}`;
+
+    console.log(
+      `[AI Diplomacy] ${action}: ${player.name()} -> ${other.name()} | ` +
+        `total=${total.toFixed(4)}, ${movingAvgStr}, ` +
+        `warThreshold=${threshold.toFixed(4)}, peaceThreshold=${peaceThresh.toFixed(4)} | ` +
+        `factors: { ${factorEntries} }`,
+    );
+  }
+
+  /**
    * Calculates the war score against a specific player.
    * Higher score = more likely to declare war.
    * Returns a linear combination of weighted factors.
@@ -360,7 +566,10 @@ export class AIDiplomacyHandler {
     if (militaryStrengthWeight !== 0) {
       const nonReachableWeight =
         this.params.warScoreNonReachableEnemyWeight ?? 0.2;
+      const coBelligerentDiscount =
+        this.params.warScoreCoBelligerentDiscount ?? 0.9;
       let effectiveOwnStrength = player.militaryStrength();
+      let coBelligerentSum = 0;
 
       // Add military strength of others already at war with target, scaled by
       // how much of their attention is on the target
@@ -400,10 +609,12 @@ export class AIDiplomacyHandler {
             }
             const targetShare =
               targetStrengthForAlly / totalEnemyStrengthOfAlly;
-            effectiveOwnStrength += ally.militaryStrength() * targetShare;
+            coBelligerentSum += ally.militaryStrength() * targetShare;
           }
         }
       }
+
+      effectiveOwnStrength += coBelligerentSum * coBelligerentDiscount;
 
       let totalEnemyStrength = other.militaryStrength();
 
@@ -550,6 +761,10 @@ export class AIDiplomacyHandler {
       if (avgScore > threshold) {
         const other = this.mg.player(otherId);
         if (other && other.isAlive() && !player.isAtWarWith(other)) {
+          // Log war score breakdown when declaring war on a human player
+          if (other.type() === PlayerType.Human) {
+            this.logWarScoreBreakdown(player, other, 0, "DECLARE_WAR");
+          }
           // Declare war (mutual)
           player.setWarWith(other);
           other.setWarWith(player);
@@ -592,14 +807,15 @@ export class AIDiplomacyHandler {
 
   /**
    * Evaluates peace scores for all players we are currently at war with.
-   * Builds a sorted candidate list of enemies whose peace score is below the
-   * peace threshold. Resets the negotiation state for this cycle.
+   * Updates peace score history and builds a sorted candidate list of enemies
+   * whose moving-average peace score is below the peace threshold.
+   * Resets the negotiation state for this cycle.
    */
   private evaluatePeaceScores(player: Player, ticks: number): void {
     // Clear distance cache so fresh samples are used
     this._shoreDistanceCache.clear();
 
-    const peaceScores: { id: PlayerID; score: number }[] = [];
+    this._peaceScores.clear();
 
     for (const other of this.mg.players()) {
       if (other.id() === player.id()) continue;
@@ -613,9 +829,18 @@ export class AIDiplomacyHandler {
       // primary enemy and adds OTHER current enemies separately (excluding
       // the target via the enemy.id() !== other.id() check).
       const score = this.calculateWarScore(player, other, ticks);
+      this._peaceScores.set(other.id(), score);
+    }
 
-      if (score < this.peaceThreshold) {
-        peaceScores.push({ id: other.id(), score });
+    // Update peace score history with current scores
+    this.updatePeaceScoreHistory();
+
+    // Build candidate list using moving average
+    const peaceScores: { id: PlayerID; score: number }[] = [];
+    for (const [otherId] of this._peaceScores) {
+      const avgScore = this.getMovingAveragePeaceScore(otherId);
+      if (avgScore < this.peaceThreshold) {
+        peaceScores.push({ id: otherId, score: avgScore });
       }
     }
 
@@ -625,6 +850,44 @@ export class AIDiplomacyHandler {
     this._pendingPeaceCandidates = peaceScores.map((e) => e.id);
     this._currentPeaceCandidateIndex = 0;
     this._peaceCompletedThisCycle = false;
+  }
+
+  /**
+   * Updates the peace score history for moving average calculation.
+   * Adds current scores to history and removes entries for players
+   * no longer at war.
+   */
+  private updatePeaceScoreHistory(): void {
+    for (const [otherId, score] of this._peaceScores) {
+      let history = this._peaceScoreHistory.get(otherId);
+      if (!history) {
+        history = [];
+        this._peaceScoreHistory.set(otherId, history);
+      }
+      history.push(score);
+      if (history.length > AIDiplomacyHandler.PEACE_SCORE_HISTORY_LENGTH) {
+        history.shift();
+      }
+    }
+
+    // Clean up history for players no longer in peace scores (e.g., died, peace made)
+    for (const otherId of this._peaceScoreHistory.keys()) {
+      if (!this._peaceScores.has(otherId)) {
+        this._peaceScoreHistory.delete(otherId);
+      }
+    }
+  }
+
+  /**
+   * Calculates the moving average peace score for a player.
+   */
+  private getMovingAveragePeaceScore(otherId: PlayerID): number {
+    const history = this._peaceScoreHistory.get(otherId);
+    if (!history || history.length === 0) {
+      return this._peaceScores.get(otherId) ?? 0;
+    }
+    const sum = history.reduce((acc, score) => acc + score, 0);
+    return sum / history.length;
   }
 
   /**
@@ -673,12 +936,18 @@ export class AIDiplomacyHandler {
       }
     }
 
+    // Log war score breakdown when sending peace request to a human player
+    if (candidate.type() === PlayerType.Human) {
+      this.logWarScoreBreakdown(player, candidate, ticks, "PEACE_REQUEST");
+    }
+
     // Create the peace request (for humans it stays pending; for AI it will be auto-accepted by handleIncomingPeaceRequests)
     player.createPeaceRequest(candidate);
     this._peaceCompletedThisCycle = true;
 
-    // Clear war score history so fresh evaluation starts if relations worsen again
+    // Clear score histories so fresh evaluation starts if relations worsen again
     this._warScoreHistory.delete(candidateId);
+    this._peaceScoreHistory.delete(candidateId);
   }
 
   /**
