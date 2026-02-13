@@ -83,15 +83,13 @@ export class AINukeHandler {
     const tile = this.pickTileNearEnemyStructure();
     if (tile === null) return;
 
-    // Score for atom bomb
-    const atomScore = this.calculateNukeScore(tile, UnitType.AtomBomb);
+    // Score both bomb types in a single pass (one spatial query)
+    const { atomScore, hydrogenScore } = this.scoreTileBothBombs(tile);
+
     if (atomScore > this._bestAtomScore) {
       this._bestAtomScore = atomScore;
       this._bestAtomTile = tile;
     }
-
-    // Score for hydrogen bomb
-    const hydrogenScore = this.calculateNukeScore(tile, UnitType.HydrogenBomb);
     if (hydrogenScore > this._bestHydrogenScore) {
       this._bestHydrogenScore = hydrogenScore;
       this._bestHydrogenTile = tile;
@@ -124,22 +122,19 @@ export class AINukeHandler {
    * Returns null if no enemy structures exist.
    */
   private pickTileNearEnemyStructure(): TileRef | null {
-    // Collect all active enemy structures
+    // Single call for all structure types instead of 12 separate calls
     const enemyStructures: Unit[] = [];
-    for (const structureType of AINukeHandler.ALL_STRUCTURE_TYPES) {
-      for (const structure of this.mg.units(structureType)) {
-        if (!structure.isActive()) continue;
-        const owner = structure.owner();
-        if (
-          owner.type() !== PlayerType.Human &&
-          owner.type() !== PlayerType.AI
-        ) {
-          continue;
-        }
-        if (owner.id() === this.playerId) continue;
-        if (!this.player!.isAtWarWith(owner)) continue;
-        enemyStructures.push(structure);
+    for (const structure of this.mg.units(
+      ...AINukeHandler.ALL_STRUCTURE_TYPES,
+    )) {
+      if (!structure.isActive()) continue;
+      const owner = structure.owner();
+      if (owner.type() !== PlayerType.Human && owner.type() !== PlayerType.AI) {
+        continue;
       }
+      if (owner.id() === this.playerId) continue;
+      if (!this.player!.isAtWarWith(owner)) continue;
+      enemyStructures.push(structure);
     }
 
     if (enemyStructures.length === 0) return null;
@@ -196,94 +191,160 @@ export class AINukeHandler {
   }
 
   /**
+   * Score both atom and hydrogen bombs for a tile in a single pass.
+   * Uses one spatial query (hydrogen has the larger radius) and one
+   * SAM/silo cost computation.
+   */
+  private scoreTileBothBombs(tile: TileRef): {
+    atomScore: number;
+    hydrogenScore: number;
+  } {
+    const atomMagnitude = this.mg.config().nukeMagnitudes(UnitType.AtomBomb);
+    const hydrogenMagnitude = this.mg
+      .config()
+      .nukeMagnitudes(UnitType.HydrogenBomb);
+    const atomInnerRange = atomMagnitude.inner;
+    const hydrogenInnerRange = hydrogenMagnitude.inner;
+    const atomInnerRangeSq = atomInnerRange * atomInnerRange;
+
+    const friendlyDamageWeight = this.params.nukeFriendlyDamageWeight ?? 1.0;
+
+    let atomEnemyValue = 0;
+    let atomFriendlyValue = 0;
+    let hydrogenEnemyValue = 0;
+    let hydrogenFriendlyValue = 0;
+
+    // Single spatial query using the larger hydrogen radius
+    const nearby = this.mg.nearbyUnits(
+      tile,
+      hydrogenInnerRange,
+      AINukeHandler.ALL_STRUCTURE_TYPES,
+    );
+
+    for (const { unit: structure, distSquared } of nearby) {
+      const owner = structure.owner();
+      if (owner.type() !== PlayerType.Human && owner.type() !== PlayerType.AI) {
+        continue;
+      }
+
+      const value = this.getStructureValue(structure);
+      const isEnemy =
+        owner.id() !== this.playerId && this.player!.isAtWarWith(owner);
+
+      if (isEnemy) {
+        hydrogenEnemyValue += value;
+        if (distSquared <= atomInnerRangeSq) atomEnemyValue += value;
+      } else {
+        hydrogenFriendlyValue += value;
+        if (distSquared <= atomInnerRangeSq) atomFriendlyValue += value;
+      }
+    }
+
+    // Shared cost components (SAM penalty + silo capacity)
+    const samLevels = this.calculateSAMPenalty(tile);
+    const atomBombCost = Number(
+      this.mg.unitInfo(UnitType.AtomBomb).cost(this.player!),
+    );
+    const siloCapacity = this.getPlayerSiloCapacity();
+    const siloCostExtra = this.computeSiloCost(samLevels, siloCapacity);
+
+    // Atom score
+    const atomNumerator =
+      atomEnemyValue - friendlyDamageWeight * atomFriendlyValue;
+    const atomTotalCost =
+      atomBombCost + samLevels * atomBombCost + siloCostExtra;
+    const atomScore = atomNumerator / Math.max(atomTotalCost, 1);
+
+    // Hydrogen score
+    const hydrogenNumerator =
+      hydrogenEnemyValue - friendlyDamageWeight * hydrogenFriendlyValue;
+    const hydrogenBombCost = Number(
+      this.mg.unitInfo(UnitType.HydrogenBomb).cost(this.player!),
+    );
+    const hydrogenTotalCost =
+      hydrogenBombCost + samLevels * atomBombCost + siloCostExtra;
+    const hydrogenScore = hydrogenNumerator / Math.max(hydrogenTotalCost, 1);
+
+    return { atomScore, hydrogenScore };
+  }
+
+  /**
+   * Compute extra silo cost needed to support (1 + samLevels) bombs.
+   */
+  private computeSiloCost(samLevels: number, siloCapacity: number): number {
+    const bombsNeeded = 1 + samLevels;
+    if (siloCapacity >= bombsNeeded) return 0;
+
+    const siloCost = Number(
+      this.mg.unitInfo(UnitType.MissileSilo).cost(this.player!),
+    );
+    const levelsNeeded = bombsNeeded - siloCapacity;
+
+    if (siloCapacity > 0) {
+      return levelsNeeded * siloCost * AINukeHandler.UPGRADE_MULTIPLIER;
+    }
+    // No silo — first level at full cost, rest at upgrade cost
+    let cost = siloCost;
+    for (let i = 1; i < levelsNeeded; i++) {
+      cost += siloCost * AINukeHandler.UPGRADE_MULTIPLIER;
+    }
+    return cost;
+  }
+
+  /**
    * Calculate the nuke score for a given tile and bomb type.
+   * Uses spatial grid query (nearbyUnits) instead of iterating all structures.
    *
    * Score = (value of enemy structures - friendly damage weight × friendly structures)
    *       / (cost of the bomb + SAM penalty + silo penalty)
-   *
-   * Only structures owned by AI or Human players at war with this AI
-   * count as positive value. Structures owned by other (non-enemy) AI/Human
-   * players reduce the numerator after being multiplied by the friendly damage weight.
    */
   private calculateNukeScore(tile: TileRef, bombType: UnitType): number {
     const magnitude: NukeMagnitude = this.mg.config().nukeMagnitudes(bombType);
     const innerRange = magnitude.inner;
-    const innerRangeSquared = innerRange * innerRange;
 
     const friendlyDamageWeight = this.params.nukeFriendlyDamageWeight ?? 1.0;
 
     let enemyValue = 0;
     let friendlyValue = 0;
 
-    for (const structureType of AINukeHandler.ALL_STRUCTURE_TYPES) {
-      const structures = this.mg.units(structureType);
-      for (const structure of structures) {
-        if (!structure.isActive()) continue;
-        const dist2 = this.mg.euclideanDistSquared(tile, structure.tile());
-        if (dist2 > innerRangeSquared) continue;
+    // Spatial query: only checks nearby grid cells, not all structures
+    const nearby = this.mg.nearbyUnits(
+      tile,
+      innerRange,
+      AINukeHandler.ALL_STRUCTURE_TYPES,
+    );
 
-        const owner = structure.owner();
+    for (const { unit: structure } of nearby) {
+      const owner = structure.owner();
 
-        // Skip structures not owned by AI or Human players
-        if (
-          owner.type() !== PlayerType.Human &&
-          owner.type() !== PlayerType.AI
-        ) {
-          continue;
-        }
+      if (owner.type() !== PlayerType.Human && owner.type() !== PlayerType.AI) {
+        continue;
+      }
 
-        // Skip our own structures (treated as friendly damage)
-        if (owner.id() === this.playerId) {
-          friendlyValue += this.getStructureValue(structure);
-          continue;
-        }
+      if (owner.id() === this.playerId) {
+        friendlyValue += this.getStructureValue(structure);
+        continue;
+      }
 
-        if (this.player!.isAtWarWith(owner)) {
-          // Enemy structure: adds to score
-          enemyValue += this.getStructureValue(structure);
-        } else {
-          // Non-enemy player structure: penalizes score
-          friendlyValue += this.getStructureValue(structure);
-        }
+      if (this.player!.isAtWarWith(owner)) {
+        enemyValue += this.getStructureValue(structure);
+      } else {
+        friendlyValue += this.getStructureValue(structure);
       }
     }
 
-    // Numerator: enemy value minus weighted friendly damage
     const numerator = enemyValue - friendlyDamageWeight * friendlyValue;
 
-    // Accumulate total cost in denominator
     const bombCost = Number(this.mg.unitInfo(bombType).cost(this.player!));
-    let totalCost = bombCost;
-
-    // Add atom bomb cost for every SAM level within SAM range of the tile
     const atomBombCost = Number(
       this.mg.unitInfo(UnitType.AtomBomb).cost(this.player!),
     );
     const samLevels = this.calculateSAMPenalty(tile);
-    totalCost += samLevels * atomBombCost;
-
-    // Add silo cost for any missing silo capacity.
-    // Total bombs needed = 1 (the nuke) + SAM levels (one atom bomb each).
-    // If a silo already exists, assume upgrading it: all levels at upgrade cost.
-    // If no silo exists, assume building new: first level at base cost, rest at upgrade cost.
-    const bombsNeeded = 1 + samLevels;
     const siloCapacity = this.getPlayerSiloCapacity();
-    if (siloCapacity < bombsNeeded) {
-      const siloCost = Number(
-        this.mg.unitInfo(UnitType.MissileSilo).cost(this.player!),
-      );
-      const levelsNeeded = bombsNeeded - siloCapacity;
-      if (siloCapacity > 0) {
-        // Existing silo — all additional levels at upgrade cost
-        totalCost += levelsNeeded * siloCost * AINukeHandler.UPGRADE_MULTIPLIER;
-      } else {
-        // No silo — first level at full cost, rest at upgrade cost
-        totalCost += siloCost;
-        for (let i = 1; i < levelsNeeded; i++) {
-          totalCost += siloCost * AINukeHandler.UPGRADE_MULTIPLIER;
-        }
-      }
-    }
+    const totalCost =
+      bombCost +
+      samLevels * atomBombCost +
+      this.computeSiloCost(samLevels, siloCapacity);
 
     return numerator / Math.max(totalCost, 1);
   }
