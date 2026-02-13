@@ -452,6 +452,7 @@ export class GameImpl implements Game {
     const recipient = request.recipient();
 
     (request.requestor() as PlayerImpl).pastOutgoingPeaceRequests.push(request);
+    (request.recipient() as PlayerImpl).pastIncomingPeaceRequests.push(request);
 
     if (requestor.isAtWarWith(recipient)) {
       requestor.setNeutralWith(recipient);
@@ -470,6 +471,7 @@ export class GameImpl implements Game {
   rejectPeaceRequest(request: PeaceRequestImpl) {
     this.peaceRequests = this.peaceRequests.filter((pr) => pr !== request);
     (request.requestor() as PlayerImpl).pastOutgoingPeaceRequests.push(request);
+    (request.recipient() as PlayerImpl).pastIncomingPeaceRequests.push(request);
     this.addUpdate({
       type: GameUpdateType.PeaceRequestReply,
       request: request.toUpdate(),
@@ -618,6 +620,19 @@ export class GameImpl implements Game {
     }
 
     // Removed noisy debug logging of road network length
+
+    // Auto-reject pending alliance/peace requests after 150 ticks
+    const REQUEST_EXPIRY_TICKS = 150;
+    for (const ar of [...this.allianceRequests]) {
+      if (this._ticks - ar.createdAt() >= REQUEST_EXPIRY_TICKS) {
+        ar.reject();
+      }
+    }
+    for (const pr of [...this.peaceRequests]) {
+      if (this._ticks - pr.createdAt() >= REQUEST_EXPIRY_TICKS) {
+        pr.reject();
+      }
+    }
 
     this._ticks++;
     return this.updates;
