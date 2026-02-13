@@ -142,6 +142,7 @@ export class PlayerImpl implements Player {
 
   public pastOutgoingAllianceRequests: AllianceRequest[] = [];
   public pastOutgoingPeaceRequests: PeaceRequest[] = [];
+  public pastIncomingPeaceRequests: PeaceRequest[] = [];
   private _expiredAlliances: Alliance[] = [];
 
   private targets_: Target[] = [];
@@ -1176,7 +1177,26 @@ export class PlayerImpl implements Player {
 
     const delta = this.mg.ticks() - recent[0].createdAt();
 
-    return delta >= this.mg.config().allianceRequestCooldown();
+    if (delta < this.mg.config().allianceRequestCooldown()) {
+      return false;
+    }
+
+    // Rate-limit incoming peace requests for human recipients:
+    // each sender may send at most one request per 300 ticks.
+    if (other.type() === PlayerType.Human) {
+      const PEACE_REQUEST_INCOMING_COOLDOWN = 300;
+      const recentIncoming = (other as PlayerImpl).pastIncomingPeaceRequests
+        .filter((pr) => pr.requestor() === this)
+        .sort((a, b) => b.createdAt() - a.createdAt());
+      if (recentIncoming.length > 0) {
+        const incomingDelta = this.mg.ticks() - recentIncoming[0].createdAt();
+        if (incomingDelta < PEACE_REQUEST_INCOMING_COOLDOWN) {
+          return false;
+        }
+      }
+    }
+
+    return true;
   }
 
   createPeaceRequest(recipient: Player): PeaceRequest | null {

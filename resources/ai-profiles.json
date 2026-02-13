@@ -73,7 +73,7 @@
         "warScoreAllyPenalty": 0,
         "warScoreDistancePenaltyWeight": 850,
         "warScoreDominanceWeight": 100,
-        "peaceThresholdGap": 30,
+        "peaceThresholdGap": 40,
         "nukeScoreConstructionThreshold": 0,
         "nukeFriendlyDamageWeight": 1.0,
         "nukeScoreMultiplier": 1.0
