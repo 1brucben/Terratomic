@@ -43,6 +43,7 @@ import {
 } from "./Game";
 import { GameMap, TileRef, TileUpdate } from "./GameMap";
 import { GameUpdate, GameUpdateType } from "./GameUpdates";
+import { PeaceRequestImpl } from "./PeaceRequestImpl";
 import { PlayerImpl } from "./PlayerImpl";
 import { Road, RoadManager } from "./RoadManager";
 import { Stats } from "./Stats";
@@ -79,6 +80,7 @@ export class GameImpl implements Game {
   _terraNullius: TerraNulliusImpl;
 
   allianceRequests: AllianceRequestImpl[] = [];
+  peaceRequests: PeaceRequestImpl[] = [];
   alliances_: AllianceImpl[] = [];
   private nextAllianceID = 0;
 
@@ -428,6 +430,69 @@ export class GameImpl implements Game {
     );
     this.addUpdate({
       type: GameUpdateType.AllianceRequestReply,
+      request: request.toUpdate(),
+      accepted: false,
+    });
+  }
+
+  createPeaceRequest(
+    requestor: Player,
+    recipient: Player,
+  ): PeaceRequestImpl | null {
+    if (!requestor.isAtWarWith(recipient)) {
+      console.log("cannot request peace, not at war");
+      return null;
+    }
+    if (
+      recipient
+        .incomingPeaceRequests()
+        .find((pr) => pr.requestor() === requestor) !== undefined
+    ) {
+      console.log(`duplicate peace request from ${requestor.name()}`);
+      return null;
+    }
+    // If both sides sent requests, auto-accept
+    const correspondingReq = requestor
+      .incomingPeaceRequests()
+      .find((pr) => pr.requestor() === recipient);
+    if (correspondingReq !== undefined) {
+      console.log(`got corresponding peace requests, accepting`);
+      correspondingReq.accept();
+      return null;
+    }
+    const pr = new PeaceRequestImpl(requestor, recipient, this._ticks, this);
+    this.peaceRequests.push(pr);
+    this.addUpdate(pr.toUpdate());
+    return pr;
+  }
+
+  acceptPeaceRequest(request: PeaceRequestImpl) {
+    this.peaceRequests = this.peaceRequests.filter((pr) => pr !== request);
+
+    const requestor = request.requestor();
+    const recipient = request.recipient();
+
+    (request.requestor() as PlayerImpl).pastOutgoingPeaceRequests.push(request);
+
+    if (requestor.isAtWarWith(recipient)) {
+      requestor.setNeutralWith(recipient);
+    }
+    if (recipient.isAtWarWith(requestor)) {
+      recipient.setNeutralWith(requestor);
+    }
+
+    this.addUpdate({
+      type: GameUpdateType.PeaceRequestReply,
+      request: request.toUpdate(),
+      accepted: true,
+    });
+  }
+
+  rejectPeaceRequest(request: PeaceRequestImpl) {
+    this.peaceRequests = this.peaceRequests.filter((pr) => pr !== request);
+    (request.requestor() as PlayerImpl).pastOutgoingPeaceRequests.push(request);
+    this.addUpdate({
+      type: GameUpdateType.PeaceRequestReply,
       request: request.toUpdate(),
       accepted: false,
     });

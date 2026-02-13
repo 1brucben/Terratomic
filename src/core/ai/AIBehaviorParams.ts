@@ -279,6 +279,14 @@ export interface AIBehaviorParams {
    * Default 0.1 (10%).
    */
   attackBoatTroopPercent?: number;
+
+  /**
+   * Gap below warDeclarationThreshold at which the AI will seek/accept peace.
+   * Peace threshold = warDeclarationThreshold - peaceThresholdGap.
+   * If a war score for an enemy falls below this threshold, the AI is willing
+   * to make peace. Default 30.
+   */
+  peaceThresholdGap?: number;
 }
 
 export interface AIProfile {

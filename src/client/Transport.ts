@@ -74,6 +74,15 @@ export class SendPeaceRequestIntentEvent implements GameEvent {
   ) {}
 }
 
+export class SendPeaceReplyIntentEvent implements GameEvent {
+  constructor(
+    // The original peace requestor
+    public readonly requestor: PlayerView,
+    public readonly recipient: PlayerView,
+    public readonly accepted: boolean,
+  ) {}
+}
+
 export class SendDeclareWarIntentEvent implements GameEvent {
   constructor(
     public readonly requestor: PlayerView,
@@ -310,6 +319,9 @@ export class Transport {
     );
     this.eventBus.on(SendPeaceRequestIntentEvent, (e) =>
       this.onSendPeaceRequestIntent(e),
+    );
+    this.eventBus.on(SendPeaceReplyIntentEvent, (e) =>
+      this.onPeaceRequestReplyUIEvent(e),
     );
     this.eventBus.on(SendDeclareWarIntentEvent, (e) =>
       this.onSendDeclareWarIntent(e),
@@ -613,6 +625,15 @@ export class Transport {
       type: "peaceRequest",
       clientID: this.lobbyConfig.clientID,
       recipient: event.recipient.id(),
+    });
+  }
+
+  private onPeaceRequestReplyUIEvent(event: SendPeaceReplyIntentEvent) {
+    this.sendIntent({
+      type: "peaceRequestReply",
+      clientID: this.lobbyConfig.clientID,
+      requestor: event.requestor.id(),
+      accept: event.accepted,
     });
   }
 

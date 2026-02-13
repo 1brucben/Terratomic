@@ -222,8 +222,11 @@ export class AIPlayerExecution implements Execution {
       this.attackHandler?.handleAttack();
     }
 
-    // Handle diplomacy (war declarations, etc.)
+    // Handle diplomacy (war declarations, peace requests, etc.)
     this.diplomacyHandler?.tickDiplomacy(ticks);
+
+    // Handle incoming peace requests (auto-accept/reject)
+    this.diplomacyHandler?.handleIncomingPeaceRequests(ticks);
 
     // Update shared nuke target evaluation
     this.nukeEvaluator?.tick(this.random, ticks);

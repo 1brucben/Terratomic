@@ -464,6 +464,10 @@ export class PlayerView {
     return this.data.outgoingAllianceRequests.some((id) => other.id() === id);
   }
 
+  isRequestingPeaceWith(other: PlayerView) {
+    return this.data.outgoingPeaceRequests.some((id) => other.id() === id);
+  }
+
   hasEmbargoAgainst(other: PlayerView): boolean {
     return this.data.embargoes.has(other.id());
   }

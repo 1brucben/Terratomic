@@ -26,6 +26,8 @@ import {
   DisplayMessageUpdate,
   EmojiUpdate,
   GameUpdateType,
+  PeaceRequestReplyUpdate,
+  PeaceRequestUpdate,
   TargetPlayerUpdate,
   UnitIncomingUpdate,
 } from "../../../core/game/GameUpdates";
@@ -36,6 +38,7 @@ import {
   CancelParatrooperIntentEvent,
   SendAllianceExtensionIntentEvent,
   SendAllianceReplyIntentEvent,
+  SendPeaceReplyIntentEvent,
 } from "../../Transport";
 import { Layer } from "./Layer";
 
@@ -166,6 +169,11 @@ export class EventsDisplay extends LitElement implements Layer {
     [GameUpdateType.Emoji, this.onEmojiMessageEvent.bind(this)],
     [GameUpdateType.UnitIncoming, this.onUnitIncomingEvent.bind(this)],
     [GameUpdateType.AllianceExpired, this.onAllianceExpiredEvent.bind(this)],
+    [GameUpdateType.PeaceRequest, this.onPeaceRequestEvent.bind(this)],
+    [
+      GameUpdateType.PeaceRequestReply,
+      this.onPeaceRequestReplyEvent.bind(this),
+    ],
   ] as const;
 
   constructor() {
@@ -561,6 +569,109 @@ export class EventsDisplay extends LitElement implements Layer {
       type: update.accepted
         ? MessageType.ALLIANCE_ACCEPTED
         : MessageType.ALLIANCE_REJECTED,
+      highlight: true,
+      createdAt: this.game.ticks(),
+      focusID: otherID,
+    });
+  }
+
+  onPeaceRequestEvent(update: PeaceRequestUpdate) {
+    const myPlayer = this.game.myPlayer();
+    if (!myPlayer || update.recipientID !== myPlayer.smallID()) {
+      return;
+    }
+
+    const requestor = this.game.playerBySmallID(
+      update.requestorID,
+    ) as PlayerView;
+    const recipient = this.game.playerBySmallID(
+      update.recipientID,
+    ) as PlayerView;
+
+    this.addEvent({
+      description: translateText("events_display.request_peace", {
+        name: requestor.name(),
+      }),
+      buttons: [
+        {
+          text: translateText("events_display.focus"),
+          className: "btn-gray",
+          action: () => this.eventBus.emit(new GoToPlayerEvent(requestor)),
+          preventClose: true,
+        },
+        {
+          text: translateText("events_display.accept_peace"),
+          className: "btn",
+          action: () =>
+            this.eventBus.emit(
+              new SendPeaceReplyIntentEvent(requestor, recipient, true),
+            ),
+        },
+        {
+          text: translateText("events_display.reject_peace"),
+          className: "btn-info",
+          action: () =>
+            this.eventBus.emit(
+              new SendPeaceReplyIntentEvent(requestor, recipient, false),
+            ),
+        },
+      ],
+      highlight: true,
+      type: MessageType.PEACE_REQUEST,
+      createdAt: this.game.ticks(),
+      onDelete: () =>
+        this.eventBus.emit(
+          new SendPeaceReplyIntentEvent(requestor, recipient, false),
+        ),
+      priority: 0,
+      duration: 150,
+      focusID: update.requestorID,
+    });
+  }
+
+  onPeaceRequestReplyEvent(update: PeaceRequestReplyUpdate) {
+    const myPlayer = this.game.myPlayer();
+    if (!myPlayer) {
+      return;
+    }
+    // If I'm the recipient, remove the peace request UI
+    if (update.request.recipientID === myPlayer.smallID()) {
+      this.events = this.events.filter(
+        (event) =>
+          !(
+            event.type === MessageType.PEACE_REQUEST &&
+            event.focusID === update.request.requestorID
+          ),
+      );
+      this.requestUpdate();
+      return;
+    }
+    if (update.request.requestorID !== myPlayer.smallID()) {
+      return;
+    }
+
+    const myID = myPlayer.smallID();
+    const requestorID = update.request.requestorID;
+    const recipientID = update.request.recipientID;
+
+    // Only show rejection to requestor
+    if (!update.accepted && requestorID !== myID) {
+      return;
+    }
+
+    const otherID = requestorID === myID ? recipientID : requestorID;
+    const otherPlayer = this.game.playerBySmallID(otherID) as PlayerView;
+
+    this.addEvent({
+      description: translateText("events_display.peace_request_status", {
+        name: otherPlayer.name(),
+        status: update.accepted
+          ? translateText("events_display.peace_accepted")
+          : translateText("events_display.peace_rejected"),
+      }),
+      type: update.accepted
+        ? MessageType.PEACE_ACCEPTED
+        : MessageType.PEACE_REJECTED,
       highlight: true,
       createdAt: this.game.ticks(),
       focusID: otherID,

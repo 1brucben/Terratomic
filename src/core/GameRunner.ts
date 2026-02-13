@@ -395,8 +395,8 @@ export class GameRunner {
         canTarget: player.canTarget(other),
         canSendAllianceRequest: player.canSendAllianceRequest(other),
         canBreakAlliance: player.isAlliedWith(other),
-        // Only show Peace when at war
-        canRequestPeace: player.isAtWarWith(other),
+        // Only show Peace when at war and can send (no pending/cooldown)
+        canRequestPeace: player.canSendPeaceRequest(other),
         // Only show Declare War when not at war and not allied, and target is human/AI (not bots)
         canDeclareWar:
           !player.isAtWarWith(other) &&

@@ -39,6 +39,7 @@ import {
   isStructureType,
   MessageType,
   MutableAlliance,
+  PeaceRequest,
   Player,
   PlayerID,
   PlayerInfo,
@@ -140,6 +141,7 @@ export class PlayerImpl implements Player {
   private _hospitalReturns: number = 0;
 
   public pastOutgoingAllianceRequests: AllianceRequest[] = [];
+  public pastOutgoingPeaceRequests: PeaceRequest[] = [];
   private _expiredAlliances: Alliance[] = [];
 
   private targets_: Target[] = [];
@@ -192,6 +194,9 @@ export class PlayerImpl implements Player {
   toUpdate(): PlayerUpdate {
     const outgoingAllianceRequests = this.outgoingAllianceRequests().map((ar) =>
       ar.recipient().id(),
+    );
+    const outgoingPeaceRequests = this.outgoingPeaceRequests().map((pr) =>
+      pr.recipient().id(),
     );
     const stats = this.mg.stats().getPlayerStats(this);
 
@@ -259,6 +264,7 @@ export class PlayerImpl implements Player {
         } satisfies AttackUpdate;
       }),
       outgoingAllianceRequests: outgoingAllianceRequests,
+      outgoingPeaceRequests: outgoingPeaceRequests,
       hasSpawned: this.hasSpawned(),
       betrayals: stats?.betrayals,
       effectiveUnits: Object.values(UnitType).reduce(
@@ -1134,6 +1140,50 @@ export class PlayerImpl implements Player {
       throw new Error(`cannot create alliance request, already allies`);
     }
     return this.mg.createAllianceRequest(this, recipient satisfies Player);
+  }
+
+  incomingPeaceRequests(): PeaceRequest[] {
+    return this.mg.peaceRequests.filter((pr) => pr.recipient() === this);
+  }
+
+  outgoingPeaceRequests(): PeaceRequest[] {
+    return this.mg.peaceRequests.filter((pr) => pr.requestor() === this);
+  }
+
+  canSendPeaceRequest(other: Player): boolean {
+    if (other === this) {
+      return false;
+    }
+    if (!this.isAtWarWith(other) || !this.isAlive()) {
+      return false;
+    }
+
+    const hasPending =
+      this.incomingPeaceRequests().some((pr) => pr.requestor() === other) ||
+      this.outgoingPeaceRequests().some((pr) => pr.recipient() === other);
+
+    if (hasPending) {
+      return false;
+    }
+
+    const recent = this.pastOutgoingPeaceRequests
+      .filter((pr) => pr.recipient() === other)
+      .sort((a, b) => b.createdAt() - a.createdAt());
+
+    if (recent.length === 0) {
+      return true;
+    }
+
+    const delta = this.mg.ticks() - recent[0].createdAt();
+
+    return delta >= this.mg.config().allianceRequestCooldown();
+  }
+
+  createPeaceRequest(recipient: Player): PeaceRequest | null {
+    if (!this.isAtWarWith(recipient)) {
+      throw new Error(`cannot create peace request, not at war`);
+    }
+    return this.mg.createPeaceRequest(this, recipient satisfies Player);
   }
 
   relation(other: Player): Relation {
