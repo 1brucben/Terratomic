@@ -249,6 +249,13 @@ export interface AIBehaviorParams {
   warScoreNonReachableEnemyWeight?: number;
 
   /**
+   * Discount factor applied to the sum of co-belligerent contributions in the
+   * military strength numerator. Value between 0-1; default 0.9 means
+   * co-belligerents' effective contribution is multiplied by 0.9.
+   */
+  warScoreCoBelligerentDiscount?: number;
+
+  /**
    * Penalty applied to war score if target is an ally.
    * Score contribution = -penalty (subtracted from total).
    * Default 0.
