@@ -264,6 +264,16 @@ export interface AIBehaviorParams {
   warScoreDistancePenaltyWeight?: number;
 
   /**
+   * Weight for dominance bonus when target is the strongest player in the game.
+   * Only applies if the target has the highest military strength.
+   * Score contribution = weight * gapPercent / (0.8 - targetShare), where:
+   *   gapPercent = (targetStrength - secondHighestStrength) / secondHighestStrength
+   *   targetShare = targetStrength / totalGameStrength
+   * Encourages AI to gang up on runaway leaders. Default 0.
+   */
+  warScoreDominanceWeight?: number;
+
+  /**
    * Percentage of troops to send on boat attacks against AI/Human players.
    * Lower than land attacks since boats are riskier.
    * Default 0.1 (10%).

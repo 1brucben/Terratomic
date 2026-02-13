@@ -425,11 +425,48 @@ export class AIDiplomacyHandler {
         // Normalize by geometric mean of map dimensions
         const mapWidth = this.mg.width();
         const mapHeight = this.mg.height();
+        // Squared penalty
         const geoMean = Math.sqrt(mapWidth * mapHeight);
         const normalizedDist = shoreDist / geoMean;
-        // Squared penalty
         const penalty = normalizedDist * normalizedDist;
         score -= distancePenaltyWeight * penalty;
+      }
+    }
+
+    // Factor 5: Dominance bonus – incentivise attacking the strongest player
+    // Only fires when the target has the highest military strength in the game.
+    const dominanceWeight = this.params.warScoreDominanceWeight ?? 0;
+    if (dominanceWeight !== 0) {
+      let totalGameStrength = 0;
+      let highestStrength = 0;
+      let secondHighestStrength = 0;
+
+      for (const p of this.mg.players()) {
+        if (!p.isAlive() || p.type() === PlayerType.Bot) continue;
+        const s = p.militaryStrength();
+        totalGameStrength += s;
+        if (s > highestStrength) {
+          secondHighestStrength = highestStrength;
+          highestStrength = s;
+        } else if (s > secondHighestStrength) {
+          secondHighestStrength = s;
+        }
+      }
+
+      const targetStrength = other.militaryStrength();
+      if (
+        totalGameStrength > 0 &&
+        targetStrength >= highestStrength &&
+        targetStrength > 0
+      ) {
+        const targetShare = targetStrength / totalGameStrength;
+        const denominator = 0.8 - targetShare;
+        // Only apply when target share is below 80% (denominator > 0)
+        if (denominator > 0 && secondHighestStrength > 0) {
+          const gapPercent =
+            (targetStrength - secondHighestStrength) / secondHighestStrength;
+          score += dominanceWeight * (gapPercent / denominator);
+        }
       }
     }
 
