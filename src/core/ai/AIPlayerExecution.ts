@@ -84,7 +84,7 @@ export class AIPlayerExecution implements Execution {
   private static readonly MAIN_BOMB_DELAY_TICKS = 30;
 
   /** Internal multiplier applied to nuke scores when comparing against construction scores. */
-  private static readonly NUKE_SCORE_INTERNAL_MULTIPLIER = 1;
+  private static readonly NUKE_SCORE_INTERNAL_MULTIPLIER = 400;
 
   constructor(
     private gameID: GameID,

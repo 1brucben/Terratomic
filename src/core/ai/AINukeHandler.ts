@@ -198,14 +198,12 @@ export class AINukeHandler {
   /**
    * Calculate the nuke score for a given tile and bomb type.
    *
-   * Score = (value of enemy structures within inner blast range)
-   *       - (friendly damage weight × value of non-enemy player structures)
-   *       - (cost of the bomb)
-   *       - (atom bomb cost × total SAM levels within SAM range of tile)
+   * Score = (value of enemy structures - friendly damage weight × friendly structures)
+   *       / (cost of the bomb + SAM penalty + silo penalty)
    *
    * Only structures owned by AI or Human players at war with this AI
    * count as positive value. Structures owned by other (non-enemy) AI/Human
-   * players are subtracted after being multiplied by the friendly damage weight.
+   * players reduce the numerator after being multiplied by the friendly damage weight.
    */
   private calculateNukeScore(tile: TileRef, bombType: UnitType): number {
     const magnitude: NukeMagnitude = this.mg.config().nukeMagnitudes(bombType);
@@ -250,24 +248,21 @@ export class AINukeHandler {
       }
     }
 
-    let totalScore = enemyValue;
+    // Numerator: enemy value minus weighted friendly damage
+    const numerator = enemyValue - friendlyDamageWeight * friendlyValue;
 
-    // Subtract friendly/neutral player structure damage
-    totalScore -= friendlyDamageWeight * friendlyValue;
-
-    // Subtract the cost of the bomb
+    // Accumulate total cost in denominator
     const bombCost = Number(this.mg.unitInfo(bombType).cost(this.player!));
-    totalScore -= bombCost;
+    let totalCost = bombCost;
 
-    // Subtract atom bomb cost for every SAM level within SAM range of the tile
+    // Add atom bomb cost for every SAM level within SAM range of the tile
     const atomBombCost = Number(
       this.mg.unitInfo(UnitType.AtomBomb).cost(this.player!),
     );
     const samLevels = this.calculateSAMPenalty(tile);
-    const samPenalty = samLevels * atomBombCost;
-    totalScore -= samPenalty;
+    totalCost += samLevels * atomBombCost;
 
-    // Subtract silo cost for any missing silo capacity.
+    // Add silo cost for any missing silo capacity.
     // Total bombs needed = 1 (the nuke) + SAM levels (one atom bomb each).
     // If a silo already exists, assume upgrading it: all levels at upgrade cost.
     // If no silo exists, assume building new: first level at base cost, rest at upgrade cost.
@@ -278,22 +273,19 @@ export class AINukeHandler {
         this.mg.unitInfo(UnitType.MissileSilo).cost(this.player!),
       );
       const levelsNeeded = bombsNeeded - siloCapacity;
-      let siloPenalty: number;
       if (siloCapacity > 0) {
         // Existing silo — all additional levels at upgrade cost
-        siloPenalty =
-          levelsNeeded * siloCost * AINukeHandler.UPGRADE_MULTIPLIER;
+        totalCost += levelsNeeded * siloCost * AINukeHandler.UPGRADE_MULTIPLIER;
       } else {
         // No silo — first level at full cost, rest at upgrade cost
-        siloPenalty = siloCost;
+        totalCost += siloCost;
         for (let i = 1; i < levelsNeeded; i++) {
-          siloPenalty += siloCost * AINukeHandler.UPGRADE_MULTIPLIER;
+          totalCost += siloCost * AINukeHandler.UPGRADE_MULTIPLIER;
         }
       }
-      totalScore -= siloPenalty;
     }
 
-    return totalScore;
+    return numerator / Math.max(totalCost, 1);
   }
 
   /**
