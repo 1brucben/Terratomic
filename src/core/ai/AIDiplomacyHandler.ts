@@ -953,13 +953,19 @@ export class AIDiplomacyHandler {
   /**
    * Handles incoming peace requests for this AI player.
    * Evaluates each request and accepts/rejects based on peace score threshold.
+   * Waits a short delay before responding to feel more natural.
    * Called each tick by the AI execution loop.
    */
   handleIncomingPeaceRequests(ticks: number): void {
     const player = this.getPlayer();
     if (!player || !player.isAlive()) return;
 
+    const RESPONSE_DELAY = 10; // ticks before AI responds to a peace request
+
     for (const request of player.incomingPeaceRequests()) {
+      if (ticks - request.createdAt() < RESPONSE_DELAY) {
+        continue;
+      }
       const sender = request.requestor();
       if (this.evaluateIncomingPeaceRequest(sender, ticks)) {
         request.accept();

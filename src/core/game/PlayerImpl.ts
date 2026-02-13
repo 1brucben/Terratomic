@@ -1142,21 +1142,6 @@ export class PlayerImpl implements Player {
       return false;
     }
 
-    // Rate-limit incoming peace requests for human recipients:
-    // each sender may send at most one request per 300 ticks.
-    if (other.type() === PlayerType.Human) {
-      const PEACE_REQUEST_INCOMING_COOLDOWN = 300;
-      const recentIncoming = (other as PlayerImpl).pastIncomingPeaceRequests
-        .filter((pr) => pr.requestor() === this)
-        .sort((a, b) => b.createdAt() - a.createdAt());
-      if (recentIncoming.length > 0) {
-        const incomingDelta = this.mg.ticks() - recentIncoming[0].createdAt();
-        if (incomingDelta < PEACE_REQUEST_INCOMING_COOLDOWN) {
-          return false;
-        }
-      }
-    }
-
     return true;
   }
 
