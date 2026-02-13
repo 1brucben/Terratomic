@@ -396,6 +396,16 @@ export class AINukeHandler {
   }
 
   /**
+   * Compute the nuke score for an arbitrary tile and bomb type.
+   * Used for a final validation before committing to a launch.
+   */
+  scoreForTile(tile: TileRef, bombType: UnitType): number {
+    this.player = this.mg.player(this.playerId);
+    if (!this.player || !this.player.isAlive()) return 0;
+    return this.calculateNukeScore(tile, bombType);
+  }
+
+  /**
    * How many bomb launches are needed for a strike at the given tile:
    * 1 (main bomb) + total SAM levels in range.
    */

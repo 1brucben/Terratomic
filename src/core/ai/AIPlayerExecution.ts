@@ -82,6 +82,8 @@ export class AIPlayerExecution implements Execution {
   // Nuke launch state machine
   private nukeState: NukeSequenceState | null = null;
   private static readonly MAIN_BOMB_DELAY_TICKS = 30;
+  /** How often (in ticks) to check for redundant nukes during an active sequence. */
+  private static readonly NUKE_REDUNDANCY_CHECK_INTERVAL = 10;
 
   /** Internal multiplier applied to nuke scores when comparing against construction scores. */
   private static readonly NUKE_SCORE_INTERNAL_MULTIPLIER = 400;
@@ -255,6 +257,19 @@ export class AIPlayerExecution implements Execution {
 
     const state = this.nukeState;
 
+    // Periodically check whether another nuke is already heading into the
+    // blast radius of our target.  If so, abort to avoid wasting resources.
+    if (
+      this.shouldRunPeriodic(
+        ticks,
+        AIPlayerExecution.NUKE_REDUNDANCY_CHECK_INTERVAL,
+      ) &&
+      this.isNukeAlreadyInbound(state)
+    ) {
+      this.resetNukeSequence();
+      return;
+    }
+
     switch (state.phase) {
       case "waitForFunds":
         this.tickWaitForFunds();
@@ -416,8 +431,22 @@ export class AIPlayerExecution implements Execution {
    * Each SAM gets one atom bomb per stack level.
    */
   private tickLaunchSAMs(): void {
-    if (!this.player || !this.nukeState) return;
+    if (!this.player || !this.nukeState || !this.nukeHandler) return;
     const state = this.nukeState;
+
+    // Final score check before the first launch of the sequence
+    if (
+      state.samTargets.every((s) => s.levelsRemaining === s.sam.stackCount())
+    ) {
+      const freshScore = this.nukeHandler.scoreForTile(
+        state.targetTile,
+        state.bombType,
+      );
+      if (freshScore <= 0) {
+        this.resetNukeSequence();
+        return;
+      }
+    }
 
     // Find next SAM that still needs atom bombs
     const nextSam = state.samTargets.find((s) => s.levelsRemaining > 0);
@@ -465,8 +494,18 @@ export class AIPlayerExecution implements Execution {
    * Launch the main bomb at the target tile.
    */
   private tickLaunchMain(): void {
-    if (!this.player || !this.nukeState) return;
+    if (!this.player || !this.nukeState || !this.nukeHandler) return;
     const state = this.nukeState;
+
+    // Final score recheck before committing the main bomb
+    const freshScore = this.nukeHandler.scoreForTile(
+      state.targetTile,
+      state.bombType,
+    );
+    if (freshScore <= 0) {
+      this.resetNukeSequence();
+      return;
+    }
 
     // Check cost
     const bombCost = this.mg.unitInfo(state.bombType).cost(this.player);
@@ -527,6 +566,34 @@ export class AIPlayerExecution implements Execution {
     this.nukeState = null;
     this.nukeHandler?.resetScores();
     this.constructionHandler?.setPaused(false);
+  }
+
+  /**
+   * Check whether another nuke (from any player, including ourselves) is
+   * already in flight toward the blast radius of our planned target.
+   * Returns true if we should abort because the target will already be hit.
+   */
+  private isNukeAlreadyInbound(state: NukeSequenceState): boolean {
+    const magnitude = this.mg.config().nukeMagnitudes(state.bombType);
+    const rangeSquared = magnitude.inner * magnitude.inner;
+
+    const inFlightNukes = this.mg.units(
+      UnitType.AtomBomb,
+      UnitType.HydrogenBomb,
+      UnitType.MIRVWarhead,
+    );
+
+    for (const nuke of inFlightNukes) {
+      if (!nuke.isActive()) continue;
+      // Skip nukes we launched as part of this sequence's SAM suppression
+      if (nuke.owner().id() === this.player?.id()) continue;
+      const target = nuke.targetTile();
+      if (target === undefined) continue;
+      const dist2 = this.mg.euclideanDistSquared(state.targetTile, target);
+      if (dist2 <= rangeSquared) return true;
+    }
+
+    return false;
   }
 
   private updateSliders(ticks: number): void {
