@@ -158,8 +158,7 @@ export class AINukeEvaluator {
    * Calculate the nuke score for a given tile and bomb type.
    *
    * Score = (total value of all structures within inner blast range)
-   *       - (cost of the bomb)
-   *       - (atom bomb cost × number of SAM levels within SAM range of tile)
+   *       / (cost of the bomb + atom bomb cost × SAM levels within SAM range)
    */
   private calculateNukeScore(tile: TileRef, bombType: UnitType): number {
     const magnitude: NukeMagnitude = this.mg.config().nukeMagnitudes(bombType);
@@ -178,20 +177,17 @@ export class AINukeEvaluator {
       }
     }
 
-    // Subtract the cost of the bomb
+    // Compute total cost: bomb + SAM interception
     const bombCost = Number(
       this.mg.unitInfo(bombType).cost(this.dummyPlayer()),
     );
-    totalValue -= bombCost;
-
-    // Subtract atom bomb cost for every SAM level within SAM range of the tile
     const atomBombCost = Number(
       this.mg.unitInfo(UnitType.AtomBomb).cost(this.dummyPlayer()),
     );
     const samPenalty = this.calculateSAMPenalty(tile) * atomBombCost;
-    totalValue -= samPenalty;
+    const totalCost = Math.max(bombCost + samPenalty, 1);
 
-    return totalValue;
+    return totalValue / totalCost;
   }
 
   /**
