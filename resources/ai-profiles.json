@@ -72,9 +72,9 @@
         "warScoreNonReachableEnemyWeight": 0.2,
         "warScoreCoBelligerentDiscount": 0.1,
         "warScoreAllyPenalty": 0,
-        "warScoreDistancePenaltyWeight": 900,
-        "warScoreDominanceWeight": 70,
-        "peaceThresholdGap": 40,
+        "warScoreDistancePenaltyWeight": 950,
+        "warScoreDominanceWeight": 40,
+        "peaceThresholdGap": 45,
         "nukeScoreConstructionThreshold": 0,
         "nukeFriendlyDamageWeight": 1.0,
         "nukeScoreMultiplier": 1.0
