@@ -81,7 +81,7 @@ export class AIPlayerExecution implements Execution {
 
   // Nuke launch state machine
   private nukeState: NukeSequenceState | null = null;
-  private static readonly MAIN_BOMB_DELAY_TICKS = 30;
+  private static readonly MAIN_BOMB_DELAY_TICKS = 15;
   /** How often (in ticks) to check for redundant nukes during an active sequence. */
   private static readonly NUKE_REDUNDANCY_CHECK_INTERVAL = 10;
 
@@ -260,17 +260,38 @@ export class AIPlayerExecution implements Execution {
 
     const state = this.nukeState;
 
-    // Periodically check whether another nuke is already heading into the
-    // blast radius of our target.  If so, abort to avoid wasting resources.
+    // Periodically re-evaluate the target: abort if the score has dropped
+    // to zero (e.g. target was already destroyed) or if another nuke is
+    // already in flight toward the same area.
     if (
       this.shouldRunPeriodic(
         ticks,
         AIPlayerExecution.NUKE_REDUNDANCY_CHECK_INTERVAL,
-      ) &&
-      this.isNukeAlreadyInbound(state)
+      )
     ) {
-      this.resetNukeSequence();
-      return;
+      if (this.isNukeAlreadyInbound(state)) {
+        this.resetNukeSequence();
+        return;
+      }
+      const currentScore = this.nukeHandler.scoreForTile(
+        state.targetTile,
+        state.bombType,
+      );
+      if (currentScore <= 0) {
+        this.resetNukeSequence();
+        return;
+      }
+      // Refresh SAM targets: remove destroyed SAMs and update stack counts
+      // so we don't overpay or waste bombs on SAMs that no longer exist.
+      state.samTargets = state.samTargets
+        .filter((s) => s.sam.isActive())
+        .map((s) => ({ sam: s.sam, levelsRemaining: s.sam.stackCount() }));
+
+      // During pre-launch phases, check if a better target has appeared and
+      // switch to it (re-evaluating SAMs and bomb type for the new target).
+      if (state.phase === "waitForFunds" || state.phase === "buildSilo") {
+        this.maybeRetargetNukeSequence(state, currentScore);
+      }
     }
 
     switch (state.phase) {
@@ -339,6 +360,49 @@ export class AIPlayerExecution implements Execution {
       waitStartTick: 0,
     };
     this.constructionHandler.setPaused(true);
+  }
+
+  /**
+   * During waitForFunds / buildSilo, check if the nuke handler has found a
+   * better target than our current one. If so, switch the sequence to the
+   * new target (updating bomb type, target tile, and SAM list).
+   */
+  private maybeRetargetNukeSequence(
+    state: NukeSequenceState,
+    currentScore: number,
+  ): void {
+    if (!this.player || !this.nukeHandler) return;
+
+    // Find the handler's current best target across bomb types
+    const atomTarget = this.nukeHandler.bestAtomTarget();
+    let bestScore = atomTarget?.score ?? 0;
+    let bestTile = atomTarget?.tile ?? null;
+    let bombType: UnitType = UnitType.AtomBomb;
+
+    if (this.player.hasUpgrade(UpgradeType.ThermonuclearStaging)) {
+      const hydrogenTarget = this.nukeHandler.bestHydrogenTarget();
+      if (hydrogenTarget && hydrogenTarget.score > bestScore) {
+        bestScore = hydrogenTarget.score;
+        bestTile = hydrogenTarget.tile;
+        bombType = UnitType.HydrogenBomb;
+      }
+    }
+
+    if (bestScore <= 0 || bestTile === null) return;
+
+    // Only switch if the new target is strictly better than the current one
+    if (bestScore <= currentScore) return;
+
+    // Switch to the better target
+    const sams = this.nukeHandler.getSAMsInRange(bestTile);
+    state.bombType = bombType;
+    state.targetTile = bestTile;
+    state.samTargets = sams.map((s) => ({
+      sam: s,
+      levelsRemaining: s.stackCount(),
+    }));
+    // Reset to waitForFunds so silo requirements are re-evaluated
+    state.phase = "waitForFunds";
   }
 
   /**
