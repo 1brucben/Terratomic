@@ -45,11 +45,16 @@ export class AINukeEvaluator {
   // Tick tracking for reevaluation
   private _lastReevalTick: number = -1;
 
-  // Per-tick caches to avoid repeated units() calls
-  private _cachedStructures: Unit[] | null = null;
-  private _cachedSAMs: Unit[] | null = null;
+  // Precomputed max SAM range (level 3) for spatial queries
+  private _maxSAMRange: number = 0;
 
-  private constructor(private mg: Game) {}
+  private constructor(private mg: Game) {
+    // Precompute worst-case SAM range (max tech level = 3) for spatial queries
+    const baseRange = mg.config().defaultSamRange();
+    const rangeBonus = mg.config().samRangeUpgradePercent();
+    const maxTechLevel = 3; // SAMLauncher max stack count
+    this._maxSAMRange = baseRange * Math.pow(1 + rangeBonus, maxTechLevel - 1);
+  }
 
   /**
    * Get or create the shared NukeHandler instance for this game.
@@ -75,12 +80,6 @@ export class AINukeEvaluator {
    * both bomb types, and updates the best targets if improved.
    */
   tick(random: PseudoRandom, ticks: number): void {
-    // Build per-tick caches: one pass over all units instead of 12+ per call
-    this._cachedStructures = this.mg.units(
-      ...AINukeEvaluator.ALL_STRUCTURE_TYPES,
-    );
-    this._cachedSAMs = this.mg.units(UnitType.SAMLauncher);
-
     // Every 100 ticks, reevaluate the saved best tiles
     if (
       this._lastReevalTick < 0 ||
@@ -110,10 +109,6 @@ export class AINukeEvaluator {
       this._bestHydrogenScore = hydrogenScore;
       this._bestHydrogenTile = tile;
     }
-
-    // Release per-tick caches
-    this._cachedStructures = null;
-    this._cachedSAMs = null;
   }
 
   /**
@@ -170,6 +165,7 @@ export class AINukeEvaluator {
 
   /**
    * Calculate the nuke score for a given tile and bomb type.
+   * Uses spatial grid query (nearbyUnits) instead of iterating all structures.
    *
    * Score = (total value of all structures within inner blast range)
    *       / (cost of the bomb + atom bomb cost × SAM levels within SAM range)
@@ -177,17 +173,16 @@ export class AINukeEvaluator {
   private calculateNukeScore(tile: TileRef, bombType: UnitType): number {
     const magnitude: NukeMagnitude = this.mg.config().nukeMagnitudes(bombType);
     const innerRange = magnitude.inner;
-    const innerRangeSquared = innerRange * innerRange;
 
-    // Sum value of all structures within inner range (uses per-tick cache)
-    const allStructures =
-      this._cachedStructures ??
-      this.mg.units(...AINukeEvaluator.ALL_STRUCTURE_TYPES);
+    // Spatial query: only checks nearby grid cells, not all structures on the map
+    const nearby = this.mg.nearbyUnits(
+      tile,
+      innerRange,
+      AINukeEvaluator.ALL_STRUCTURE_TYPES,
+    );
+
     let totalValue = 0;
-    for (const structure of allStructures) {
-      if (!structure.isActive()) continue;
-      const dist2 = this.mg.euclideanDistSquared(tile, structure.tile());
-      if (dist2 > innerRangeSquared) continue;
+    for (const { unit: structure } of nearby) {
       totalValue += this.getStructureValue(structure);
     }
 
@@ -206,22 +201,25 @@ export class AINukeEvaluator {
 
   /**
    * Count total SAM levels within SAM range of the tile.
-   * Each SAM's range depends on the owning player's tech level.
+   * Uses spatial query with max possible SAM range, then filters
+   * by each SAM's actual effective range based on owner tech level.
    */
   private calculateSAMPenalty(tile: TileRef): number {
-    const allSAMs = this._cachedSAMs ?? this.mg.units(UnitType.SAMLauncher);
+    const nearbySAMs = this.mg.nearbyUnits(
+      tile,
+      this._maxSAMRange,
+      UnitType.SAMLauncher,
+    );
     let totalSAMLevels = 0;
 
-    for (const sam of allSAMs) {
-      if (!sam.isActive()) continue;
-
+    for (const { unit: sam, distSquared } of nearbySAMs) {
       // Get the SAM's effective range based on its owner's tech level
       const owner = sam.owner();
       const samRange = this.getEffectiveSAMRange(owner);
       const samRangeSquared = samRange * samRange;
 
-      // Check if the tile is within this SAM's range
-      if (this.mg.euclideanDistSquared(tile, sam.tile()) <= samRangeSquared) {
+      // Check if the tile is within this SAM's actual range
+      if (distSquared <= samRangeSquared) {
         totalSAMLevels += sam.stackCount();
       }
     }
