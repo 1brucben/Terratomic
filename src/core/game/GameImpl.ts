@@ -69,6 +69,9 @@ export class GameImpl implements Game {
   private _ticks = 0;
   public peaceTimerEndsAtTick: Tick | null = null;
 
+  /** When non-null, border updates are deferred; tiles accumulate here. */
+  private _dirtyBorderTiles: Set<TileRef> | null = null;
+
   private unInitExecs: Execution[] = [];
 
   _players: Map<PlayerID, PlayerImpl> = new Map<PlayerID, PlayerImpl>();
@@ -900,7 +903,11 @@ export class GameImpl implements Game {
         1 / numTiles,
     );
     (newOwner as PlayerImpl)._lastTileChange = this._ticks;
-    this.updateBorders(tile);
+    if (this._dirtyBorderTiles !== null) {
+      this._dirtyBorderTiles.add(tile);
+    } else {
+      this.updateBorders(tile);
+    }
     this._map.setFallout(tile, false);
 
     this.addUpdate({
@@ -928,54 +935,94 @@ export class GameImpl implements Game {
     previousOwner._borderTiles.delete(tile);
 
     this._map.setOwnerID(tile, 0);
-    this.updateBorders(tile);
+    if (this._dirtyBorderTiles !== null) {
+      this._dirtyBorderTiles.add(tile);
+    } else {
+      this.updateBorders(tile);
+    }
     this.addUpdate({
       type: GameUpdateType.Tile,
       update: this.toTileUpdate(tile),
     });
   }
 
-  private updateBorders(tile: TileRef) {
-    const updateBorderStatus = (t: TileRef) => {
-      if (!this.hasOwner(t)) {
-        return;
+  beginBorderBatch(): void {
+    this._dirtyBorderTiles = new Set();
+  }
+
+  endBorderBatch(): void {
+    const dirty = this._dirtyBorderTiles;
+    if (dirty === null) return;
+    this._dirtyBorderTiles = null;
+
+    // Collect all tiles to recheck: dirty tiles + their neighbors, deduped
+    const toCheck = new Set<TileRef>();
+    for (const tile of dirty) {
+      toCheck.add(tile);
+      for (const n of this.neighbors(tile)) {
+        toCheck.add(n);
       }
-      const owner = this.owner(t) as PlayerImpl;
-      // Invalidate neighbor cache for affected players
-      owner.invalidateNeighborCache();
-      if (this.calcIsBorder(t)) {
+    }
+
+    // Process all unique tiles, tracking players for one-shot cache invalidation
+    const playersToInvalidate = new Set<PlayerImpl>();
+    for (const t of toCheck) {
+      const oid = this._map.ownerID(t);
+      if (oid === 0) continue;
+      const owner = this._playersBySmallID[oid - 1] as PlayerImpl;
+      playersToInvalidate.add(owner);
+      if (this.calcIsBorder(t, oid)) {
         owner._borderTiles.add(t);
       } else {
         owner._borderTiles.delete(t);
       }
-    };
+    }
 
-    updateBorderStatus(tile);
-    this.forEachNeighbor(tile, updateBorderStatus);
+    // Invalidate caches once per affected player instead of per tile
+    for (const player of playersToInvalidate) {
+      player.invalidateNeighborCache();
+    }
   }
 
-  private calcIsBorder(tile: TileRef): boolean {
-    if (!this.hasOwner(tile)) {
-      return false;
+  private updateBorders(tile: TileRef) {
+    this.updateBorderForTile(tile);
+    for (const t of this.neighbors(tile)) {
+      this.updateBorderForTile(t);
     }
-    const ownerId = this.ownerID(tile);
+  }
+
+  private updateBorderForTile(t: TileRef): void {
+    const oid = this._map.ownerID(t);
+    if (oid === 0) return;
+    const owner = this._playersBySmallID[oid - 1] as PlayerImpl;
+    owner.invalidateNeighborCache();
+    if (this.calcIsBorder(t, oid)) {
+      owner._borderTiles.add(t);
+    } else {
+      owner._borderTiles.delete(t);
+    }
+  }
+
+  private calcIsBorder(tile: TileRef, tileOwnerID?: number): boolean {
+    const oid = tileOwnerID ?? this._map.ownerID(tile);
+    if (oid === 0) return false;
     const x = this.x(tile);
     const y = this.y(tile);
-    if (x > 0 && this.ownerID(this._map.ref(x - 1, y)) !== ownerId) {
+    if (x > 0 && this._map.ownerID(this._map.ref(x - 1, y)) !== oid) {
       return true;
     }
     if (
       x + 1 < this._width &&
-      this.ownerID(this._map.ref(x + 1, y)) !== ownerId
+      this._map.ownerID(this._map.ref(x + 1, y)) !== oid
     ) {
       return true;
     }
-    if (y > 0 && this.ownerID(this._map.ref(x, y - 1)) !== ownerId) {
+    if (y > 0 && this._map.ownerID(this._map.ref(x, y - 1)) !== oid) {
       return true;
     }
     if (
       y + 1 < this._height &&
-      this.ownerID(this._map.ref(x, y + 1)) !== ownerId
+      this._map.ownerID(this._map.ref(x, y + 1)) !== oid
     ) {
       return true;
     }

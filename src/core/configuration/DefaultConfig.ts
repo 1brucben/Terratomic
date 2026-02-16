@@ -953,17 +953,20 @@ export class DefaultConfig implements Config {
 
     if (defenderIsPlayer) {
       let maxDefensePostHealthRatio = 0;
-      for (const dp of gm.nearbyUnits(
-        tileToConquer,
-        gm.config().defensePostRange(),
-        UnitType.DefensePost,
-        ({ unit }) => unit.owner() === defender,
-      )) {
-        const ratio = dp.unit.hasHealth()
-          ? Number(dp.unit.health()) / (dp.unit.info().maxHealth ?? 1)
-          : 1;
-        if (ratio > maxDefensePostHealthRatio) {
-          maxDefensePostHealthRatio = ratio;
+      // Skip expensive spatial query when defender has no defense posts
+      if (defender.effectiveUnits(UnitType.DefensePost) > 0) {
+        for (const dp of gm.nearbyUnits(
+          tileToConquer,
+          gm.config().defensePostRange(),
+          UnitType.DefensePost,
+          ({ unit }) => unit.owner() === defender,
+        )) {
+          const ratio = dp.unit.hasHealth()
+            ? Number(dp.unit.health()) / (dp.unit.info().maxHealth ?? 1)
+            : 1;
+          if (ratio > maxDefensePostHealthRatio) {
+            maxDefensePostHealthRatio = ratio;
+          }
         }
       }
       if (maxDefensePostHealthRatio > 0) {

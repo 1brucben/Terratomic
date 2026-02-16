@@ -942,6 +942,10 @@ export interface Game extends GameMap {
   miniWaterGraph(): AbstractGraph | null;
   getWaterComponent(tile: TileRef): number | null;
   hasWaterComponent(tile: TileRef, component: number): boolean;
+  // Border update batching for bulk conquest operations.
+  // While a batch is open, border recalculations are deferred and deduped.
+  beginBorderBatch(): void;
+  endBorderBatch(): void;
 }
 
 export interface PlayerActions {

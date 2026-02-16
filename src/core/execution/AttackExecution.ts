@@ -281,71 +281,80 @@ export class AttackExecution implements Execution {
     let numTilesPerTick = Math.floor(this.tilesToProcessAccumulator + 1e-9);
     this.tilesToProcessAccumulator -= numTilesPerTick;
 
-    while (numTilesPerTick > 0) {
-      if (troopCount < 1) {
-        this.attack.delete();
-        this.active = false;
-        return;
-      }
+    const ownerSmallID = this._owner.smallID();
+    const targetSmallID = this.target.smallID();
 
-      if (this.toConquer.size() === 0) {
-        if (!this.isDeepStrike) {
-          this.refreshToConquer();
+    this.mg.beginBorderBatch();
+    try {
+      while (numTilesPerTick > 0) {
+        if (troopCount < 1) {
+          this.attack.delete();
+          this.active = false;
+          return;
         }
-        this.retreat();
-        return;
-      }
 
-      const [tileToConquer] = this.toConquer.dequeue();
-      this.attack.removeBorderTile(tileToConquer);
+        if (this.toConquer.size() === 0) {
+          if (!this.isDeepStrike) {
+            this.refreshToConquer();
+          }
+          this.retreat();
+          return;
+        }
 
-      let onBorder = false;
-      if (this.isDeepStrike && tileToConquer === this.sourceTile) {
-        onBorder = true; // The landing tile is always considered "on border" for a deep strike
-      } else {
-        for (const n of this.mg.neighbors(tileToConquer)) {
-          if (this.mg.owner(n) === this._owner) {
-            onBorder = true;
-            break;
+        const [tileToConquer] = this.toConquer.dequeue();
+        this.attack.removeBorderTile(tileToConquer);
+
+        let onBorder = false;
+        if (this.isDeepStrike && tileToConquer === this.sourceTile) {
+          onBorder = true; // The landing tile is always considered "on border" for a deep strike
+        } else {
+          for (const n of this.mg.neighbors(tileToConquer)) {
+            if (this.mg.ownerID(n) === ownerSmallID) {
+              onBorder = true;
+              break;
+            }
           }
         }
-      }
-      if (this.mg.owner(tileToConquer) !== this.target || !onBorder) {
-        continue;
-      }
-      this.addNeighbors(tileToConquer);
-      const { attackerTroopLoss, defenderTroopLoss, tilesPerTickUsed } = this.mg
-        .config()
-        .attackLogic(
-          this.mg,
-          troopCount,
-          this._owner,
-          this.target,
-          tileToConquer,
-        );
-      numTilesPerTick -= tilesPerTickUsed;
-      troopCount -= attackerTroopLoss;
-      this.attack.setTroops(troopCount);
-      if (targetPlayer) {
-        targetPlayer.removeTroops(defenderTroopLoss);
-      }
-      const attackerMultiplier =
-        0.6 +
-        0.4 * Math.pow(0.75, this._owner.effectiveUnits(UnitType.Hospital));
-      const defenderMultiplier = targetPlayer
-        ? 0.6 +
-          0.4 * Math.pow(0.75, this._owner.effectiveUnits(UnitType.Hospital))
-        : 1;
+        if (this.mg.ownerID(tileToConquer) !== targetSmallID || !onBorder) {
+          continue;
+        }
+        this.addNeighbors(tileToConquer);
+        const { attackerTroopLoss, defenderTroopLoss, tilesPerTickUsed } =
+          this.mg
+            .config()
+            .attackLogic(
+              this.mg,
+              troopCount,
+              this._owner,
+              this.target,
+              tileToConquer,
+            );
+        numTilesPerTick -= tilesPerTickUsed;
+        troopCount -= attackerTroopLoss;
+        this.attack.setTroops(troopCount);
+        if (targetPlayer) {
+          targetPlayer.removeTroops(defenderTroopLoss);
+        }
+        const attackerMultiplier =
+          0.6 +
+          0.4 * Math.pow(0.75, this._owner.effectiveUnits(UnitType.Hospital));
+        const defenderMultiplier = targetPlayer
+          ? 0.6 +
+            0.4 * Math.pow(0.75, this._owner.effectiveUnits(UnitType.Hospital))
+          : 1;
 
-      const attackerReturns = attackerTroopLoss * (1 - attackerMultiplier);
-      const defenderReturns = defenderTroopLoss * (1 - defenderMultiplier);
+        const attackerReturns = attackerTroopLoss * (1 - attackerMultiplier);
+        const defenderReturns = defenderTroopLoss * (1 - defenderMultiplier);
 
-      this._owner.addHospitalReturns(attackerReturns);
-      if (targetPlayer) {
-        targetPlayer.addHospitalReturns(defenderReturns);
+        this._owner.addHospitalReturns(attackerReturns);
+        if (targetPlayer) {
+          targetPlayer.addHospitalReturns(defenderReturns);
+        }
+        this.mg.conquer(this._owner, tileToConquer);
+        this.handleDeadDefender();
       }
-      this.mg.conquer(this._owner, tileToConquer);
-      this.handleDeadDefender();
+    } finally {
+      this.mg.endBorderBatch();
     }
   }
 
@@ -364,18 +373,20 @@ export class AttackExecution implements Execution {
     }
 
     const tickNow = this.mg.ticks(); // cache tick
+    const targetSmallID = this.target.smallID();
+    const ownerSmallID = this._owner.smallID();
 
     for (const neighbor of this.mg.neighbors(tile)) {
       if (
         this.mg.isWater(neighbor) ||
-        this.mg.owner(neighbor) !== this.target
+        this.mg.ownerID(neighbor) !== targetSmallID
       ) {
         continue;
       }
       this.attack.addBorderTile(neighbor);
       let numOwnedByMe = 0;
       for (const n of this.mg.neighbors(neighbor)) {
-        if (this.mg.owner(n) === this._owner) {
+        if (this.mg.ownerID(n) === ownerSmallID) {
           numOwnedByMe++;
         }
       }
