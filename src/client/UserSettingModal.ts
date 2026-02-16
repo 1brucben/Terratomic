@@ -8,6 +8,7 @@ import "./components/baseComponents/setting/SettingNumber";
 import "./components/baseComponents/setting/SettingSlider";
 import "./components/baseComponents/setting/SettingToggle";
 import "./LoadReplayModal";
+import { MobileDetector } from "./mobile/MobileDetector";
 import {
   adjustUiScalePercent,
   applyUiScalePercent,
@@ -27,6 +28,7 @@ export class UserSettingModal extends LitElement {
   @state() private settingsMode: "basic" | "keybinds" | "replays" = "basic";
   @state() private keybinds: Record<string, string> = {};
   @state() private uiScalePercent = UI_SCALE_DEFAULT_PERCENT;
+  @state() private isMobileLayout = false;
 
   private handleUiScaleChanged = (event: Event) => {
     const detail = (event as CustomEvent<{ percent: number }>).detail;
@@ -36,9 +38,20 @@ export class UserSettingModal extends LitElement {
     this.uiScalePercent = percent;
   };
 
+  private handleViewportChanged = () => {
+    const nextLayout = MobileDetector.isMobile();
+    if (nextLayout === this.isMobileLayout) return;
+    this.isMobileLayout = nextLayout;
+    if (this.isMobileLayout && this.settingsMode === "keybinds") {
+      this.settingsMode = "basic";
+    }
+  };
+
   connectedCallback() {
     super.connectedCallback();
     window.addEventListener(UI_SCALE_CHANGED_EVENT, this.handleUiScaleChanged);
+    window.addEventListener("resize", this.handleViewportChanged);
+    this.handleViewportChanged();
 
     const savedKeybinds = localStorage.getItem("settings.keybinds");
     if (savedKeybinds) {
@@ -67,6 +80,7 @@ export class UserSettingModal extends LitElement {
       UI_SCALE_CHANGED_EVENT,
       this.handleUiScaleChanged,
     );
+    window.removeEventListener("resize", this.handleViewportChanged);
     super.disconnectedCallback();
     document.body.style.overflow = "auto";
   }
@@ -217,12 +231,67 @@ export class UserSettingModal extends LitElement {
 
   render() {
     return html`
-      <o-modal title="${translateText("user_setting.title")}">
+      <o-modal
+        id=${this.isMobileLayout
+          ? "mobileUserSettingsModal"
+          : "userSettingsModal"}
+        title="${translateText("user_setting.title")}"
+        max-width=${this.isMobileLayout ? "min(96vw, 560px)" : "680px"}
+        max-height=${this.isMobileLayout ? "88dvh" : "80dvh"}
+      >
+        ${this.isMobileLayout
+          ? html`
+              <style>
+                #mobileUserSettingsModal .modal-content.user-setting-modal {
+                  min-width: 0 !important;
+                  width: 100%;
+                  padding: 6px 4px 10px;
+                }
+
+                #mobileUserSettingsModal .settings-list {
+                  max-height: 64dvh;
+                  overflow-y: auto;
+                  -webkit-overflow-scrolling: touch;
+                  padding-right: 2px;
+                }
+
+                #mobileUserSettingsModal .settings-tab-row {
+                  display: grid;
+                  grid-template-columns: 1fr 1fr;
+                  gap: 8px;
+                  margin-bottom: 12px;
+                }
+
+                #mobileUserSettingsModal .settings-tab {
+                  border-radius: 10px;
+                  min-height: 44px;
+                  font-size: 13px;
+                  font-weight: 700;
+                  letter-spacing: 0.2px;
+                }
+
+                #mobileUserSettingsModal .setting-item.vertical {
+                  gap: 8px;
+                }
+
+                #mobileUserSettingsModal .setting-item.vertical .w-10.h-10 {
+                  min-width: 44px;
+                  min-height: 44px;
+                }
+
+                #mobileUserSettingsModal .setting-item.vertical .text-lg {
+                  min-width: 54px;
+                }
+              </style>
+            `
+          : null}
         <div class="modal-overlay">
           <div class="modal-content user-setting-modal min-w-[400px]">
-            <div class="flex mb-4 w-full justify-center">
+            <div class="settings-tab-row flex mb-4 w-full justify-center">
               <button
-                class="w-1/3 text-center px-3 py-1 rounded-l 
+                class="settings-tab ${this.isMobileLayout
+                  ? "w-full rounded"
+                  : "w-1/3 rounded-l"} text-center px-3 py-1 
       ${this.settingsMode === "basic"
                   ? "bg-white/10 text-white"
                   : "bg-transparent text-gray-400"}"
@@ -230,17 +299,23 @@ export class UserSettingModal extends LitElement {
               >
                 ${translateText("user_setting.tab_basic")}
               </button>
-              <button
-                class="w-1/3 text-center px-3 py-1 
+              ${this.isMobileLayout
+                ? null
+                : html`
+                    <button
+                      class="settings-tab w-1/3 text-center px-3 py-1 
       ${this.settingsMode === "keybinds"
-                  ? "bg-white/10 text-white"
-                  : "bg-transparent text-gray-400"}"
-                @click=${() => (this.settingsMode = "keybinds")}
-              >
-                ${translateText("user_setting.tab_keybinds")}
-              </button>
+                        ? "bg-white/10 text-white"
+                        : "bg-transparent text-gray-400"}"
+                      @click=${() => (this.settingsMode = "keybinds")}
+                    >
+                      ${translateText("user_setting.tab_keybinds")}
+                    </button>
+                  `}
               <button
-                class="w-1/3 text-center px-3 py-1 rounded-r 
+                class="settings-tab ${this.isMobileLayout
+                  ? "w-full rounded"
+                  : "w-1/3 rounded-r"} text-center px-3 py-1 
       ${this.settingsMode === "replays"
                   ? "bg-white/10 text-white"
                   : "bg-transparent text-gray-400"}"
@@ -251,8 +326,10 @@ export class UserSettingModal extends LitElement {
             </div>
 
             <div class="settings-list">
-              ${this.settingsMode === "basic"
-                ? this.renderBasicSettings()
+              ${this.settingsMode === "basic" || this.isMobileLayout
+                ? this.settingsMode === "replays"
+                  ? this.renderReplaySettings()
+                  : this.renderBasicSettings()
                 : this.settingsMode === "keybinds"
                   ? this.renderKeybindSettings()
                   : this.renderReplaySettings()}
@@ -704,6 +781,10 @@ export class UserSettingModal extends LitElement {
   }
 
   public open() {
+    this.handleViewportChanged();
+    if (this.isMobileLayout && this.settingsMode === "keybinds") {
+      this.settingsMode = "basic";
+    }
     this.requestUpdate();
     this.modalEl?.open();
   }
