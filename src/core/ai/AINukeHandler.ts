@@ -56,12 +56,21 @@ export class AINukeHandler {
 
   private player: Player | null = null;
 
+  /** Maximum possible SAM range (base × (1 + upgrade%)^maxLevel). */
+  private readonly _maxSAMRange: number;
+
   constructor(
     private mg: Game,
     private playerId: PlayerID,
     private random: PseudoRandom,
     private params: AIBehaviorParams,
-  ) {}
+  ) {
+    // Precompute worst-case SAM range (max tech level = 3) for spatial queries
+    const baseRange = this.mg.config().defaultSamRange();
+    const rangeBonus = this.mg.config().samRangeUpgradePercent();
+    const maxTechLevel = 3; // SAMLauncher max stack count
+    this._maxSAMRange = baseRange * Math.pow(1 + rangeBonus, maxTechLevel - 1);
+  }
 
   /**
    * Called each tick by the owning AI player. Picks a random tile, scores it
@@ -356,20 +365,23 @@ export class AINukeHandler {
 
   /**
    * Count total SAM levels within SAM range of the tile.
-   * Each SAM's range depends on the owning player's tech level.
+   * Uses spatial query with max possible SAM range, then filters
+   * by each SAM's actual effective range based on owner tech level.
    */
   calculateSAMPenalty(tile: TileRef): number {
-    const allSAMs = this.mg.units(UnitType.SAMLauncher);
+    const nearbySAMs = this.mg.nearbyUnits(
+      tile,
+      this._maxSAMRange,
+      UnitType.SAMLauncher,
+    );
     let totalSAMLevels = 0;
 
-    for (const sam of allSAMs) {
-      if (!sam.isActive()) continue;
-
+    for (const { unit: sam, distSquared } of nearbySAMs) {
       const owner = sam.owner();
       const samRange = this.getEffectiveSAMRange(owner);
       const samRangeSquared = samRange * samRange;
 
-      if (this.mg.euclideanDistSquared(tile, sam.tile()) <= samRangeSquared) {
+      if (distSquared <= samRangeSquared) {
         totalSAMLevels += sam.stackCount();
       }
     }
@@ -437,13 +449,16 @@ export class AINukeHandler {
    * stackCount() to determine how many atom bombs to target at each.
    */
   getSAMsInRange(tile: TileRef): Unit[] {
+    const nearbySAMs = this.mg.nearbyUnits(
+      tile,
+      this._maxSAMRange,
+      UnitType.SAMLauncher,
+    );
     const result: Unit[] = [];
-    for (const sam of this.mg.units(UnitType.SAMLauncher)) {
-      if (!sam.isActive()) continue;
+    for (const { unit: sam, distSquared } of nearbySAMs) {
       const owner = sam.owner();
       const samRange = this.getEffectiveSAMRange(owner);
-      const samRangeSquared = samRange * samRange;
-      if (this.mg.euclideanDistSquared(tile, sam.tile()) <= samRangeSquared) {
+      if (distSquared <= samRange * samRange) {
         result.push(sam);
       }
     }

@@ -368,8 +368,8 @@ export class DefaultConfig implements Config {
     return BigInt(10_000);
   }
   tradeShipReplacementDelayTicks(): number {
-    // Assume ~10 ticks/sec => 600 ticks ~= 60s
-    return 600;
+    // Assume ~10 ticks/sec => 300 ticks ~= 30s
+    return 300;
   }
 
   // Roads and Cargo Trucks

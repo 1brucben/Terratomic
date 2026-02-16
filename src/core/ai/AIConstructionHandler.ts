@@ -986,6 +986,8 @@ export class AIConstructionHandler {
     player: Player,
     tile: TileRef,
     skipSpacingCheck: boolean = false,
+    precomputedClosestPlayerDist?: number | null | undefined,
+    precomputedNearbyStructures?: Array<{ unit: Unit; distSquared: number }>,
   ): number {
     // Early terrain check: ports must be on ocean shore
     if (!this.mg.isOceanShore(tile)) {
@@ -1014,11 +1016,11 @@ export class AIConstructionHandler {
     // Quadratic makes penalty more severe when enemies are very close
     const avoidPlayerDist = this.avoidPlayerDistanceFor(UnitType.Port);
     if (avoidPlayerDist > 0) {
-      const closestPlayerDist = this.closestOtherPlayerDistance(
-        player,
-        tile,
-        avoidPlayerDist,
-      );
+      // Use precomputed value if provided (undefined = not precomputed; null = no enemy found)
+      const closestPlayerDist =
+        precomputedClosestPlayerDist !== undefined
+          ? precomputedClosestPlayerDist
+          : this.closestOtherPlayerDistance(player, tile, avoidPlayerDist);
       if (closestPlayerDist !== null) {
         const linearX1 = Math.max(
           0,
@@ -1034,11 +1036,14 @@ export class AIConstructionHandler {
     // x₂ = total structure levels within range
     const maxStructureDist = this.params.aiStructureMinDistance ?? 60;
     if (maxStructureDist > 0) {
-      const nearbyStructures = this.mg.nearbyUnits(
-        tile,
-        maxStructureDist,
-        AIConstructionHandler.DISTANCE_CHECK_STRUCTURE_TYPES,
-      );
+      // Use precomputed nearby structures if provided
+      const nearbyStructures =
+        precomputedNearbyStructures ??
+        this.mg.nearbyUnits(
+          tile,
+          maxStructureDist,
+          AIConstructionHandler.DISTANCE_CHECK_STRUCTURE_TYPES,
+        );
       const ownNearbyStructures = nearbyStructures.filter(
         ({ unit }) => unit.owner().id() === player.id(),
       );
@@ -1099,6 +1104,8 @@ export class AIConstructionHandler {
     player: Player,
     tile: TileRef,
     skipSpacingCheck: boolean = false,
+    precomputedClosestPlayerDist?: number | null | undefined,
+    precomputedNearbyStructures?: Array<{ unit: Unit; distSquared: number }>,
   ): number {
     // Early terrain check: land structures cannot be on ocean
     if (this.mg.isOcean(tile)) {
@@ -1127,11 +1134,11 @@ export class AIConstructionHandler {
     // Quadratic makes penalty more severe when enemies are very close
     const avoidPlayerDist = this.avoidPlayerDistanceFor(UnitType.City);
     if (avoidPlayerDist > 0) {
-      const closestPlayerDist = this.closestOtherPlayerDistance(
-        player,
-        tile,
-        avoidPlayerDist,
-      );
+      // Use precomputed value if provided (undefined = not precomputed; null = no enemy found)
+      const closestPlayerDist =
+        precomputedClosestPlayerDist !== undefined
+          ? precomputedClosestPlayerDist
+          : this.closestOtherPlayerDistance(player, tile, avoidPlayerDist);
       if (closestPlayerDist !== null) {
         const linearX1 = Math.max(
           0,
@@ -1147,11 +1154,14 @@ export class AIConstructionHandler {
     // x₂ = total structure levels within range
     const maxStructureDist = this.params.aiStructureMinDistance ?? 60;
     if (maxStructureDist > 0) {
-      const nearbyStructures = this.mg.nearbyUnits(
-        tile,
-        maxStructureDist,
-        AIConstructionHandler.DISTANCE_CHECK_STRUCTURE_TYPES,
-      );
+      // Use precomputed nearby structures if provided
+      const nearbyStructures =
+        precomputedNearbyStructures ??
+        this.mg.nearbyUnits(
+          tile,
+          maxStructureDist,
+          AIConstructionHandler.DISTANCE_CHECK_STRUCTURE_TYPES,
+        );
       const ownNearbyStructures = nearbyStructures.filter(
         ({ unit }) => unit.owner().id() === player.id(),
       );
@@ -1219,10 +1229,38 @@ export class AIConstructionHandler {
     const ownTotalBorderLength = player.borderTiles().size;
     if (ownTotalBorderLength === 0) return 0;
 
+    // Area scan: find closest distance² to each enemy player within radius.
+    // This is O(radius²) instead of O(numEnemies × borderTiles).
+    const playerSmallID = player.smallID();
+    const cx = this.mg.x(tile);
+    const cy = this.mg.y(tile);
+    const closestDistSqByOwner = new Map<number, number>();
+
+    for (let dy = -defensePostRadius; dy <= defensePostRadius; dy++) {
+      for (let dx = -defensePostRadius; dx <= defensePostRadius; dx++) {
+        const distSq = dx * dx + dy * dy;
+        if (distSq > radiusSquared) continue;
+        const nx = cx + dx;
+        const ny = cy + dy;
+        if (!this.mg.isValidCoord(nx, ny)) continue;
+        const t = this.mg.ref(nx, ny);
+        if (!this.mg.hasOwner(t)) continue;
+        const oid = this.mg.ownerID(t);
+        if (oid === playerSmallID || oid === 0) continue;
+        const prev = closestDistSqByOwner.get(oid);
+        if (prev === undefined || distSq < prev) {
+          closestDistSqByOwner.set(oid, distSq);
+        }
+      }
+    }
+
+    if (closestDistSqByOwner.size === 0) return 0;
+
     let score = 0;
 
-    for (const other of this.mg.players()) {
-      if (other.id() === player.id()) continue;
+    for (const [ownerSmallID, closestDistSq] of closestDistSqByOwner) {
+      const other = this.mg.playerBySmallID(ownerSmallID);
+      if (!other.isPlayer()) continue;
       if (!other.isAlive()) continue;
       if (other.type() === PlayerType.Bot) continue;
 
@@ -1230,18 +1268,6 @@ export class AIConstructionHandler {
       const sharedBorder = player.sharedBorderLength(other);
       if (sharedBorder === 0) continue;
       const borderRatio = sharedBorder / ownTotalBorderLength;
-
-      // Find closest border tile of this enemy to the candidate tile
-      let closestDistSq = Infinity;
-      for (const borderTile of other.borderTiles()) {
-        const distSq = this.mg.euclideanDistSquared(tile, borderTile);
-        if (distSq < closestDistSq) {
-          closestDistSq = distSq;
-        }
-      }
-
-      // Skip if enemy border is beyond the defense post radius
-      if (closestDistSq > radiusSquared) continue;
 
       // x = closestDist / radius, clamped to [0, 1]
       const x = Math.min(1, Math.sqrt(closestDistSq) / defensePostRadius);
@@ -1326,7 +1352,11 @@ export class AIConstructionHandler {
    * Returns 0 if the tile is ocean, not owned, or too close to enemies.
    * The raw score is structure-value-weighted and NOT normalized to (0,1).
    */
-  private calculateSAMTileScore(player: Player, tile: TileRef): number {
+  private calculateSAMTileScore(
+    player: Player,
+    tile: TileRef,
+    precomputedClosestPlayerDist?: number | null | undefined,
+  ): number {
     if (this.mg.isOcean(tile)) return 0;
     if (!this.mg.hasOwner(tile) || this.mg.owner(tile).id() !== player.id())
       return 0;
@@ -1338,11 +1368,11 @@ export class AIConstructionHandler {
     let z = 0;
     const avoidPlayerDist = this.avoidPlayerDistanceFor(UnitType.SAMLauncher);
     if (avoidPlayerDist > 0) {
-      const closestPlayerDist = this.closestOtherPlayerDistance(
-        player,
-        tile,
-        avoidPlayerDist,
-      );
+      // Use precomputed value if provided (undefined = not precomputed; null = no enemy found)
+      const closestPlayerDist =
+        precomputedClosestPlayerDist !== undefined
+          ? precomputedClosestPlayerDist
+          : this.closestOtherPlayerDistance(player, tile, avoidPlayerDist);
       if (closestPlayerDist !== null) {
         const linearX = Math.max(
           0,
@@ -1411,17 +1441,50 @@ export class AIConstructionHandler {
     // Early terrain classification to avoid redundant expensive checks
     const isOceanTile = this.mg.isOcean(tile);
 
+    // Precompute shared expensive values once for all score functions:
+    // closestOtherPlayerDistance is used by port, other, and SAM (all with same radius)
+    // nearbyUnits is used by port and other (same tile, same params)
+    const avoidPlayerDist = this.avoidPlayerDistanceFor(UnitType.Port); // Same for Port, City, SAMLauncher
+    const closestPlayerDist =
+      avoidPlayerDist > 0
+        ? this.closestOtherPlayerDistance(player, tile, avoidPlayerDist)
+        : null;
+
+    const maxStructureDist = this.params.aiStructureMinDistance ?? 60;
+    const nearbyStructures =
+      maxStructureDist > 0
+        ? this.mg.nearbyUnits(
+            tile,
+            maxStructureDist,
+            AIConstructionHandler.DISTANCE_CHECK_STRUCTURE_TYPES,
+          )
+        : [];
+
     // Calculate port score with penalties and bonuses (only for ocean shore tiles)
-    const portScore = this.calculatePortTileScore(player, tile);
+    const portScore = this.calculatePortTileScore(
+      player,
+      tile,
+      false,
+      closestPlayerDist,
+      nearbyStructures,
+    );
 
     // Land structures (defense post, SAM, and other) can only be built on non-ocean tiles
     const otherScore = isOceanTile
       ? 0
-      : this.calculateOtherTileScore(player, tile);
+      : this.calculateOtherTileScore(
+          player,
+          tile,
+          false,
+          closestPlayerDist,
+          nearbyStructures,
+        );
     const defensePostScore = isOceanTile
       ? 0
       : this.calculateDefensePostTileScore(player, tile);
-    const samScore = isOceanTile ? 0 : this.calculateSAMTileScore(player, tile);
+    const samScore = isOceanTile
+      ? 0
+      : this.calculateSAMTileScore(player, tile, closestPlayerDist);
 
     // Increment evaluation counts for each type
     this._portEvalCount++;
