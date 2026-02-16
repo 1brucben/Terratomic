@@ -1,7 +1,6 @@
 import { renderNumber, renderTroops } from "../../client/Utils";
 import {
   Attack,
-  ATTACK_SUBTICKS_PER_TICK,
   Execution,
   Game,
   MessageType,
@@ -292,16 +291,15 @@ export class AttackExecution implements Execution {
     // Consolidated: retreats on alliance/peace are now handled centrally via
     // PlayerImpl.setNeutralWith, which orders retreats on hostile actions.
 
-    // Calculate tiles to process - divided by ATTACK_SUBTICKS_PER_TICK since this is called multiple times per game tick
-    this.tilesToProcessAccumulator +=
-      this.mg
-        .config()
-        .attackTilesPerTick(
-          troopCount,
-          this._owner,
-          this.target,
-          this.attack.borderSize() + this.random.nextInt(0, 5),
-        ) / ATTACK_SUBTICKS_PER_TICK;
+    // Calculate tiles to process
+    this.tilesToProcessAccumulator += this.mg
+      .config()
+      .attackTilesPerTick(
+        troopCount,
+        this._owner,
+        this.target,
+        this.attack.borderSize() + this.random.nextInt(0, 5),
+      );
 
     let numTilesPerTick = Math.floor(this.tilesToProcessAccumulator + 1e-9);
     this.tilesToProcessAccumulator -= numTilesPerTick;
