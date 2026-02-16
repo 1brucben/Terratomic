@@ -45,6 +45,9 @@ export class AINukeEvaluator {
   // Tick tracking for reevaluation
   private _lastReevalTick: number = -1;
 
+  // Dedup guard: only evaluate once per game tick even if multiple AI players call tick()
+  private _lastTickProcessed: number = -1;
+
   // Precomputed max SAM range (level 3) for spatial queries
   private _maxSAMRange: number = 0;
 
@@ -76,10 +79,14 @@ export class AINukeEvaluator {
   }
 
   /**
-   * Called each tick by any AI player. Picks a random tile, scores it for
-   * both bomb types, and updates the best targets if improved.
+   * Called each tick by any AI player. Only evaluates once per game tick;
+   * subsequent calls within the same tick are no-ops.
    */
   tick(random: PseudoRandom, ticks: number): void {
+    // Only evaluate once per game tick
+    if (ticks === this._lastTickProcessed) return;
+    this._lastTickProcessed = ticks;
+
     // Every 100 ticks, reevaluate the saved best tiles
     if (
       this._lastReevalTick < 0 ||
