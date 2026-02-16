@@ -36,6 +36,8 @@ export interface NukeHandlerBestTarget {
 export class AINukeHandler {
   private static readonly REEVALUATE_INTERVAL = 100;
   private static readonly UPGRADE_MULTIPLIER = 0.8;
+  /** Expected number of nukes launched per silo built; amortises silo cost in score. */
+  private static readonly EXPECTED_NUKES_PER_SILO = 2;
 
   private static readonly ALL_STRUCTURE_TYPES: UnitType[] = Object.values(
     UnitType,
@@ -246,7 +248,9 @@ export class AINukeHandler {
       this.mg.unitInfo(UnitType.AtomBomb).cost(this.player!),
     );
     const siloCapacity = this.getPlayerSiloCapacity();
-    const siloCostExtra = this.computeSiloCost(samLevels, siloCapacity);
+    const siloCostExtra =
+      this.computeSiloCost(samLevels, siloCapacity) /
+      AINukeHandler.EXPECTED_NUKES_PER_SILO;
 
     // Atom score
     const atomNumerator =
@@ -344,7 +348,8 @@ export class AINukeHandler {
     const totalCost =
       bombCost +
       samLevels * atomBombCost +
-      this.computeSiloCost(samLevels, siloCapacity);
+      this.computeSiloCost(samLevels, siloCapacity) /
+        AINukeHandler.EXPECTED_NUKES_PER_SILO;
 
     return numerator / Math.max(totalCost, 1);
   }
