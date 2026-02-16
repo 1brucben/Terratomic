@@ -150,14 +150,14 @@
         "warScoreSharedBorderWeight": 10,
         "warScoreMilitaryStrengthWeight": 60,
         "warScoreNonReachableEnemyWeight": 0.2,
-        "warScoreCoBelligerentDiscount": 1,
+        "warScoreCoBelligerentDiscount": 0.1,
         "warScoreAllyPenalty": 0,
         "warScoreDistancePenaltyWeight": 1050,
         "warScoreDominanceWeight": 30,
         "peaceThresholdGap": 45,
         "nukeScoreConstructionThreshold": 0,
         "nukeFriendlyDamageWeight": 1.0,
-        "nukeScoreMultiplier": 1.0
+        "nukeScoreMultiplier": 0.1
       }
     }
   ]

@@ -306,6 +306,19 @@ export class AIAttackHandler {
       return;
     }
 
+    // Only log when this is a genuinely new attack (no existing outgoing to same target)
+    const hasExisting = player
+      .outgoingAttacks()
+      .some((a) => a.target() === target && a.isActive());
+    if (!hasExisting) {
+      console.log(
+        `[AI Attack] LAND: ${player.name()} -> ${target.name()} | ` +
+          `troops=${Math.floor(troops)}, ownTroops=${Math.floor(player.troops())}, ` +
+          `targetTroops=${Math.floor(target.troops())}, ` +
+          `alpha=${alpha.toFixed(3)}, beta=${beta.toFixed(3)}, ` +
+          `tick=${this.mg.ticks()}`,
+      );
+    }
     this.mg.addExecution(new AttackExecution(troops, player, target.id()));
   }
 
@@ -327,6 +340,12 @@ export class AIAttackHandler {
     }
 
     this.lastBoatAttackTick = this.mg.ticks();
+    console.log(
+      `[AI Attack] BOAT: ${player.name()} -> ${target.name()} | ` +
+        `troops=${Math.floor(troops)}, ownTroops=${Math.floor(player.troops())}, ` +
+        `boatTroopPercent=${boatTroopPercent.toFixed(3)}, ` +
+        `tick=${this.mg.ticks()}`,
+    );
     this.mg.addExecution(
       new TransportShipExecution(player, target.id(), targetTile, troops, null),
     );
