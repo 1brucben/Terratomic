@@ -95,6 +95,13 @@ export class PlayerImpl implements Player {
   private _roadInvestmentRate: number = 0; // 0..1, fraction of per-tick income allocated to roads
   private _researchInvestmentRate: number = 0; // 0..1, fraction of per-tick income allocated to research
 
+  // Income tracking (per-tick EMA for per-minute estimates)
+  private _cargoTruckGoldThisTick: bigint = 0n; // per-tick accumulator
+  private _tradeShipGoldThisTick: bigint = 0n; // per-tick accumulator
+  private _cargoTruckGoldPerMinute: number = 0; // EMA
+  private _tradeShipGoldPerMinute: number = 0; // EMA
+  private _estimatedGoldIncomePerMinute: number = 0; // combined estimate
+
   markedTraitorTick = -1;
 
   private embargoes = new Map<PlayerID, Embargo>();
@@ -236,6 +243,9 @@ export class PlayerImpl implements Player {
       targetTroopRatio: this.targetTroopRatio(),
       productivity: this.productivity(),
       productivityGrowthPerMinute: this.productivityGrowthPerMinute(),
+      cargoTruckGoldPerMinute: this.cargoTruckGoldPerMinute(),
+      tradeShipGoldPerMinute: this.tradeShipGoldPerMinute(),
+      estimatedGoldIncomePerMinute: this.estimatedGoldIncomePerMinute(),
       investmentRate: this.investmentRate(),
       roadInvestmentRate: this.roadInvestmentRate(),
       researchInvestmentRate: this.researchInvestmentRate(),
@@ -1592,6 +1602,49 @@ export class PlayerImpl implements Player {
   }
   productivityGrowthPerMinute(): number {
     return this._productivityGrowthPerMinute;
+  }
+
+  // --- Income tracking ---
+  recordCargoTruckGold(gold: Gold): void {
+    this._cargoTruckGoldThisTick += gold;
+  }
+  recordTradeShipGold(gold: Gold): void {
+    this._tradeShipGoldThisTick += gold;
+  }
+  updateIncomeTracking(): void {
+    // EMA decay: 599/600 ≈ 1-minute time constant (600 ticks = 1 min)
+    const DECAY = 599 / 600;
+    this._cargoTruckGoldPerMinute =
+      this._cargoTruckGoldPerMinute * DECAY +
+      Number(this._cargoTruckGoldThisTick);
+    this._tradeShipGoldPerMinute =
+      this._tradeShipGoldPerMinute * DECAY +
+      Number(this._tradeShipGoldThisTick);
+    this._cargoTruckGoldThisTick = 0n;
+    this._tradeShipGoldThisTick = 0n;
+    // Net industrial income per tick, extrapolated to per minute (600 ticks)
+    const grossGoldPerTick = this.mg.config().grossGoldAdditionRate(this);
+    const prodInvest = this.investmentRate();
+    const roadInvest = this.hasUpgrade(UpgradeType.Roads)
+      ? this.roadInvestmentRate()
+      : 0;
+    const researchInvest = this.researchInvestmentRate();
+    const totalInvest = Math.min(prodInvest + roadInvest + researchInvest, 1.1);
+    const netGoldPerTick = grossGoldPerTick * (1 - totalInvest);
+    const netIndustrialPerMinute = netGoldPerTick * 600;
+    this._estimatedGoldIncomePerMinute =
+      netIndustrialPerMinute +
+      this._cargoTruckGoldPerMinute +
+      this._tradeShipGoldPerMinute;
+  }
+  cargoTruckGoldPerMinute(): number {
+    return this._cargoTruckGoldPerMinute;
+  }
+  tradeShipGoldPerMinute(): number {
+    return this._tradeShipGoldPerMinute;
+  }
+  estimatedGoldIncomePerMinute(): number {
+    return this._estimatedGoldIncomePerMinute;
   }
   updateProductivity(): void {
     const alpha = 0.00035;

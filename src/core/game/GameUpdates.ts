@@ -205,6 +205,10 @@ export interface PlayerUpdate {
   workers: number;
   productivity: number;
   productivityGrowthPerMinute: number;
+  // Income tracking (per-minute EMA estimates)
+  cargoTruckGoldPerMinute?: number;
+  tradeShipGoldPerMinute?: number;
+  estimatedGoldIncomePerMinute?: number;
   investmentRate: number;
   // Investment sliders (fractions 0..1)
   roadInvestmentRate?: number;

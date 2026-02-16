@@ -1165,8 +1165,11 @@ export class AssignedTradeRouteExecution implements Execution {
     const ownerShare = ownerBaseTechShare;
 
     a.addGold(aShare);
+    a.recordTradeShipGold(aShare);
     b.addGold(bShare);
+    b.recordTradeShipGold(bShare);
     owner.addGold(ownerShare);
+    owner.recordTradeShipGold(ownerShare);
 
     // Clear trade phase upon successful completion so the ship is eligible for reassignment
     this.setPhaseWithLog(null, "complete_clear_phase");

@@ -184,7 +184,9 @@ export class CargoManager {
               ),
             );
             truck.owner.addGold(originGold);
+            truck.owner.recordCargoTruckGold(originGold);
             truck.destinationOwner.addGold(destinationGold);
+            truck.destinationOwner.recordCargoTruckGold(destinationGold);
             this.game.displayMessage(
               "messages.international_trade_origin",
               MessageType.RECEIVED_GOLD_FROM_TRADE,
@@ -210,6 +212,7 @@ export class CargoManager {
           // --- REVISED: Domestic Arrival ---
           const gold = this.game.config().cargoTruckGold(truck.path.length);
           truck.owner.addGold(gold);
+          truck.owner.recordCargoTruckGold(gold);
           const currentGold =
             this.domesticGoldSinceLastMessage.get(truck.owner.id()) ?? 0n;
           this.domesticGoldSinceLastMessage.set(

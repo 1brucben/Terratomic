@@ -123,6 +123,8 @@ export class PlayerExecution implements Execution {
     }
     this.player.addGold(netGold);
     this.player.updateProductivity();
+    // Update income-per-minute EMA trackers every tick
+    this.player.updateIncomeTracking();
     // Record stats
     // Track net income after investment in stats
     this.mg.stats().goldWork(this.player, netGold);
