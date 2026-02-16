@@ -59,6 +59,9 @@ export class AINukeHandler {
   /** Maximum possible SAM range (base × (1 + upgrade%)^maxLevel). */
   private readonly _maxSAMRange: number;
 
+  // Phase seed for spreading periodic actions across AIs
+  private readonly phaseSeed: number;
+
   constructor(
     private mg: Game,
     private playerId: PlayerID,
@@ -70,18 +73,25 @@ export class AINukeHandler {
     const rangeBonus = this.mg.config().samRangeUpgradePercent();
     const maxTechLevel = 3; // SAMLauncher max stack count
     this._maxSAMRange = baseRange * Math.pow(1 + rangeBonus, maxTechLevel - 1);
+
+    // Stagger periodic actions across AIs using random offset
+    this.phaseSeed = random.nextInt(0, 0x7fffffff);
+  }
+
+  private shouldRunPeriodic(ticks: number, period: number): boolean {
+    const p = Math.max(1, Math.floor(period));
+    return ticks % p === this.phaseSeed % p;
   }
 
   /**
-   * Called each tick by the owning AI player. Picks a random tile, scores it
-   * for both bomb types considering war relationships, and updates the best
-   * targets if improved.
+   * Called each tick by the owning AI player. Evaluates every other tick
+   * (phased across players) to reduce work.
    */
   tick(ticks: number): void {
     this.player = this.mg.player(this.playerId);
     if (!this.player || !this.player.isAlive()) return;
 
-    // Periodic reevaluation of saved best tiles
+    // Periodic reevaluation of saved best tiles (always check, independent of skip)
     if (
       this._lastReevalTick < 0 ||
       ticks - this._lastReevalTick >= AINukeHandler.REEVALUATE_INTERVAL
@@ -89,6 +99,9 @@ export class AINukeHandler {
       this.reevaluateBest();
       this._lastReevalTick = ticks;
     }
+
+    // Only evaluate a new tile every other tick, phased across players
+    if (!this.shouldRunPeriodic(ticks, 2)) return;
 
     // Pick a random tile near a random enemy structure
     const tile = this.pickTileNearEnemyStructure();
