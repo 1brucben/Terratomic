@@ -14,7 +14,6 @@ import {
 } from "../tech/TechEffects";
 import {
   assertNever,
-  distSortUnit,
   maxInt,
   minInt,
   simpleHash,
@@ -1922,7 +1921,16 @@ export class PlayerImpl implements Player {
       .filter((unit) => {
         return !unit.isInCooldown();
       })
-      .sort(distSortUnit(this.mg, tile));
+      .sort((a, b) => {
+        // Prefer the silo with the most levels (highest capacity first),
+        // break ties by distance to target (closest first).
+        const levelDiff = (b.stackCount?.() ?? 1) - (a.stackCount?.() ?? 1);
+        if (levelDiff !== 0) return levelDiff;
+        return (
+          this.mg.euclideanDistSquared(a.tile(), tile) -
+          this.mg.euclideanDistSquared(b.tile(), tile)
+        );
+      });
     if (spawns.length === 0) {
       return false;
     }
