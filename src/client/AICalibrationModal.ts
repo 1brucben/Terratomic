@@ -3,15 +3,19 @@ import { customElement, query, state } from "lit/decorators.js";
 import { AIProfile, getAllAIProfiles } from "../core/ai/AIBehaviorParams";
 import { Difficulty, GameMapType, GameMode, GameType } from "../core/game/Game";
 import { generateID } from "../core/Util";
-import {
-  CalibrationConfig,
-  CalibrationProgressCallback,
-  CalibrationResult,
-  runCalibrationMatch,
-} from "./CalibrationRunner";
+import { CalibrationConfig, CalibrationResult } from "./CalibrationRunner";
+import type {
+  CalibrationWorkerMessage,
+  CalibrationWorkerRequest,
+} from "./CalibrationWorker";
 import "./components/baseComponents/Button";
 import "./components/baseComponents/Modal";
 import type { JoinLobbyEvent } from "./Main";
+
+interface BatchResult {
+  matchIndex: number;
+  result: CalibrationResult;
+}
 
 @customElement("ai-calibration-modal")
 export class AICalibrationModal extends LitElement {
@@ -26,17 +30,15 @@ export class AICalibrationModal extends LitElement {
   @state() private selectedMap: GameMapType = GameMapType.World;
   @state() private bots = 0;
   @state() private maxTicks = 30000;
+  @state() private numMatches = 10;
   @state() private isRunning = false;
-  @state() private progress = 0;
-  @state() private progressPlayers: {
-    name: string;
-    profile: string;
-    tiles: number;
-  }[] = [];
-  @state() private result: CalibrationResult | null = null;
+  @state() private completedMatches = 0;
+  @state() private totalMatches = 0;
+  @state() private batchResults: BatchResult[] = [];
   @state() private renderMatch = false;
 
   private profiles: AIProfile[] = [];
+  private activeWorkers: Worker[] = [];
 
   connectedCallback() {
     super.connectedCallback();
@@ -184,24 +186,93 @@ export class AICalibrationModal extends LitElement {
     .draw-result {
       color: var(--ui-text-secondary, #aaa);
     }
+
+    .calib-batch-summary {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 12px;
+      font-size: 18px;
+      font-weight: bold;
+      margin-bottom: 12px;
+    }
+
+    .calib-vs {
+      color: var(--ui-text-secondary, #aaa);
+      font-size: 14px;
+      font-weight: normal;
+    }
+
+    .calib-match-list {
+      max-height: 200px;
+      overflow-y: auto;
+      margin-top: 10px;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+
+    .calib-match-row {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-size: 13px;
+      padding: 4px 8px;
+      border-radius: 4px;
+      background: var(--ui-panel-bg, #1e1e1e);
+    }
+
+    .calib-match-num {
+      min-width: 30px;
+      color: var(--ui-text-secondary, #aaa);
+      font-family: monospace;
+    }
+
+    .calib-match-ticks {
+      margin-left: auto;
+      color: var(--ui-text-secondary, #aaa);
+      font-family: monospace;
+      font-size: 12px;
+    }
   `;
 
   open() {
-    this.result = null;
+    this.batchResults = [];
     this.isRunning = false;
-    this.progress = 0;
-    this.progressPlayers = [];
+    this.completedMatches = 0;
+    this.totalMatches = 0;
+    this.cleanupWorkers();
     this.modalEl.open();
   }
 
   close() {
+    this.cleanupWorkers();
     this.modalEl.close();
+  }
+
+  private cleanupWorkers() {
+    for (const w of this.activeWorkers) {
+      w.terminate();
+    }
+    this.activeWorkers = [];
   }
 
   render() {
     const maps = Object.values(GameMapType);
     const playerSliderPercent = ((this.numPlayers - 2) / 38) * 100;
     const botSliderPercent = (this.bots / 400) * 100;
+    const matchSliderPercent = ((this.numMatches - 1) / 49) * 100;
+
+    // Aggregate batch results
+    const profileAWins = this.batchResults.filter(
+      (r) => r.result.winnerProfile === this.selectedProfileA,
+    ).length;
+    const profileBWins = this.batchResults.filter(
+      (r) => r.result.winnerProfile === this.selectedProfileB,
+    ).length;
+    const draws = this.batchResults.filter(
+      (r) => r.result.winnerProfile === null,
+    ).length;
 
     return html`
       <o-modal title="AI Calibration" max-width="700px" max-height="80dvh">
@@ -323,11 +394,33 @@ export class AICalibrationModal extends LitElement {
               />
               <span
                 >${this.renderMatch
-                  ? "Will render the match (slower)"
+                  ? "Will render 1 match (slower)"
                   : "Headless (fast)"}</span
               >
             </div>
           </div>
+
+          <!-- Number of Matches (hidden when rendering) -->
+          ${!this.renderMatch
+            ? html`
+                <div class="calib-row">
+                  <label>Matches</label>
+                  <input
+                    type="range"
+                    min="1"
+                    max="50"
+                    step="1"
+                    .value=${String(this.numMatches)}
+                    style="--progress: ${matchSliderPercent}%"
+                    @input=${(e: Event) =>
+                      (this.numMatches = Number(
+                        (e.target as HTMLInputElement).value,
+                      ))}
+                  />
+                  <span class="range-value">${this.numMatches}</span>
+                </div>
+              `
+            : html``}
 
           <!-- Progress -->
           ${this.isRunning
@@ -336,78 +429,79 @@ export class AICalibrationModal extends LitElement {
                   <div class="calib-progress-bar">
                     <div
                       class="calib-progress-bar-fill"
-                      style="width: ${this.progress}%"
+                      style="width: ${(this.completedMatches /
+                        this.totalMatches) *
+                      100}%"
                     ></div>
                   </div>
                   <div class="calib-progress">
                     <div>
-                      Tick ${Math.round((this.progress / 100) * this.maxTicks)}
-                      / ${this.maxTicks}
+                      Match ${this.completedMatches} / ${this.totalMatches}
+                      completed (${this.totalMatches - this.completedMatches}
+                      running on worker threads)
                     </div>
-                    ${this.progressPlayers.length > 0
-                      ? html`
-                          <div
-                            class="calib-player-list"
-                            style="margin-top: 8px"
-                          >
-                            ${this.progressPlayers
-                              .sort((a, b) => b.tiles - a.tiles)
-                              .map(
-                                (p) => html`
-                                  <span
-                                    class=${p.profile === this.selectedProfileA
-                                      ? "calib-player-a"
-                                      : "calib-player-b"}
-                                    >${p.name}</span
-                                  >
-                                  <span>${p.tiles} tiles</span>
-                                `,
-                              )}
-                          </div>
-                        `
-                      : html``}
                   </div>
                 </div>
               `
             : html``}
 
-          <!-- Result -->
-          ${this.result
+          <!-- Batch Results -->
+          ${this.batchResults.length > 0
             ? html`
                 <div class="calib-section">
                   <div class="calib-result">
-                    ${this.result.winnerProfile
-                      ? html`
-                          <h3>Winner</h3>
-                          <div class="winner-name">
-                            ${this.result.winnerPlayerName}
-                          </div>
-                          <div class="profile-name">
-                            Profile:
-                            ${this.getProfileName(this.result.winnerProfile)}
-                          </div>
-                        `
-                      : html`
-                          <h3 class="draw-result">Draw (max ticks reached)</h3>
-                        `}
-                    <div class="tick-count">
-                      Completed in ${this.result.ticksElapsed} ticks
+                    <h3>
+                      Results (${this.batchResults.length}/${this.totalMatches}
+                      matches)
+                    </h3>
+                    <div class="calib-batch-summary">
+                      <span class="calib-player-a"
+                        >${this.getProfileName(this.selectedProfileA)}:
+                        ${profileAWins} wins</span
+                      >
+                      <span class="calib-vs">vs</span>
+                      <span class="calib-player-b"
+                        >${this.getProfileName(this.selectedProfileB)}:
+                        ${profileBWins} wins</span
+                      >
+                      ${draws > 0
+                        ? html`<span class="draw-result"
+                            >(${draws} draws)</span
+                          >`
+                        : html``}
                     </div>
-                    <div style="margin-top: 12px; font-size: 13px;">
-                      <div>
-                        <span class="calib-player-a"
-                          >Profile A
-                          (${this.getProfileName(this.selectedProfileA)}):</span
-                        >
-                        ${this.result.profileAPlayers.join(", ")}
-                      </div>
-                      <div style="margin-top: 4px;">
-                        <span class="calib-player-b"
-                          >Profile B
-                          (${this.getProfileName(this.selectedProfileB)}):</span
-                        >
-                        ${this.result.profileBPlayers.join(", ")}
-                      </div>
+
+                    <!-- Per-match details -->
+                    <div class="calib-match-list">
+                      ${this.batchResults
+                        .sort((a, b) => a.matchIndex - b.matchIndex)
+                        .map(
+                          (r) => html`
+                            <div class="calib-match-row">
+                              <span class="calib-match-num"
+                                >#${r.matchIndex + 1}</span
+                              >
+                              ${r.result.winnerProfile
+                                ? html`
+                                    <span
+                                      class=${r.result.winnerProfile ===
+                                      this.selectedProfileA
+                                        ? "calib-player-a"
+                                        : "calib-player-b"}
+                                    >
+                                      ${r.result.winnerPlayerName}
+                                      (${this.getProfileName(
+                                        r.result.winnerProfile,
+                                      )})
+                                    </span>
+                                  `
+                                : html`<span class="draw-result">Draw</span>`}
+                              <span class="calib-match-ticks"
+                                >${r.result.ticksElapsed} ticks</span
+                              >
+                            </div>
+                          `,
+                        )}
                     </div>
                   </div>
                 </div>
@@ -418,11 +512,13 @@ export class AICalibrationModal extends LitElement {
           <div class="calib-actions">
             ${this.isRunning
               ? html`<span style="color: var(--ui-text-secondary)"
-                  >Running...</span
+                  >Running ${this.totalMatches} matches...</span
                 >`
               : html`
                   <o-button
-                    title="Run Match"
+                    title=${this.renderMatch
+                      ? "Watch Match"
+                      : `Run ${this.numMatches} Match${this.numMatches > 1 ? "es" : ""}`}
                     @click=${this.startCalibration}
                   ></o-button>
                 `}
@@ -456,42 +552,83 @@ export class AICalibrationModal extends LitElement {
     };
 
     if (this.renderMatch) {
-      // Launch as a rendered game via the normal game pipeline
       this.launchRenderedCalibration(calibConfig);
       return;
     }
 
-    // Headless mode
+    // Headless batch mode — spawn workers
     this.isRunning = true;
-    this.result = null;
-    this.progress = 0;
-    this.progressPlayers = [];
+    this.batchResults = [];
+    this.completedMatches = 0;
+    this.totalMatches = this.numMatches;
+    this.cleanupWorkers();
 
-    const progressCallback: CalibrationProgressCallback = (info) => {
-      this.progress = (info.tick / info.maxTicks) * 100;
-      this.progressPlayers = info.players;
-    };
+    const promises: Promise<void>[] = [];
 
-    try {
-      this.result = await runCalibrationMatch(calibConfig, progressCallback);
-    } catch (error) {
-      console.error("Calibration match failed:", error);
-      this.result = {
-        winnerProfile: null,
-        winnerPlayerName: null,
-        winnerPlayerID: null,
-        ticksElapsed: 0,
-        profileAPlayers: [],
-        profileBPlayers: [],
-      };
-    } finally {
-      this.isRunning = false;
+    for (let i = 0; i < this.numMatches; i++) {
+      promises.push(this.runMatchInWorker(i, calibConfig));
     }
+
+    await Promise.all(promises);
+    this.isRunning = false;
+  }
+
+  private runMatchInWorker(
+    matchIndex: number,
+    config: CalibrationConfig,
+  ): Promise<void> {
+    return new Promise((resolve) => {
+      const worker = new Worker(
+        new URL("./CalibrationWorker.ts", import.meta.url),
+      );
+      this.activeWorkers.push(worker);
+
+      worker.addEventListener(
+        "message",
+        (e: MessageEvent<CalibrationWorkerMessage>) => {
+          const msg = e.data;
+          if (msg.type === "result") {
+            this.batchResults = [
+              ...this.batchResults,
+              { matchIndex: msg.matchIndex, result: msg.result },
+            ];
+            this.completedMatches++;
+          } else if (msg.type === "error") {
+            console.error(`Match #${msg.matchIndex + 1} failed: ${msg.error}`);
+            this.batchResults = [
+              ...this.batchResults,
+              {
+                matchIndex: msg.matchIndex,
+                result: {
+                  winnerProfile: null,
+                  winnerPlayerName: null,
+                  winnerPlayerID: null,
+                  ticksElapsed: 0,
+                  profileAPlayers: [],
+                  profileBPlayers: [],
+                },
+              },
+            ];
+            this.completedMatches++;
+          }
+
+          // Clean up this worker
+          worker.terminate();
+          this.activeWorkers = this.activeWorkers.filter((w) => w !== worker);
+          resolve();
+        },
+      );
+
+      const request: CalibrationWorkerRequest = {
+        type: "run",
+        matchIndex,
+        config,
+      };
+      worker.postMessage(request);
+    });
   }
 
   private launchRenderedCalibration(calibConfig: CalibrationConfig) {
-    // For rendered mode, we dispatch a join-lobby event with calibration data.
-    // The game will run normally with AI-only players visible to a spectator.
     const clientID = generateID();
     const gameID = generateID();
 
@@ -514,7 +651,7 @@ export class AICalibrationModal extends LitElement {
               gameType: GameType.Singleplayer,
               gameMode: GameMode.FFA,
               difficulty: Difficulty.Medium,
-              disableNPCs: false, // We'll use nations from the map
+              disableNPCs: false,
               bots: calibConfig.bots,
               infiniteGold: false,
               infiniteTroops: false,
@@ -525,7 +662,6 @@ export class AICalibrationModal extends LitElement {
               chatEnabled: false,
             },
           },
-          // Pass calibration config as extra data for the game setup
           calibration: {
             numPlayers: calibConfig.numPlayers,
             profileA: calibConfig.profileA,
