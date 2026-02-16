@@ -39,6 +39,23 @@ export async function loadTerrainMap(
   return result;
 }
 
+/**
+ * Loads a terrain map without caching. Always creates fresh GameMap objects.
+ * Use this when the map will be mutated (e.g. headless calibration runs).
+ */
+export async function loadTerrainMapFresh(
+  map: GameMapType,
+): Promise<TerrainMapData> {
+  const mapFiles = await terrainMapFileLoader.getMapData(map);
+  const gameMap = await genTerrainFromBin(mapFiles.mapBin);
+  const miniGameMap = await genTerrainFromBin(mapFiles.miniMapBin);
+  return {
+    nationMap: mapFiles.nationMap,
+    gameMap,
+    miniGameMap,
+  };
+}
+
 export async function genTerrainFromBin(data: string): Promise<GameMap> {
   const width = (data.charCodeAt(1) << 8) | data.charCodeAt(0);
   const height = (data.charCodeAt(3) << 8) | data.charCodeAt(2);

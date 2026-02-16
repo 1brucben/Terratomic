@@ -62,6 +62,15 @@ export class AIDiplomacyHandler {
   // Whether peace was successfully made this evaluation cycle
   private _peaceCompletedThisCycle = false;
 
+  // Ticks at peace without any active wars (for threshold decay)
+  private _ticksAtPeace = 0;
+  // Whether the AI was at war last tick (to detect war start/end transitions)
+  private _wasAtWar = false;
+  // Accumulated threshold reduction from peaceful ticks
+  private _warThresholdDecay = 0;
+  // How many peaceful ticks before threshold drops by 1
+  private static readonly PEACE_DECAY_INTERVAL = 300;
+
   constructor(
     private mg: Game,
     private playerId: PlayerID,
@@ -264,6 +273,9 @@ export class AIDiplomacyHandler {
     if (!player || !player.isAlive()) {
       return;
     }
+
+    // Track war/peace state for threshold decay
+    this.updateWarThresholdDecay(player);
 
     // Periodically evaluate war scores
     if (
@@ -507,7 +519,7 @@ export class AIDiplomacyHandler {
 
     const warMovingAvg = this.getMovingAverageWarScore(other.id());
     const peaceMovingAvg = this.getMovingAveragePeaceScore(other.id());
-    const threshold = this.params.warDeclarationThreshold ?? 1.0;
+    const threshold = this.effectiveWarThreshold;
     const gap = this.params.peaceThresholdGap ?? 30;
     const peaceThresh = threshold - gap;
 
@@ -751,10 +763,62 @@ export class AIDiplomacyHandler {
   }
 
   /**
+   * Returns the effective war declaration threshold, accounting for peaceful decay.
+   */
+  private get effectiveWarThreshold(): number {
+    return (
+      (this.params.warDeclarationThreshold ?? 1.0) - this._warThresholdDecay
+    );
+  }
+
+  /**
+   * Checks if the AI is currently at war with any non-bot player.
+   */
+  private isAtWar(player: Player): boolean {
+    for (const other of this.mg.players()) {
+      if (
+        other.id() !== player.id() &&
+        other.isAlive() &&
+        other.type() !== PlayerType.Bot &&
+        player.isAtWarWith(other)
+      ) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  /**
+   * Updates the war threshold decay based on peace/war state transitions.
+   * Every PEACE_DECAY_INTERVAL ticks without any war, threshold drops by 1.
+   * Resets when a war starts (either declared or received).
+   */
+  private updateWarThresholdDecay(player: Player): void {
+    const atWar = this.isAtWar(player);
+
+    if (atWar) {
+      // Just entered war or still at war: reset decay
+      if (!this._wasAtWar) {
+        this._warThresholdDecay = 0;
+        this._ticksAtPeace = 0;
+      }
+      this._wasAtWar = true;
+    } else {
+      // At peace
+      this._wasAtWar = false;
+      this._ticksAtPeace++;
+      if (this._ticksAtPeace >= AIDiplomacyHandler.PEACE_DECAY_INTERVAL) {
+        this._ticksAtPeace -= AIDiplomacyHandler.PEACE_DECAY_INTERVAL;
+        this._warThresholdDecay++;
+      }
+    }
+  }
+
+  /**
    * Declares war on players whose moving average war score exceeds the threshold.
    */
   private maybeDeclarWars(player: Player): void {
-    const threshold = this.params.warDeclarationThreshold ?? 1.0;
+    const threshold = this.effectiveWarThreshold;
 
     for (const [otherId] of this._warScores) {
       const avgScore = this.getMovingAverageWarScore(otherId);
@@ -800,7 +864,7 @@ export class AIDiplomacyHandler {
    * A war score below this value means the AI is willing to make peace.
    */
   private get peaceThreshold(): number {
-    const warThreshold = this.params.warDeclarationThreshold ?? 1.0;
+    const warThreshold = this.effectiveWarThreshold;
     const gap = this.params.peaceThresholdGap ?? 30;
     return warThreshold - gap;
   }
