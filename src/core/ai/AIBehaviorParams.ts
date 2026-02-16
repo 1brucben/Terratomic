@@ -294,6 +294,14 @@ export interface AIBehaviorParams {
    * to make peace. Default 30.
    */
   peaceThresholdGap?: number;
+
+  // === General ===
+  /**
+   * Discount factor applied to future rewards when evaluating decisions.
+   * Lower values make the AI more short-sighted; higher values make it
+   * plan further ahead. Default 0.1.
+   */
+  discountFactor?: number;
 }
 
 export interface AIProfile {
