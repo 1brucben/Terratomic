@@ -335,7 +335,7 @@ export class PlayerImpl implements Player {
 
   // Economic: Industrial Production = gross gold rate without gold multiplier
   // Formula: 0.11 * workers^0.65 * productivity * factoryFactor * domesticIncomeMul
-  industrialProduction(): number {
+  rawIndustrialProduction(): number {
     const base = 0.11 * Math.pow(this.workers(), 0.65);
     const productivity = this.productivity();
     const k = this.effectiveUnits(UnitType.Factory);
@@ -344,7 +344,10 @@ export class PlayerImpl implements Player {
     const g =
       base * productivity * factoryFactor * incomeMods.domesticIncomeMul;
     if (!Number.isFinite(g) || g < 0) return 0;
-    return Math.floor(g);
+    return g;
+  }
+  industrialProduction(): number {
+    return Math.floor(this.rawIndustrialProduction());
   }
 
   clan(): string | null {
@@ -1662,7 +1665,9 @@ export class PlayerImpl implements Player {
     this._cargoTruckGoldThisTick = 0n;
     this._tradeShipGoldThisTick = 0n;
     // Net industrial income per tick, extrapolated to per minute (600 ticks)
-    const grossGoldPerTick = this.mg.config().grossGoldAdditionRate(this);
+    const grossGoldPerTick =
+      this.rawIndustrialProduction() *
+      (this.mg.config().gameConfig().goldMultiplier ?? 1);
     const prodInvest = this.investmentRate();
     const roadInvest = this.hasUpgrade(UpgradeType.Roads)
       ? this.roadInvestmentRate()

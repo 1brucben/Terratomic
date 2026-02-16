@@ -39,7 +39,6 @@ import {
   PlayerTeamAssignments,
   TeamCountConfig,
 } from "../Schemas";
-import { incomeModifiers } from "../tech/TechEffects";
 import { assertNever, simpleHash, within } from "../Util";
 import { Config, GameEnv, NukeMagnitude, ServerConfig, Theme } from "./Config";
 import { PastelTheme } from "./PastelTheme";
@@ -1177,20 +1176,8 @@ export class DefaultConfig implements Config {
 
   // Gross gold per tick BEFORE any investments are subtracted
   grossGoldAdditionRate(player: Player | PlayerView): number {
-    const base = 0.11 * Math.pow(player.workers(), 0.65);
-    const productivity = player.productivity();
-    const k = player.effectiveUnits(UnitType.Factory);
-    const factoryFactor = Math.pow(1 + k, 0.35);
     const multiplier = this._gameConfig.goldMultiplier ?? 1;
-    // Apply tech/policy-based domestic income multiplier
-    const incomeMods = incomeModifiers(player);
-    const grossGold =
-      base *
-      productivity *
-      factoryFactor *
-      multiplier *
-      incomeMods.domesticIncomeMul;
-    return Number.isFinite(grossGold) && grossGold >= 0 ? grossGold : 0;
+    return player.rawIndustrialProduction() * multiplier;
   }
 
   goldAdditionRate(player: Player): bigint {

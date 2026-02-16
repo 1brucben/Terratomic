@@ -653,7 +653,10 @@ export interface Player {
   estimatedGoldIncomePerMinute(): number;
   setInvestmentRate(rate: number): void;
   // Economic: Industrial Production proxy (formerly GDP)
-  industrialProduction(): number; // Computed as config.industrialProductionFactor() * maxPopulation(this)
+  /** Raw (unrounded) industrial production: 0.11 * workers^0.65 * productivity * factoryFactor * domesticIncomeMul */
+  rawIndustrialProduction(): number;
+  /** Floored version for display / wire */
+  industrialProduction(): number;
   // Roads: investment ratio (0..1) of per-tick income allocated to roads
   roadInvestmentRate(): number;
   setRoadInvestmentRate(rate: number): void;
