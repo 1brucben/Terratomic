@@ -103,6 +103,8 @@ export class MobileUI {
   private currentGameId: string | null = null;
   private stackModeEnabled: boolean = false;
   private stackTargetUnitId: number | null = null;
+  private readonly MOBILE_BUTTON_ZOOM_DELTA = 200;
+  private readonly MOBILE_PINCH_ZOOM_MULTIPLIER = 50;
   private readonly orientationChangeHandler = (): void => {
     this.handleOrientationChange();
   };
@@ -520,8 +522,7 @@ export class MobileUI {
       if (!gesture.scale || !this.canvas) return;
 
       // Calculate zoom delta from scale (scale > 1 = zoom in, scale < 1 = zoom out)
-      // Reduced multiplier from 600 to 100 for less aggressive zoom
-      const delta = (1 - gesture.scale) * 100;
+      const delta = (1 - gesture.scale) * this.MOBILE_PINCH_ZOOM_MULTIPLIER;
 
       // Use center of canvas as zoom point
       const rect = this.canvas.getBoundingClientRect();
@@ -884,7 +885,9 @@ export class MobileUI {
     const centerX = rect.left + rect.width / 2;
     const centerY = rect.top + rect.height / 2;
     // Negative delta = zoom in (scale increases)
-    this.eventBus.emit(new ZoomEvent(centerX, centerY, -100));
+    this.eventBus.emit(
+      new ZoomEvent(centerX, centerY, -this.MOBILE_BUTTON_ZOOM_DELTA),
+    );
   }
 
   /**
@@ -896,7 +899,9 @@ export class MobileUI {
     const centerX = rect.left + rect.width / 2;
     const centerY = rect.top + rect.height / 2;
     // Positive delta = zoom out (scale decreases)
-    this.eventBus.emit(new ZoomEvent(centerX, centerY, 100));
+    this.eventBus.emit(
+      new ZoomEvent(centerX, centerY, this.MOBILE_BUTTON_ZOOM_DELTA),
+    );
   }
 
   /**
