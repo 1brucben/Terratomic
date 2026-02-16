@@ -61,6 +61,7 @@ export class TerritoryLayer implements Layer {
   private isDirty = false;
   private dirtyRect: { x0: number; y0: number; x1: number; y1: number } | null =
     null;
+  private needsFullRepaint = false;
 
   // Cached map dimensions to avoid repeated method calls in hot render path
   private _width: number;
@@ -269,6 +270,7 @@ export class TerritoryLayer implements Layer {
     this.eventBus.on(MouseOverEvent, (e) => this.onMouseOver(e));
     this.eventBus.on(AlternateViewEvent, (e) => {
       this.alternativeView = e.alternateView;
+      this.needsFullRepaint = true;
     });
     this.redraw();
   }
@@ -392,8 +394,17 @@ export class TerritoryLayer implements Layer {
       this.lastRefresh = now;
       this.renderTerritory();
 
-      // Only call putImageData if something actually changed
-      if (this.isDirty && this.dirtyRect) {
+      // Full repaint when switching between normal and diplomacy view
+      if (this.needsFullRepaint) {
+        this.context.putImageData(
+          this.alternativeView ? this.alternativeImageData : this.imageData,
+          0,
+          0,
+        );
+        this.needsFullRepaint = false;
+        this.isDirty = false;
+        this.dirtyRect = null;
+      } else if (this.isDirty && this.dirtyRect) {
         // Apply the dirty rect directly without viewport clipping
         // The canvas needs to stay in sync with ImageData even for off-screen areas
         // so that when the user zooms out, those areas are already rendered
