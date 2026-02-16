@@ -1125,11 +1125,11 @@ export class GameImpl implements Game {
           .map((p) => p.clientID()!),
       ];
     } else {
-      const clientId = winner.clientID();
-      if (clientId === null) return;
+      // Use clientID for humans, fall back to player id for AI/bot players
+      const winnerId = winner.clientID() ?? winner.id();
       return [
         "player",
-        clientId,
+        winnerId,
         // TODO: Assists (vote for peace)
       ];
     }

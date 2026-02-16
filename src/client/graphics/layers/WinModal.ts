@@ -350,7 +350,18 @@ export class WinModal extends LitElement implements Layer {
         }
         this.show();
       } else {
-        const winner = this.game.playerByClientID(wu.winner[1]);
+        // Try clientID lookup first (human winners), then player ID (AI/bot winners)
+        let winner = this.game.playerByClientID(wu.winner[1]);
+        if (!winner?.isPlayer()) {
+          try {
+            const playerById = this.game.player(wu.winner[1]);
+            if (playerById?.isPlayer()) {
+              winner = playerById;
+            }
+          } catch {
+            // Player not found by ID either
+          }
+        }
         if (!winner?.isPlayer()) return;
         const winnerClient = winner.clientID();
         if (winnerClient !== null) {
