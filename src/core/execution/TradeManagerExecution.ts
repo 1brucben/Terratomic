@@ -197,7 +197,7 @@ export class TradeManagerExecution implements Execution {
         const k = this.key(a, b);
         // Initialize with a uniform random fractional remainder in [0,1) once per pair
         let prev = this.demand.get(k);
-        prev ??= 0.9 + this.rand.next() * 0.1;
+        prev ??= this.rand.next();
         const next = (prev as number) + demandDelta;
 
         // Debug: log demand between Human and Madagascar (once per second)
