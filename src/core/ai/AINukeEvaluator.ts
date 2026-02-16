@@ -45,6 +45,10 @@ export class AINukeEvaluator {
   // Tick tracking for reevaluation
   private _lastReevalTick: number = -1;
 
+  // Per-tick caches to avoid repeated units() calls
+  private _cachedStructures: Unit[] | null = null;
+  private _cachedSAMs: Unit[] | null = null;
+
   private constructor(private mg: Game) {}
 
   /**
@@ -71,6 +75,12 @@ export class AINukeEvaluator {
    * both bomb types, and updates the best targets if improved.
    */
   tick(random: PseudoRandom, ticks: number): void {
+    // Build per-tick caches: one pass over all units instead of 12+ per call
+    this._cachedStructures = this.mg.units(
+      ...AINukeEvaluator.ALL_STRUCTURE_TYPES,
+    );
+    this._cachedSAMs = this.mg.units(UnitType.SAMLauncher);
+
     // Every 100 ticks, reevaluate the saved best tiles
     if (
       this._lastReevalTick < 0 ||
@@ -100,6 +110,10 @@ export class AINukeEvaluator {
       this._bestHydrogenScore = hydrogenScore;
       this._bestHydrogenTile = tile;
     }
+
+    // Release per-tick caches
+    this._cachedStructures = null;
+    this._cachedSAMs = null;
   }
 
   /**
@@ -165,16 +179,16 @@ export class AINukeEvaluator {
     const innerRange = magnitude.inner;
     const innerRangeSquared = innerRange * innerRange;
 
-    // Sum value of all structures within inner range
+    // Sum value of all structures within inner range (uses per-tick cache)
+    const allStructures =
+      this._cachedStructures ??
+      this.mg.units(...AINukeEvaluator.ALL_STRUCTURE_TYPES);
     let totalValue = 0;
-    for (const structureType of AINukeEvaluator.ALL_STRUCTURE_TYPES) {
-      const structures = this.mg.units(structureType);
-      for (const structure of structures) {
-        if (!structure.isActive()) continue;
-        const dist2 = this.mg.euclideanDistSquared(tile, structure.tile());
-        if (dist2 > innerRangeSquared) continue;
-        totalValue += this.getStructureValue(structure);
-      }
+    for (const structure of allStructures) {
+      if (!structure.isActive()) continue;
+      const dist2 = this.mg.euclideanDistSquared(tile, structure.tile());
+      if (dist2 > innerRangeSquared) continue;
+      totalValue += this.getStructureValue(structure);
     }
 
     // Compute total cost: bomb + SAM interception
@@ -195,7 +209,7 @@ export class AINukeEvaluator {
    * Each SAM's range depends on the owning player's tech level.
    */
   private calculateSAMPenalty(tile: TileRef): number {
-    const allSAMs = this.mg.units(UnitType.SAMLauncher);
+    const allSAMs = this._cachedSAMs ?? this.mg.units(UnitType.SAMLauncher);
     let totalSAMLevels = 0;
 
     for (const sam of allSAMs) {

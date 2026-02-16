@@ -159,12 +159,14 @@ export class TradeManagerExecution implements Execution {
 
   private accumulateDemand(): void {
     const K = this.mg.config().tradeGravityK();
-    // World Industrial Production = sum of all alive players' industrialProduction values (bots and humans)
-    const worldIndustrialProduction = this.mg
-      .players()
-      .filter((p) => p.isAlive())
-      .reduce((sum, p) => sum + p.industrialProduction(), 0);
     const players = this.playersForTrade();
+    // World Industrial Production = sum of trade-eligible players only (excludes Bots)
+    // Using the same population as playersForTrade() so bot IP doesn't inflate the
+    // denominator and suppress demand between actual trading partners.
+    const worldIndustrialProduction = players.reduce(
+      (sum, p) => sum + p.industrialProduction(),
+      0,
+    );
 
     for (let i = 0; i < players.length; i++) {
       for (let j = 0; j < players.length; j++) {
