@@ -42,6 +42,12 @@ export interface InitMessage extends BaseWorkerMessage {
   type: "init";
   gameStartInfo: GameStartInfo;
   clientID: ClientID;
+  // Calibration data for AI-vs-AI matches
+  calibration?: {
+    numPlayers: number;
+    profileA: { id: string; name: string; params: Record<string, unknown> };
+    profileB: { id: string; name: string; params: Record<string, unknown> };
+  };
 }
 
 export interface TurnMessage extends BaseWorkerMessage {

@@ -80,6 +80,7 @@ ctx.addEventListener("message", async (e: MessageEvent<MainThreadMessage>) => {
           message.gameStartInfo,
           message.clientID,
           gameUpdate,
+          message.calibration as any,
         ).then((gr) => {
           sendMessage({
             type: "initialized",

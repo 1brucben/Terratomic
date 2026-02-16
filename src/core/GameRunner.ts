@@ -1,4 +1,5 @@
 import { placeName } from "../client/graphics/NameBoxCalculator";
+import { AIBehaviorParams } from "./ai/AIBehaviorParams";
 import { getConfig } from "./configuration/ConfigLoader";
 import { AllianceExpireCheckExecution } from "./execution/alliance/AllianceExpireCheckExecution";
 import { CapitalRecalculationExecution } from "./execution/CapitalRecalculationExecution";
@@ -38,10 +39,17 @@ import { getTechNodes } from "./tech/ResearchTree";
 import { sanitize, simpleHash } from "./Util";
 import { censorNameWithClanTag } from "./validations/username";
 
+export interface CalibrationData {
+  numPlayers: number;
+  profileA: { id: string; name: string; params: AIBehaviorParams };
+  profileB: { id: string; name: string; params: AIBehaviorParams };
+}
+
 export async function createGameRunner(
   gameStart: GameStartInfo,
   clientID: ClientID,
   callBack: (gu: GameUpdateViewData | ErrorUpdate) => void,
+  calibration?: CalibrationData,
 ): Promise<GameRunner> {
   const config = await getConfig(gameStart.config, null);
   const gameMap = await loadGameMap(gameStart.config.gameMap);
@@ -59,22 +67,62 @@ export async function createGameRunner(
     );
   });
 
-  const nations = gameStart.config.disableNPCs
-    ? []
-    : gameMap.nationMap.nations.map(
-        (n) =>
-          new Nation(
-            new Cell(n.coordinates[0], n.coordinates[1]),
-            n.strength,
-            new PlayerInfo(
-              n.flag || "",
-              n.name,
-              PlayerType.AI,
-              null,
-              random.nextID(),
-            ),
-          ),
+  let nations: Nation[];
+  let aiProfileMap: Map<string, AIBehaviorParams> | undefined;
+
+  if (calibration) {
+    // Calibration mode: generate uniformly distributed AI players
+    const spawnPoints = generateCalibrationSpawnPoints(
+      gameMap.gameMap,
+      calibration.numPlayers,
+      random,
+    );
+
+    nations = [];
+    aiProfileMap = new Map<string, AIBehaviorParams>();
+    const half = Math.floor(calibration.numPlayers / 2);
+
+    for (let i = 0; i < calibration.numPlayers; i++) {
+      const isProfileA = i < half;
+      const profile = isProfileA ? calibration.profileA : calibration.profileB;
+      const playerName = `${profile.name} #${isProfileA ? i + 1 : i - half + 1}`;
+      const playerID = random.nextID();
+
+      const playerInfo = new PlayerInfo(
+        "",
+        playerName,
+        PlayerType.AI,
+        null,
+        playerID,
       );
+
+      const ref = spawnPoints[i];
+      const nation = new Nation(
+        new Cell(gameMap.gameMap.x(ref), gameMap.gameMap.y(ref)),
+        1,
+        playerInfo,
+      );
+      nations.push(nation);
+      aiProfileMap.set(playerID, profile.params);
+    }
+  } else {
+    nations = gameStart.config.disableNPCs
+      ? []
+      : gameMap.nationMap.nations.map(
+          (n) =>
+            new Nation(
+              new Cell(n.coordinates[0], n.coordinates[1]),
+              n.strength,
+              new PlayerInfo(
+                n.flag || "",
+                n.name,
+                PlayerType.AI,
+                null,
+                random.nextID(),
+              ),
+            ),
+        );
+  }
 
   const game: Game = createGame(
     humans,
@@ -89,9 +137,88 @@ export async function createGameRunner(
     new Executor(game, gameStart.gameID, clientID),
     callBack,
     clientID,
+    aiProfileMap,
   );
   gr.init();
   return gr;
+}
+
+/**
+ * Generate N uniformly distributed spawn points on land tiles using
+ * farthest-point sampling for calibration matches.
+ */
+function generateCalibrationSpawnPoints(
+  gameMap: {
+    width(): number;
+    height(): number;
+    isLand(ref: number): boolean;
+    ref(x: number, y: number): number;
+    manhattanDist(a: number, b: number): number;
+  },
+  numPlayers: number,
+  random: PseudoRandom,
+): number[] {
+  const width = gameMap.width();
+  const height = gameMap.height();
+
+  // Collect all land tiles
+  const landTiles: number[] = [];
+  for (let y = 0; y < height; y++) {
+    for (let x = 0; x < width; x++) {
+      const ref = gameMap.ref(x, y);
+      if (gameMap.isLand(ref)) {
+        landTiles.push(ref);
+      }
+    }
+  }
+
+  if (landTiles.length < numPlayers) {
+    throw new Error(
+      `Not enough land tiles (${landTiles.length}) for ${numPlayers} players`,
+    );
+  }
+
+  // Use greedy farthest-point sampling for uniform distribution
+  const selected: number[] = [];
+  const minDistances = new Float32Array(landTiles.length).fill(Infinity);
+
+  const firstIndex = random.nextInt(0, landTiles.length);
+  selected.push(landTiles[firstIndex]);
+
+  for (let i = 0; i < landTiles.length; i++) {
+    const dist = gameMap.manhattanDist(landTiles[i], landTiles[firstIndex]);
+    if (dist < minDistances[i]) {
+      minDistances[i] = dist;
+    }
+  }
+
+  while (selected.length < numPlayers) {
+    let bestIndex = -1;
+    let bestDist = -1;
+
+    for (let i = 0; i < landTiles.length; i++) {
+      if (minDistances[i] > bestDist) {
+        bestDist = minDistances[i];
+        bestIndex = i;
+      }
+    }
+
+    if (bestIndex === -1) break;
+
+    selected.push(landTiles[bestIndex]);
+    minDistances[bestIndex] = 0;
+
+    for (let i = 0; i < landTiles.length; i++) {
+      if (minDistances[i] > 0) {
+        const dist = gameMap.manhattanDist(landTiles[i], landTiles[bestIndex]);
+        if (dist < minDistances[i]) {
+          minDistances[i] = dist;
+        }
+      }
+    }
+  }
+
+  return selected;
 }
 
 function toAllianceViewData(
@@ -122,13 +249,18 @@ export class GameRunner {
   private lastKnownPosBySub: Map<number, TileRef> = new Map();
   private ghostActiveUntilBySub: Map<number, number> = new Map();
 
+  // Optional profile map: maps playerInfo.id → AIBehaviorParams for calibration
+  private aiProfileMap?: Map<string, AIBehaviorParams>;
+
   constructor(
     public game: Game,
     private execManager: Executor,
     private callBack: (gu: GameUpdateViewData | ErrorUpdate) => void,
     clientID: ClientID,
+    aiProfileMap?: Map<string, AIBehaviorParams>,
   ) {
     this.clientID = clientID;
+    this.aiProfileMap = aiProfileMap;
   }
 
   /**
@@ -278,7 +410,9 @@ export class GameRunner {
       );
     }
     if (this.game.config().spawnNPCs()) {
-      this.game.addExecution(...this.execManager.aiPlayerExecutions());
+      this.game.addExecution(
+        ...this.execManager.aiPlayerExecutions(this.aiProfileMap),
+      );
     }
     this.game.addExecution(new WinCheckExecution());
     this.game.addExecution(new AllianceExpireCheckExecution());
