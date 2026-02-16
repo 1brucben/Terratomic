@@ -5,6 +5,7 @@ import { Config } from "../configuration/Config";
 import { EventBus } from "../EventBus";
 import { ClientID, GameID } from "../Schemas";
 import { computeResearchLevel } from "../tech/ResearchTree";
+import { incomeModifiers } from "../tech/TechEffects";
 import { createRandomName } from "../Util";
 import { WorkerClient } from "../worker/WorkerClient";
 import {
@@ -393,6 +394,17 @@ export class PlayerView {
   }
   gold(): Gold {
     return this.data.gold;
+  }
+  rawIndustrialProduction(): number {
+    const base = 0.11 * Math.pow(this.workers(), 0.65);
+    const productivity = this.productivity();
+    const k = this.effectiveUnits(UnitType.Factory);
+    const factoryFactor = Math.pow(1 + k, 0.35);
+    const incomeMods = incomeModifiers(this);
+    const g =
+      base * productivity * factoryFactor * incomeMods.domesticIncomeMul;
+    if (!Number.isFinite(g) || g < 0) return 0;
+    return g;
   }
   industrialProduction(): number {
     return (this.data as any).industrialProduction;
