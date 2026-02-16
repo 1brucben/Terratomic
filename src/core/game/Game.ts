@@ -932,6 +932,11 @@ export interface Game extends GameMap {
   ): void;
   doomsdayExplosion(tile: TileRef, radius: number, owner: Player): void;
   conquer(newOwner: Player, tile: TileRef): void;
+
+  // Border update batching for bulk conquest operations.
+  // While a batch is open, border recalculations are deferred and deduped.
+  beginBorderBatch(): void;
+  endBorderBatch(): void;
 }
 
 export interface PlayerActions {
