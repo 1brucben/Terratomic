@@ -260,9 +260,8 @@ export class AIPlayerExecution implements Execution {
 
     const state = this.nukeState;
 
-    // Periodically re-evaluate the target: abort if the score has dropped
-    // to zero (e.g. target was already destroyed) or if another nuke is
-    // already in flight toward the same area.
+    // Periodically re-evaluate the entire nuke plan: score, SAMs,
+    // redundancy, construction comparison, and retargeting.
     if (
       this.shouldRunPeriodic(
         ticks,
@@ -281,15 +280,31 @@ export class AIPlayerExecution implements Execution {
         this.resetNukeSequence();
         return;
       }
-      // Refresh SAM targets: remove destroyed SAMs and update stack counts
-      // so we don't overpay or waste bombs on SAMs that no longer exist.
-      state.samTargets = state.samTargets
-        .filter((s) => s.sam.isActive())
-        .map((s) => ({ sam: s.sam, levelsRemaining: s.sam.stackCount() }));
 
-      // During pre-launch phases, check if a better target has appeared and
-      // switch to it (re-evaluating SAMs and bomb type for the new target).
+      // Fully refresh SAM list from scratch: picks up new SAMs, removes
+      // destroyed ones, and updates stack counts on surviving ones.
+      const freshSAMs = this.nukeHandler.getSAMsInRange(state.targetTile);
+      state.samTargets = freshSAMs.map((s) => ({
+        sam: s,
+        levelsRemaining: s.stackCount(),
+      }));
+
+      // During pre-launch phases, perform additional checks
       if (state.phase === "waitForFunds" || state.phase === "buildSilo") {
+        // Abort if construction is now more valuable than this nuke
+        const profileMultiplier = this.params.nukeScoreMultiplier ?? 1;
+        const adjustedScore =
+          currentScore *
+          profileMultiplier *
+          AIPlayerExecution.NUKE_SCORE_INTERNAL_MULTIPLIER;
+        const constructionScore =
+          this.constructionHandler.bestConstructionScore();
+        if (adjustedScore <= constructionScore) {
+          this.resetNukeSequence();
+          return;
+        }
+
+        // Check if a better target has appeared
         this.maybeRetargetNukeSequence(state, currentScore);
       }
     }
