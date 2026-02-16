@@ -3,6 +3,7 @@ import { GameRecord, GameStartInfo, ID } from "../core/Schemas";
 import { getServerConfigFromClient } from "../core/configuration/ConfigLoader";
 import { GameType } from "../core/game/Game";
 import { UserSettings } from "../core/game/UserSettings";
+import { AICalibrationModal } from "./AICalibrationModal";
 import { joinLobby } from "./ClientGameRunner";
 import "./DarkModeButton";
 import { DarkModeButton } from "./DarkModeButton";
@@ -78,6 +79,12 @@ export interface JoinLobbyEvent {
   gameStartInfo?: GameStartInfo;
   // GameRecord exists when replaying an archived game.
   gameRecord?: GameRecord;
+  // Calibration-specific data for AI-vs-AI matches.
+  calibration?: {
+    numPlayers: number;
+    profileA: import("../core/ai/AIBehaviorParams").AIProfile;
+    profileB: import("../core/ai/AIBehaviorParams").AIProfile;
+  };
 }
 
 class Client {
@@ -278,6 +285,18 @@ class Client {
         spModal.open();
       }
     });
+
+    // AI Calibration modal
+    const calibModal = document.querySelector(
+      "ai-calibration-modal",
+    ) as AICalibrationModal;
+    calibModal instanceof AICalibrationModal;
+    const calibButton = document.getElementById("ai-calibration-button");
+    if (calibButton) {
+      calibButton.addEventListener("click", () => {
+        calibModal.open();
+      });
+    }
 
     // const ctModal = document.querySelector("chat-modal") as ChatModal;
     // ctModal instanceof ChatModal;
@@ -537,6 +556,7 @@ class Client {
         clientID: lobby.clientID,
         gameStartInfo: lobby.gameStartInfo ?? lobby.gameRecord?.info,
         gameRecord: lobby.gameRecord,
+        calibration: lobby.calibration,
       },
       () => {
         console.log("Closing modals");
@@ -556,6 +576,7 @@ class Client {
           "host-lobby-modal",
           "join-private-lobby-modal",
           "game-starting-modal",
+          "ai-calibration-modal",
           "top-bar",
           "help-modal",
           "user-setting",

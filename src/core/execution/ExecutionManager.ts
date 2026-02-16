@@ -1,4 +1,5 @@
 import { getAIProfile } from "../ai";
+import { AIBehaviorParams } from "../ai/AIBehaviorParams";
 import { AIPlayerExecution } from "../ai/AIPlayerExecution";
 import { Execution, Game, UnitType } from "../game/Game";
 import { getArtilleryMaxDistance } from "../game/UnitUpgrades";
@@ -249,17 +250,13 @@ export class Executor {
     return new BotSpawner(this.mg, this.gameID).spawnBots(numBots);
   }
 
-  aiPlayerExecutions(): Execution[] {
+  aiPlayerExecutions(profileMap?: Map<string, AIBehaviorParams>): Execution[] {
     const defaultProfile = getAIProfile("default");
     const execs: Execution[] = [];
     for (const nation of this.mg.nations()) {
-      execs.push(
-        new AIPlayerExecution(
-          this.gameID,
-          nation,
-          defaultProfile?.params ?? {},
-        ),
-      );
+      const params =
+        profileMap?.get(nation.playerInfo.id) ?? defaultProfile?.params ?? {};
+      execs.push(new AIPlayerExecution(this.gameID, nation, params));
     }
     return execs;
   }

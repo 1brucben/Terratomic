@@ -307,3 +307,7 @@ const aiProfiles = aiProfilesData.profiles as AIProfile[];
 export function getAIProfile(id: string): AIProfile | undefined {
   return aiProfiles.find((p) => p.id === id);
 }
+
+export function getAllAIProfiles(): AIProfile[] {
+  return [...aiProfiles];
+}

@@ -23,6 +23,7 @@ export class WorkerClient {
   constructor(
     private gameStartInfo: GameStartInfo,
     private clientID: ClientID,
+    private calibration?: any,
   ) {
     this.worker = new Worker(new URL("./Worker.worker.ts", import.meta.url));
     this.messageHandlers = new Map();
@@ -89,6 +90,7 @@ export class WorkerClient {
         id: messageId,
         gameStartInfo: this.gameStartInfo,
         clientID: this.clientID,
+        calibration: this.calibration,
       });
 
       // Add timeout for initialization
