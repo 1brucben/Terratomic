@@ -1356,13 +1356,18 @@ export class AIConstructionHandler {
     player: Player,
     tile: TileRef,
     precomputedClosestPlayerDist?: number | null | undefined,
+    skipSpacingCheck: boolean = false,
   ): number {
     if (this.mg.isOcean(tile)) return 0;
     if (!this.mg.hasOwner(tile) || this.mg.owner(tile).id() !== player.id())
       return 0;
 
-    // Check if a SAM can be built here
-    if (player.canBuildAtTile(UnitType.SAMLauncher, tile) === false) return 0;
+    // Check if a SAM can be built here (skip for upgrade evaluation)
+    if (
+      !skipSpacingCheck &&
+      player.canBuildAtTile(UnitType.SAMLauncher, tile) === false
+    )
+      return 0;
 
     // Enemy proximity penalty via sigmoid (only the distance term)
     let z = 0;
@@ -1571,7 +1576,7 @@ export class AIConstructionHandler {
     if (unitType === UnitType.Port) {
       score = this.calculatePortTileScore(player, tile, true);
     } else if (unitType === UnitType.SAMLauncher) {
-      score = this.calculateSAMTileScore(player, tile);
+      score = this.calculateSAMTileScore(player, tile, undefined, true);
     } else {
       score = this.calculateOtherTileScore(player, tile, true);
     }
