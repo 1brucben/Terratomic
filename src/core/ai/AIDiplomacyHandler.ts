@@ -64,12 +64,16 @@ export class AIDiplomacyHandler {
 
   // Ticks at peace without any active wars (for threshold decay)
   private _ticksAtPeace = 0;
+  // Ticks at war (for gradual threshold recovery)
+  private _ticksAtWar = 0;
   // Whether the AI was at war last tick (to detect war start/end transitions)
   private _wasAtWar = false;
   // Accumulated threshold reduction from peaceful ticks
   private _warThresholdDecay = 0;
   // How many peaceful ticks before threshold drops by 1
-  private static readonly PEACE_DECAY_INTERVAL = 300;
+  private static readonly PEACE_DECAY_INTERVAL = 200;
+  // How many ticks at war before threshold recovers by 1 toward baseline
+  private static readonly WAR_RECOVERY_INTERVAL = 200;
 
   constructor(
     private mg: Game,
@@ -790,22 +794,38 @@ export class AIDiplomacyHandler {
 
   /**
    * Updates the war threshold decay based on peace/war state transitions.
-   * Every PEACE_DECAY_INTERVAL ticks without any war, threshold drops by 1.
-   * Resets when a war starts (either declared or received).
+   *
+   * At peace: every PEACE_DECAY_INTERVAL ticks, threshold drops by 1
+   *           (making the AI more aggressive over time).
+   * At war:   every WAR_RECOVERY_INTERVAL ticks, threshold recovers by 1
+   *           back toward the baseline (undoing accumulated decay).
    */
   private updateWarThresholdDecay(player: Player): void {
     const atWar = this.isAtWar(player);
 
     if (atWar) {
-      // Just entered war or still at war: reset decay
+      // Entering war: reset peace counter
       if (!this._wasAtWar) {
-        this._warThresholdDecay = 0;
         this._ticksAtPeace = 0;
       }
       this._wasAtWar = true;
+
+      // Gradually recover threshold toward baseline while at war
+      if (this._warThresholdDecay > 0) {
+        this._ticksAtWar++;
+        if (this._ticksAtWar >= AIDiplomacyHandler.WAR_RECOVERY_INTERVAL) {
+          this._ticksAtWar -= AIDiplomacyHandler.WAR_RECOVERY_INTERVAL;
+          this._warThresholdDecay--;
+        }
+      }
     } else {
-      // At peace
+      // Entering peace: reset war recovery counter
+      if (this._wasAtWar) {
+        this._ticksAtWar = 0;
+      }
       this._wasAtWar = false;
+
+      // Decay threshold while at peace
       this._ticksAtPeace++;
       if (this._ticksAtPeace >= AIDiplomacyHandler.PEACE_DECAY_INTERVAL) {
         this._ticksAtPeace -= AIDiplomacyHandler.PEACE_DECAY_INTERVAL;

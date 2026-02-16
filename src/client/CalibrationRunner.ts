@@ -110,21 +110,38 @@ export async function runCalibrationMatch(
     random,
   );
 
-  // Create nations - half with profile A, half with profile B
+  // Build a shuffled profile assignment array so positions are random
+  const half = Math.floor(calibrationConfig.numPlayers / 2);
+  const profileAssignments: boolean[] = []; // true = Profile A
+  for (let i = 0; i < calibrationConfig.numPlayers; i++) {
+    profileAssignments.push(i < half);
+  }
+  // Fisher-Yates shuffle
+  for (let i = profileAssignments.length - 1; i > 0; i--) {
+    const j = random.nextInt(0, i + 1);
+    [profileAssignments[i], profileAssignments[j]] = [
+      profileAssignments[j],
+      profileAssignments[i],
+    ];
+  }
+
+  // Create nations - profiles randomly assigned to spawn positions
   const nations: Nation[] = [];
   const profileMap = new Map<string, AIBehaviorParams>();
   const profileAPlayers: string[] = [];
   const profileBPlayers: string[] = [];
   const playerProfileMap = new Map<string, string>(); // playerID -> profileID
 
-  const half = Math.floor(calibrationConfig.numPlayers / 2);
+  let profileACount = 0;
+  let profileBCount = 0;
 
   for (let i = 0; i < calibrationConfig.numPlayers; i++) {
-    const isProfileA = i < half;
+    const isProfileA = profileAssignments[i];
     const profile = isProfileA
       ? calibrationConfig.profileA
       : calibrationConfig.profileB;
-    const playerName = `${profile.name} #${isProfileA ? i + 1 : i - half + 1}`;
+    const num = isProfileA ? ++profileACount : ++profileBCount;
+    const playerName = `${profile.name} #${num}`;
     const playerID = random.nextID();
 
     const playerInfo = new PlayerInfo(
@@ -223,11 +240,6 @@ export async function runCalibrationMatch(
         maxTicks: calibrationConfig.maxTicks,
         players: playerStats,
       });
-    }
-
-    // Yield to the event loop periodically to prevent UI freeze
-    if (tick % 500 === 0) {
-      await new Promise((resolve) => setTimeout(resolve, 0));
     }
   }
 
