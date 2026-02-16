@@ -26,7 +26,10 @@ import {
 import { createGame } from "../core/game/GameImpl";
 import { TileRef } from "../core/game/GameMap";
 import { GameUpdateType, WinUpdate } from "../core/game/GameUpdates";
-import { loadTerrainMap, TerrainMapData } from "../core/game/TerrainMapLoader";
+import {
+  loadTerrainMapFresh,
+  TerrainMapData,
+} from "../core/game/TerrainMapLoader";
 import { UserSettings } from "../core/game/UserSettings";
 import { PseudoRandom } from "../core/PseudoRandom";
 import { GameConfig, GameStartInfo, PeaceTimerDuration } from "../core/Schemas";
@@ -78,8 +81,8 @@ export async function runCalibrationMatch(
   const spectatorClientID = generateID();
   const random = new PseudoRandom(simpleHash(gameID));
 
-  // Load the map
-  const mapData = await loadTerrainMap(calibrationConfig.gameMap);
+  // Load a fresh (uncached) map so each run starts clean
+  const mapData = await loadTerrainMapFresh(calibrationConfig.gameMap);
 
   // Create game config
   const gameConfig: GameConfig = {
