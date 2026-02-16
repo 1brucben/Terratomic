@@ -1,5 +1,4 @@
 import { Config } from "../configuration/Config";
-import { AttackExecution } from "../execution/AttackExecution";
 import {
   AbstractGraph,
   AbstractGraphBuilder,
@@ -14,7 +13,6 @@ import { CargoManager } from "./CargoManager";
 import {
   Alliance,
   AllianceRequest,
-  ATTACK_SUBTICKS_PER_TICK,
   Cell,
   ColoredTeams,
   Duos,
@@ -530,53 +528,21 @@ export class GameImpl implements Game {
       metrics = (globalThis as any).__PERF_METRICS__;
     }
 
-    // Process attack executions multiple times per tick for smoother territory changes
-    const attackExecs: Execution[] = [];
-    const otherExecs: Execution[] = [];
-
     this.execs.forEach((e) => {
       if (
         (!this.inSpawnPhase() || e.activeDuringSpawnPhase()) &&
         e.isActive()
       ) {
-        // Separate attack executions from others - use instanceof to survive minification
-        if (e instanceof AttackExecution) {
-          attackExecs.push(e);
+        if (metrics?.enabled) {
+          const start = performance.now();
+          e.tick(this._ticks);
+          metrics.recordExecutionTime(
+            e.constructor.name,
+            performance.now() - start,
+          );
         } else {
-          otherExecs.push(e);
+          e.tick(this._ticks);
         }
-      }
-    });
-
-    // Process attack executions multiple times per tick
-    for (let subtick = 0; subtick < ATTACK_SUBTICKS_PER_TICK; subtick++) {
-      attackExecs.forEach((e) => {
-        if (e.isActive()) {
-          if (metrics?.enabled) {
-            const start = performance.now();
-            e.tick(this._ticks);
-            metrics.recordExecutionTime(
-              e.executionName ?? e.constructor.name,
-              performance.now() - start,
-            );
-          } else {
-            e.tick(this._ticks);
-          }
-        }
-      });
-    }
-
-    // Process other executions once per tick
-    otherExecs.forEach((e) => {
-      if (metrics?.enabled) {
-        const start = performance.now();
-        e.tick(this._ticks);
-        metrics.recordExecutionTime(
-          e.executionName ?? e.constructor.name,
-          performance.now() - start,
-        );
-      } else {
-        e.tick(this._ticks);
       }
     });
     const inited: Execution[] = [];
