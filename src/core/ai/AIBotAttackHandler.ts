@@ -263,6 +263,19 @@ export class AIBotAttackHandler {
 
     // Check if we share a land border - if so, use land attack
     if (this.isNeighborCached(player, target, currentTick)) {
+      // Only log when this is a genuinely new attack (no existing outgoing to same target)
+      const hasExisting = player
+        .outgoingAttacks()
+        .some((a) => a.target() === target && a.isActive());
+      if (!hasExisting) {
+        console.log(
+          `[AI Attack] BOT_LAND: ${player.name()} -> ${target.name()} | ` +
+            `troops=${Math.floor(troops)}, ownTroops=${Math.floor(player.troops())}, ` +
+            `targetTroops=${Math.floor(target.troops())}, ` +
+            `alpha=${alpha.toFixed(3)}, beta=${beta.toFixed(3)}, ` +
+            `tick=${this.mg.ticks()}`,
+        );
+      }
       this.mg.addExecution(new AttackExecution(troops, player, target.id()));
       return true;
     }
@@ -300,6 +313,12 @@ export class AIBotAttackHandler {
         return false;
       }
       this.lastBoatAttackTick = currentTick;
+      console.log(
+        `[AI Attack] BOT_BOAT: ${player.name()} -> ${target.name()} | ` +
+          `troops=${Math.floor(troops)}, ownTroops=${Math.floor(player.troops())}, ` +
+          `targetTroops=${Math.floor(target.troops())}, ` +
+          `dist=${dist}, tick=${currentTick}`,
+      );
       this.mg.addExecution(
         new TransportShipExecution(
           player,

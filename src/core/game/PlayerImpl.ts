@@ -1221,6 +1221,10 @@ export class PlayerImpl implements Player {
     // Cancel all ongoing land attacks targeting the other player
     for (const a of [...this._outgoingAttacks]) {
       if (a.target() === other && a.isActive()) {
+        console.log(
+          `[Attack] PEACE_CANCEL: ${this.displayName()} -> ${other.displayName()} | ` +
+            `troops=${Math.floor(a.troops())}, tick=${this.mg.ticks()} (peace cancelled attack)`,
+        );
         // Use the same cancel flow as manual cancel: order then execute
         a.orderRetreat();
         a.executeRetreat();

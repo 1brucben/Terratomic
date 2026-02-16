@@ -182,6 +182,18 @@ export class TransportShipExecution implements Execution {
     }
     this.lastMove = ticks;
 
+    // Retreat if the destination tile's owner changed and we're not at war with the new owner
+    if (!this.boat.retreating() && this.dst !== null) {
+      const dstOwner = this.mg.owner(this.dst);
+      if (
+        dstOwner !== this.target &&
+        dstOwner.isPlayer() &&
+        !this.attacker.isAtWarWith(dstOwner as Player)
+      ) {
+        this.boat.orderBoatRetreat();
+      }
+    }
+
     if (this.boat.retreating()) {
       this.dst = this.src!; // src is guaranteed to be set at this point
     }
