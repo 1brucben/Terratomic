@@ -637,6 +637,20 @@ export interface Player {
   productivityGrowthPerMinute(): number; // Returns the productivity growth per minute
   removeProductivity(amount: number): void;
   investmentRate(): number; // Returns the investment rate (0 to 1)
+
+  // Income tracking (per-minute estimates, updated every tick via EMA)
+  /** Record gold received from a cargo truck delivery */
+  recordCargoTruckGold(gold: Gold): void;
+  /** Record gold received from a trade ship delivery */
+  recordTradeShipGold(gold: Gold): void;
+  /** Update income-per-minute EMA trackers (call every tick) */
+  updateIncomeTracking(): void;
+  /** Gold earned from cargo trucks per minute (EMA) */
+  cargoTruckGoldPerMinute(): number;
+  /** Gold earned from trade ships per minute (EMA) */
+  tradeShipGoldPerMinute(): number;
+  /** Estimated total gold income per minute (net industrial + cargo + trade) */
+  estimatedGoldIncomePerMinute(): number;
   setInvestmentRate(rate: number): void;
   // Economic: Industrial Production proxy (formerly GDP)
   industrialProduction(): number; // Computed as config.industrialProductionFactor() * maxPopulation(this)

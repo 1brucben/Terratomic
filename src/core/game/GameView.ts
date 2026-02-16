@@ -421,6 +421,15 @@ export class PlayerView {
   productivityGrowthPerMinute(): number {
     return this.data.productivityGrowthPerMinute;
   }
+  cargoTruckGoldPerMinute(): number {
+    return this.data.cargoTruckGoldPerMinute ?? 0;
+  }
+  tradeShipGoldPerMinute(): number {
+    return this.data.tradeShipGoldPerMinute ?? 0;
+  }
+  estimatedGoldIncomePerMinute(): number {
+    return this.data.estimatedGoldIncomePerMinute ?? 0;
+  }
   investmentRate(): number {
     return this.data.investmentRate;
   }
