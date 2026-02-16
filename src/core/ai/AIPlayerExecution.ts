@@ -612,15 +612,31 @@ export class AIPlayerExecution implements Execution {
     );
     const samBombsCost = totalSAMLevels * atomCost;
 
-    // Silo cost if capacity is insufficient
+    // Silo cost if capacity is insufficient.
+    // The first silo costs the full base price; each upgrade level after that
+    // costs base * structureUpgradeCostMultiplier (currently 0.8).
     const bombsNeeded = 1 + totalSAMLevels;
     const siloCapacity = this.nukeHandler.getPlayerSiloCapacity();
     let siloCost = 0;
     if (siloCapacity < bombsNeeded) {
-      const siloUnitCost = Number(
+      const siloBaseCost = Number(
         this.mg.unitInfo(UnitType.MissileSilo).cost(this.player),
       );
-      siloCost = (bombsNeeded - siloCapacity) * siloUnitCost;
+      const upgradeMultiplier = this.mg
+        .config()
+        .structureUpgradeCostMultiplier(UnitType.MissileSilo);
+      const levelsNeeded = bombsNeeded - siloCapacity;
+
+      if (siloCapacity === 0) {
+        // No silo exists: first level is full cost, rest are upgrades
+        siloCost = siloBaseCost;
+        for (let i = 1; i < levelsNeeded; i++) {
+          siloCost += siloBaseCost * upgradeMultiplier;
+        }
+      } else {
+        // Silo exists: all additional levels are upgrades
+        siloCost = levelsNeeded * siloBaseCost * upgradeMultiplier;
+      }
     }
 
     return mainCost + samBombsCost + siloCost;
