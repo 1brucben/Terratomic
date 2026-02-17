@@ -45,7 +45,7 @@ export class AIConstructionHandler {
   private static readonly RESEARCH_LAB_BASE_SCORE = 5e3;
   private static readonly AIRFIELD_SCORE_MULTIPLIER = 4e3;
   private static readonly SAM_BASE_SCORE = 2e-1;
-  private static readonly DEFENSE_POST_BASE_SCORE = 6e3;
+  private static readonly DEFENSE_POST_BASE_SCORE = 7e3;
   private static readonly LOG_INTERVAL = 20; // Log every ~1 second (assuming 20 ticks/sec)
   private static readonly MIN_TILE_EVALUATIONS_BEFORE_BUILD = 20;
   private static readonly TILE_EVALUATION_INTERVAL = 1;
