@@ -236,12 +236,6 @@ export class AIPlayerExecution implements Execution {
         this.constructionHandler?.bestConstructionScore() ?? 0;
       const unitScore = this.unitHandler?.bestUnitScore() ?? 0;
 
-      if (this.player?.name() === "China" && ticks % 100 === 0) {
-        console.log(
-          `[AI-DEBUG China] tick=${ticks} constructionScore=${constructionScore.toFixed(1)} unitScore=${unitScore.toFixed(1)} gold=${this.player.gold()}`,
-        );
-      }
-
       if (constructionScore >= unitScore) {
         allowConstructionSpending = true;
       } else {
