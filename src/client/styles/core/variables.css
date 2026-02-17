@@ -5,7 +5,7 @@
   --fontColorLight: #fff;
   --transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   /* Default UI scale for in-game panels and main menu panel */
-  --ui-panel-zoom: 1;
+  --ui-panel-zoom: 0.9;
 
   /* Submarine/Bunker dark blue theme (UI) */
   --primaryColor: #183152; /* navy button */
