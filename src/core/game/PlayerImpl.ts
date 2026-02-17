@@ -65,6 +65,19 @@ import {
 import { UnitImpl } from "./UnitImpl";
 import { playerMaxUnitLevel } from "./Upgradeables";
 
+/** Structure types whose unitsOwned count uses stackCount/targetLevel. */
+const STACKABLE_TYPES: ReadonlySet<UnitType> = new Set([
+  UnitType.City,
+  UnitType.Port,
+  UnitType.Hospital,
+  UnitType.Academy,
+  UnitType.ResearchLab,
+  UnitType.Factory,
+  UnitType.SAMLauncher,
+  UnitType.Airfield,
+  UnitType.MissileSilo,
+]);
+
 interface Target {
   tick: Tick;
   target: Player;
@@ -284,13 +297,7 @@ export class PlayerImpl implements Player {
         },
         {} as Record<UnitType, number>,
       ),
-      unitsOwned: Object.values(UnitType).reduce(
-        (acc, type) => {
-          acc[type] = this.unitsOwned(type);
-          return acc;
-        },
-        {} as Record<UnitType, number>,
-      ),
+      unitsOwned: this.allUnitsOwned(),
       upgrades: Array.from(this._upgrades),
       researchTreeTechs: Array.from(this._researchTreeTechs),
       researchTreeBeakers:
@@ -435,25 +442,11 @@ export class PlayerImpl implements Player {
   // Count of units owned by the player, including construction
   unitsOwned(type: UnitType): number {
     let total = 0;
-    // All stackable structure types
-    const stackableTypes = new Set([
-      UnitType.City,
-      UnitType.Port,
-      UnitType.Hospital,
-      UnitType.Academy,
-      UnitType.ResearchLab,
-      UnitType.Factory,
-      UnitType.SAMLauncher,
-      UnitType.Airfield,
-      UnitType.MissileSilo,
-    ]);
-    const isStackable = stackableTypes.has(type);
+    const isStackable = STACKABLE_TYPES.has(type);
 
     for (const unit of this._units) {
       if (unit.type() === type) {
         if (isStackable) {
-          // Stacked structures count their stackCount toward totals
-          // (affects scaling like new build cost and display counts)
           total += unit.stackCount?.() ?? 1;
         } else {
           total++;
@@ -462,7 +455,6 @@ export class PlayerImpl implements Player {
       }
       if (unit.type() !== UnitType.Construction) continue;
       if (unit.constructionType() !== type) continue;
-      // For stackable structures, count the target level instead of just 1
       if (isStackable) {
         total += unit.constructionTargetLevel();
       } else {
@@ -470,6 +462,37 @@ export class PlayerImpl implements Player {
       }
     }
     return total;
+  }
+
+  /**
+   * Computes unitsOwned counts for ALL UnitTypes in a single pass over _units.
+   * Used by toUpdate() to avoid O(UnitTypes × units) iteration.
+   */
+  private allUnitsOwned(): Record<UnitType, number> {
+    const counts = {} as Record<UnitType, number>;
+    for (const type of Object.values(UnitType)) {
+      counts[type] = 0;
+    }
+    for (const unit of this._units) {
+      const uType = unit.type();
+      if (uType === UnitType.Construction) {
+        const cType = unit.constructionType();
+        if (cType !== null) {
+          if (STACKABLE_TYPES.has(cType)) {
+            counts[cType] += unit.constructionTargetLevel();
+          } else {
+            counts[cType]++;
+          }
+        }
+      } else {
+        if (STACKABLE_TYPES.has(uType)) {
+          counts[uType] += unit.stackCount?.() ?? 1;
+        } else {
+          counts[uType]++;
+        }
+      }
+    }
+    return counts;
   }
 
   hasUpgrade(upgrade: UpgradeType): boolean {
