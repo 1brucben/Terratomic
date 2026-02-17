@@ -95,6 +95,9 @@ export class AIConstructionHandler {
   // Phase seed for spreading periodic actions across AIs
   private readonly phaseSeed: number;
 
+  /** Optional callback that returns the current warship score (from AIUnitHandler). */
+  private _warshipScoreProvider: (() => number) | null = null;
+
   /** Internal multiplier applied to nuke scores in shouldDeferToNukes. */
   private static readonly NUKE_SCORE_CONSTRUCTION_INTERNAL_MULTIPLIER = 1;
 
@@ -107,6 +110,15 @@ export class AIConstructionHandler {
   ) {
     // Stagger periodic actions across AIs using random offset
     this.phaseSeed = random.nextInt(0, 0x7fffffff);
+  }
+
+  /**
+   * Set a callback that provides the current warship score.
+   * Used by scorePort to boost port priority when the AI has no ports
+   * but wants to build warships.
+   */
+  setWarshipScoreProvider(provider: () => number): void {
+    this._warshipScoreProvider = provider;
   }
 
   private periodicOffset(period: number): number {
@@ -824,9 +836,13 @@ export class AIConstructionHandler {
   private scorePort(player: Player): number {
     const portCount = player.unitsOwned(UnitType.Port);
 
-    // If AI has 0 ports, use the profile parameter for first port score
+    // If AI has 0 ports, use the profile parameter for first port score,
+    // plus the current warship score (so the AI builds a port when it
+    // wants warships but has nowhere to spawn them).
     if (portCount === 0) {
-      return this.params.aiFirstPortScore ?? 1.0;
+      const base = this.params.aiFirstPortScore ?? 1.0;
+      const warshipBoost = this._warshipScoreProvider?.() ?? 0;
+      return base + warshipBoost;
     }
 
     // Get global trade demand queue length
