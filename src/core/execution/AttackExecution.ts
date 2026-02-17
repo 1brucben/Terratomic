@@ -141,30 +141,15 @@ export class AttackExecution implements Execution {
     // Record stats
     this.mg.stats().attack(this._owner, this.target, this.startTroops);
 
-    const targetName = this.target.isPlayer()
-      ? (this.target as Player).displayName()
-      : "TerraNullius";
     for (const incoming of this._owner.incomingAttacks()) {
       if (incoming.attacker() === this.target) {
         // Target has opposing attack, cancel them out
         if (incoming.troops() > this.attack.troops()) {
-          console.log(
-            `[Attack] CANCEL_BY_OPPOSING: ${this._owner.displayName()} -> ${targetName} | ` +
-              `newAttackTroops=${Math.floor(this.attack.troops())}, ` +
-              `opposingTroops=${Math.floor(incoming.troops())}, ` +
-              `tick=${this.mg.ticks()} (opposing attack stronger, new attack deleted)`,
-          );
           incoming.setTroops(incoming.troops() - this.attack.troops());
           this.attack.delete();
           this.active = false;
           return;
         } else {
-          console.log(
-            `[Attack] CANCEL_OPPOSING: ${this._owner.displayName()} -> ${targetName} | ` +
-              `newAttackTroops=${Math.floor(this.attack.troops())}, ` +
-              `opposingTroops=${Math.floor(incoming.troops())}, ` +
-              `tick=${this.mg.ticks()} (new attack absorbs opposing)`,
-          );
           this.attack.setTroops(this.attack.troops() - incoming.troops());
           incoming.delete();
         }
@@ -233,16 +218,6 @@ export class AttackExecution implements Execution {
       );
     }
     const survivors = this.attack.troops() - deaths;
-    // Only log retreats from player-vs-player attacks (skip TN noise)
-    if (this.target.isPlayer()) {
-      const retreatTargetName = (this.target as Player).displayName();
-      console.log(
-        `[Attack] RETREAT: ${this._owner.displayName()} -> ${retreatTargetName} | ` +
-          `survivors=${Math.floor(survivors)}, deaths=${Math.floor(deaths)}, ` +
-          `malusPercent=${malusPercent}, retreated=${this.attack.retreated()}, ` +
-          `tick=${this.mg.ticks()}`,
-      );
-    }
     this._owner.addTroops(survivors);
     this.attack.delete();
     this.active = false;
