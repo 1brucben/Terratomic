@@ -78,6 +78,23 @@ export class AIUnitHandler {
   }
 
   /**
+   * Returns the best score among naval unit types (warship, submarine).
+   * Used to boost port priority when the AI has no ports.
+   */
+  bestNavalScore(): number {
+    const player = this.getPlayer();
+    if (!player) return 0;
+
+    let best = 0;
+    for (const unitType of [UnitType.Warship, UnitType.Submarine] as const) {
+      if (!this.isUnitEnabled(unitType)) continue;
+      const s = this.scoreUnit(player, unitType);
+      if (s > best) best = s;
+    }
+    return best;
+  }
+
+  /**
    * Returns a breakdown of scores per unit type (for debugging).
    */
   unitScoreBreakdown(): Map<UnitCandidate, number> {
