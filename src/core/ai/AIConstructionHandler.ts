@@ -162,22 +162,6 @@ export class AIConstructionHandler {
       return;
     }
 
-    // Log nuke vs construction scores every ~1 second for China
-    if (
-      player.name() === "China" &&
-      ticks % AIConstructionHandler.LOG_INTERVAL === 0 &&
-      this.nukeEvaluator
-    ) {
-      const atomScore = this.nukeEvaluator.bestAtomTarget()?.score ?? 0;
-      const hydrogenScore = this.nukeEvaluator.bestHydrogenTarget()?.score ?? 0;
-      const bestNuke = Math.max(atomScore, hydrogenScore);
-      const constructionScore = this.scoreTarget(player, this.target);
-      const threshold = this.params.nukeScoreConstructionThreshold ?? 0;
-      console.log(
-        `[China nuke] constructionScore=${constructionScore.toFixed(4)} threshold=${threshold} bestNukeScore=${bestNuke.toFixed(4)}`,
-      );
-    }
-
     // If nuke score threshold is set, skip construction when nuke value is higher
     if (this.shouldDeferToNukes(player)) {
       return;
