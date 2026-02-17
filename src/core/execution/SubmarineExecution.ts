@@ -180,9 +180,10 @@ export class SubmarineExecution implements Execution {
         continue;
       }
       if (unit.type() === UnitType.TradeShip) {
-        if (!hasPort || unit.isSafeFromPirates()) {
+        if (!hasPort || unit.isSafeFromPirates() || this.isDockedAtPort(unit)) {
           // Submarines only engage enemy trade ships when at war, but still
-          // respect basic protections like safe-from-pirates and owner having a port.
+          // respect basic protections like safe-from-pirates, owner having a port,
+          // and trade ships docked at a port.
           continue;
         }
         if (
@@ -368,5 +369,12 @@ export class SubmarineExecution implements Execution {
       return this.randomTile(true);
     }
     return undefined;
+  }
+
+  /** Returns true when a trade ship is sitting on a port tile (docked). */
+  private isDockedAtPort(tradeShip: Unit): boolean {
+    return this.mg
+      .unitsAt(tradeShip.tile())
+      .some((u) => u.type() === UnitType.Port);
   }
 }
