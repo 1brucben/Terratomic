@@ -540,10 +540,12 @@ export class AIPlayerExecution implements Execution {
     if (!this.player || !this.nukeState || !this.nukeHandler) return;
     const state = this.nukeState;
 
-    // Final score check before the first launch of the sequence
-    if (
-      state.samTargets.every((s) => s.levelsRemaining === s.sam.stackCount())
-    ) {
+    // Before the first launch, do a score check and ensure we can afford
+    // ALL SAM atom bombs so we don't start launching and then stall mid-sequence.
+    const isFirstLaunch = state.samTargets.every(
+      (s) => s.levelsRemaining === s.sam.stackCount(),
+    );
+    if (isFirstLaunch) {
       const freshScore = this.nukeHandler.scoreForTile(
         state.targetTile,
         state.bombType,
@@ -552,6 +554,16 @@ export class AIPlayerExecution implements Execution {
         this.resetNukeSequence();
         return;
       }
+
+      // Total cost of all SAM atom bombs + the main nuke
+      const atomCost = this.mg.unitInfo(UnitType.AtomBomb).cost(this.player);
+      const mainCost = this.mg.unitInfo(state.bombType).cost(this.player);
+      const totalSAMLevels = state.samTargets.reduce(
+        (sum, s) => sum + s.levelsRemaining,
+        0,
+      );
+      const totalCost = atomCost * BigInt(totalSAMLevels) + mainCost;
+      if (this.player.gold() < totalCost) return; // Wait until we can afford all nukes
     }
 
     // Find next SAM that still needs atom bombs
@@ -569,7 +581,7 @@ export class AIPlayerExecution implements Execution {
       return;
     }
 
-    // Check if we can afford an atom bomb
+    // Check if we can afford an atom bomb (mid-sequence, e.g. after retargeting added SAMs)
     const atomCost = this.mg.unitInfo(UnitType.AtomBomb).cost(this.player);
     if (this.player.gold() < atomCost) return; // Wait for funds
 
