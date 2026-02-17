@@ -107,6 +107,10 @@ export interface AIBehaviorParams {
   /** Whether to build artillery */
   buildArtillery?: boolean;
 
+  // === Unit Build Weights ===
+  /** Multiplicative weight for warship build scoring. Default 1. */
+  weightWarship?: number;
+
   /**
    * If the best construction target score is less than this multiplier times
    * the best nuke score, skip construction in favor of saving for nukes.

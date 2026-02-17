@@ -746,9 +746,8 @@ export class AIConstructionHandler {
       return 0;
     }
 
-    // Convert per-tick values to per-minute (10 ticks/sec * 60 sec/min)
     const TICKS_PER_MINUTE = 600;
-    const grossGoldPerMinute = currentGrossGold * TICKS_PER_MINUTE;
+    const grossGoldPerMinute = player.estimatedGoldIncomePerMinute();
     if (grossGoldPerMinute <= 0) {
       return 0;
     }
@@ -803,9 +802,8 @@ export class AIConstructionHandler {
       return 0;
     }
 
-    // Convert per-tick values to per-minute (10 ticks/sec * 60 sec/min)
     const TICKS_PER_MINUTE = 600;
-    const grossGoldPerMinute = currentGrossGold * TICKS_PER_MINUTE;
+    const grossGoldPerMinute = player.estimatedGoldIncomePerMinute();
     if (grossGoldPerMinute <= 0) {
       return 0;
     }
