@@ -24,6 +24,7 @@ import { AINukeEvaluator } from "./AINukeEvaluator";
 import { AINukeHandler } from "./AINukeHandler";
 import { AISpawnHandler } from "./AISpawnHandler";
 import { AITerraNulliusHandler } from "./AITerraNulliusHandler";
+import { AIUnitHandler } from "./AIUnitHandler";
 
 /**
  * Phases for the nuke launch state machine.
@@ -76,6 +77,7 @@ export class AIPlayerExecution implements Execution {
   private diplomacyHandler: AIDiplomacyHandler | null = null;
   private nukeEvaluator: AINukeEvaluator | null = null;
   private nukeHandler: AINukeHandler | null = null;
+  private unitHandler: AIUnitHandler | null = null;
   private initialInvestmentSet = false;
   private roadInvestmentSet = false;
 
@@ -164,6 +166,12 @@ export class AIPlayerExecution implements Execution {
       this.random,
       this.params,
     );
+    this.unitHandler = new AIUnitHandler(
+      mg,
+      this.nation.playerInfo.id,
+      this.random,
+      this.params,
+    );
   }
 
   isActive(): boolean {
@@ -203,11 +211,42 @@ export class AIPlayerExecution implements Execution {
     // --- Nuke orchestration ---
     this.tickNukeSequence(ticks);
 
-    // Construction runs every tick (targeted planning + placement attempts)
+    // --- Spending priority ---
+    // After nuke orchestration, determine which handler is allowed to spend.
+    // If a nuke sequence is active, neither construction nor units may spend.
+    // Otherwise, the highest score wins.
+    const nukeSequenceActive =
+      this.nukeState !== null && this.nukeState.phase !== "idle";
+
+    let allowConstructionSpending = false;
+    let allowUnitSpending = false;
+
+    if (!nukeSequenceActive) {
+      const constructionScore =
+        this.constructionHandler?.bestConstructionScore() ?? 0;
+      const unitScore = this.unitHandler?.bestUnitScore() ?? 0;
+
+      if (constructionScore >= unitScore) {
+        allowConstructionSpending = true;
+      } else {
+        allowUnitSpending = true;
+      }
+    }
+
+    // Construction always ticks (tile evaluation), but spending is gated
     this.constructionHandler?.tickConstruction(
       ticks,
       this.shouldRunPeriodic(ticks, constructionRescorePeriod),
+      allowConstructionSpending,
     );
+
+    // Unit purchases only run when unit score wins
+    if (allowUnitSpending) {
+      this.unitHandler?.tickUnitPurchase(ticks);
+    }
+
+    // Unit movement decisions always run
+    this.unitHandler?.tickUnitMovement(ticks);
 
     // Handle slider updates every 100 ticks
     if (this.shouldRunPeriodic(ticks, sliderPeriod)) {
@@ -300,7 +339,8 @@ export class AIPlayerExecution implements Execution {
           AIPlayerExecution.NUKE_SCORE_INTERNAL_MULTIPLIER;
         const constructionScore =
           this.constructionHandler.bestConstructionScore();
-        if (adjustedScore <= constructionScore) {
+        const unitScore = this.unitHandler?.bestUnitScore() ?? 0;
+        if (adjustedScore <= constructionScore || adjustedScore <= unitScore) {
           this.resetNukeSequence();
           return;
         }
@@ -359,12 +399,13 @@ export class AIPlayerExecution implements Execution {
     bestScore *=
       profileMultiplier * AIPlayerExecution.NUKE_SCORE_INTERNAL_MULTIPLIER;
 
-    // Compare against best construction score
+    // Compare against best construction score and best unit score
     const constructionScore = this.constructionHandler.bestConstructionScore();
+    const unitScore = this.unitHandler?.bestUnitScore() ?? 0;
 
-    if (bestScore <= constructionScore) return;
+    if (bestScore <= constructionScore || bestScore <= unitScore) return;
 
-    // Start the nuke sequence — pause construction
+    // Start the nuke sequence
     const sams = this.nukeHandler.getSAMsInRange(bestTile);
     this.nukeState = {
       phase: "waitForFunds",
@@ -376,7 +417,6 @@ export class AIPlayerExecution implements Execution {
       })),
       waitStartTick: 0,
     };
-    this.constructionHandler.setPaused(true);
   }
 
   /**
@@ -694,12 +734,11 @@ export class AIPlayerExecution implements Execution {
   }
 
   /**
-   * Reset the nuke sequence state and resume construction.
+   * Reset the nuke sequence state.
    */
   private resetNukeSequence(): void {
     this.nukeState = null;
     this.nukeHandler?.resetScores();
-    this.constructionHandler?.setPaused(false);
   }
 
   /**
