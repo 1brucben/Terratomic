@@ -218,6 +218,9 @@ export class AINukeHandler {
    * Score both atom and hydrogen bombs for a tile in a single pass.
    * Uses one spatial query (hydrogen has the larger radius) and one
    * SAM/silo cost computation.
+   *
+   * Denominator uses (1 + discountRate)^T where T = minutes to afford
+   * the total cost at current income.
    */
   private scoreTileBothBombs(tile: TileRef): {
     atomScore: number;
@@ -274,12 +277,22 @@ export class AINukeHandler {
       this.computeSiloCost(samLevels, siloCapacity) /
       AINukeHandler.EXPECTED_NUKES_PER_SILO;
 
+    // Compute gross gold per minute for discount-based denominator
+    const grossGoldPerTick = this.mg
+      .config()
+      .grossGoldAdditionRate(this.player!);
+    const TICKS_PER_MINUTE = 600;
+    const grossGoldPerMinute = grossGoldPerTick * TICKS_PER_MINUTE;
+    const discountRate = this.params.discountFactor ?? 0.1;
+
     // Atom score
     const atomNumerator =
       atomEnemyValue - friendlyDamageWeight * atomFriendlyValue;
     const atomTotalCost =
       atomBombCost + samLevels * atomBombCost + siloCostExtra;
-    const atomScore = atomNumerator / Math.max(atomTotalCost, 1);
+    const atomT =
+      grossGoldPerMinute > 0 ? atomTotalCost / grossGoldPerMinute : Infinity;
+    const atomScore = atomNumerator / Math.pow(1 + discountRate, atomT);
 
     // Hydrogen score
     const hydrogenNumerator =
@@ -289,7 +302,12 @@ export class AINukeHandler {
     );
     const hydrogenTotalCost =
       hydrogenBombCost + samLevels * atomBombCost + siloCostExtra;
-    const hydrogenScore = hydrogenNumerator / Math.max(hydrogenTotalCost, 1);
+    const hydrogenT =
+      grossGoldPerMinute > 0
+        ? hydrogenTotalCost / grossGoldPerMinute
+        : Infinity;
+    const hydrogenScore =
+      hydrogenNumerator / Math.pow(1 + discountRate, hydrogenT);
 
     return { atomScore, hydrogenScore };
   }
@@ -322,7 +340,8 @@ export class AINukeHandler {
    * Uses spatial grid query (nearbyUnits) instead of iterating all structures.
    *
    * Score = (value of enemy structures - friendly damage weight × friendly structures)
-   *       / (cost of the bomb + SAM penalty + silo penalty)
+   *       / (1 + discountRate)^T
+   * where T = minutes to afford (bombCost + SAM penalty + silo penalty) at current income.
    */
   private calculateNukeScore(tile: TileRef, bombType: UnitType): number {
     const magnitude: NukeMagnitude = this.mg.config().nukeMagnitudes(bombType);
@@ -373,7 +392,17 @@ export class AINukeHandler {
       this.computeSiloCost(samLevels, siloCapacity) /
         AINukeHandler.EXPECTED_NUKES_PER_SILO;
 
-    return numerator / Math.max(totalCost, 1);
+    // T = minutes to afford totalCost at current income
+    const grossGoldPerTick = this.mg
+      .config()
+      .grossGoldAdditionRate(this.player!);
+    const TICKS_PER_MINUTE = 600;
+    const grossGoldPerMinute = grossGoldPerTick * TICKS_PER_MINUTE;
+    const discountRate = this.params.discountFactor ?? 0.1;
+    const T =
+      grossGoldPerMinute > 0 ? totalCost / grossGoldPerMinute : Infinity;
+
+    return numerator / Math.pow(1 + discountRate, T);
   }
 
   /**

@@ -1276,10 +1276,9 @@ export class AIConstructionHandler {
    * Calculates the defense post tile score based on nearby enemy threat.
    *
    * Score = Σ over each nearby enemy player:
-   *   militaryStrength(enemy) * borderRatio * distanceFactor
+   *   militaryStrength(enemy) * distanceFactor
    *
    * where:
-   *   borderRatio = sharedBorderLength(enemy) / ownTotalBorderLength
    *   x = closestEnemyBorderDist / defensePostRadius, clamped to [0, 1]
    *   distanceFactor = -x² + 2x  (peaks at 1.0 when x=1, so enemy border at radius edge)
    *
@@ -1294,8 +1293,6 @@ export class AIConstructionHandler {
     if (defensePostRadius <= 0) return 0;
 
     const radiusSquared = defensePostRadius * defensePostRadius;
-    const ownTotalBorderLength = player.borderTiles().size;
-    if (ownTotalBorderLength === 0) return 0;
 
     // Area scan: find closest distance² to each enemy player within radius.
     // This is O(radius²) instead of O(numEnemies × borderTiles).
@@ -1332,17 +1329,12 @@ export class AIConstructionHandler {
       if (!other.isAlive()) continue;
       if (other.type() === PlayerType.Bot) continue;
 
-      // Border weight: shared border length ratio
-      const sharedBorder = player.sharedBorderLength(other);
-      if (sharedBorder === 0) continue;
-      const borderRatio = sharedBorder / ownTotalBorderLength;
-
       // x = closestDist / radius, clamped to [0, 1]
       const x = Math.min(1, Math.sqrt(closestDistSq) / defensePostRadius);
       // distanceFactor = -x² + 2x (parabola peaking at 1.0 when x = 1)
       const distanceFactor = -x * x + 2 * x;
 
-      score += other.militaryStrength() * borderRatio * distanceFactor;
+      score += other.militaryStrength() * distanceFactor;
     }
 
     if (score <= 0) return 0;
