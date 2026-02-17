@@ -43,11 +43,10 @@ export class AIUnitHandler {
   private _cachedEnemyMaxWarships = 0;
   private _cachedEnemyWarshipsTick = -Infinity;
 
-  private static readonly TICKS_PER_MINUTE = 600;
   /** How often (in ticks) to rescan enemy warship counts. */
   private static readonly WARSHIP_SCAN_INTERVAL = 50;
   /** Internal base constant for warship score numerator. */
-  private static readonly WARSHIP_BASE_SCORE = 5e3;
+  private static readonly WARSHIP_BASE_SCORE = 5e9;
 
   constructor(
     private mg: Game,
@@ -110,14 +109,14 @@ export class AIUnitHandler {
   }
 
   /**
-   * Main tick for unit purchase decisions.
-   * Called every tick by AIPlayerExecution (skipped when a nuke sequence is active).
+   * Refresh cached data (e.g. enemy warship counts) that scoring depends on.
+   * Called every tick from AIPlayerExecution so scores are always fresh,
+   * even before tickUnitPurchase runs.
    */
-  tickUnitPurchase(ticks: number): void {
+  refreshCaches(ticks: number): void {
     const player = this.getPlayer();
     if (!player || !player.isAlive()) return;
 
-    // Periodically refresh cached enemy warship counts
     if (
       ticks - this._cachedEnemyWarshipsTick >=
       AIUnitHandler.WARSHIP_SCAN_INTERVAL
@@ -125,6 +124,15 @@ export class AIUnitHandler {
       this.refreshEnemyWarshipCount(player);
       this._cachedEnemyWarshipsTick = ticks;
     }
+  }
+
+  /**
+   * Main tick for unit purchase decisions.
+   * Called every tick by AIPlayerExecution (skipped when a nuke sequence is active).
+   */
+  tickUnitPurchase(ticks: number): void {
+    const player = this.getPlayer();
+    if (!player || !player.isAlive()) return;
 
     // Pick best target if we don't have one
     if (this._target === null) {

@@ -603,8 +603,11 @@ export class AIConstructionHandler {
 
     // Multiply by the max of (newBuild * tileScore) vs (upgrade * upgradeScore)
     if (unitType === UnitType.Port) {
+      // Use at least 1 for tile score so a high base port score (e.g. from
+      // naval unit demand) isn't zeroed out before tiles have been evaluated.
+      const effectivePortTileScore = Math.max(this._portTileScore, 1);
       return Math.max(
-        newBuildScore * this._portTileScore,
+        newBuildScore * effectivePortTileScore,
         newBuildScore * upgradeScore,
       );
     } else if (unitType === UnitType.DefensePost) {
@@ -843,7 +846,13 @@ export class AIConstructionHandler {
     if (portCount === 0) {
       const base = this.params.aiFirstPortScore ?? 1.0;
       const navalScore = this._navalScoreProvider?.() ?? 0;
-      return Math.max(base, navalScore);
+      const result = Math.max(base, navalScore);
+      if (player.name() === "China") {
+        console.log(
+          `[AI-DEBUG China] scorePort: portCount=0, base=${base}, navalScore=${navalScore.toFixed(1)}, result=${result.toFixed(1)}, portTileScore=${this._portTileScore.toFixed(4)}, finalScore=${(result * this.getStructureWeight(UnitType.Port) * this._portTileScore).toFixed(1)}`,
+        );
+      }
+      return result;
     }
 
     // Get global trade demand queue length

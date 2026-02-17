@@ -221,6 +221,10 @@ export class AIPlayerExecution implements Execution {
     // After nuke orchestration, determine which handler is allowed to spend.
     // If a nuke sequence is active, neither construction nor units may spend.
     // Otherwise, the highest score wins.
+
+    // Refresh unit caches before scoring so data is always fresh
+    this.unitHandler?.refreshCaches(ticks);
+
     const nukeSequenceActive =
       this.nukeState !== null && this.nukeState.phase !== "idle";
 
@@ -231,6 +235,12 @@ export class AIPlayerExecution implements Execution {
       const constructionScore =
         this.constructionHandler?.bestConstructionScore() ?? 0;
       const unitScore = this.unitHandler?.bestUnitScore() ?? 0;
+
+      if (this.player?.name() === "China" && ticks % 100 === 0) {
+        console.log(
+          `[AI-DEBUG China] tick=${ticks} constructionScore=${constructionScore.toFixed(1)} unitScore=${unitScore.toFixed(1)} gold=${this.player.gold()}`,
+        );
+      }
 
       if (constructionScore >= unitScore) {
         allowConstructionSpending = true;
