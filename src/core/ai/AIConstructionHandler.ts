@@ -40,15 +40,15 @@ export class AIConstructionHandler {
   private _blockedStructures: Set<UnitType> = new Set();
 
   private static readonly PORT_SCORE_MULTIPLIER = 1e4;
-  private static readonly HOSPITAL_BASE_SCORE = 1e-1;
-  private static readonly ACADEMY_BASE_SCORE = 1;
-  private static readonly RESEARCH_LAB_BASE_SCORE = 8e2;
-  private static readonly AIRFIELD_SCORE_MULTIPLIER = 1e2;
-  private static readonly SAM_BASE_SCORE = 3e-2;
-  private static readonly DEFENSE_POST_BASE_SCORE = 1e8;
+  private static readonly HOSPITAL_BASE_SCORE = 4;
+  private static readonly ACADEMY_BASE_SCORE = 4e1;
+  private static readonly RESEARCH_LAB_BASE_SCORE = 5e3;
+  private static readonly AIRFIELD_SCORE_MULTIPLIER = 4e3;
+  private static readonly SAM_BASE_SCORE = 2e-1;
+  private static readonly DEFENSE_POST_BASE_SCORE = 5e9;
   private static readonly LOG_INTERVAL = 20; // Log every ~1 second (assuming 20 ticks/sec)
   private static readonly MIN_TILE_EVALUATIONS_BEFORE_BUILD = 20;
-  private static readonly TILE_EVALUATION_INTERVAL = 2;
+  private static readonly TILE_EVALUATION_INTERVAL = 1;
   private static readonly UPGRADE_SCORE_DIVISOR = 0.8;
 
   // Tile evaluation state (ports, defense posts, SAMs, others)
@@ -482,8 +482,6 @@ export class AIConstructionHandler {
     if (this.params.buildAirfields ?? false) candidates.push(UnitType.Airfield);
     if (this.params.buildResearchLabs ?? false)
       candidates.push(UnitType.ResearchLab);
-    if (this.params.buildMissileSilos ?? false)
-      candidates.push(UnitType.MissileSilo);
     if (this.params.buildSAMLaunchers ?? false)
       candidates.push(UnitType.SAMLauncher);
     if (this.params.buildDefensePosts ?? false)
@@ -1582,7 +1580,6 @@ export class AIConstructionHandler {
       UnitType.Academy,
       UnitType.ResearchLab,
       UnitType.Factory,
-      UnitType.MissileSilo,
       UnitType.SAMLauncher,
     ];
 
@@ -1877,6 +1874,147 @@ export class AIConstructionHandler {
       result.set(t, this.scoreTarget(player, t));
     }
     return result;
+  }
+
+  /**
+   * Returns detailed component breakdowns for city and factory base scores.
+   * Used for debugging/logging.
+   */
+  cityFactoryScoreBreakdown(player: Player): {
+    city: {
+      cost: number;
+      currentMaxPop: number;
+      projectedMaxPop: number;
+      currentWorkers: number;
+      projectedWorkers: number;
+      factoryCount: number;
+      factoryFactor: number;
+      productivity: number;
+      goldMultiplier: number;
+      currentGrossGold: number;
+      projectedGrossGold: number;
+      incomeGain: number;
+      T: number;
+      discountRate: number;
+      finalScore: number;
+    };
+    factory: {
+      cost: number;
+      workers: number;
+      factoryCount: number;
+      currentFactoryFactor: number;
+      projectedFactoryFactor: number;
+      productivity: number;
+      goldMultiplier: number;
+      currentGrossGold: number;
+      projectedGrossGold: number;
+      incomeGain: number;
+      T: number;
+      discountRate: number;
+      finalScore: number;
+    };
+  } {
+    const config = this.mg.config();
+    const assumedPopPercent = this.params.aiAssumedPopPercent ?? 0.7;
+    const targetTroopRatio = player.targetTroopRatio();
+    const discountRate = this.params.discountFactor ?? 0.1;
+    const TICKS_PER_MINUTE = 600;
+
+    // --- City ---
+    const cityCost = this.mg.unitInfo(UnitType.City).cost(player);
+    const cityCostNum = Number(cityCost);
+    const currentMaxPop = config.maxPopulation(player);
+    const cityPopBonus = config.cityPopulationIncrease();
+    const projectedMaxPop = currentMaxPop + cityPopBonus;
+    const currentWorkers =
+      currentMaxPop * assumedPopPercent * (1 - targetTroopRatio);
+    const projectedWorkers =
+      projectedMaxPop * assumedPopPercent * (1 - targetTroopRatio);
+    const factoryCount = player.unitsOwned(UnitType.Factory);
+    const factoryFactor = Math.pow(1 + factoryCount, 0.35);
+    const cityProductivity = player.productivity();
+    const cityMultiplier = config.gameConfig().goldMultiplier ?? 1;
+    const cityCurrentGross =
+      0.11 *
+      Math.pow(currentWorkers, 0.65) *
+      cityProductivity *
+      factoryFactor *
+      cityMultiplier;
+    const cityProjectedGross =
+      0.11 *
+      Math.pow(projectedWorkers, 0.65) *
+      cityProductivity *
+      factoryFactor *
+      cityMultiplier;
+    const cityIncomeGain = cityProjectedGross - cityCurrentGross;
+    const cityGrossPerMin = cityCurrentGross * TICKS_PER_MINUTE;
+    const cityT = cityGrossPerMin > 0 ? cityCostNum / cityGrossPerMin : 0;
+    const cityIncomeGainPerMin = cityIncomeGain * TICKS_PER_MINUTE;
+    const cityFinalScore =
+      cityGrossPerMin > 0 && cityIncomeGain > 0
+        ? cityIncomeGainPerMin /
+          discountRate /
+          Math.pow(1 + discountRate, cityT)
+        : 0;
+
+    // --- Factory ---
+    const factoryCost = this.mg.unitInfo(UnitType.Factory).cost(player);
+    const factoryCostNum = Number(factoryCost);
+    const fWorkers = currentMaxPop * assumedPopPercent * (1 - targetTroopRatio);
+    const currentFactoryFactor = Math.pow(1 + factoryCount, 0.35);
+    const projectedFactoryFactor = Math.pow(1 + factoryCount + 1, 0.35);
+    const factoryProductivity = player.productivity();
+    const factoryMultiplier = config.gameConfig().goldMultiplier ?? 1;
+    const factoryBase =
+      0.11 * Math.pow(fWorkers, 0.65) * factoryProductivity * factoryMultiplier;
+    const factoryCurrentGross = factoryBase * currentFactoryFactor;
+    const factoryProjectedGross = factoryBase * projectedFactoryFactor;
+    const factoryIncomeGain = factoryProjectedGross - factoryCurrentGross;
+    const factoryGrossPerMin = factoryCurrentGross * TICKS_PER_MINUTE;
+    const factoryT =
+      factoryGrossPerMin > 0 ? factoryCostNum / factoryGrossPerMin : 0;
+    const factoryIncomeGainPerMin = factoryIncomeGain * TICKS_PER_MINUTE;
+    const factoryFinalScore =
+      factoryGrossPerMin > 0 && factoryIncomeGain > 0
+        ? factoryIncomeGainPerMin /
+          discountRate /
+          Math.pow(1 + discountRate, factoryT)
+        : 0;
+
+    return {
+      city: {
+        cost: cityCostNum,
+        currentMaxPop,
+        projectedMaxPop,
+        currentWorkers,
+        projectedWorkers,
+        factoryCount,
+        factoryFactor,
+        productivity: cityProductivity,
+        goldMultiplier: cityMultiplier,
+        currentGrossGold: cityCurrentGross,
+        projectedGrossGold: cityProjectedGross,
+        incomeGain: cityIncomeGain,
+        T: cityT,
+        discountRate,
+        finalScore: cityFinalScore,
+      },
+      factory: {
+        cost: factoryCostNum,
+        workers: fWorkers,
+        factoryCount,
+        currentFactoryFactor,
+        projectedFactoryFactor,
+        productivity: factoryProductivity,
+        goldMultiplier: factoryMultiplier,
+        currentGrossGold: factoryCurrentGross,
+        projectedGrossGold: factoryProjectedGross,
+        incomeGain: factoryIncomeGain,
+        T: factoryT,
+        discountRate,
+        finalScore: factoryFinalScore,
+      },
+    };
   }
 
   /**

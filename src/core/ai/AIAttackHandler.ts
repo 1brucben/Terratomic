@@ -295,6 +295,22 @@ export class AIAttackHandler {
   }
 
   private launchLandAttack(player: Player, target: Player): void {
+    // Verify the border actually exists (cache may be stale)
+    const targetSmallID = target.smallID();
+    let hasConquerableTile = false;
+    for (const tile of player.borderTiles()) {
+      for (const n of this.mg.neighbors(tile)) {
+        if (!this.mg.isWater(n) && this.mg.ownerID(n) === targetSmallID) {
+          hasConquerableTile = true;
+          break;
+        }
+      }
+      if (hasConquerableTile) break;
+    }
+    if (!hasConquerableTile) {
+      return;
+    }
+
     const alpha = this.params.attackOwnTroopPercent ?? 0.2;
     const beta = this.params.attackEnemyTroopMultiplier ?? 1.5;
 
