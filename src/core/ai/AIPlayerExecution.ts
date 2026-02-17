@@ -172,6 +172,12 @@ export class AIPlayerExecution implements Execution {
       this.random,
       this.params,
     );
+
+    // Wire warship score into port scoring so the AI builds a port
+    // when it wants warships but has none.
+    this.constructionHandler.setWarshipScoreProvider(
+      () => this.unitHandler?.bestUnitScore() ?? 0,
+    );
   }
 
   isActive(): boolean {
