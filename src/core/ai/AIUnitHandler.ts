@@ -67,9 +67,17 @@ export class AIUnitHandler {
     const player = this.getPlayer();
     if (!player) return 0;
 
+    const hasPorts = player.unitsOwned(UnitType.Port) > 0;
+
     let best = 0;
     for (const unitType of UNIT_CANDIDATES) {
       if (!this.isUnitEnabled(unitType)) continue;
+      // Naval units require at least one port to build
+      if (
+        !hasPorts &&
+        (unitType === UnitType.Warship || unitType === UnitType.Submarine)
+      )
+        continue;
       const s = this.scoreUnit(player, unitType);
       if (s > best) best = s;
     }
@@ -140,6 +148,16 @@ export class AIUnitHandler {
     }
     if (this._target === null) return;
 
+    // Naval units require at least one port
+    if (
+      (this._target === UnitType.Warship ||
+        this._target === UnitType.Submarine) &&
+      player.unitsOwned(UnitType.Port) === 0
+    ) {
+      this._target = null;
+      return;
+    }
+
     // Warships use batch purchasing: save for N+1 then spawn them all
     if (this._target === UnitType.Warship) {
       this.tickWarshipBatchPurchase(player);
@@ -168,15 +186,6 @@ export class AIUnitHandler {
     const unitCost = this.mg.unitInfo(UnitType.Warship).cost(player);
     const totalCost = unitCost * BigInt(targetCount);
 
-    if (player.name() === "China") {
-      const ports = [...this.mg.units(UnitType.Port)].filter(
-        (p) => p.isActive() && p.owner().id() === player.id(),
-      ).length;
-      console.log(
-        `[AI-DEBUG China] tickWarshipBatch: enemyMax=${enemyMax}, own=${ownWarships}, targetCount=${targetCount}, unitCost=${unitCost}, totalCost=${totalCost}, gold=${player.gold()}, canAfford=${player.gold() >= totalCost}, ports=${ports}`,
-      );
-    }
-
     // Wait until we can afford the whole batch
     if (player.gold() < totalCost) return;
 
@@ -184,9 +193,6 @@ export class AIUnitHandler {
     // or near a random port if no enemy warships exist.
     const spawnTile = this.findWarshipPlacementTile(player);
     if (spawnTile === null) {
-      if (player.name() === "China") {
-        console.log(`[AI-DEBUG China] warship spawn FAILED: no placement tile`);
-      }
       // No valid placement — clear target and retry later
       this._target = null;
       return;
@@ -197,11 +203,6 @@ export class AIUnitHandler {
     for (let i = 0; i < targetCount; i++) {
       const tile = player.canBuild(UnitType.Warship, spawnTile);
       if (tile === false) {
-        if (player.name() === "China") {
-          console.log(
-            `[AI-DEBUG China] warship spawn FAILED: canBuild returned false for warship #${i + 1}`,
-          );
-        }
         break;
       }
       if (player.gold() < unitCost) break;
@@ -209,12 +210,6 @@ export class AIUnitHandler {
         new ConstructionExecution(player, UnitType.Warship, tile),
       );
       spawned++;
-    }
-
-    if (player.name() === "China") {
-      console.log(
-        `[AI-DEBUG China] warship batch done: spawned=${spawned}/${targetCount}`,
-      );
     }
 
     // Clear target regardless — either we spawned or we failed

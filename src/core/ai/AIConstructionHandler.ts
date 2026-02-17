@@ -46,7 +46,6 @@ export class AIConstructionHandler {
   private static readonly AIRFIELD_SCORE_MULTIPLIER = 4e3;
   private static readonly SAM_BASE_SCORE = 2e-1;
   private static readonly DEFENSE_POST_BASE_SCORE = 7e3;
-  private static readonly LOG_INTERVAL = 20; // Log every ~1 second (assuming 20 ticks/sec)
   private static readonly MIN_TILE_EVALUATIONS_BEFORE_BUILD = 20;
   private static readonly TILE_EVALUATION_INTERVAL = 1;
   private static readonly TILE_CACHE_REBUILD_INTERVAL = 200; // Rebuild tile cache every ~10s (200 ticks at 20 tps)
@@ -154,15 +153,6 @@ export class AIConstructionHandler {
       return;
     }
 
-    const isDebugPlayer = player.name() === "Antarctica";
-    const shouldLog = isDebugPlayer && ticks % 50 === 0;
-
-    if (isDebugPlayer && ticks % 50 === 0) {
-      console.log(
-        `[AI-DEBUG] ${player.name()} tick=${ticks}, alive=${player.isAlive()}, tiles=${numTiles}, target=${this.target}, allowSpending=${allowSpending}, gold=${player.gold()}`,
-      );
-    }
-
     // Periodically evaluate a random tile for structures (spread across AIs)
     if (
       this.shouldRunPeriodic(
@@ -181,61 +171,28 @@ export class AIConstructionHandler {
 
     if (this.target === null) {
       this.target = this.pickTarget(null, player);
-      if (shouldLog) {
-        const breakdown = this.constructionScoreBreakdown();
-        const scores = Array.from(breakdown.entries())
-          .map(([t, s]) => `${t}=${s.toExponential(3)}`)
-          .join(", ");
-        console.log(
-          `[AI-DEBUG] ${player.name()} target=null after pickTarget, scores: [${scores}]`,
-        );
-      }
       return;
     }
 
     // If spending is not allowed (e.g. nuke sequence active, or unit score is higher), skip
     if (!allowSpending) {
-      if (shouldLog)
-        console.log(
-          `[AI-DEBUG] ${player.name()} skipping: spending not allowed`,
-        );
       return;
     }
 
     // If nuke score threshold is set, skip construction when nuke value is higher
     if (this.shouldDeferToNukes(player)) {
-      if (shouldLog)
-        console.log(`[AI-DEBUG] ${player.name()} skipping: deferring to nukes`);
       return;
     }
 
     // Only attempt placement if we can afford the target structure
     if (!this.canAffordTarget(player, this.target)) {
-      if (shouldLog)
-        console.log(
-          `[AI-DEBUG] ${player.name()} skipping: can't afford ${this.target}, gold=${player.gold()}`,
-        );
       return;
     }
 
     // Require minimum tile evaluations before attempting construction
     const evalCount = this.getEvalCountForStructure(this.target);
     if (evalCount < AIConstructionHandler.MIN_TILE_EVALUATIONS_BEFORE_BUILD) {
-      if (shouldLog)
-        console.log(
-          `[AI-DEBUG] ${player.name()} skipping: eval count ${evalCount}/${AIConstructionHandler.MIN_TILE_EVALUATIONS_BEFORE_BUILD} for ${this.target}`,
-        );
       return;
-    }
-
-    if (shouldLog) {
-      const breakdown = this.constructionScoreBreakdown();
-      const scores = Array.from(breakdown.entries())
-        .map(([t, s]) => `${t}=${s.toExponential(3)}`)
-        .join(", ");
-      console.log(
-        `[AI-DEBUG] ${player.name()} proceeding: target=${this.target}, evalCount=${evalCount}, gold=${player.gold()}, scores: [${scores}]`,
-      );
     }
 
     // Check if upgrade is preferred over building new
@@ -603,9 +560,17 @@ export class AIConstructionHandler {
 
     // Multiply by the max of (newBuild * tileScore) vs (upgrade * upgradeScore)
     if (unitType === UnitType.Port) {
-      // Use at least 1 for tile score so a high base port score (e.g. from
-      // naval unit demand) isn't zeroed out before tiles have been evaluated.
-      const effectivePortTileScore = Math.max(this._portTileScore, 1);
+      // Use a fallback tile score of 1 only while we haven't evaluated enough
+      // tiles yet, so a high base port score (e.g. from naval unit demand) can
+      // compete before any tiles are scored.  Once enough evaluations have been
+      // done, use the real tile score — if it's still 0, no valid port location
+      // exists and the port score should drop to 0 so the AI moves on.
+      const effectivePortTileScore =
+        this._portEvalCount <
+          AIConstructionHandler.MIN_TILE_EVALUATIONS_BEFORE_BUILD &&
+        this._portTileScore === 0
+          ? 1
+          : this._portTileScore;
       return Math.max(
         newBuildScore * effectivePortTileScore,
         newBuildScore * upgradeScore,
@@ -846,13 +811,7 @@ export class AIConstructionHandler {
     if (portCount === 0) {
       const base = this.params.aiFirstPortScore ?? 1.0;
       const navalScore = this._navalScoreProvider?.() ?? 0;
-      const result = Math.max(base, navalScore);
-      if (player.name() === "China") {
-        console.log(
-          `[AI-DEBUG China] scorePort: portCount=0, base=${base}, navalScore=${navalScore.toFixed(1)}, result=${result.toFixed(1)}, portTileScore=${this._portTileScore.toFixed(4)}, finalScore=${(result * this.getStructureWeight(UnitType.Port) * this._portTileScore).toFixed(1)}`,
-        );
-      }
-      return result;
+      return Math.max(base, navalScore);
     }
 
     // Get global trade demand queue length
