@@ -1,6 +1,7 @@
 import { ConstructionExecution } from "../execution/ConstructionExecution";
 import {
   Game,
+  Gold,
   Player,
   PlayerID,
   PlayerType,
@@ -8,6 +9,8 @@ import {
   UnitType,
 } from "../game/Game";
 import { TileRef } from "../game/GameMap";
+import { getUnitLevelCost } from "../game/UnitUpgrades";
+import { playerMaxUnitLevel } from "../game/Upgradeables";
 import { PseudoRandom } from "../PseudoRandom";
 import { AIBehaviorParams } from "./AIBehaviorParams";
 
@@ -165,7 +168,7 @@ export class AIUnitHandler {
     }
 
     // Other units: single purchase
-    const cost = this.mg.unitInfo(this._target).cost(player);
+    const cost = this.unitCostAtLevel(player, this._target);
     if (player.gold() < cost) return;
 
     const placed = this.tryBuildUnit(player, this._target);
@@ -183,7 +186,7 @@ export class AIUnitHandler {
     const enemyMax = this._cachedEnemyMaxWarships;
     const ownWarships = player.unitCount(UnitType.Warship);
     const targetCount = enemyMax - ownWarships + 1;
-    const unitCost = this.mg.unitInfo(UnitType.Warship).cost(player);
+    const unitCost = this.unitCostAtLevel(player, UnitType.Warship);
     const totalCost = unitCost * BigInt(targetCount);
 
     // Wait until we can afford the whole batch
@@ -270,7 +273,7 @@ export class AIUnitHandler {
     if (ownWarships > enemyMax) return 0;
 
     const targetCount = enemyMax - ownWarships + 1;
-    const warshipCost = Number(this.mg.unitInfo(UnitType.Warship).cost(player));
+    const warshipCost = Number(this.unitCostAtLevel(player, UnitType.Warship));
     const totalCost = warshipCost * targetCount;
 
     const grossGoldPerMinute = player.estimatedGoldIncomePerMinute();
@@ -366,7 +369,7 @@ export class AIUnitHandler {
     if (spawnTile === false) return false;
 
     // Double-check affordability right before committing
-    const cost = this.mg.unitInfo(unitType).cost(player);
+    const cost = this.unitCostAtLevel(player, unitType);
     if (player.gold() < cost) return false;
 
     this.mg.addExecution(
@@ -540,6 +543,19 @@ export class AIUnitHandler {
       return tile;
     }
     return null;
+  }
+
+  /**
+   * Return the actual gold cost for building a unit at the player's current
+   * tech level. Falls back to the base cost when there are no upgrades.
+   */
+  private unitCostAtLevel(player: Player, unitType: UnitCandidate): Gold {
+    const level = playerMaxUnitLevel(player, unitType);
+    if (level > 1) {
+      const levelCost = getUnitLevelCost(unitType, level);
+      if (levelCost > 0n) return levelCost;
+    }
+    return this.mg.unitInfo(unitType).cost(player);
   }
 
   private getPlayer(): Player | undefined {
