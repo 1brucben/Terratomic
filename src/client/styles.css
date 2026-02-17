@@ -64,6 +64,7 @@
 @import url("./styles/components/setting.css");
 @import url("./styles/components/controls.css");
 @import url("./styles/core/cursors.css");
+@import url("./styles/mobile/main-lobby.css");
 
 :root {
   --ui-scale: 1;

@@ -89,1141 +89,6 @@
         transform-origin: top;
         transition: transform 0.3s ease-in-out;
       }
-
-      body.mobile-main-lobby {
-        overflow-y: auto;
-      }
-
-      body.mobile-main-lobby .bg-image {
-        background-image: url("/images/mobile-bg-grey.png");
-        filter: brightness(0.38) saturate(0.92) contrast(1.06);
-      }
-
-      body.mobile-main-lobby .l-header__highlightText {
-        top: max(env(safe-area-inset-top, 0px), 6px);
-        left: 8px;
-        font-size: 0.7rem;
-        opacity: 0.9;
-      }
-
-      body.mobile-main-lobby main {
-        padding-top: calc(env(safe-area-inset-top, 0px) + 0.75rem);
-        padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 5rem);
-      }
-
-      body.mobile-main-lobby .scale-container {
-        transform: none !important;
-        margin-bottom: 0 !important;
-        width: 100%;
-        padding: 0 0.65rem;
-      }
-
-      body.mobile-main-lobby main .scale-container > .container {
-        width: 100%;
-        max-width: min(560px, 100%);
-        margin: 0 auto;
-        padding: 0.85rem !important;
-        gap: 0.65rem !important;
-        border-radius: 10px 13px 11px 9px;
-        border: 1px solid rgba(108, 119, 134, 0.82);
-        background:
-          linear-gradient(
-            98deg,
-            rgba(108, 78, 48, 0.12) 11%,
-            rgba(0, 0, 0, 0) 18%
-          ),
-          linear-gradient(83deg, rgba(0, 0, 0, 0.12) 69%, rgba(0, 0, 0, 0) 77%),
-          repeating-linear-gradient(
-            92deg,
-            rgba(255, 255, 255, 0.024) 0,
-            rgba(255, 255, 255, 0.024) 1px,
-            rgba(0, 0, 0, 0) 1px,
-            rgba(0, 0, 0, 0) 4px
-          ),
-          repeating-linear-gradient(
-            8deg,
-            rgba(0, 0, 0, 0.038) 0,
-            rgba(0, 0, 0, 0.038) 2px,
-            rgba(0, 0, 0, 0) 2px,
-            rgba(0, 0, 0, 0) 8px
-          ),
-          linear-gradient(
-            180deg,
-            rgba(84, 94, 109, 0.985) 0%,
-            rgba(61, 70, 83, 0.99) 42%,
-            rgba(42, 48, 57, 0.994) 100%
-          ),
-          radial-gradient(
-            circle at 18% 22%,
-            rgba(72, 61, 47, 0.09) 0 24px,
-            rgba(0, 0, 0, 0) 36px
-          ),
-          radial-gradient(
-            circle at 77% 67%,
-            rgba(26, 27, 31, 0.16) 0 20px,
-            rgba(0, 0, 0, 0) 34px
-          ),
-          linear-gradient(
-            90deg,
-            rgba(0, 0, 0, 0.13) 0 1px,
-            rgba(0, 0, 0, 0) 2px calc(100% - 2px),
-            rgba(0, 0, 0, 0.18) calc(100% - 1px)
-          );
-        box-shadow:
-          0 10px 24px rgba(0, 0, 0, 0.34),
-          0 0 0 1px rgba(24, 30, 39, 0.55),
-          inset 0 1px 0 rgba(214, 224, 236, 0.18),
-          inset 0 -1px 0 rgba(0, 0, 0, 0.34),
-          inset 0 0 0 1px rgba(66, 79, 96, 0.26),
-          inset 0 20px 32px rgba(255, 255, 255, 0.05),
-          inset 0 -28px 30px rgba(0, 0, 0, 0.2) !important;
-        position: relative;
-      }
-
-      body.mobile-main-lobby main .scale-container > .container::before {
-        content: "";
-        position: absolute;
-        left: 0.55rem;
-        right: 0.55rem;
-        top: 0.4rem;
-        bottom: 0.4rem;
-        border-radius: 8px 11px 9px 7px;
-        background:
-          linear-gradient(
-            180deg,
-            rgba(255, 255, 255, 0.065) 0,
-            rgba(0, 0, 0, 0) 16%,
-            rgba(0, 0, 0, 0) 82%,
-            rgba(0, 0, 0, 0.2) 100%
-          ),
-          linear-gradient(
-            90deg,
-            rgba(0, 0, 0, 0.2) 0 1px,
-            rgba(0, 0, 0, 0) 2px calc(100% - 2px),
-            rgba(0, 0, 0, 0.22) calc(100% - 1px)
-          );
-        border: 1px solid rgba(92, 104, 119, 0.34);
-        box-shadow: inset 0 0 14px rgba(0, 0, 0, 0.34);
-        opacity: 1;
-        pointer-events: none;
-      }
-
-      body.mobile-main-lobby main .scale-container > .container::after {
-        content: "";
-        position: absolute;
-        inset: 0;
-        border-radius: inherit;
-        pointer-events: none;
-        background:
-          radial-gradient(
-            circle at 15px 14px,
-            rgba(172, 183, 196, 0.62) 0 1.1px,
-            rgba(31, 37, 45, 0.9) 1.3px 3.9px,
-            rgba(0, 0, 0, 0) 4.4px
-          ),
-          radial-gradient(
-            circle at calc(100% - 17px) 22px,
-            rgba(148, 159, 173, 0.42) 0 0.9px,
-            rgba(24, 30, 37, 0.84) 1.1px 3.4px,
-            rgba(0, 0, 0, 0) 4px
-          ),
-          radial-gradient(
-            circle at 24px calc(100% - 15px),
-            rgba(140, 151, 165, 0.35) 0 0.8px,
-            rgba(21, 26, 33, 0.8) 1px 3.1px,
-            rgba(0, 0, 0, 0) 3.8px
-          ),
-          radial-gradient(
-            circle at 22% 19%,
-            rgba(120, 84, 52, 0.2) 0 16px,
-            rgba(0, 0, 0, 0) 27px
-          ),
-          radial-gradient(
-            circle at 66% 62%,
-            rgba(14, 15, 18, 0.32) 0 20px,
-            rgba(0, 0, 0, 0) 30px
-          ),
-          linear-gradient(
-            184deg,
-            rgba(106, 74, 42, 0.16) 0 7px,
-            rgba(0, 0, 0, 0) 26px
-          ),
-          linear-gradient(
-            176deg,
-            rgba(0, 0, 0, 0) 0 76%,
-            rgba(0, 0, 0, 0.2) 100%
-          ),
-          radial-gradient(
-            circle at 73% 25%,
-            rgba(68, 57, 44, 0.18) 0 11px,
-            rgba(0, 0, 0, 0) 17px
-          ),
-          radial-gradient(
-            circle at 27% 74%,
-            rgba(19, 20, 24, 0.34) 0 13px,
-            rgba(0, 0, 0, 0) 20px
-          ),
-          /* Diagonal faint scratches */
-            repeating-linear-gradient(
-              115deg,
-              transparent 0,
-              transparent 8px,
-              rgba(255, 255, 255, 0.018) 8.4px,
-              rgba(255, 255, 255, 0.018) 9.1px,
-              transparent 10.2px
-            ),
-          repeating-linear-gradient(
-            166deg,
-            rgba(0, 0, 0, 0) 0,
-            rgba(0, 0, 0, 0) 14px,
-            rgba(0, 0, 0, 0.045) 14.4px,
-            rgba(0, 0, 0, 0.045) 15.2px,
-            rgba(0, 0, 0, 0) 16px
-          ),
-          /* General noise/dirt */
-            radial-gradient(
-              circle at 50% 50%,
-              transparent 48%,
-              rgba(0, 0, 0, 0.22) 100%
-            );
-        opacity: 0.78;
-      }
-
-      body.mobile-main-lobby .container img[alt="Terratomic Logo"] {
-        max-width: min(12.5rem, 76vw) !important;
-      }
-
-      body.mobile-main-lobby .container__row {
-        gap: 0.45rem;
-      }
-
-      body.mobile-main-lobby flag-input {
-        min-width: 64px;
-      }
-
-      body.mobile-main-lobby public-lobby button {
-        min-height: 6.5rem !important;
-        height: 6.5rem !important;
-        border-radius: 7px 10px 8px 6px;
-        border: 1px solid rgba(96, 108, 123, 0.56);
-        background:
-          linear-gradient(
-            127deg,
-            rgba(194, 203, 216, 0.15) 0 18%,
-            rgba(0, 0, 0, 0) 44%
-          ),
-          linear-gradient(
-            307deg,
-            rgba(92, 101, 115, 0.16) 0 19%,
-            rgba(0, 0, 0, 0) 42%
-          ),
-          linear-gradient(
-            90deg,
-            rgba(101, 112, 128, 0.22) 0 26%,
-            rgba(74, 83, 96, 0.12) 50%,
-            rgba(49, 57, 68, 0.22) 100%
-          ),
-          repeating-linear-gradient(
-            90deg,
-            rgba(255, 255, 255, 0.022) 0,
-            rgba(255, 255, 255, 0.022) 1px,
-            rgba(0, 0, 0, 0) 1px,
-            rgba(0, 0, 0, 0) 4px
-          ),
-          linear-gradient(
-            180deg,
-            rgba(86, 98, 114, 0.985) 0%,
-            rgba(64, 74, 88, 0.992) 46%,
-            rgba(44, 52, 63, 0.995) 100%
-          ) !important;
-        box-shadow:
-          inset 0 1px 0 rgba(229, 236, 245, 0.16),
-          inset 0 -1px 0 rgba(0, 0, 0, 0.36),
-          0 5px 12px rgba(0, 0, 0, 0.3);
-        padding: 0 !important;
-        overflow: hidden;
-      }
-
-      body.mobile-main-lobby public-lobby button::before {
-        content: "";
-        position: absolute;
-        inset: 0;
-        pointer-events: none;
-        box-shadow: inset 0 0 16px rgba(0, 0, 0, 0.34);
-        background:
-          radial-gradient(
-            circle at 12px 12px,
-            rgba(170, 180, 193, 0.64) 0 1.05px,
-            rgba(31, 36, 44, 0.9) 1.25px 3.8px,
-            rgba(0, 0, 0, 0) 4.2px
-          ),
-          radial-gradient(
-            circle at calc(100% - 13px) 17px,
-            rgba(154, 164, 178, 0.44) 0 0.85px,
-            rgba(25, 30, 37, 0.86) 1.05px 3.35px,
-            rgba(0, 0, 0, 0) 3.9px
-          ),
-          radial-gradient(
-            circle at 19px calc(100% - 14px),
-            rgba(137, 148, 162, 0.34) 0 0.75px,
-            rgba(20, 24, 30, 0.8) 0.95px 2.95px,
-            rgba(0, 0, 0, 0) 3.5px
-          ),
-          radial-gradient(
-            circle at 18% 26%,
-            rgba(122, 86, 52, 0.2) 0 12px,
-            rgba(0, 0, 0, 0) 20px
-          ),
-          radial-gradient(
-            circle at 72% 68%,
-            rgba(11, 12, 14, 0.3) 0 14px,
-            rgba(0, 0, 0, 0) 23px
-          ),
-          linear-gradient(
-            182deg,
-            rgba(100, 69, 40, 0.14) 0 6px,
-            rgba(0, 0, 0, 0) 19px
-          ),
-          linear-gradient(
-            180deg,
-            rgba(0, 0, 0, 0) 0 70%,
-            rgba(0, 0, 0, 0.2) 100%
-          ),
-          radial-gradient(
-            circle at 68% 34%,
-            rgba(54, 45, 35, 0.2) 0 9px,
-            rgba(0, 0, 0, 0) 13px
-          ),
-          radial-gradient(
-            circle at 33% 74%,
-            rgba(16, 17, 19, 0.3) 0 11px,
-            rgba(0, 0, 0, 0) 17px
-          ),
-          linear-gradient(
-            90deg,
-            rgba(0, 0, 0, 0.44) 0 1px,
-            rgba(0, 0, 0, 0) 2px calc(100% - 2px),
-            rgba(0, 0, 0, 0.52) calc(100% - 1px)
-          ),
-          /* Subtle vertical scratching/brushed metal effect */
-            repeating-linear-gradient(
-              90deg,
-              rgba(255, 255, 255, 0.03) 0,
-              rgba(255, 255, 255, 0.03) 1px,
-              transparent 1px,
-              transparent 4px
-            ),
-          repeating-linear-gradient(
-            160deg,
-            rgba(0, 0, 0, 0) 0,
-            rgba(0, 0, 0, 0) 12px,
-            rgba(0, 0, 0, 0.05) 12.5px,
-            rgba(0, 0, 0, 0.05) 13.2px,
-            rgba(0, 0, 0, 0) 14px
-          ),
-          /* Grime/shadow gradient from bottom and top */
-            linear-gradient(
-              180deg,
-              rgba(0, 0, 0, 0.24) 0%,
-              transparent 20%,
-              transparent 80%,
-              rgba(0, 0, 0, 0.38) 100%
-            );
-        opacity: 0.72;
-        mix-blend-mode: overlay;
-      }
-
-      body.mobile-main-lobby public-lobby button > img {
-        width: 100% !important;
-        height: 100% !important;
-        object-fit: cover;
-        object-position: left center;
-        filter: saturate(0.5) brightness(0.72) contrast(1.12) sepia(0.16);
-        opacity: 0.68;
-        mask-image: linear-gradient(
-          to right,
-          rgba(0, 0, 0, 0),
-          #000 15%,
-          #000 85%,
-          rgba(0, 0, 0, 0)
-        );
-      }
-
-      body.mobile-main-lobby public-lobby button > div {
-        background: linear-gradient(
-          112deg,
-          rgba(196, 205, 217, 0.08) 0 16%,
-          rgba(0, 0, 0, 0.2) 44%,
-          rgba(0, 0, 0, 0.42) 100%
-        );
-        padding: 0.65rem 0.78rem !important;
-      }
-
-      body.mobile-main-lobby
-        public-lobby
-        button
-        > div
-        > div:first-child
-        > div:first-child {
-        color: #f0f4fb !important;
-        text-shadow: 0 1px 0 rgba(0, 0, 0, 0.5);
-      }
-
-      body.mobile-main-lobby public-lobby button .text-blue-100,
-      body.mobile-main-lobby public-lobby button .text-md {
-        color: var(--ui-text-default, #d9e4f6) !important;
-      }
-
-      body.mobile-main-lobby public-lobby button .bg-white {
-        background: rgba(220, 230, 240, 0.08) !important;
-      }
-
-      body.mobile-main-lobby public-lobby button .text-\[var\(--ui-primary\)\] {
-        color: rgba(233, 242, 255, 0.95) !important;
-      }
-
-      body.mobile-main-lobby public-lobby button .border-\[\#27476e\] {
-        border-color: rgba(166, 177, 195, 0.45) !important;
-      }
-
-      body.mobile-main-lobby
-        public-lobby
-        button
-        .bg-\[rgba\(14\2c
-        26\2c
-        51\2c
-        0\.55\)\] {
-        background: rgba(29, 36, 48, 0.7) !important;
-      }
-
-      body.mobile-main-lobby o-button .c-button {
-        min-height: 46px;
-        border-radius: 6px 9px 7px 5px;
-        position: relative;
-        overflow: hidden;
-        border: 1px solid rgba(102, 114, 129, 0.58);
-        background:
-          linear-gradient(
-            124deg,
-            rgba(205, 215, 228, 0.14) 0 16%,
-            rgba(0, 0, 0, 0) 41%
-          ),
-          linear-gradient(
-            305deg,
-            rgba(91, 102, 117, 0.14) 0 20%,
-            rgba(0, 0, 0, 0) 44%
-          ),
-          linear-gradient(
-            90deg,
-            rgba(114, 125, 142, 0.18) 0 24%,
-            rgba(86, 96, 111, 0.09) 51%,
-            rgba(56, 64, 76, 0.18) 100%
-          ),
-          radial-gradient(
-            circle at 9px 9px,
-            rgba(167, 178, 192, 0.6) 0 0.95px,
-            rgba(30, 35, 43, 0.88) 1.15px 3.2px,
-            rgba(0, 0, 0, 0) 3.7px
-          ),
-          radial-gradient(
-            circle at calc(100% - 11px) calc(100% - 9px),
-            rgba(145, 155, 169, 0.38) 0 0.75px,
-            rgba(22, 27, 34, 0.82) 0.95px 2.8px,
-            rgba(0, 0, 0, 0) 3.4px
-          ),
-          radial-gradient(
-            circle at 24% 24%,
-            rgba(116, 82, 49, 0.1) 0 8px,
-            rgba(0, 0, 0, 0) 13px
-          ),
-          linear-gradient(
-            182deg,
-            rgba(95, 66, 38, 0.07) 0 4px,
-            rgba(0, 0, 0, 0) 12px
-          ),
-          linear-gradient(
-            180deg,
-            rgba(0, 0, 0, 0) 0 82%,
-            rgba(0, 0, 0, 0.12) 100%
-          ),
-          radial-gradient(
-            circle at 71% 33%,
-            rgba(56, 47, 36, 0.1) 0 7px,
-            rgba(0, 0, 0, 0) 11px
-          ),
-          /* Brushed metal texture */
-            repeating-linear-gradient(
-              90deg,
-              rgba(255, 255, 255, 0.03) 0,
-              rgba(255, 255, 255, 0.03) 1px,
-              transparent 1px,
-              transparent 3px
-            ),
-          repeating-linear-gradient(
-            163deg,
-            rgba(0, 0, 0, 0) 0,
-            rgba(0, 0, 0, 0) 11px,
-            rgba(0, 0, 0, 0.042) 11.4px,
-            rgba(0, 0, 0, 0.042) 12px,
-            rgba(0, 0, 0, 0) 12.8px
-          ),
-          linear-gradient(
-            180deg,
-            rgba(96, 109, 126, 0.986),
-            rgba(74, 84, 99, 0.992) 48%,
-            rgba(56, 65, 78, 0.995)
-          );
-        color: #edf2fb;
-        box-shadow:
-          0 0 0 1px rgba(214, 151, 110, 0.72),
-          0 4px 10px rgba(0, 0, 0, 0.28),
-          inset 0 1px 0 rgba(229, 237, 247, 0.2),
-          inset 0 -10px 14px rgba(0, 0, 0, 0.18);
-      }
-
-      body.mobile-main-lobby o-button .c-button:hover,
-      body.mobile-main-lobby o-button .c-button:active,
-      body.mobile-main-lobby o-button .c-button:focus {
-        background:
-          linear-gradient(
-            124deg,
-            rgba(220, 229, 241, 0.2) 0 17%,
-            rgba(0, 0, 0, 0) 42%
-          ),
-          linear-gradient(
-            305deg,
-            rgba(101, 113, 129, 0.2) 0 21%,
-            rgba(0, 0, 0, 0) 45%
-          ),
-          linear-gradient(
-            90deg,
-            rgba(121, 133, 150, 0.23) 0 25%,
-            rgba(89, 99, 115, 0.11) 50%,
-            rgba(58, 66, 78, 0.24) 100%
-          ),
-          radial-gradient(
-            circle at 9px 9px,
-            rgba(179, 190, 204, 0.66) 0 1px,
-            rgba(34, 40, 49, 0.9) 1.2px 3.4px,
-            rgba(0, 0, 0, 0) 3.9px
-          ),
-          radial-gradient(
-            circle at calc(100% - 11px) calc(100% - 9px),
-            rgba(156, 167, 182, 0.41) 0 0.8px,
-            rgba(25, 31, 38, 0.84) 1px 3px,
-            rgba(0, 0, 0, 0) 3.6px
-          ),
-          repeating-linear-gradient(
-            90deg,
-            rgba(255, 255, 255, 0.05) 0,
-            rgba(255, 255, 255, 0.05) 1px,
-            transparent 1px,
-            transparent 3px
-          ),
-          repeating-linear-gradient(
-            163deg,
-            rgba(0, 0, 0, 0) 0,
-            rgba(0, 0, 0, 0) 11px,
-            rgba(0, 0, 0, 0.05) 11.4px,
-            rgba(0, 0, 0, 0.05) 12px,
-            rgba(0, 0, 0, 0) 12.8px
-          ),
-          linear-gradient(
-            180deg,
-            rgba(108, 123, 141, 1),
-            rgba(84, 95, 111, 1) 48%,
-            rgba(63, 73, 86, 1)
-          );
-        box-shadow:
-          0 0 0 1px rgba(225, 165, 126, 0.85),
-          0 4px 10px rgba(0, 0, 0, 0.3),
-          inset 0 1px 0 rgba(236, 243, 250, 0.24),
-          inset 0 -10px 14px rgba(0, 0, 0, 0.18);
-      }
-
-      body.mobile-main-lobby o-button .c-button.c-button--secondary {
-        border: 1px solid rgba(97, 108, 123, 0.52);
-        background:
-          linear-gradient(
-            124deg,
-            rgba(197, 206, 218, 0.12) 0 15%,
-            rgba(0, 0, 0, 0) 40%
-          ),
-          linear-gradient(
-            304deg,
-            rgba(87, 96, 109, 0.13) 0 18%,
-            rgba(0, 0, 0, 0) 42%
-          ),
-          linear-gradient(
-            90deg,
-            rgba(101, 111, 124, 0.15) 0 23%,
-            rgba(74, 82, 93, 0.08) 52%,
-            rgba(49, 56, 67, 0.18) 100%
-          ),
-          radial-gradient(
-            circle at 9px 9px,
-            rgba(158, 169, 183, 0.56) 0 0.9px,
-            rgba(28, 33, 41, 0.86) 1.1px 3.1px,
-            rgba(0, 0, 0, 0) 3.6px
-          ),
-          radial-gradient(
-            circle at calc(100% - 11px) calc(100% - 9px),
-            rgba(137, 147, 161, 0.34) 0 0.7px,
-            rgba(20, 25, 32, 0.8) 0.9px 2.7px,
-            rgba(0, 0, 0, 0) 3.2px
-          ),
-          radial-gradient(
-            circle at 22% 24%,
-            rgba(106, 75, 45, 0.08) 0 7px,
-            rgba(0, 0, 0, 0) 12px
-          ),
-          linear-gradient(
-            182deg,
-            rgba(84, 59, 34, 0.05) 0 4px,
-            rgba(0, 0, 0, 0) 10px
-          ),
-          repeating-linear-gradient(
-            90deg,
-            rgba(255, 255, 255, 0.02) 0,
-            rgba(255, 255, 255, 0.02) 1px,
-            transparent 1px,
-            transparent 3px
-          ),
-          repeating-linear-gradient(
-            163deg,
-            rgba(0, 0, 0, 0) 0,
-            rgba(0, 0, 0, 0) 10px,
-            rgba(0, 0, 0, 0.042) 10.3px,
-            rgba(0, 0, 0, 0.042) 10.9px,
-            rgba(0, 0, 0, 0) 11.7px
-          ),
-          linear-gradient(
-            180deg,
-            rgba(86, 98, 112, 0.986),
-            rgba(66, 75, 88, 0.992) 48%,
-            rgba(49, 57, 68, 0.995)
-          );
-        color: #dbe5f5;
-        box-shadow:
-          0 0 0 1px rgba(198, 139, 102, 0.6),
-          0 4px 10px rgba(0, 0, 0, 0.26),
-          inset 0 1px 0 rgba(222, 231, 241, 0.18),
-          inset 0 -10px 14px rgba(0, 0, 0, 0.16);
-      }
-
-      body.mobile-main-lobby #settings-button {
-        width: 58px !important;
-        height: 58px !important;
-        bottom: calc(env(safe-area-inset-bottom, 0px) + 8px) !important;
-        right: 10px !important;
-        border-radius: 8px 10px 7px 9px !important;
-        border: 1px solid rgba(99, 111, 126, 0.58);
-        background:
-          linear-gradient(
-            126deg,
-            rgba(201, 211, 224, 0.14) 0 17%,
-            rgba(0, 0, 0, 0) 42%
-          ),
-          linear-gradient(
-            302deg,
-            rgba(93, 103, 118, 0.15) 0 19%,
-            rgba(0, 0, 0, 0) 43%
-          ),
-          linear-gradient(
-            90deg,
-            rgba(104, 115, 131, 0.2) 0 25%,
-            rgba(73, 82, 95, 0.1) 50%,
-            rgba(47, 55, 66, 0.22) 100%
-          ),
-          radial-gradient(
-            circle at 13px 12px,
-            rgba(171, 181, 194, 0.62) 0 1.15px,
-            rgba(31, 37, 45, 0.9) 1.35px 3.9px,
-            rgba(0, 0, 0, 0) 4.4px
-          ),
-          radial-gradient(
-            circle at calc(100% - 13px) 18px,
-            rgba(149, 160, 174, 0.44) 0 0.9px,
-            rgba(24, 29, 36, 0.86) 1.1px 3.4px,
-            rgba(0, 0, 0, 0) 4px
-          ),
-          radial-gradient(
-            circle at 16px calc(100% - 12px),
-            rgba(136, 146, 160, 0.34) 0 0.8px,
-            rgba(20, 25, 31, 0.8) 1px 3.1px,
-            rgba(0, 0, 0, 0) 3.7px
-          ),
-          radial-gradient(
-            circle at 22% 30%,
-            rgba(114, 80, 48, 0.18) 0 8px,
-            rgba(0, 0, 0, 0) 13px
-          ),
-          linear-gradient(
-            182deg,
-            rgba(94, 65, 37, 0.12) 0 6px,
-            rgba(0, 0, 0, 0) 16px
-          ),
-          linear-gradient(
-            180deg,
-            rgba(0, 0, 0, 0) 0 74%,
-            rgba(0, 0, 0, 0.18) 100%
-          ),
-          radial-gradient(
-            circle at 66% 38%,
-            rgba(55, 45, 35, 0.19) 0 7px,
-            rgba(0, 0, 0, 0) 11px
-          ),
-          radial-gradient(
-            circle at 37% 73%,
-            rgba(16, 17, 20, 0.3) 0 9px,
-            rgba(0, 0, 0, 0) 13px
-          ),
-          linear-gradient(
-            176deg,
-            rgba(0, 0, 0, 0) 0 52%,
-            rgba(154, 165, 180, 0.065) 52.4%,
-            rgba(0, 0, 0, 0) 53%
-          ),
-          repeating-linear-gradient(
-            92deg,
-            rgba(255, 255, 255, 0.022) 0,
-            rgba(255, 255, 255, 0.022) 1px,
-            rgba(0, 0, 0, 0) 1px,
-            rgba(0, 0, 0, 0) 4px
-          ),
-          linear-gradient(
-            180deg,
-            rgba(95, 108, 124, 0.986),
-            rgba(69, 80, 94, 0.992) 49%,
-            rgba(50, 59, 71, 0.995)
-          ),
-          linear-gradient(
-            180deg,
-            rgba(0, 0, 0, 0) 0 48%,
-            rgba(124, 135, 151, 0.1) 48.6%,
-            rgba(0, 0, 0, 0) 49.2%
-          ),
-          linear-gradient(
-            90deg,
-            rgba(0, 0, 0, 0.42) 0 1px,
-            rgba(0, 0, 0, 0) 2px calc(100% - 2px),
-            rgba(0, 0, 0, 0.5) calc(100% - 1px)
-          ) !important;
-        box-shadow:
-          0 6px 13px rgba(0, 0, 0, 0.28),
-          inset 0 1px 0 rgba(216, 225, 237, 0.16),
-          inset 0 -10px 14px rgba(0, 0, 0, 0.2);
-      }
-
-      body.mobile-main-lobby #settings-button img {
-        width: 48px !important;
-        height: 48px !important;
-      }
-
-      body.mobile-main-lobby
-        :is(
-          single-player-modal,
-          host-lobby-modal,
-          join-private-lobby-modal,
-          help-modal,
-          mobile-help-modal,
-          rankings-modal,
-          language-modal,
-          news-modal,
-          multi-tab-modal,
-          user-setting,
-          user-setting-modal,
-          load-replay-modal,
-          research-tree-modal,
-          research-priority-modal,
-          statistics-modal,
-          unit-upgrade-settings-modal,
-          build-settings-modal
-        )
-        > o-modal {
-        --ui-overlay: rgba(7, 10, 16, 0.74);
-        --ui-primary: #d69468;
-        --ui-secondary: #db9c72;
-        --ui-secondary-hover: #eab38f;
-        --ui-text-default: #e8eef9;
-        --ui-text-light: #f2f6ff;
-        --ui-text-muted: #c7d1e2;
-        --ui-slider-track: rgba(60, 70, 84, 0.96);
-        --ui-panel-shell-top: rgba(72, 82, 97, 0.98);
-        --ui-panel-shell-bottom: rgba(48, 56, 68, 0.985);
-        --ui-panel-border: rgba(127, 140, 160, 0.66);
-        --ui-border-muted: rgba(136, 149, 170, 0.66);
-        --map-card-bg: rgba(55, 63, 75, 0.99);
-        --map-card-bg-bottom: rgba(36, 42, 52, 0.995);
-        --map-card-border: rgba(133, 147, 169, 0.62);
-        --map-card-image-bg: rgba(17, 21, 28, 0.82);
-        --map-card-image-border: rgba(168, 181, 198, 0.38);
-        --map-card-hover-top: rgba(80, 92, 108, 0.988);
-        --map-card-hover-bottom: rgba(43, 51, 62, 0.996);
-        --map-card-hover-border: rgba(215, 155, 118, 0.72);
-        --map-card-title: #cfd9ea;
-        --map-card-selected-top: rgba(85, 97, 114, 0.99);
-        --map-card-selected-bottom: rgba(48, 56, 68, 0.997);
-        --map-card-selected-ring: rgba(224, 166, 129, 0.88);
-        --map-card-selected-glow: rgba(224, 166, 129, 0.52);
-        --ui-modal-header: linear-gradient(
-          180deg,
-          rgba(85, 97, 114, 0.985),
-          rgba(63, 73, 88, 0.995)
-        );
-        --ui-modal-content: linear-gradient(
-          180deg,
-          rgba(74, 85, 101, 0.987),
-          rgba(55, 64, 77, 0.993) 46%,
-          rgba(38, 45, 56, 0.996)
-        );
-      }
-
-      body.mobile-main-lobby
-        :is(
-          single-player-modal,
-          host-lobby-modal,
-          join-private-lobby-modal,
-          help-modal,
-          mobile-help-modal,
-          rankings-modal,
-          language-modal,
-          news-modal,
-          multi-tab-modal,
-          user-setting,
-          user-setting-modal,
-          load-replay-modal,
-          research-tree-modal,
-          research-priority-modal,
-          statistics-modal,
-          unit-upgrade-settings-modal,
-          build-settings-modal
-        )
-        :is(
-          .sp-map-col,
-          .sp-settings-col,
-          .sp-chat-col,
-          .options-section,
-          .join-lobby-main,
-          .join-lobby-chat,
-          .team-column,
-          .unassigned-column,
-          .spectator-column,
-          .stats-card,
-          .modal-content,
-          .user-setting-modal
-        ) {
-        border: 1px solid rgba(97, 109, 124, 0.52) !important;
-        border-radius: 7px 10px 8px 6px !important;
-        background:
-          linear-gradient(
-            124deg,
-            rgba(201, 210, 222, 0.1) 0 16%,
-            rgba(0, 0, 0, 0) 41%
-          ),
-          linear-gradient(
-            305deg,
-            rgba(89, 100, 115, 0.13) 0 20%,
-            rgba(0, 0, 0, 0) 44%
-          ),
-          linear-gradient(
-            180deg,
-            rgba(88, 100, 116, 0.985),
-            rgba(64, 74, 88, 0.992) 48%,
-            rgba(46, 54, 65, 0.995)
-          ) !important;
-        box-shadow:
-          0 0 0 1px rgba(210, 149, 109, 0.45),
-          inset 0 1px 0 rgba(227, 235, 245, 0.16),
-          inset 0 -10px 14px rgba(0, 0, 0, 0.16) !important;
-      }
-
-      body.mobile-main-lobby
-        :is(
-          single-player-modal,
-          host-lobby-modal,
-          join-private-lobby-modal,
-          help-modal,
-          mobile-help-modal,
-          rankings-modal,
-          language-modal,
-          news-modal,
-          multi-tab-modal,
-          user-setting,
-          user-setting-modal,
-          load-replay-modal,
-          research-tree-modal,
-          research-priority-modal,
-          statistics-modal,
-          unit-upgrade-settings-modal,
-          build-settings-modal
-        )
-        :is(input, select, textarea, button:not(.c-button)) {
-        border: 1px solid rgba(100, 112, 127, 0.56) !important;
-        border-radius: 6px 8px 7px 5px !important;
-        color: var(--ui-text-default, #d9e4f6) !important;
-        background:
-          linear-gradient(
-            124deg,
-            rgba(205, 214, 227, 0.12) 0 14%,
-            rgba(0, 0, 0, 0) 38%
-          ),
-          linear-gradient(
-            180deg,
-            rgba(92, 104, 121, 0.985),
-            rgba(68, 78, 93, 0.992) 48%,
-            rgba(50, 58, 70, 0.995)
-          ) !important;
-        box-shadow:
-          0 0 0 1px rgba(206, 146, 108, 0.55),
-          inset 0 1px 0 rgba(230, 237, 246, 0.16),
-          inset 0 -10px 14px rgba(0, 0, 0, 0.18) !important;
-      }
-
-      body.mobile-main-lobby
-        :is(
-          single-player-modal,
-          host-lobby-modal,
-          join-private-lobby-modal,
-          help-modal,
-          mobile-help-modal,
-          rankings-modal,
-          language-modal,
-          news-modal,
-          multi-tab-modal,
-          user-setting,
-          user-setting-modal,
-          load-replay-modal,
-          research-tree-modal,
-          research-priority-modal,
-          statistics-modal,
-          unit-upgrade-settings-modal,
-          build-settings-modal
-        )
-        :is(input::placeholder, textarea::placeholder) {
-        color: rgba(214, 223, 236, 0.72) !important;
-      }
-
-      body.mobile-main-lobby
-        :is(single-player-modal, host-lobby-modal)
-        :is(.sp-btn.selected, .sp-cycler-btn.selected) {
-        background:
-          linear-gradient(
-            124deg,
-            rgba(211, 220, 233, 0.16) 0 16%,
-            rgba(0, 0, 0, 0) 41%
-          ),
-          linear-gradient(
-            305deg,
-            rgba(88, 98, 112, 0.16) 0 20%,
-            rgba(0, 0, 0, 0) 44%
-          ),
-          linear-gradient(
-            180deg,
-            rgba(84, 96, 112, 0.985),
-            rgba(62, 72, 86, 0.993) 48%,
-            rgba(45, 53, 64, 0.996)
-          ) !important;
-        border-color: rgba(218, 157, 118, 0.82) !important;
-        box-shadow:
-          inset 0 0 0 1px rgba(230, 174, 139, 0.72),
-          0 0 0 1px rgba(211, 149, 110, 0.48) !important;
-      }
-
-      body.mobile-main-lobby
-        :is(single-player-modal, host-lobby-modal)
-        .sp-btn.selected
-        .sp-check {
-        background: rgba(223, 162, 123, 0.95) !important;
-        border-color: rgba(228, 171, 137, 0.98) !important;
-      }
-
-      body.mobile-main-lobby
-        :is(single-player-modal, host-lobby-modal)
-        :is(.sp-cycler-icon, .host-badge) {
-        color: rgba(223, 164, 126, 0.96) !important;
-      }
-
-      body.mobile-main-lobby
-        :is(single-player-modal, host-lobby-modal)
-        .option-card {
-        background:
-          linear-gradient(
-            124deg,
-            rgba(199, 208, 220, 0.14) 0 16%,
-            rgba(0, 0, 0, 0) 41%
-          ),
-          linear-gradient(
-            305deg,
-            rgba(85, 95, 110, 0.14) 0 20%,
-            rgba(0, 0, 0, 0) 44%
-          ),
-          linear-gradient(
-            180deg,
-            rgba(74, 85, 101, 0.988),
-            rgba(54, 63, 76, 0.994) 48%,
-            rgba(39, 46, 57, 0.996)
-          ) !important;
-        border: 2px solid rgba(132, 145, 166, 0.52) !important;
-        border-radius: 7px 10px 8px 6px !important;
-        box-shadow: inset 0 1px 0 rgba(224, 232, 243, 0.14) !important;
-      }
-
-      body.mobile-main-lobby
-        :is(single-player-modal, host-lobby-modal)
-        .option-card:hover {
-        border-color: rgba(215, 155, 118, 0.72) !important;
-        background:
-          linear-gradient(
-            124deg,
-            rgba(209, 218, 231, 0.16) 0 16%,
-            rgba(0, 0, 0, 0) 41%
-          ),
-          linear-gradient(
-            305deg,
-            rgba(91, 102, 118, 0.15) 0 20%,
-            rgba(0, 0, 0, 0) 44%
-          ),
-          linear-gradient(
-            180deg,
-            rgba(80, 92, 108, 0.988),
-            rgba(60, 69, 83, 0.994) 48%,
-            rgba(43, 51, 62, 0.996)
-          ) !important;
-      }
-
-      body.mobile-main-lobby
-        :is(single-player-modal, host-lobby-modal)
-        .option-card.selected {
-        border-color: rgba(225, 166, 129, 0.9) !important;
-        background:
-          linear-gradient(
-            124deg,
-            rgba(214, 223, 236, 0.18) 0 16%,
-            rgba(0, 0, 0, 0) 41%
-          ),
-          linear-gradient(
-            305deg,
-            rgba(95, 106, 122, 0.17) 0 20%,
-            rgba(0, 0, 0, 0) 44%
-          ),
-          linear-gradient(
-            180deg,
-            rgba(85, 97, 114, 0.99),
-            rgba(64, 74, 89, 0.995) 48%,
-            rgba(48, 56, 68, 0.997)
-          ) !important;
-        box-shadow:
-          0 0 0 2px rgba(224, 166, 129, 0.8),
-          0 0 10px rgba(224, 166, 129, 0.46),
-          inset 0 1px 0 rgba(232, 239, 248, 0.2) !important;
-      }
-
-      body.mobile-main-lobby
-        :is(single-player-modal, host-lobby-modal)
-        .option-image {
-        background-color: rgba(220, 228, 238, 0.04) !important;
-      }
-
-      body.mobile-main-lobby
-        :is(single-player-modal, host-lobby-modal)
-        .map-item-wrapper
-        .option-card {
-        background:
-          linear-gradient(
-            124deg,
-            rgba(182, 193, 208, 0.08) 0 14%,
-            rgba(0, 0, 0, 0) 42%
-          ),
-          linear-gradient(
-            180deg,
-            rgba(55, 63, 75, 0.99),
-            rgba(36, 42, 52, 0.995)
-          ) !important;
-        border-color: rgba(133, 147, 169, 0.62) !important;
-        box-shadow:
-          inset 0 1px 0 rgba(214, 224, 238, 0.12),
-          inset 0 -10px 14px rgba(0, 0, 0, 0.22),
-          0 2px 8px rgba(0, 0, 0, 0.3) !important;
-      }
-
-      body.mobile-main-lobby
-        :is(single-player-modal, host-lobby-modal)
-        .map-item-wrapper
-        .option-image {
-        background-color: rgba(17, 21, 28, 0.82) !important;
-        border: 1px solid rgba(168, 181, 198, 0.38);
-        box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.26);
-      }
-
-      body.mobile-main-lobby
-        :is(single-player-modal, host-lobby-modal)
-        .map-item-wrapper
-        .option-card-title {
-        color: rgba(217, 226, 239, 0.94) !important;
-      }
-
-      body.mobile-main-lobby
-        :is(single-player-modal, host-lobby-modal)
-        .map-item-wrapper
-        .option-card.selected {
-        border-color: rgba(228, 171, 135, 0.92) !important;
-        box-shadow:
-          0 0 0 2px rgba(224, 166, 129, 0.86),
-          0 0 12px rgba(224, 166, 129, 0.52),
-          inset 0 1px 0 rgba(234, 241, 249, 0.22) !important;
-      }
-
-      body.mobile-landscape-lobby {
-        overflow-y: auto;
-      }
-
-      body.mobile-landscape-lobby main {
-        padding-top: 0.5rem;
-      }
-
-      body.mobile-landscape-lobby .scale-container {
-        transform: none !important;
-        margin-bottom: 0 !important;
-      }
-
-      body.mobile-landscape-lobby .container {
-        max-width: min(500px, 94vw) !important;
-        padding: 1rem !important;
-        gap: 0.85rem !important;
-      }
-
-      body.mobile-landscape-lobby .container img[alt="Terratomic Logo"] {
-        max-width: 12rem !important;
-      }
-
-      body.mobile-landscape-lobby public-lobby button {
-        height: 7rem !important;
-      }
-
-      body.mobile-main-lobby.mobile-landscape-lobby
-        main
-        .scale-container
-        > .container {
-        max-width: min(520px, 94vw) !important;
-        padding: 0.75rem !important;
-        gap: 0.55rem !important;
-      }
-
-      body.mobile-main-lobby.mobile-landscape-lobby
-        .container
-        img[alt="Terratomic Logo"] {
-        max-width: min(10.8rem, 44vw) !important;
-      }
-
-      body.mobile-main-lobby.mobile-landscape-lobby o-button .c-button {
-        min-height: 42px;
-      }
-
-      body.mobile-main-lobby.mobile-landscape-lobby public-lobby button {
-        min-height: 7rem !important;
-        height: 7rem !important;
-      }
     </style>
 
     <!-- Immediate execution to prevent FOUC -->
@@ -1274,18 +139,20 @@
         ></o-button>
         -->
 
-          <div class="container__row">
+          <div class="container__row lobby-profile-row">
             <flag-input class="w-[20%] md:w-[15%]"></flag-input>
             <username-input class="relative w-full"></username-input>
             <news-button
               class="w-[20%] md:w-[15%] component-hideable"
             ></news-button>
           </div>
-          <div></div>
-          <div>
+          <div class="lobby-spacer"></div>
+          <div class="lobby-public-slot">
             <public-lobby class="block"></public-lobby>
           </div>
-          <div class="container__row container__row--equal">
+          <div
+            class="container__row container__row--equal lobby-primary-actions"
+          >
             <o-button
               id="host-lobby-button"
               title="Create Lobby"
@@ -1315,21 +182,23 @@
             block
           ></o-button>
 
-          <o-button
-            id="help-button"
-            title="Instructions"
-            translationKey="main.instructions"
-            block
-            secondary
-          ></o-button>
+          <div class="lobby-secondary-actions">
+            <o-button
+              id="help-button"
+              title="Instructions"
+              translationKey="main.instructions"
+              block
+              secondary
+            ></o-button>
 
-          <o-button
-            id="rankings-button"
-            title="Rankings"
-            translationKey="rankings.title"
-            block
-            secondary
-          ></o-button>
+            <o-button
+              id="rankings-button"
+              title="Rankings"
+              translationKey="rankings.title"
+              block
+              secondary
+            ></o-button>
+          </div>
 
           <lang-selector class="w-full"></lang-selector>
           <o-button
@@ -1344,6 +213,7 @@
     </main>
 
     <!-- User Setting -->
+    <div id="settings-button-anchor"></div>
     <button
       id="settings-button"
       title="Settings"
@@ -1421,6 +291,8 @@
     <!-- Attack warning overlay - full screen -->
     <attack-warning-overlay></attack-warning-overlay>
 
+    <div id="footer-anchor"></div>
+
     <!-- Footer section -->
     <footer class="l-footer l-footer--compact fixed inset-x-0 bottom-0 z-20">
       <div class="l-footer__content w-full max-w-none">
@@ -1430,7 +302,7 @@
             class="t-link inline-flex items-center space-x-2"
             target="_blank"
           >
-            ©2025 Terratomic™
+            ©2026 Terratomic™
             <img
               src="../../resources/icons/github-mark-white.svg"
               alt="GitHub"
@@ -1458,6 +330,10 @@
         </div>
         <div class="l-footer__col l-footer__col--right t-text-white">
           <span class="select-text">Based on OpenFront</span>
+          <span
+            id="quick-toggle-anchor"
+            class="l-footer__utility-anchor"
+          ></span>
         </div>
       </div>
     </footer>
@@ -1485,6 +361,14 @@
       class="fixed top-0 right-0 z-50 flex gap-2 p-2"
     >
       <dark-mode-button></dark-mode-button>
+      <button
+        id="discord-quick-button"
+        title="Join Discord"
+        onclick="document.getElementById('join-discord-button')?.click()"
+        aria-label="Join Discord"
+      >
+        <img src="../../resources/icons/discord.svg" alt="Discord" />
+      </button>
       <sound-button></sound-button>
     </div>
     <research-toggle-button></research-toggle-button>
@@ -1512,11 +396,18 @@
       (function () {
         function isMobileLobbyDevice() {
           var isMobileWidth = window.matchMedia("(max-width: 1024px)").matches;
-          var hasCoarsePointer = window.matchMedia("(pointer: coarse)").matches;
           var mobileUA = /Android|iPhone|iPad|iPod|Mobile/i.test(
             navigator.userAgent,
           );
-          return isMobileWidth && (hasCoarsePointer || mobileUA);
+          var uaDataMobile =
+            typeof navigator.userAgentData !== "undefined" &&
+            !!navigator.userAgentData.mobile;
+          var isIPadDesktopMode =
+            navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1;
+
+          return (
+            isMobileWidth && (mobileUA || uaDataMobile || isIPadDesktopMode)
+          );
         }
 
         function isPhoneLandscape() {
@@ -1524,6 +415,17 @@
             "(orientation: landscape)",
           ).matches;
           return isLandscape && isMobileLobbyDevice();
+        }
+
+        function getMobileLobbySizeClass() {
+          var shortestSide = Math.min(
+            window.innerWidth || 0,
+            window.innerHeight || 0,
+          );
+
+          if (shortestSide <= 360) return "compact";
+          if (shortestSide <= 430) return "regular";
+          return "large";
         }
 
         function computeScale() {
@@ -1538,15 +440,98 @@
 
         function applyScale() {
           var container = document.querySelector(".scale-container");
+          var lobbyContainer = document.querySelector(
+            ".scale-container > .container",
+          );
           if (!container) return;
+
+          var settingsButton = document.getElementById("settings-button");
+          var quickToggleContainer = document.getElementById(
+            "quick-toggle-container",
+          );
+          var quickToggleAnchor = document.getElementById(
+            "quick-toggle-anchor",
+          );
+          var settingsAnchor = document.getElementById(
+            "settings-button-anchor",
+          );
+          var footer = document.querySelector("footer.l-footer");
+          var footerAnchor = document.getElementById("footer-anchor");
 
           var mobileMainLobby = isMobileLobbyDevice();
           var mobileLandscape = isPhoneLandscape();
+          var mobileLobbySizeClass = mobileMainLobby
+            ? getMobileLobbySizeClass()
+            : "";
+
           document.body.classList.toggle("mobile-main-lobby", mobileMainLobby);
           document.body.classList.toggle(
             "mobile-landscape-lobby",
             mobileLandscape,
           );
+          document.body.classList.toggle(
+            "mobile-lobby-compact",
+            mobileMainLobby && mobileLobbySizeClass === "compact",
+          );
+
+          if (mobileLobbySizeClass) {
+            document.body.dataset.mobileLobbyClass = mobileLobbySizeClass;
+          } else {
+            delete document.body.dataset.mobileLobbyClass;
+          }
+
+          if (settingsButton && quickToggleContainer && settingsAnchor) {
+            if (mobileLandscape || mobileMainLobby) {
+              if (settingsButton.parentElement !== quickToggleContainer) {
+                quickToggleContainer.appendChild(settingsButton);
+              }
+            } else {
+              var anchorParent = settingsAnchor.parentElement;
+              if (
+                anchorParent &&
+                settingsButton.parentElement !== anchorParent
+              ) {
+                anchorParent.insertBefore(
+                  settingsButton,
+                  settingsAnchor.nextSibling,
+                );
+              }
+            }
+          }
+
+          if (quickToggleContainer && quickToggleAnchor) {
+            if (mobileLandscape || mobileMainLobby) {
+              if (quickToggleContainer.parentElement !== quickToggleAnchor) {
+                quickToggleAnchor.appendChild(quickToggleContainer);
+              }
+            } else {
+              var quickToggleOriginalParent = document.body;
+              if (
+                quickToggleContainer.parentElement !== quickToggleOriginalParent
+              ) {
+                quickToggleOriginalParent.appendChild(quickToggleContainer);
+              }
+            }
+          }
+
+          if (footer && footerAnchor && lobbyContainer) {
+            if (mobileLandscape || mobileMainLobby) {
+              if (footer.parentElement !== lobbyContainer) {
+                lobbyContainer.appendChild(footer);
+              }
+            } else {
+              var footerAnchorParent = footerAnchor.parentElement;
+              if (
+                footerAnchorParent &&
+                footer.parentElement !== footerAnchorParent
+              ) {
+                footerAnchorParent.insertBefore(
+                  footer,
+                  footerAnchor.nextSibling,
+                );
+              }
+            }
+          }
 
           if (mobileMainLobby) {
             container.style.transform = "none";
@@ -1556,16 +541,28 @@
 
           var scale = computeScale();
           container.style.transform = "scale(" + scale + ")";
-          // Compensate layout gap created by transform (which doesn't affect flow height)
-          // Compensate using base height as an approximation for natural content height
-          var baseHeight = 1150;
-          var compensation = 440;
-          container.style.marginBottom = compensation
-            ? "-" + compensation + "px"
-            : "0px";
+          // Compensate layout gap created by transform (which doesn't affect flow height).
+          // transform: scale() shrinks the element visually but leaves its original
+          // layout footprint unchanged, creating a gap below the scaled container.
+          // We remove that gap by pulling up by: naturalHeight * (1 - scale).
+          var naturalHeight = container.scrollHeight;
+          var compensation =
+            naturalHeight > 0 ? Math.round(naturalHeight * (1 - scale)) : 0;
+          container.style.marginBottom =
+            compensation > 0 ? "-" + compensation + "px" : "0px";
         }
 
+        var wasLandscape = isPhoneLandscape();
+
         function onResize() {
+          var nowLandscape = isPhoneLandscape();
+          // Portrait → landscape: reset scroll so the top of the menu is shown
+          if (nowLandscape && !wasLandscape) {
+            window.scrollTo(0, 0);
+            document.documentElement.scrollTop = 0;
+            document.body.scrollTop = 0;
+          }
+          wasLandscape = nowLandscape;
           requestAnimationFrame(applyScale);
         }
 
