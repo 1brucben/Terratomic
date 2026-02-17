@@ -163,6 +163,40 @@ describe("Submarine", () => {
     expect(tradeShip.owner().id()).toBe(player2.id());
   });
 
+  test("Submarine does not target trade ship docked at a port", async () => {
+    // build port so submarine can target trade ships
+    player1.buildUnit(UnitType.Port, game.ref(coastX, 10), {});
+
+    const submarine = player1.buildUnit(
+      UnitType.Submarine,
+      game.ref(coastX + 1, 10),
+      {
+        patrolTile: game.ref(coastX + 1, 10),
+      },
+    );
+    game.addExecution(new SubmarineExecution(submarine));
+
+    // Place a port for player2 and put the trade ship ON the port tile (docked)
+    const enemyPort = player2.buildUnit(
+      UnitType.Port,
+      game.ref(coastX, 11),
+      {},
+    );
+    const tradeShip = player2.buildUnit(
+      UnitType.TradeShip,
+      enemyPort.tile(), // docked at port
+      {
+        targetUnit: enemyPort,
+      },
+    );
+
+    executeTicks(game, 10);
+
+    // Trade ship should remain alive and owned by player2
+    expect(tradeShip.isActive()).toBe(true);
+    expect(tradeShip.owner().id()).toBe(player2.id());
+  });
+
   test("Submarine moves to new patrol tile", async () => {
     game.config().warshipTargettingRange = () => 1;
 
