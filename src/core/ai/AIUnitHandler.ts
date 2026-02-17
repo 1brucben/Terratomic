@@ -168,6 +168,15 @@ export class AIUnitHandler {
     const unitCost = this.mg.unitInfo(UnitType.Warship).cost(player);
     const totalCost = unitCost * BigInt(targetCount);
 
+    if (player.name() === "China") {
+      const ports = [...this.mg.units(UnitType.Port)].filter(
+        (p) => p.isActive() && p.owner().id() === player.id(),
+      ).length;
+      console.log(
+        `[AI-DEBUG China] tickWarshipBatch: enemyMax=${enemyMax}, own=${ownWarships}, targetCount=${targetCount}, unitCost=${unitCost}, totalCost=${totalCost}, gold=${player.gold()}, canAfford=${player.gold() >= totalCost}, ports=${ports}`,
+      );
+    }
+
     // Wait until we can afford the whole batch
     if (player.gold() < totalCost) return;
 
@@ -175,6 +184,9 @@ export class AIUnitHandler {
     // or near a random port if no enemy warships exist.
     const spawnTile = this.findWarshipPlacementTile(player);
     if (spawnTile === null) {
+      if (player.name() === "China") {
+        console.log(`[AI-DEBUG China] warship spawn FAILED: no placement tile`);
+      }
       // No valid placement — clear target and retry later
       this._target = null;
       return;
@@ -184,12 +196,25 @@ export class AIUnitHandler {
     let spawned = 0;
     for (let i = 0; i < targetCount; i++) {
       const tile = player.canBuild(UnitType.Warship, spawnTile);
-      if (tile === false) break;
+      if (tile === false) {
+        if (player.name() === "China") {
+          console.log(
+            `[AI-DEBUG China] warship spawn FAILED: canBuild returned false for warship #${i + 1}`,
+          );
+        }
+        break;
+      }
       if (player.gold() < unitCost) break;
       this.mg.addExecution(
         new ConstructionExecution(player, UnitType.Warship, tile),
       );
       spawned++;
+    }
+
+    if (player.name() === "China") {
+      console.log(
+        `[AI-DEBUG China] warship batch done: spawned=${spawned}/${targetCount}`,
+      );
     }
 
     // Clear target regardless — either we spawned or we failed
@@ -442,11 +467,12 @@ export class AIUnitHandler {
           bestPort = portTile;
         }
       }
-      return bestPort;
+      return bestPort ? this.findOceanNearPort(bestPort) : null;
     }
 
     // No enemy warships — pick a random port
-    return this.random.randElement(portTiles);
+    const port = this.random.randElement(portTiles);
+    return this.findOceanNearPort(port);
   }
 
   /**
@@ -460,7 +486,8 @@ export class AIUnitHandler {
       ports.push(port.tile());
     }
     if (ports.length === 0) return null;
-    return this.random.randElement(ports);
+    const port = this.random.randElement(ports);
+    return this.findOceanNearPort(port);
   }
 
   /**
@@ -496,6 +523,29 @@ export class AIUnitHandler {
   // ---------------------------------------------------------------------------
   // Helpers
   // ---------------------------------------------------------------------------
+
+  /**
+   * Find an ocean tile near a port for naval unit spawning.
+   * Searches a random area within a radius of the port for a valid ocean tile.
+   */
+  private findOceanNearPort(portTile: TileRef): TileRef | null {
+    const radius = 250;
+    for (let attempts = 0; attempts < 50; attempts++) {
+      const randX = this.random.nextInt(
+        this.mg.x(portTile) - radius,
+        this.mg.x(portTile) + radius,
+      );
+      const randY = this.random.nextInt(
+        this.mg.y(portTile) - radius,
+        this.mg.y(portTile) + radius,
+      );
+      if (!this.mg.isValidCoord(randX, randY)) continue;
+      const tile = this.mg.ref(randX, randY);
+      if (!this.mg.isOcean(tile)) continue;
+      return tile;
+    }
+    return null;
+  }
 
   private getPlayer(): Player | undefined {
     return this.mg.players().find((p) => p.id() === this.playerId);
