@@ -535,21 +535,54 @@ export class AIConstructionHandler {
     }
 
     // For other structures, base score remains 0 (uses weight only)
-    const structureScore = baseScore * weight;
+    const newBuildScore = baseScore * weight;
 
     // Get the upgrade score for this structure type (if stackable)
     const upgradeData = this._upgradeScores.get(unitType);
     const upgradeScore = upgradeData?.score ?? 0;
 
-    // Multiply by the max of tile score and upgrade score
+    // For City and Factory, recompute base score using upgrade cost for T
+    let upgradeBaseScore = baseScore;
+    if (
+      (unitType === UnitType.City || unitType === UnitType.Factory) &&
+      upgradeScore > 0
+    ) {
+      const baseCost = this.mg.unitInfo(unitType).cost(player);
+      const upgMultiplier = this.mg
+        .config()
+        .structureUpgradeCostMultiplier(unitType);
+      const upgCost = computeUpgradeStepCost(baseCost, upgMultiplier);
+      upgradeBaseScore =
+        unitType === UnitType.City
+          ? this.scoreCity(player, upgCost)
+          : this.scoreFactory(player, upgCost);
+    }
+    const upgradeStructureScore = upgradeBaseScore * weight;
+
+    // Multiply by the max of (newBuild * tileScore) vs (upgrade * upgradeScore)
     if (unitType === UnitType.Port) {
-      return structureScore * Math.max(this._portTileScore, upgradeScore);
+      return Math.max(
+        newBuildScore * this._portTileScore,
+        newBuildScore * upgradeScore,
+      );
     } else if (unitType === UnitType.DefensePost) {
-      return structureScore * this._defensePostTileScore; // Defense posts cannot be stacked
+      return newBuildScore * this._defensePostTileScore; // Defense posts cannot be stacked
     } else if (unitType === UnitType.SAMLauncher) {
-      return structureScore * Math.max(this._samTileScore, upgradeScore);
+      return Math.max(
+        newBuildScore * this._samTileScore,
+        newBuildScore * upgradeScore,
+      );
+    } else if (unitType === UnitType.City || unitType === UnitType.Factory) {
+      // For City/Factory, use upgrade-cost-based base score for upgrade path
+      return Math.max(
+        newBuildScore * this._otherTileScore,
+        upgradeStructureScore * upgradeScore,
+      );
     } else {
-      return structureScore * Math.max(this._otherTileScore, upgradeScore);
+      return Math.max(
+        newBuildScore * this._otherTileScore,
+        newBuildScore * upgradeScore,
+      );
     }
   }
 
@@ -624,11 +657,14 @@ export class AIConstructionHandler {
   }
 
   /**
-   * Computes the city base score as expected income gain / cost.
+   * Computes the city base score as present value of perpetual income gain:
+   * incomeGain/min / discountRate / (1 + discountRate)^T
+   * where T = minutes to earn the city cost at current income.
+   * @param costOverride - If provided, use this cost instead of base cost (e.g. upgrade cost).
    */
-  private scoreCity(player: Player): number {
+  private scoreCity(player: Player, costOverride?: bigint): number {
     const config = this.mg.config();
-    const cost = this.mg.unitInfo(UnitType.City).cost(player);
+    const cost = costOverride ?? this.mg.unitInfo(UnitType.City).cost(player);
     if (cost <= 0n) {
       return 0;
     }
@@ -677,19 +713,37 @@ export class AIConstructionHandler {
     const incomeGain = projectedGrossGold - currentGrossGold;
 
     const costNum = Number(cost);
-    if (costNum <= 0 || !Number.isFinite(incomeGain)) {
+    if (costNum <= 0 || !Number.isFinite(incomeGain) || incomeGain <= 0) {
       return 0;
     }
 
-    return (incomeGain / costNum) * 1e6;
+    // Convert per-tick values to per-minute (10 ticks/sec * 60 sec/min)
+    const TICKS_PER_MINUTE = 600;
+    const grossGoldPerMinute = currentGrossGold * TICKS_PER_MINUTE;
+    if (grossGoldPerMinute <= 0) {
+      return 0;
+    }
+
+    // T = minutes to earn the cost of the city (or city stack upgrade)
+    const T = costNum / grossGoldPerMinute;
+    const discountRate = this.params.discountFactor ?? 0.1;
+    const incomeGainPerMinute = incomeGain * TICKS_PER_MINUTE;
+
+    // PV of perpetuity delayed by T minutes:
+    // incomeGainPerMinute / discountRate / (1 + discountRate)^T
+    return incomeGainPerMinute / discountRate / Math.pow(1 + discountRate, T);
   }
 
   /**
-   * Computes the factory base score as expected income gain / cost.
+   * Computes the factory base score as present value of perpetual income gain:
+   * incomeGain/min / discountRate / (1 + discountRate)^T
+   * where T = minutes to earn the factory cost at current income.
+   * @param costOverride - If provided, use this cost instead of base cost (e.g. upgrade cost).
    */
-  private scoreFactory(player: Player): number {
+  private scoreFactory(player: Player, costOverride?: bigint): number {
     const config = this.mg.config();
-    const cost = this.mg.unitInfo(UnitType.Factory).cost(player);
+    const cost =
+      costOverride ?? this.mg.unitInfo(UnitType.Factory).cost(player);
     if (cost <= 0n) {
       return 0;
     }
@@ -716,11 +770,25 @@ export class AIConstructionHandler {
     const incomeGain = projectedGrossGold - currentGrossGold;
 
     const costNum = Number(cost);
-    if (costNum <= 0 || !Number.isFinite(incomeGain)) {
+    if (costNum <= 0 || !Number.isFinite(incomeGain) || incomeGain <= 0) {
       return 0;
     }
 
-    return (incomeGain / costNum) * 1e6;
+    // Convert per-tick values to per-minute (10 ticks/sec * 60 sec/min)
+    const TICKS_PER_MINUTE = 600;
+    const grossGoldPerMinute = currentGrossGold * TICKS_PER_MINUTE;
+    if (grossGoldPerMinute <= 0) {
+      return 0;
+    }
+
+    // T = minutes to earn the cost of the factory (or factory stack upgrade)
+    const T = costNum / grossGoldPerMinute;
+    const discountRate = this.params.discountFactor ?? 0.1;
+    const incomeGainPerMinute = incomeGain * TICKS_PER_MINUTE;
+
+    // PV of perpetuity delayed by T minutes:
+    // incomeGainPerMinute / discountRate / (1 + discountRate)^T
+    return incomeGainPerMinute / discountRate / Math.pow(1 + discountRate, T);
   }
 
   /**
