@@ -91,6 +91,10 @@ describe("AINukeHandler", () => {
     // Territory makes players alive (isAlive() checks tiles > 0)
     conquerBlock(aiPlayer, 1, 1, 5);
     conquerBlock(enemy, 50, 50, 10);
+
+    // Give AI player enough workers so grossGoldPerMinute is non-trivial.
+    // Without workers the discount-rate denominator (1+r)^T → ∞, zeroing all scores.
+    aiPlayer.addWorkers(10000);
   });
 
   // --------------------------------------------------------------------------
@@ -157,9 +161,9 @@ describe("AINukeHandler", () => {
       }
     });
 
-    test("single low-value target returns low score (cost exceeds value)", () => {
+    test("single low-value target returns lower score than high-value cluster", () => {
       // One city: value = 125k (first city). Bomb = 750k, silo = 1M/2
-      // Ratio scoring: 125k / 1.25M ≈ 0.1, i.e. < 1.0 (cost exceeds value)
+      // Discount-based scoring: low value → low discounted net score
       enemy.buildUnit(UnitType.City, game.ref(55, 55), {});
 
       const handler = new AINukeHandler(
@@ -170,10 +174,26 @@ describe("AINukeHandler", () => {
       );
       for (let i = 0; i < 500; i++) handler.tick(i);
 
-      // Score is a ratio < 1.0 meaning cost exceeds value
-      const best = handler.bestAtomTarget();
-      if (best !== null) {
-        expect(best.score).toBeLessThan(1);
+      const singleCityScore = handler.bestAtomTarget();
+
+      // Now build a high-value cluster for comparison
+      for (let i = 1; i < 5; i++) {
+        enemy.buildUnit(UnitType.City, game.ref(55 + i, 55), {});
+      }
+
+      const h2 = new AINukeHandler(
+        game,
+        aiPlayer.id(),
+        new PseudoRandom(42),
+        params,
+      );
+      for (let i = 0; i < 500; i++) h2.tick(i);
+      const clusterScore = h2.bestAtomTarget();
+
+      // Single city score should be strictly less than the cluster score
+      expect(clusterScore).not.toBeNull();
+      if (singleCityScore !== null) {
+        expect(singleCityScore.score).toBeLessThan(clusterScore!.score);
       }
     });
   });
@@ -204,8 +224,8 @@ describe("AINukeHandler", () => {
 
       const best = handler.bestHydrogenTarget();
       expect(best).not.toBeNull();
-      // Ratio scoring: ~49M enemy value / ~5.5M total cost ≈ 8.9
-      expect(best!.score).toBeGreaterThan(5);
+      // Discount-based scoring: high-value cluster should produce positive score
+      expect(best!.score).toBeGreaterThan(0);
     });
 
     test("SAMs reduce hydrogen bomb score", () => {
