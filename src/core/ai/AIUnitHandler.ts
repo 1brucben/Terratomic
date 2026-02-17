@@ -1,5 +1,12 @@
 import { ConstructionExecution } from "../execution/ConstructionExecution";
-import { Game, Player, PlayerID, UnitType } from "../game/Game";
+import {
+  Game,
+  Player,
+  PlayerID,
+  PlayerType,
+  Unit,
+  UnitType,
+} from "../game/Game";
 import { TileRef } from "../game/GameMap";
 import { PseudoRandom } from "../PseudoRandom";
 import { AIBehaviorParams } from "./AIBehaviorParams";
@@ -31,6 +38,16 @@ const UNIT_CANDIDATES: UnitCandidate[] = [
 export class AIUnitHandler {
   /** The unit type the AI is currently saving up to build (or null). */
   private _target: UnitCandidate | null = null;
+
+  // --- Warship scoring cache (refreshed every WARSHIP_SCAN_INTERVAL ticks) ---
+  private _cachedEnemyMaxWarships = 0;
+  private _cachedEnemyWarshipsTick = -Infinity;
+
+  private static readonly TICKS_PER_MINUTE = 600;
+  /** How often (in ticks) to rescan enemy warship counts. */
+  private static readonly WARSHIP_SCAN_INTERVAL = 50;
+  /** Internal base constant for warship score numerator. */
+  private static readonly WARSHIP_BASE_SCORE = 5e3;
 
   constructor(
     private mg: Game,
@@ -83,21 +100,75 @@ export class AIUnitHandler {
     const player = this.getPlayer();
     if (!player || !player.isAlive()) return;
 
+    // Periodically refresh cached enemy warship counts
+    if (
+      ticks - this._cachedEnemyWarshipsTick >=
+      AIUnitHandler.WARSHIP_SCAN_INTERVAL
+    ) {
+      this.refreshEnemyWarshipCount(player);
+      this._cachedEnemyWarshipsTick = ticks;
+    }
+
     // Pick best target if we don't have one
     if (this._target === null) {
       this._target = this.pickTarget(player);
     }
     if (this._target === null) return;
 
-    // Wait until we can afford it
+    // Warships use batch purchasing: save for N+1 then spawn them all
+    if (this._target === UnitType.Warship) {
+      this.tickWarshipBatchPurchase(player);
+      return;
+    }
+
+    // Other units: single purchase
     const cost = this.mg.unitInfo(this._target).cost(player);
     if (player.gold() < cost) return;
 
-    // Attempt to find a placement tile and build
     const placed = this.tryBuildUnit(player, this._target);
     if (placed) {
       this._target = null;
     }
+  }
+
+  /**
+   * Warship batch purchase: save up for (enemyMax + 1) warships, then
+   * spawn them all at once near the closest enemy warship to our capital.
+   * If no enemy warships exist, spawn a single warship near a random port.
+   */
+  private tickWarshipBatchPurchase(player: Player): void {
+    const enemyMax = this._cachedEnemyMaxWarships;
+    const ownWarships = player.unitCount(UnitType.Warship);
+    const targetCount = enemyMax - ownWarships + 1;
+    const unitCost = this.mg.unitInfo(UnitType.Warship).cost(player);
+    const totalCost = unitCost * BigInt(targetCount);
+
+    // Wait until we can afford the whole batch
+    if (player.gold() < totalCost) return;
+
+    // Determine spawn tile: near closest enemy warship to our capital,
+    // or near a random port if no enemy warships exist.
+    const spawnTile = this.findWarshipPlacementTile(player);
+    if (spawnTile === null) {
+      // No valid placement — clear target and retry later
+      this._target = null;
+      return;
+    }
+
+    // Spawn the full batch
+    let spawned = 0;
+    for (let i = 0; i < targetCount; i++) {
+      const tile = player.canBuild(UnitType.Warship, spawnTile);
+      if (tile === false) break;
+      if (player.gold() < unitCost) break;
+      this.mg.addExecution(
+        new ConstructionExecution(player, UnitType.Warship, tile),
+      );
+      spawned++;
+    }
+
+    // Clear target regardless — either we spawned or we failed
+    this._target = null;
   }
 
   /**
@@ -122,27 +193,70 @@ export class AIUnitHandler {
 
   /**
    * Score a unit type for the current game state.
-   * For now all scores return 0 — scoring formulas will be calibrated later.
    */
-  private scoreUnit(_player: Player, _unitType: UnitCandidate): number {
-    // TODO: Implement scoring per unit type. Ideas for future:
-    //
-    // Warship:
-    //   - Based on number of enemy ports / trade ships / coastal exposure
-    //   - Diminishing returns per existing warship
-    //
-    // Submarine:
-    //   - Based on enemy trade volume, enemy warship count
-    //   - Value of stealth interdiction
-    //
-    // FighterJet:
-    //   - Based on enemy bomber/cargo plane count
-    //   - Air superiority needs
-    //
-    // Artillery:
-    //   - Based on front-line length, enemy structure density near borders
-    //   - Siege value against clustered enemy cities
-    return 0;
+  private scoreUnit(player: Player, unitType: UnitCandidate): number {
+    switch (unitType) {
+      case UnitType.Warship:
+        return this.scoreWarship(player);
+      case UnitType.Submarine:
+        return 0; // TODO
+      case UnitType.FighterJet:
+        return 0; // TODO
+      case UnitType.Artillery:
+        return 0; // TODO
+      default:
+        return 0;
+    }
+  }
+
+  /**
+   * Warship score: if we already have more warships than the most-armed
+   * enemy we're at war with, score is 0. Otherwise:
+   *
+   *   score = (WARSHIP_BASE_SCORE * weightWarship) / (1 + r)^T
+   *
+   * where T = minutes to fund (enemyMax + 1) warships at current income.
+   */
+  private scoreWarship(player: Player): number {
+    const ownWarships = player.unitCount(UnitType.Warship);
+    const enemyMax = this._cachedEnemyMaxWarships;
+
+    // Already at parity or above — no need for more
+    if (ownWarships > enemyMax) return 0;
+
+    const targetCount = enemyMax - ownWarships + 1;
+    const warshipCost = Number(this.mg.unitInfo(UnitType.Warship).cost(player));
+    const totalCost = warshipCost * targetCount;
+
+    const grossGoldPerMinute = player.estimatedGoldIncomePerMinute();
+    if (grossGoldPerMinute <= 0) return 0;
+
+    const T = totalCost / grossGoldPerMinute;
+    const discountRate = this.params.discountFactor ?? 0.1;
+    const weight = this.params.weightWarship ?? 1;
+
+    return (
+      (AIUnitHandler.WARSHIP_BASE_SCORE * weight) /
+      Math.pow(1 + discountRate, T)
+    );
+  }
+
+  /**
+   * Scan all Human/AI players we're at war with and cache the maximum
+   * warship count among them.
+   */
+  private refreshEnemyWarshipCount(player: Player): void {
+    let maxWarships = 0;
+    for (const other of this.mg.players()) {
+      if (other.id() === player.id()) continue;
+      if (other.type() !== PlayerType.Human && other.type() !== PlayerType.AI) {
+        continue;
+      }
+      if (!player.isAtWarWith(other)) continue;
+      const count = other.unitCount(UnitType.Warship);
+      if (count > maxWarships) maxWarships = count;
+    }
+    this._cachedEnemyMaxWarships = maxWarships;
   }
 
   // ---------------------------------------------------------------------------
@@ -232,6 +346,7 @@ export class AIUnitHandler {
   ): TileRef | null {
     switch (unitType) {
       case UnitType.Warship:
+        return this.findWarshipPlacementTile(player);
       case UnitType.Submarine:
         return this.findNavalPlacementTile(player);
       case UnitType.FighterJet:
@@ -244,9 +359,73 @@ export class AIUnitHandler {
   }
 
   /**
-   * Find a tile near a port for naval unit placement.
-   * Warships/submarines spawn from ports, so we pick an ocean tile
-   * in the vicinity of a random owned port.
+   * Find a placement tile for warships.
+   *
+   * Strategy: find the enemy warship (belonging to a Human/AI player we're
+   * at war with) that is closest to our capital, then spawn near the port
+   * that is closest to that enemy warship. If no enemy warships exist,
+   * fall back to a random owned port.
+   */
+  private findWarshipPlacementTile(player: Player): TileRef | null {
+    const capital = player.capital();
+
+    // Collect owned port tiles
+    const portTiles: TileRef[] = [];
+    for (const port of this.mg.units(UnitType.Port)) {
+      if (!port.isActive()) continue;
+      if (port.owner().id() !== player.id()) continue;
+      portTiles.push(port.tile());
+    }
+    if (portTiles.length === 0) return null;
+
+    // Find closest enemy warship to our capital
+    let closestEnemyWarship: Unit | null = null;
+    let closestDist = Infinity;
+
+    if (capital) {
+      const capitalTile = this.mg.ref(capital.x, capital.y);
+      for (const warship of this.mg.units(UnitType.Warship)) {
+        if (!warship.isActive()) continue;
+        const owner = warship.owner();
+        if (owner.id() === player.id()) continue;
+        if (
+          owner.type() !== PlayerType.Human &&
+          owner.type() !== PlayerType.AI
+        ) {
+          continue;
+        }
+        if (!player.isAtWarWith(owner)) continue;
+        const dist = this.mg.euclideanDistSquared(capitalTile, warship.tile());
+        if (dist < closestDist) {
+          closestDist = dist;
+          closestEnemyWarship = warship;
+        }
+      }
+    }
+
+    if (closestEnemyWarship) {
+      // Spawn near the port closest to that enemy warship
+      let bestPort: TileRef | null = null;
+      let bestPortDist = Infinity;
+      for (const portTile of portTiles) {
+        const d = this.mg.euclideanDistSquared(
+          portTile,
+          closestEnemyWarship.tile(),
+        );
+        if (d < bestPortDist) {
+          bestPortDist = d;
+          bestPort = portTile;
+        }
+      }
+      return bestPort;
+    }
+
+    // No enemy warships — pick a random port
+    return this.random.randElement(portTiles);
+  }
+
+  /**
+   * Find a tile near a port for submarine placement.
    */
   private findNavalPlacementTile(player: Player): TileRef | null {
     const ports: TileRef[] = [];
@@ -256,10 +435,7 @@ export class AIUnitHandler {
       ports.push(port.tile());
     }
     if (ports.length === 0) return null;
-
-    // Pick a random port and use its tile as the patrol/target tile
-    const portTile = this.random.randElement(ports);
-    return portTile;
+    return this.random.randElement(ports);
   }
 
   /**

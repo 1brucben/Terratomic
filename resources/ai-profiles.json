@@ -78,7 +78,8 @@
         "nukeScoreConstructionThreshold": 0,
         "nukeFriendlyDamageWeight": 1.0,
         "nukeScoreMultiplier": 1.0,
-        "discountFactor": 0.1
+        "discountFactor": 0.1,
+        "weightWarship": 1
       }
     },
     {
@@ -159,7 +160,8 @@
         "nukeScoreConstructionThreshold": 0,
         "nukeFriendlyDamageWeight": 1.0,
         "nukeScoreMultiplier": 0.1,
-        "discountFactor": 0.1
+        "discountFactor": 0.1,
+        "weightWarship": 1
       }
     }
   ]

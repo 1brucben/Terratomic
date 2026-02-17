@@ -277,12 +277,8 @@ export class AINukeHandler {
       this.computeSiloCost(samLevels, siloCapacity) /
       AINukeHandler.EXPECTED_NUKES_PER_SILO;
 
-    // Compute gross gold per minute for discount-based denominator
-    const grossGoldPerTick = this.mg
-      .config()
-      .grossGoldAdditionRate(this.player!);
-    const TICKS_PER_MINUTE = 600;
-    const grossGoldPerMinute = grossGoldPerTick * TICKS_PER_MINUTE;
+    // Use moving-average income estimate for time-to-fund
+    const grossGoldPerMinute = this.player!.estimatedGoldIncomePerMinute();
     const discountRate = this.params.discountFactor ?? 0.1;
 
     // Atom score
@@ -393,11 +389,7 @@ export class AINukeHandler {
         AINukeHandler.EXPECTED_NUKES_PER_SILO;
 
     // T = minutes to afford totalCost at current income
-    const grossGoldPerTick = this.mg
-      .config()
-      .grossGoldAdditionRate(this.player!);
-    const TICKS_PER_MINUTE = 600;
-    const grossGoldPerMinute = grossGoldPerTick * TICKS_PER_MINUTE;
+    const grossGoldPerMinute = this.player!.estimatedGoldIncomePerMinute();
     const discountRate = this.params.discountFactor ?? 0.1;
     const T =
       grossGoldPerMinute > 0 ? totalCost / grossGoldPerMinute : Infinity;
