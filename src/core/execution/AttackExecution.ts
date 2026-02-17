@@ -295,10 +295,8 @@ export class AttackExecution implements Execution {
           if (!this.isDeepStrike) {
             this.refreshToConquer();
           }
-          if (this.toConquer.size() === 0) {
-            this.retreat();
-            return;
-          }
+          this.retreat();
+          return;
         }
 
         const [tileToConquer] = this.toConquer.dequeue();
