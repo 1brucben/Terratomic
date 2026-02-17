@@ -286,17 +286,21 @@ class Client {
       }
     });
 
-    // AI Calibration modal
+    // AI Calibration modal — open with D key on main menu
     const calibModal = document.querySelector(
       "ai-calibration-modal",
     ) as AICalibrationModal;
     calibModal instanceof AICalibrationModal;
-    const calibButton = document.getElementById("ai-calibration-button");
-    if (calibButton) {
-      calibButton.addEventListener("click", () => {
+    window.addEventListener("keydown", (e) => {
+      if (
+        (e.key === "d" || e.key === "D") &&
+        this.isOnMainMenu &&
+        !(e.target instanceof HTMLInputElement) &&
+        !(e.target instanceof HTMLTextAreaElement)
+      ) {
         calibModal.open();
-      });
-    }
+      }
+    });
 
     // const ctModal = document.querySelector("chat-modal") as ChatModal;
     // ctModal instanceof ChatModal;
