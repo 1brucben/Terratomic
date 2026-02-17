@@ -432,7 +432,7 @@ export class AttackExecution implements Execution {
     this.mg.stats().goldWar(this._owner, this.target, gold);
 
     for (let i = 0; i < 10; i++) {
-      for (const tile of this.target.tiles()) {
+      for (const tile of Array.from(this.target.tiles())) {
         const borders = this.mg
           .neighbors(tile)
           .some((t) => this.mg.owner(t) === this._owner);

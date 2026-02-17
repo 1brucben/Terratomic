@@ -31,7 +31,7 @@ export class AIConstructionHandler {
 
   // Cached tile array to avoid allocation every tick
   private _cachedTiles: TileRef[] | null = null;
-  private _cachedTilesPlayerTileCount: number = 0;
+  private _cachedTilesLastRebuildTick: number = -Infinity;
 
   // Whether construction is paused (e.g. during a nuke sequence)
   private _paused: boolean = false;
@@ -41,14 +41,15 @@ export class AIConstructionHandler {
 
   private static readonly PORT_SCORE_MULTIPLIER = 1e4;
   private static readonly HOSPITAL_BASE_SCORE = 4;
-  private static readonly ACADEMY_BASE_SCORE = 4e1;
+  private static readonly ACADEMY_BASE_SCORE = 5;
   private static readonly RESEARCH_LAB_BASE_SCORE = 5e3;
   private static readonly AIRFIELD_SCORE_MULTIPLIER = 4e3;
   private static readonly SAM_BASE_SCORE = 2e-1;
-  private static readonly DEFENSE_POST_BASE_SCORE = 5e3;
+  private static readonly DEFENSE_POST_BASE_SCORE = 6e3;
   private static readonly LOG_INTERVAL = 20; // Log every ~1 second (assuming 20 ticks/sec)
   private static readonly MIN_TILE_EVALUATIONS_BEFORE_BUILD = 20;
   private static readonly TILE_EVALUATION_INTERVAL = 1;
+  private static readonly TILE_CACHE_REBUILD_INTERVAL = 200; // Rebuild tile cache every ~10s (200 ticks at 20 tps)
   private static readonly UPGRADE_SCORE_DIVISOR = 0.8;
 
   // Tile evaluation state (ports, defense posts, SAMs, others)
@@ -136,6 +137,15 @@ export class AIConstructionHandler {
       return;
     }
 
+    const isDebugPlayer = player.name() === "Antarctica";
+    const shouldLog = isDebugPlayer && ticks % 50 === 0;
+
+    if (isDebugPlayer && ticks % 50 === 0) {
+      console.log(
+        `[AI-DEBUG] ${player.name()} tick=${ticks}, alive=${player.isAlive()}, tiles=${numTiles}, target=${this.target}, paused=${this._paused}, gold=${player.gold()}`,
+      );
+    }
+
     // Periodically evaluate a random tile for structures (spread across AIs)
     if (
       this.shouldRunPeriodic(
@@ -143,7 +153,7 @@ export class AIConstructionHandler {
         AIConstructionHandler.TILE_EVALUATION_INTERVAL,
       )
     ) {
-      this.tickTileEvaluation(player);
+      this.tickTileEvaluation(player, ticks);
     }
 
     // Periodically re-score and potentially retarget.
@@ -154,28 +164,61 @@ export class AIConstructionHandler {
 
     if (this.target === null) {
       this.target = this.pickTarget(null, player);
+      if (shouldLog) {
+        const breakdown = this.constructionScoreBreakdown();
+        const scores = Array.from(breakdown.entries())
+          .map(([t, s]) => `${t}=${s.toExponential(3)}`)
+          .join(", ");
+        console.log(
+          `[AI-DEBUG] ${player.name()} target=null after pickTarget, scores: [${scores}]`,
+        );
+      }
       return;
     }
 
     // If nuke sequence has paused construction, skip
     if (this._paused) {
+      if (shouldLog)
+        console.log(
+          `[AI-DEBUG] ${player.name()} skipping: paused (nuke sequence)`,
+        );
       return;
     }
 
     // If nuke score threshold is set, skip construction when nuke value is higher
     if (this.shouldDeferToNukes(player)) {
+      if (shouldLog)
+        console.log(`[AI-DEBUG] ${player.name()} skipping: deferring to nukes`);
       return;
     }
 
     // Only attempt placement if we can afford the target structure
     if (!this.canAffordTarget(player, this.target)) {
+      if (shouldLog)
+        console.log(
+          `[AI-DEBUG] ${player.name()} skipping: can't afford ${this.target}, gold=${player.gold()}`,
+        );
       return;
     }
 
     // Require minimum tile evaluations before attempting construction
     const evalCount = this.getEvalCountForStructure(this.target);
     if (evalCount < AIConstructionHandler.MIN_TILE_EVALUATIONS_BEFORE_BUILD) {
+      if (shouldLog)
+        console.log(
+          `[AI-DEBUG] ${player.name()} skipping: eval count ${evalCount}/${AIConstructionHandler.MIN_TILE_EVALUATIONS_BEFORE_BUILD} for ${this.target}`,
+        );
       return;
+    }
+
+    if (shouldLog) {
+      const breakdown = this.constructionScoreBreakdown();
+      const scores = Array.from(breakdown.entries())
+        .map(([t, s]) => `${t}=${s.toExponential(3)}`)
+        .join(", ");
+      console.log(
+        `[AI-DEBUG] ${player.name()} proceeding: target=${this.target}, evalCount=${evalCount}, gold=${player.gold()}, scores: [${scores}]`,
+      );
     }
 
     // Check if upgrade is preferred over building new
@@ -1477,17 +1520,20 @@ export class AIConstructionHandler {
    * Evaluates a random owned tile or existing structure and updates the saved scores.
    * Randomly decides between evaluating a new tile and evaluating an existing structure for upgrade.
    */
-  private tickTileEvaluation(player: Player): void {
+  private tickTileEvaluation(player: Player, ticks: number): void {
     const numTiles = player.numTilesOwned();
     if (numTiles === 0) return;
 
-    // Ensure cached tiles are up to date
+    // Rebuild cached tile array periodically (~every 10s) so newly conquered tiles
+    // are included. Between rebuilds, stale entries are skipped via ownership check.
     if (
       this._cachedTiles === null ||
-      this._cachedTilesPlayerTileCount !== numTiles
+      this._cachedTiles.length === 0 ||
+      ticks - this._cachedTilesLastRebuildTick >=
+        AIConstructionHandler.TILE_CACHE_REBUILD_INTERVAL
     ) {
       this._cachedTiles = Array.from(player.tiles());
-      this._cachedTilesPlayerTileCount = numTiles;
+      this._cachedTilesLastRebuildTick = ticks;
     }
 
     if (this._cachedTiles.length === 0) return;
@@ -1511,8 +1557,16 @@ export class AIConstructionHandler {
   private evaluateNewTile(player: Player): void {
     if (this._cachedTiles === null || this._cachedTiles.length === 0) return;
 
-    // Pick a random owned tile
-    const tile = this.random.randElement(this._cachedTiles);
+    // Pick a random owned tile, skipping stale entries (tiles no longer owned)
+    let tile: TileRef | null = null;
+    for (let attempt = 0; attempt < 4; attempt++) {
+      const candidate = this.random.randElement(this._cachedTiles);
+      if (this.mg.owner(candidate) === player) {
+        tile = candidate;
+        break;
+      }
+    }
+    if (tile === null) return;
 
     // Early terrain classification to avoid redundant expensive checks
     const isOceanTile = this.mg.isOcean(tile);
