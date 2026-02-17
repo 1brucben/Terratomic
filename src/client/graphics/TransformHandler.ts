@@ -56,17 +56,18 @@ export class TransformHandler {
   }
 
   handleTransform(context: CanvasRenderingContext2D) {
+    const dpr = window.devicePixelRatio || 1;
     // Disable image smoothing for pixelated effect
     context.imageSmoothingEnabled = false;
 
-    // Apply zoom and pan
+    // Apply zoom and pan, scaled by DPR for the high-res backing buffer
     context.setTransform(
-      this.scale,
+      this.scale * dpr,
       0,
       0,
-      this.scale,
-      this.game.width() / 2 - this.offsetX * this.scale,
-      this.game.height() / 2 - this.offsetY * this.scale,
+      this.scale * dpr,
+      (this.game.width() / 2 - this.offsetX * this.scale) * dpr,
+      (this.game.height() / 2 - this.offsetY * this.scale) * dpr,
     );
   }
 

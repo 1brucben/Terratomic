@@ -375,10 +375,10 @@ export class GameRenderer {
   }
 
   resizeCanvas() {
-    this.canvas.width = window.innerWidth;
-    this.canvas.height = window.innerHeight;
+    const dpr = window.devicePixelRatio || 1;
+    this.canvas.width = window.innerWidth * dpr;
+    this.canvas.height = window.innerHeight * dpr;
     this.transformHandler.updateCanvasBoundingRect();
-    //this.redraw()
   }
 
   redraw() {
@@ -392,13 +392,16 @@ export class GameRenderer {
   renderGame() {
     PerformanceMetrics.getInstance().resetVisibleCount();
     const start = performance.now();
+    const dpr = window.devicePixelRatio || 1;
+    // Apply DPR base transform so all drawing uses CSS-pixel coordinates
+    this.context.setTransform(dpr, 0, 0, dpr, 0, 0);
     // Set background
     this.context.fillStyle = this.game
       .config()
       .theme()
       .backgroundColor()
       .toHex();
-    this.context.fillRect(0, 0, this.canvas.width, this.canvas.height);
+    this.context.fillRect(0, 0, window.innerWidth, window.innerHeight);
 
     // Render layers in order, switching transform state as needed
     let isTransformed = false;
@@ -445,7 +448,8 @@ export class GameRenderer {
   }
 
   resize(width: number, height: number): void {
-    this.canvas.width = Math.ceil(width / window.devicePixelRatio);
-    this.canvas.height = Math.ceil(height / window.devicePixelRatio);
+    const dpr = window.devicePixelRatio || 1;
+    this.canvas.width = Math.ceil(width * dpr);
+    this.canvas.height = Math.ceil(height * dpr);
   }
 }
