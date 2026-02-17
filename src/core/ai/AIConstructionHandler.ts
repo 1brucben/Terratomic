@@ -95,8 +95,8 @@ export class AIConstructionHandler {
   // Phase seed for spreading periodic actions across AIs
   private readonly phaseSeed: number;
 
-  /** Optional callback that returns the current warship score (from AIUnitHandler). */
-  private _warshipScoreProvider: (() => number) | null = null;
+  /** Optional callback that returns the current naval unit score (max of warship, submarine). */
+  private _navalScoreProvider: (() => number) | null = null;
 
   /** Internal multiplier applied to nuke scores in shouldDeferToNukes. */
   private static readonly NUKE_SCORE_CONSTRUCTION_INTERNAL_MULTIPLIER = 1;
@@ -113,12 +113,13 @@ export class AIConstructionHandler {
   }
 
   /**
-   * Set a callback that provides the current warship score.
+   * Set a callback that provides the current naval unit score
+   * (max of warship and submarine scores from AIUnitHandler).
    * Used by scorePort to boost port priority when the AI has no ports
-   * but wants to build warships.
+   * but wants to build naval units.
    */
-  setWarshipScoreProvider(provider: () => number): void {
-    this._warshipScoreProvider = provider;
+  setNavalScoreProvider(provider: () => number): void {
+    this._navalScoreProvider = provider;
   }
 
   private periodicOffset(period: number): number {
@@ -836,13 +837,13 @@ export class AIConstructionHandler {
   private scorePort(player: Player): number {
     const portCount = player.unitsOwned(UnitType.Port);
 
-    // If AI has 0 ports, use the profile parameter for first port score,
-    // plus the current warship score (so the AI builds a port when it
-    // wants warships but has nowhere to spawn them).
+    // If AI has 0 ports, take the max of the base first-port score and
+    // the current naval unit score (warship / submarine). This ensures
+    // the AI prioritises building a port when it wants naval units.
     if (portCount === 0) {
       const base = this.params.aiFirstPortScore ?? 1.0;
-      const warshipBoost = this._warshipScoreProvider?.() ?? 0;
-      return base + warshipBoost;
+      const navalScore = this._navalScoreProvider?.() ?? 0;
+      return Math.max(base, navalScore);
     }
 
     // Get global trade demand queue length

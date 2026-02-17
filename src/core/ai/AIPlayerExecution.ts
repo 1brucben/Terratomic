@@ -173,10 +173,10 @@ export class AIPlayerExecution implements Execution {
       this.params,
     );
 
-    // Wire warship score into port scoring so the AI builds a port
-    // when it wants warships but has none.
-    this.constructionHandler.setWarshipScoreProvider(
-      () => this.unitHandler?.bestUnitScore() ?? 0,
+    // Wire naval scores into port scoring so the AI builds a port
+    // when it wants warships/submarines but has none.
+    this.constructionHandler.setNavalScoreProvider(
+      () => this.unitHandler?.bestNavalScore() ?? 0,
     );
   }
 
