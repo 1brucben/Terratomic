@@ -1022,10 +1022,12 @@ export class UnitLayer implements Layer {
     // Render PIXI stage to its canvas
     this.pixiRenderer.render(this.pixiStage);
 
-    // Save current transform, reset to identity, draw PIXI canvas, then restore
-    // This prevents the canvas transform from affecting the PIXI canvas positioning
+    // Save current transform, reset to DPR base, draw PIXI canvas, then restore.
+    // The PIXI canvas is in CSS-pixel space but the backing buffer is DPR-scaled,
+    // so we must apply (dpr, 0, 0, dpr) instead of plain identity.
+    const dpr = window.devicePixelRatio || 1;
     mainContext.save();
-    mainContext.setTransform(1, 0, 0, 1, 0, 0); // Reset to identity matrix
+    mainContext.setTransform(dpr, 0, 0, dpr, 0, 0);
     mainContext.drawImage(this.pixiRenderer.canvas, 0, 0);
     mainContext.restore();
   }
