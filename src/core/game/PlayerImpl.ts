@@ -63,6 +63,7 @@ import {
   canBuildTransportShip,
 } from "./TransportShipUtils";
 import { UnitImpl } from "./UnitImpl";
+import { getUnitLevelCost } from "./UnitUpgrades";
 import { playerMaxUnitLevel } from "./Upgradeables";
 
 /** Structure types whose unitsOwned count uses stackCount/targetLevel. */
@@ -123,6 +124,10 @@ export class PlayerImpl implements Player {
 
   public _units: Unit[] = [];
   private _effectiveUnitsCache: Map<UnitType, number> = new Map();
+
+  // Cached total cost of all non-city/non-factory units & structures (updated every 50 ticks)
+  private _militaryAssetValue: number = 0;
+  private _militaryAssetValueLastTick: number = -1;
 
   // Phase 1 Optimization: Cache airfield existence
   private _hasAirfieldCache: boolean = false;
@@ -1614,9 +1619,46 @@ export class PlayerImpl implements Player {
   }
 
   militaryStrength(): number {
+    this.refreshMilitaryAssetValueCache();
     return (
-      this.troops() + 0.25 * this.attackingTroops() + Number(this._gold) / 100
+      this.troops() +
+      0.9 * this.attackingTroops() +
+      Number(this._gold) / 100 +
+      this._militaryAssetValue / 100
     );
+  }
+
+  /**
+   * Recompute the cached sum of unit costs for all owned units/structures
+   * that are not Cities. Uses the unit's actual level cost (falling back
+   * to the base info cost) and multiplies by stackCount for stacked structures.
+   * Only recalculates every 50 ticks.
+   */
+  private refreshMilitaryAssetValueCache(): void {
+    const currentTick = this.mg.ticks();
+    if (currentTick - this._militaryAssetValueLastTick < 50) return;
+    this._militaryAssetValueLastTick = currentTick;
+
+    let total = 0n;
+    for (const unit of this._units) {
+      const t = unit.type();
+      if (t === UnitType.City) continue;
+
+      // Use level-specific cost when available, otherwise base cost
+      const level = unit.level();
+      let unitCost: Gold;
+      if (level > 1) {
+        const levelCost = getUnitLevelCost(t, level);
+        unitCost = levelCost > 0n ? levelCost : unit.info().cost(this);
+      } else {
+        unitCost = unit.info().cost(this);
+      }
+
+      // Multiply by stack count for stacked structures
+      const stacks = unit.stackCount();
+      total += stacks > 1 ? unitCost * BigInt(stacks) : unitCost;
+    }
+    this._militaryAssetValue = Number(total);
   }
 
   productivity(): number {
