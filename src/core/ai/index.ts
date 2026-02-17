@@ -12,3 +12,4 @@ export { AINukeHandler, NukeHandlerBestTarget } from "./AINukeHandler";
 export { AIPlayerExecution } from "./AIPlayerExecution";
 export { AISpawnHandler } from "./AISpawnHandler";
 export { AITerraNulliusHandler } from "./AITerraNulliusHandler";
+export { AIUnitHandler } from "./AIUnitHandler";

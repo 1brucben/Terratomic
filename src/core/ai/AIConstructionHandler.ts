@@ -126,7 +126,11 @@ export class AIConstructionHandler {
     return this.mg.player(this.playerId);
   }
 
-  tickConstruction(ticks: number, shouldRecalculate: boolean): void {
+  tickConstruction(
+    ticks: number,
+    shouldRecalculate: boolean,
+    allowSpending: boolean = true,
+  ): void {
     const player = this.getPlayer();
     if (!player || !player.isAlive()) {
       return;
@@ -142,7 +146,7 @@ export class AIConstructionHandler {
 
     if (isDebugPlayer && ticks % 50 === 0) {
       console.log(
-        `[AI-DEBUG] ${player.name()} tick=${ticks}, alive=${player.isAlive()}, tiles=${numTiles}, target=${this.target}, paused=${this._paused}, gold=${player.gold()}`,
+        `[AI-DEBUG] ${player.name()} tick=${ticks}, alive=${player.isAlive()}, tiles=${numTiles}, target=${this.target}, allowSpending=${allowSpending}, gold=${player.gold()}`,
       );
     }
 
@@ -176,11 +180,11 @@ export class AIConstructionHandler {
       return;
     }
 
-    // If nuke sequence has paused construction, skip
-    if (this._paused) {
+    // If spending is not allowed (e.g. nuke sequence active, or unit score is higher), skip
+    if (!allowSpending) {
       if (shouldLog)
         console.log(
-          `[AI-DEBUG] ${player.name()} skipping: paused (nuke sequence)`,
+          `[AI-DEBUG] ${player.name()} skipping: spending not allowed`,
         );
       return;
     }
@@ -1921,13 +1925,6 @@ export class AIConstructionHandler {
     const constructionScore = this.scoreTarget(player, this.target);
 
     return constructionScore < threshold * bestNukeScore;
-  }
-
-  /**
-   * Pause or resume construction (e.g. during a nuke sequence).
-   */
-  setPaused(paused: boolean): void {
-    this._paused = paused;
   }
 
   /**

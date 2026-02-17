@@ -97,6 +97,16 @@ export interface AIBehaviorParams {
   /** Whether to build doomsday devices */
   buildDoomsdayDevices?: boolean;
 
+  // === Unit Construction ===
+  /** Whether to build warships */
+  buildWarships?: boolean;
+  /** Whether to build submarines */
+  buildSubmarines?: boolean;
+  /** Whether to build fighter jets */
+  buildFighterJets?: boolean;
+  /** Whether to build artillery */
+  buildArtillery?: boolean;
+
   /**
    * If the best construction target score is less than this multiplier times
    * the best nuke score, skip construction in favor of saving for nukes.
