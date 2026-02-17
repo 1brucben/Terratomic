@@ -47,7 +47,7 @@ import { UnitLayer } from "./layers/UnitLayer";
 import { WinModal } from "./layers/WinModal";
 
 // Debug flags (keep off for normal gameplay)
-const DEBUG_SHOW_POINTER_COORDS = false;
+const DEBUG_SHOW_POINTER_COORDS = true;
 
 export function createRenderer(
   canvas: HTMLCanvasElement,

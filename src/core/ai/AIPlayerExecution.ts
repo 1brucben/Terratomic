@@ -81,14 +81,12 @@ export class AIPlayerExecution implements Execution {
 
   // Nuke launch state machine
   private nukeState: NukeSequenceState | null = null;
-  private _chinaLogTick: number = 0;
-  private static readonly CHINA_LOG_INTERVAL = 50;
   private static readonly MAIN_BOMB_DELAY_TICKS = 15;
   /** How often (in ticks) to check for redundant nukes during an active sequence. */
   private static readonly NUKE_REDUNDANCY_CHECK_INTERVAL = 10;
 
   /** Internal multiplier applied to nuke scores when comparing against construction scores. */
-  private static readonly NUKE_SCORE_INTERNAL_MULTIPLIER = 100;
+  private static readonly NUKE_SCORE_INTERNAL_MULTIPLIER = 50;
 
   constructor(
     private gameID: GameID,
@@ -195,6 +193,13 @@ export class AIPlayerExecution implements Execution {
     const sliderPeriod = 100;
     const constructionRescorePeriod = 100;
 
+    // Update shared nuke target evaluation
+    this.nukeEvaluator?.tick(this.random, ticks);
+
+    // Update per-player nuke target evaluation (must run before tickNukeSequence
+    // so scores are fresh when the nuke sequence reads them)
+    this.nukeHandler?.tick(ticks);
+
     // --- Nuke orchestration ---
     this.tickNukeSequence(ticks);
 
@@ -229,12 +234,6 @@ export class AIPlayerExecution implements Execution {
 
     // Handle incoming peace requests (auto-accept/reject)
     this.diplomacyHandler?.handleIncomingPeaceRequests(ticks);
-
-    // Update shared nuke target evaluation
-    this.nukeEvaluator?.tick(this.random, ticks);
-
-    // Update per-player nuke target evaluation
-    this.nukeHandler?.tick(ticks);
   }
 
   // ---------------------------------------------------------------------------
@@ -353,47 +352,6 @@ export class AIPlayerExecution implements Execution {
       }
     }
 
-    // Log construction and nuke scores for China (before any early returns)
-    this._chinaLogTick++;
-    if (
-      this.player.name() === "China" &&
-      this._chinaLogTick % AIPlayerExecution.CHINA_LOG_INTERVAL === 0
-    ) {
-      const profileMultiplier = this.params.nukeScoreMultiplier ?? 1;
-      const mult =
-        profileMultiplier * AIPlayerExecution.NUKE_SCORE_INTERNAL_MULTIPLIER;
-      const breakdown = this.constructionHandler.constructionScoreBreakdown();
-      const lines: string[] = ["[China] Construction & Nuke Score Breakdown:"];
-      for (const [type, score] of breakdown) {
-        lines.push(`  ${type}: ${score.toFixed(6)}`);
-      }
-      const rawAtomScore = atomTarget?.score ?? 0;
-      const rawHydrogenScore = this.player.hasUpgrade(
-        UpgradeType.ThermonuclearStaging,
-      )
-        ? (this.nukeHandler!.bestHydrogenTarget()?.score ?? 0)
-        : 0;
-      lines.push(
-        `  AtomBomb (raw): ${rawAtomScore.toFixed(6)}, (adjusted): ${(rawAtomScore * mult).toFixed(6)}`,
-      );
-      lines.push(
-        `  HydrogenBomb (raw): ${rawHydrogenScore.toFixed(6)}, (adjusted): ${(rawHydrogenScore * mult).toFixed(6)}`,
-      );
-      const constructionBest = this.constructionHandler.bestConstructionScore();
-      const adjustedNuke = bestScore * mult;
-      lines.push(
-        `  Best construction: ${constructionBest.toFixed(6)}, Best nuke (adjusted): ${adjustedNuke.toFixed(6)}`,
-      );
-      if (bestScore <= 0 || bestTile === null) {
-        lines.push(`  Decision: NO NUKE TARGETS`);
-      } else {
-        lines.push(
-          `  Decision: ${adjustedNuke > constructionBest ? "START NUKE SEQUENCE" : "SKIP (construction wins)"}`,
-        );
-      }
-      console.log(lines.join("\n"));
-    }
-
     if (bestScore <= 0 || bestTile === null) return;
 
     // Apply multipliers
@@ -509,6 +467,12 @@ export class AIPlayerExecution implements Execution {
       return;
     }
 
+    // If a silo is already under construction, wait for it to finish
+    // (or be destroyed/captured) before attempting another build.
+    if (this.hasSiloUnderConstruction()) {
+      return;
+    }
+
     // Find the player's largest existing silo
     let largestSilo: Unit | null = null;
     let largestStack = 0;
@@ -550,6 +514,22 @@ export class AIPlayerExecution implements Execution {
       );
     }
     // Stay in buildSilo phase; next tick will re-check capacity
+  }
+
+  /**
+   * Returns true if this player has a Construction unit that is building
+   * a MissileSilo. Used to avoid queueing duplicate silo builds while
+   * one is already in progress.
+   */
+  private hasSiloUnderConstruction(): boolean {
+    if (!this.player) return false;
+    for (const unit of this.player.units(UnitType.Construction)) {
+      if (!unit.isActive()) continue;
+      if (unit.constructionType() === UnitType.MissileSilo) {
+        return true;
+      }
+    }
+    return false;
   }
 
   /**
