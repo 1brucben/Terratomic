@@ -45,7 +45,7 @@ export class AIConstructionHandler {
   private static readonly RESEARCH_LAB_BASE_SCORE = 5e3;
   private static readonly AIRFIELD_SCORE_MULTIPLIER = 4e3;
   private static readonly SAM_BASE_SCORE = 2e-1;
-  private static readonly DEFENSE_POST_BASE_SCORE = 5e9;
+  private static readonly DEFENSE_POST_BASE_SCORE = 5e3;
   private static readonly LOG_INTERVAL = 20; // Log every ~1 second (assuming 20 ticks/sec)
   private static readonly MIN_TILE_EVALUATIONS_BEFORE_BUILD = 20;
   private static readonly TILE_EVALUATION_INTERVAL = 1;
@@ -937,17 +937,46 @@ export class AIConstructionHandler {
   }
 
   /**
-   * Computes the defense post base score as baseScoreParam / (cost * ownMilitaryStrength).
-   * Cost scales with number of defense posts owned: min(250k, (owned+1) * 50k).
+   * Computes the defense post base score as baseScoreParam / ((1+r)^T * ownMilitaryStrength).
+   * T = minutes to earn the defense post cost at current gross gold income.
+   * r = discount rate (from AI profile discountFactor, default 0.1).
    * Dividing by own military strength means weaker players value defense posts more.
    */
   private scoreDefensePost(player: Player): number {
+    const config = this.mg.config();
     const cost = this.mg.unitInfo(UnitType.DefensePost).cost(player);
     const costNum = Number(cost);
     if (costNum <= 0) return 0;
+
+    // Compute current gross gold per tick (same formula as city/factory scoring)
+    const assumedPopPercent = this.params.aiAssumedPopPercent ?? 0.7;
+    const targetTroopRatio = player.targetTroopRatio();
+    const currentMaxPop = config.maxPopulation(player);
+    const currentTotalPop = currentMaxPop * assumedPopPercent;
+    const workers = currentTotalPop * (1 - targetTroopRatio);
+    const k = player.unitsOwned(UnitType.Factory);
+    const factoryFactor = Math.pow(1 + k, 0.35);
+    const productivity = player.productivity();
+    const multiplier = config.gameConfig().goldMultiplier ?? 1;
+    const grossGoldPerTick =
+      0.11 *
+      Math.pow(workers, 0.65) *
+      productivity *
+      factoryFactor *
+      multiplier;
+
+    const TICKS_PER_MINUTE = 600;
+    const grossGoldPerMinute = grossGoldPerTick * TICKS_PER_MINUTE;
+    if (grossGoldPerMinute <= 0) return 0;
+
+    // T = minutes to earn the defense post cost
+    const T = costNum / grossGoldPerMinute;
+    const discountRate = this.params.discountFactor ?? 0.1;
+
     const ownStrength = Math.max(1, player.militaryStrength());
     return (
-      AIConstructionHandler.DEFENSE_POST_BASE_SCORE / (costNum * ownStrength)
+      AIConstructionHandler.DEFENSE_POST_BASE_SCORE /
+      (Math.pow(1 + discountRate, T) * ownStrength)
     );
   }
 
