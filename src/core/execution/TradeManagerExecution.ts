@@ -229,7 +229,11 @@ export class TradeManagerExecution implements Execution {
   private capitalDistance(a: Cell, b: Cell): number {
     const refA = this.mg.ref(a.x, a.y);
     const refB = this.mg.ref(b.x, b.y);
-    return Math.sqrt(this.mg.euclideanDistSquared(refA, refB));
+    const raw = Math.sqrt(this.mg.euclideanDistSquared(refA, refB));
+    // Normalize by geometric mean of map dimensions so K behaves
+    // consistently across different map sizes.
+    const geomMean = Math.sqrt(this.mg.width() * this.mg.height());
+    return raw / geomMean;
   }
 
   // (removed) nearestOceanWithin helper was unused after direct undocking implementation
