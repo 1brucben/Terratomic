@@ -46,6 +46,20 @@ export class AIUnitHandler {
   private _cachedEnemyMaxWarships = 0;
   private _cachedEnemyWarshipsTick = -Infinity;
 
+  // --- Warship patrol state ---
+  /** The enemy warship we're currently patrolling near (null = no target). */
+  private _patrolTargetUnit: Unit | null = null;
+  /** Tick when we last updated warship patrol targets. */
+  private _lastPatrolUpdateTick: number = -Infinity;
+  /** Tick when we last repositioned warships along the coast. */
+  private _lastCoastalRepositionTick: number = -Infinity;
+  /** Set of warship IDs currently assigned to intercept transports. */
+  private _interceptingWarshipIds: Set<number> = new Set();
+
+  /** How often (in ticks) to re-evaluate warship patrol targets. */
+  private static readonly PATROL_UPDATE_INTERVAL = 10;
+  /** How often (in ticks) to reposition warships along the coast. */
+  private static readonly COASTAL_REPOSITION_INTERVAL = 600;
   /** How often (in ticks) to rescan enemy warship counts. */
   private static readonly WARSHIP_SCAN_INTERVAL = 50;
   /** Internal base constant for warship score numerator. */
@@ -146,9 +160,7 @@ export class AIUnitHandler {
     if (!player || !player.isAlive()) return;
 
     // Pick best target if we don't have one
-    if (this._target === null) {
-      this._target = this.pickTarget(player);
-    }
+    this._target ??= this.pickTarget(player);
     if (this._target === null) return;
 
     // Naval units require at least one port
@@ -217,22 +229,416 @@ export class AIUnitHandler {
 
     // Clear target regardless — either we spawned or we failed
     this._target = null;
+
+    // Immediately update patrol targets for all warships (including newly spawned)
+    if (spawned > 0) {
+      this.updateWarshipPatrol(player);
+    }
   }
 
   /**
    * Main tick for unit movement decisions.
    * Called every tick by AIPlayerExecution.
    *
-   * TODO: Implement unit movement logic (patrol repositioning,
-   * strategic repositioning based on war state, etc.)
+   * Periodically re-evaluates warship patrol targets:
+   * - If enemy warships exist and we outnumber the strongest enemy fleet,
+   *   all owned warships patrol near the nearest enemy warship.
+   * - If enemy warships exist but we're outnumbered, all warships retreat
+   *   to patrol near the nearest friendly port.
+   * - If no enemy warships exist, warships patrol near the average
+   *   position of own ports.
    */
-  tickUnitMovement(_ticks: number): void {
-    // Placeholder — unit movement AI will be implemented here.
-    // Future considerations:
-    // - Reposition warships toward enemy ports / trade routes
-    // - Move submarines to interdict enemy shipping lanes
-    // - Redirect fighter jets to areas with incoming bombers
-    // - Advance artillery toward front lines
+  tickUnitMovement(ticks: number): void {
+    if (
+      ticks - this._lastPatrolUpdateTick <
+      AIUnitHandler.PATROL_UPDATE_INTERVAL
+    )
+      return;
+    this._lastPatrolUpdateTick = ticks;
+
+    const player = this.getPlayer();
+    if (!player || !player.isAlive()) return;
+
+    this.updateWarshipPatrol(player);
+  }
+
+  /**
+   * Core warship patrol update logic.
+   * Priority order:
+   * 1. Intercept incoming enemy transports targeting us
+   * 2. Coastal defense mode (at war with stronger enemy, no land border)
+   * 3. Enemy warship patrol / port patrol (original logic)
+   */
+  private updateWarshipPatrol(player: Player): void {
+    const ownWarships = this.getOwnActiveWarships(player);
+    if (ownWarships.length === 0) {
+      this._patrolTargetUnit = null;
+      this._interceptingWarshipIds.clear();
+      return;
+    }
+
+    // --- Phase 1: Intercept incoming enemy transports ---
+    const incomingTransports = this.findIncomingEnemyTransports(player);
+    // Clean up interceptors that are no longer valid
+    this._interceptingWarshipIds = new Set(
+      [...this._interceptingWarshipIds].filter((id) =>
+        ownWarships.some((ws) => ws.id() === id),
+      ),
+    );
+
+    // Assign nearest un-assigned warship to each incoming transport
+    const newlyAssigned = new Set<number>();
+    for (const transport of incomingTransports) {
+      const targetTile = (transport as any).boatTargetTile?.() as
+        | TileRef
+        | null
+        | undefined;
+      if (targetTile === null || targetTile === undefined) continue;
+
+      // Find the interception point: a shoreline (ocean) tile near the transport's destination
+      const interceptTile = this.findOceanNearTile(targetTile);
+      if (interceptTile === null) continue;
+
+      // Find the nearest available warship (prefer non-interceptors)
+      let bestWs: Unit | null = null;
+      let bestDist = Infinity;
+      for (const ws of ownWarships) {
+        if (newlyAssigned.has(ws.id())) continue;
+        const d = this.mg.euclideanDistSquared(ws.tile(), interceptTile);
+        // Prefer warships not already intercepting
+        const penalty = this._interceptingWarshipIds.has(ws.id()) ? 0 : -1e9;
+        if (d + penalty < bestDist) {
+          bestDist = d + penalty;
+          bestWs = ws;
+        }
+      }
+      if (bestWs) {
+        bestWs.setPatrolTile(interceptTile);
+        bestWs.setTargetTile(undefined);
+        newlyAssigned.add(bestWs.id());
+      }
+    }
+    this._interceptingWarshipIds = newlyAssigned;
+
+    // Warships not assigned to interception
+    const freeWarships = ownWarships.filter(
+      (ws) => !this._interceptingWarshipIds.has(ws.id()),
+    );
+    if (freeWarships.length === 0) return;
+
+    // --- Phase 2: Coastal defense mode ---
+    if (this.shouldUseCoastalDefense(player)) {
+      this.assignCoastalPatrol(player, freeWarships);
+      return;
+    }
+
+    // --- Phase 3: Original enemy warship / port patrol logic ---
+    this.assignStandardPatrol(player, freeWarships);
+  }
+
+  /**
+   * Check if coastal defense mode should be active.
+   * True when at war with a player that has higher military strength
+   * and does not share a land border with us.
+   */
+  private shouldUseCoastalDefense(player: Player): boolean {
+    const myStrength = player.militaryStrength();
+    for (const other of this.mg.players()) {
+      if (other.id() === player.id()) continue;
+      if (other.type() !== PlayerType.Human && other.type() !== PlayerType.AI)
+        continue;
+      if (!player.isAtWarWith(other)) continue;
+      if (other.militaryStrength() > myStrength) {
+        if (!player.sharesBorderWith(other)) {
+          return true;
+        }
+      }
+    }
+    return false;
+  }
+
+  /**
+   * Spread warships evenly along the player's coastal border.
+   * Only repositions every COASTAL_REPOSITION_INTERVAL ticks.
+   */
+  private assignCoastalPatrol(player: Player, warships: Unit[]): void {
+    if (
+      this.mg.ticks() - this._lastCoastalRepositionTick <
+      AIUnitHandler.COASTAL_REPOSITION_INTERVAL
+    )
+      return;
+    this._lastCoastalRepositionTick = this.mg.ticks();
+
+    const coastTiles = this.getCoastalBorderTiles(player);
+    if (coastTiles.length === 0) {
+      // Fallback to port patrol
+      this.assignStandardPatrol(player, warships);
+      return;
+    }
+
+    // Evenly distribute warships along the coast
+    const step = Math.max(1, Math.floor(coastTiles.length / warships.length));
+    for (let i = 0; i < warships.length; i++) {
+      const coastIdx = Math.min(
+        (i * step) % coastTiles.length,
+        coastTiles.length - 1,
+      );
+      const coastTile = coastTiles[coastIdx];
+      // Find an ocean tile near this shore tile for patrol
+      const oceanTile = this.findOceanNearTile(coastTile);
+      if (oceanTile !== null) {
+        warships[i].setPatrolTile(oceanTile);
+        warships[i].setTargetTile(undefined);
+      }
+    }
+  }
+
+  /**
+   * Get shoreline border tiles (land tiles owned by player that are adjacent to ocean).
+   * Returns them sorted by position for even distribution.
+   */
+  private getCoastalBorderTiles(player: Player): TileRef[] {
+    const border = player.borderTiles();
+    const coastTiles: TileRef[] = [];
+    for (const tile of border) {
+      if (this.mg.isShore(tile)) {
+        coastTiles.push(tile);
+      }
+    }
+    // Sort by x then y for spatial consistency
+    coastTiles.sort((a, b) => {
+      const dx = this.mg.x(a) - this.mg.x(b);
+      return dx !== 0 ? dx : this.mg.y(a) - this.mg.y(b);
+    });
+    return coastTiles;
+  }
+
+  /**
+   * Find incoming enemy transport ships targeting this player.
+   */
+  private findIncomingEnemyTransports(player: Player): Unit[] {
+    const transports: Unit[] = [];
+    for (const ship of this.mg.units(UnitType.TransportShip)) {
+      if (!ship.isActive()) continue;
+      if (ship.owner().id() === player.id()) continue;
+      if (ship.owner().isFriendly(player)) continue;
+      const targetPID = (ship as any).boatTargetPlayerID?.() as
+        | PlayerID
+        | null
+        | undefined;
+      if (targetPID === player.id()) {
+        transports.push(ship);
+      }
+    }
+    return transports;
+  }
+
+  /**
+   * Find a valid ocean tile near a given tile (for patrol/interception points).
+   * Searches neighbors first, then expanding radius.
+   */
+  private findOceanNearTile(tile: TileRef): TileRef | null {
+    // Check immediate neighbors
+    for (const n of this.mg.neighbors(tile)) {
+      if (this.mg.isOcean(n) && this.mg.isShoreline(n)) return n;
+    }
+    // Expand search radius
+    const radius = 100;
+    for (let attempts = 0; attempts < 30; attempts++) {
+      const rx = this.random.nextInt(
+        this.mg.x(tile) - radius,
+        this.mg.x(tile) + radius,
+      );
+      const ry = this.random.nextInt(
+        this.mg.y(tile) - radius,
+        this.mg.y(tile) + radius,
+      );
+      if (!this.mg.isValidCoord(rx, ry)) continue;
+      const t = this.mg.ref(rx, ry);
+      if (this.mg.isOcean(t)) return t;
+    }
+    return null;
+  }
+
+  /**
+   * Standard patrol logic (original behavior):
+   * - If enemy warships exist and we outnumber them, patrol near enemy.
+   * - If outnumbered, retreat to nearest friendly port.
+   * - If no enemies, patrol near average port position.
+   */
+  private assignStandardPatrol(player: Player, warships: Unit[]): void {
+    // Validate current patrol target is still alive and still an enemy
+    if (this._patrolTargetUnit !== null) {
+      if (
+        !this._patrolTargetUnit.isActive() ||
+        this._patrolTargetUnit.health() <= 0 ||
+        !player.isAtWarWith(this._patrolTargetUnit.owner())
+      ) {
+        this._patrolTargetUnit = null;
+      }
+    }
+
+    // Find the nearest enemy warship (to our capital)
+    const nearestEnemy = this.findNearestEnemyWarship(player);
+
+    if (nearestEnemy) {
+      // Enemy warships exist — check strength comparison
+      this.refreshEnemyWarshipCount(player);
+      const enemyMax = this._cachedEnemyMaxWarships;
+      const totalOwn = this.getOwnActiveWarships(player).length;
+
+      if (totalOwn > enemyMax) {
+        // We outnumber the strongest enemy fleet — patrol near enemy
+        this._patrolTargetUnit = nearestEnemy;
+        for (const ws of warships) {
+          ws.setPatrolTile(nearestEnemy.tile());
+          ws.setTargetTile(undefined);
+        }
+      } else {
+        // Outnumbered — retreat to nearest friendly port
+        this._patrolTargetUnit = null;
+        const portTile = this.findNearestPortToCapital(player);
+        if (portTile !== null) {
+          for (const ws of warships) {
+            ws.setPatrolTile(portTile);
+            ws.setTargetTile(undefined);
+          }
+        }
+      }
+    } else {
+      // No enemy warships — patrol near average position of own ports
+      this._patrolTargetUnit = null;
+      const avgPortTile = this.findAveragePortPosition(player);
+      if (avgPortTile !== null) {
+        for (const ws of warships) {
+          ws.setPatrolTile(avgPortTile);
+          ws.setTargetTile(undefined);
+        }
+      }
+    }
+  }
+
+  /**
+   * Returns all active warships owned by this player.
+   */
+  private getOwnActiveWarships(player: Player): Unit[] {
+    return player
+      .units(UnitType.Warship)
+      .filter((u) => u.isActive() && u.health() > 0);
+  }
+
+  /**
+   * Find the nearest enemy warship to our capital (or first warship if no capital).
+   * Only considers Human/AI players we're at war with.
+   */
+  private findNearestEnemyWarship(player: Player): Unit | null {
+    const capital = player.capital();
+    let refTile: TileRef | null = null;
+
+    if (capital) {
+      refTile = this.mg.ref(capital.x, capital.y);
+    } else {
+      // Fallback: use first owned warship's tile as reference
+      const ownWs = player.units(UnitType.Warship).find((u) => u.isActive());
+      if (ownWs) refTile = ownWs.tile();
+    }
+    if (refTile === null) return null;
+
+    let closest: Unit | null = null;
+    let closestDist = Infinity;
+
+    for (const warship of this.mg.units(UnitType.Warship)) {
+      if (!warship.isActive()) continue;
+      const owner = warship.owner();
+      if (owner.id() === player.id()) continue;
+      if (owner.type() !== PlayerType.Human && owner.type() !== PlayerType.AI)
+        continue;
+      if (!player.isAtWarWith(owner)) continue;
+      const dist = this.mg.euclideanDistSquared(refTile, warship.tile());
+      if (dist < closestDist) {
+        closestDist = dist;
+        closest = warship;
+      }
+    }
+    return closest;
+  }
+
+  /**
+   * Find the nearest owned port tile to the player's capital.
+   * Returns null if the player has no ports.
+   */
+  private findNearestPortToCapital(player: Player): TileRef | null {
+    const capital = player.capital();
+    let refTile: TileRef | null = null;
+
+    if (capital) {
+      refTile = this.mg.ref(capital.x, capital.y);
+    }
+
+    const ports: TileRef[] = [];
+    for (const port of this.mg.units(UnitType.Port)) {
+      if (!port.isActive()) continue;
+      if (port.owner().id() !== player.id()) continue;
+      ports.push(port.tile());
+    }
+    if (ports.length === 0) return null;
+
+    // If no capital, just pick the first port
+    if (refTile === null) return ports[0];
+
+    let best: TileRef | null = null;
+    let bestDist = Infinity;
+    for (const portTile of ports) {
+      const d = this.mg.euclideanDistSquared(refTile, portTile);
+      if (d < bestDist) {
+        bestDist = d;
+        best = portTile;
+      }
+    }
+    return best;
+  }
+
+  /**
+   * Compute the average position of all owned ports and return the
+   * nearest valid ocean tile to that centroid. Returns null if no ports.
+   */
+  private findAveragePortPosition(player: Player): TileRef | null {
+    const ports: TileRef[] = [];
+    for (const port of this.mg.units(UnitType.Port)) {
+      if (!port.isActive()) continue;
+      if (port.owner().id() !== player.id()) continue;
+      ports.push(port.tile());
+    }
+    if (ports.length === 0) return null;
+    if (ports.length === 1) return ports[0];
+
+    // Compute centroid
+    let sumX = 0;
+    let sumY = 0;
+    for (const p of ports) {
+      sumX += this.mg.x(p);
+      sumY += this.mg.y(p);
+    }
+    const avgX = Math.round(sumX / ports.length);
+    const avgY = Math.round(sumY / ports.length);
+
+    // Return the port tile closest to the centroid as the patrol point
+    if (this.mg.isValidCoord(avgX, avgY)) {
+      const centroid = this.mg.ref(avgX, avgY);
+      let best: TileRef | null = null;
+      let bestDist = Infinity;
+      for (const p of ports) {
+        const d = this.mg.euclideanDistSquared(centroid, p);
+        if (d < bestDist) {
+          bestDist = d;
+          best = p;
+        }
+      }
+      return best;
+    }
+
+    // Fallback: just use the first port
+    return ports[0];
   }
 
   // ---------------------------------------------------------------------------

@@ -44,6 +44,8 @@ export class UnitImpl implements Unit {
   private _insuredBy: Player | null = null;
   // Transport-ship specific: track intended target player for cancellation on peace
   private _boatTargetPlayerID: PlayerID | null = null;
+  // Transport-ship specific: track the destination tile the transport is heading to
+  private _boatTargetTile: TileRef | null = null;
   public lastVisibleTick?: number;
   isDetectedByNavalUnit?: boolean;
   isAttacking?: boolean;
@@ -628,6 +630,13 @@ export class UnitImpl implements Unit {
   }
   boatTargetPlayerID(): PlayerID | null {
     return this._boatTargetPlayerID;
+  }
+
+  setBoatTargetTile(tile: TileRef | null): void {
+    this._boatTargetTile = tile;
+  }
+  boatTargetTile(): TileRef | null {
+    return this._boatTargetTile;
   }
 
   insure(player: Player | null): void {
