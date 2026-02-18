@@ -157,7 +157,7 @@ export interface UnitUpdate {
   level?: number;
   // Stack count (>=1). Number of stacked instances for stackable structures.
   stackCount?: number;
-  // Missile silo specific: remaining launches before cooldown (for stacked silos)
+  // Silo/SAM specific: number of ready slots (for stacked structures with per-slot cooldowns)
   launchesRemaining?: number;
   // Trade-ship specific, for precise UI without heuristics
   tradeRouteStartOwnerID?: number; // smallID of start port owner

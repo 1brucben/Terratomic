@@ -200,7 +200,7 @@ export class UnitView {
     return (this.data as any).stackCount ?? 1;
   }
 
-  // Missile silo specific: remaining launches before cooldown (for stacked silos)
+  // Silo/SAM specific: number of ready slots (for stacked structures with per-slot cooldowns)
   launchesRemaining(): number | null {
     const v = (this.data as any).launchesRemaining as number | undefined;
     return v ?? null;

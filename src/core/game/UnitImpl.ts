@@ -37,7 +37,7 @@ export class UnitImpl implements Unit {
   private _patrolTile: TileRef | undefined;
   private _level: number = 1;
   private _stackCount: number = 1; // Number of stacked instances (for stackable structures)
-  private _launchesRemaining: number | null = null; // For stacked silos: remaining launches before cooldown
+  private _slotCooldowns: ({ start: Tick; duration: Tick } | null)[] = []; // Per-slot cooldown for stacked silos & SAMs
   private _bonusMaxHealth: number = 0; // Extra max health from upgrades (e.g. city upgrades)
   private _targetable: boolean = true;
   private _accumulatedRegen: number = 0;
@@ -173,8 +173,10 @@ export class UnitImpl implements Unit {
       level: this._level > 1 ? this._level : undefined,
       stackCount: this._stackCount > 1 ? this._stackCount : undefined,
       launchesRemaining:
-        this._type === UnitType.MissileSilo && this._launchesRemaining !== null
-          ? this._launchesRemaining
+        (this._type === UnitType.MissileSilo ||
+          this._type === UnitType.SAMLauncher) &&
+        this._stackCount > 1
+          ? this._readySlotsCount()
           : undefined,
       constructionType: this._constructionType,
       constructionTargetLevel:
@@ -187,9 +189,10 @@ export class UnitImpl implements Unit {
       // Provide both for transition; cooldownEndsAt is the unified field
       ticksLeftInCooldown: this.ticksLeftInCooldown() ?? undefined,
       cooldownEndsAt:
-        this._cooldownStartTick !== null && this._cooldownDuration !== null
+        this._slotCooldownEndsAt() ??
+        (this._cooldownStartTick !== null && this._cooldownDuration !== null
           ? this._cooldownStartTick + this._cooldownDuration
-          : undefined,
+          : undefined),
       cooldownDuration: this._cooldownDuration ?? undefined,
       returning: this.returning(),
       isAttacking: this.isAttacking,
@@ -299,6 +302,14 @@ export class UnitImpl implements Unit {
   setStackCount(count: number): void {
     const cap = maxStackCount(this._type);
     this._stackCount = Math.max(1, Math.min(cap, count));
+    // Sync per-slot cooldown array for silos/SAMs when it has been initialized
+    if (
+      (this._type === UnitType.MissileSilo ||
+        this._type === UnitType.SAMLauncher) &&
+      this._slotCooldowns.length > 0
+    ) {
+      this._ensureSlots();
+    }
     this.mg.addUpdate(this.toUpdate());
   }
 
@@ -349,9 +360,9 @@ export class UnitImpl implements Unit {
       case UnitType.MissileSilo: {
         // No cap for silo stacking
         this._level += 1;
-        // Reset launches remaining to allow more launches
-        if (this._launchesRemaining !== null) {
-          this._launchesRemaining += 1;
+        // Sync per-slot cooldown array if it was already initialized
+        if (this._slotCooldowns.length > 0) {
+          this._ensureSlots();
         }
         this._bonusMaxHealth += 250;
         const healed = Number(this._health) + 250;
@@ -364,6 +375,10 @@ export class UnitImpl implements Unit {
       }
       case UnitType.SAMLauncher: {
         this._level += 1;
+        // Sync per-slot cooldown array if it was already initialized
+        if (this._slotCooldowns.length > 0) {
+          this._ensureSlots();
+        }
         // Small durability boost per upgrade, aligned with MissileSilo behavior
         this._bonusMaxHealth += 250;
         const healed = Number(this._health) + 250;
@@ -621,29 +636,39 @@ export class UnitImpl implements Unit {
   }
 
   launch(duration?: Tick): void {
-    // For stacked missile silos and SAMs: allow multiple launches before cooldown
+    // Missile silos & SAM launchers: per-slot independent cooldowns
     if (
-      (this.type() === UnitType.MissileSilo ||
-        this.type() === UnitType.SAMLauncher) &&
-      this._stackCount > 1
+      this.type() === UnitType.MissileSilo ||
+      this.type() === UnitType.SAMLauncher
     ) {
-      // Initialize launches remaining on first launch
-      if (this._launchesRemaining === null) {
-        this._launchesRemaining = this._stackCount - 1; // First launch uses one
-        this.mg.addUpdate(this.toUpdate());
-        return; // Don't start cooldown yet
-      }
-      // If we have remaining launches, use one
-      if (this._launchesRemaining > 0) {
-        this._launchesRemaining--;
-        this.mg.addUpdate(this.toUpdate());
-        if (this._launchesRemaining > 0) {
-          return; // Still have more launches, don't start cooldown
+      const defaultCD =
+        this.type() === UnitType.MissileSilo
+          ? this.mg.config().SiloCooldown()
+          : this.mg.config().SAMNukeCooldown();
+      const cd = duration ?? defaultCD;
+      this._cooldownDuration = cd;
+
+      if (this._stackCount > 1) {
+        // Ensure per-slot array is initialized / sized correctly
+        this._ensureSlots();
+
+        // Find first ready slot and put it on cooldown with its own duration
+        const now = this.mg.ticks();
+        const readyIdx = this._slotCooldowns.findIndex((s) =>
+          this._isSlotReady(s, now),
+        );
+        if (readyIdx >= 0) {
+          this._slotCooldowns[readyIdx] = { start: now, duration: cd };
         }
-        // Fall through to start cooldown when all launches used
+
+        this.mg.addUpdate(this.toUpdate());
+        return;
       }
-      // Reset launches for next cycle
-      this._launchesRemaining = null;
+
+      // Stack-1: standard single cooldown
+      this._cooldownStartTick = this.mg.ticks();
+      this.mg.addUpdate(this.toUpdate());
+      return;
     }
 
     this._cooldownStartTick = this.mg.ticks();
@@ -651,12 +676,7 @@ export class UnitImpl implements Unit {
       this._cooldownDuration = duration;
     } else {
       // Choose default by unit type
-      if (this.type() === UnitType.MissileSilo) {
-        // Use base cooldown - stacking doesn't affect cooldown duration
-        this._cooldownDuration = this.mg.config().SiloCooldown();
-      } else if (this.type() === UnitType.SAMLauncher) {
-        this._cooldownDuration = this.mg.config().SAMNukeCooldown();
-      } else if (this.type() === UnitType.City) {
+      if (this.type() === UnitType.City) {
         // City anti-air default will be set by caller via duration; fallback to SAM cooldown
         this._cooldownDuration = this.mg.config().SAMNukeCooldown();
       } else {
@@ -667,6 +687,23 @@ export class UnitImpl implements Unit {
   }
 
   ticksLeftInCooldown(): Tick | undefined {
+    // Per-slot cooldown for stacked silos & SAMs
+    if (
+      (this.type() === UnitType.MissileSilo ||
+        this.type() === UnitType.SAMLauncher) &&
+      this._slotCooldowns.length > 0
+    ) {
+      const now = this.mg.ticks();
+      let minLeft: number | null = null;
+      for (const s of this._slotCooldowns) {
+        if (this._isSlotReady(s, now)) return undefined; // At least one slot ready
+        const left = this._slotTicksLeft(s!, now);
+        if (minLeft === null || left < minLeft) minLeft = left;
+      }
+      // All slots on cooldown — return time until next recovery
+      return minLeft ?? undefined;
+    }
+
     let cooldownDuration = this._cooldownDuration;
 
     if (cooldownDuration === null) {
@@ -694,6 +731,19 @@ export class UnitImpl implements Unit {
   }
 
   isInCooldown(duration?: Tick): boolean {
+    // Per-slot silo/SAM: on cooldown only when ALL slots are busy.
+    // Each slot tracks its own duration, so the `duration` param is ignored
+    // for per-slot units — a slot fired at a plane recovers in 40 ticks,
+    // a slot fired at a nuke recovers in 75 ticks, independently.
+    if (
+      (this.type() === UnitType.MissileSilo ||
+        this.type() === UnitType.SAMLauncher) &&
+      this._slotCooldowns.length > 0
+    ) {
+      const now = this.mg.ticks();
+      return !this._slotCooldowns.some((s) => this._isSlotReady(s, now));
+    }
+
     const ticksLeft = this.ticksLeftInCooldown();
     if (duration !== undefined) {
       return (
@@ -702,6 +752,98 @@ export class UnitImpl implements Unit {
       );
     }
     return ticksLeft !== undefined && ticksLeft > 0;
+  }
+
+  // ---------------------------------------------------------------------------
+  // Per-slot cooldown helpers (silos & SAMs)
+  // ---------------------------------------------------------------------------
+
+  /** Ensure the per-slot cooldown array matches the current stack count. */
+  private _ensureSlots(): void {
+    if (this._slotCooldowns.length === this._stackCount) return;
+
+    // Transition from single-cooldown to per-slot on first init
+    if (this._slotCooldowns.length === 0 && this._cooldownStartTick !== null) {
+      const cd = this._cooldownDuration ?? this.mg.config().SiloCooldown();
+      this._slotCooldowns = [{ start: this._cooldownStartTick, duration: cd }];
+      this._cooldownStartTick = null;
+    }
+
+    // Grow — new slots start ready (null)
+    while (this._slotCooldowns.length < this._stackCount) {
+      this._slotCooldowns.push(null);
+    }
+
+    // Shrink (shouldn't normally happen but stay safe)
+    if (this._slotCooldowns.length > this._stackCount) {
+      this._slotCooldowns.length = this._stackCount;
+    }
+  }
+
+  /** Effective cooldown for a single slot, adjusted for health. */
+  private _effectiveSlotDuration(baseDuration: Tick): number {
+    let cd = baseDuration;
+    if (this.hasHealth()) {
+      const hp = Number(this.health()) / this.effectiveMaxHealth();
+      if (hp > 0) cd /= hp;
+    }
+    return cd;
+  }
+
+  /** Whether a slot is ready to fire. */
+  private _isSlotReady(
+    slot: { start: Tick; duration: Tick } | null,
+    now: Tick,
+  ): boolean {
+    if (slot === null) return true;
+    return this._slotTicksLeft(slot, now) <= 0;
+  }
+
+  /** Ticks remaining for a single slot's cooldown. */
+  private _slotTicksLeft(
+    slot: { start: Tick; duration: Tick },
+    now: Tick,
+  ): number {
+    const effectiveCD = this._effectiveSlotDuration(slot.duration);
+    return effectiveCD - (now - slot.start);
+  }
+
+  /** Count how many slots are currently ready (not on cooldown). */
+  private _readySlotsCount(): number {
+    if (this._slotCooldowns.length === 0) return this._stackCount;
+    const now = this.mg.ticks();
+    return this._slotCooldowns.filter((s) => this._isSlotReady(s, now)).length;
+  }
+
+  /** Whether any slot is still recovering (for update emission). */
+  hasRecoveringSlots(): boolean {
+    if (
+      (this._type !== UnitType.MissileSilo &&
+        this._type !== UnitType.SAMLauncher) ||
+      this._slotCooldowns.length === 0
+    ) {
+      return false;
+    }
+    return this._readySlotsCount() < this._stackCount;
+  }
+
+  /** Compute cooldownEndsAt for per-slot units; returns undefined for non-slot or idle. */
+  private _slotCooldownEndsAt(): number | undefined {
+    if (
+      (this._type !== UnitType.MissileSilo &&
+        this._type !== UnitType.SAMLauncher) ||
+      this._slotCooldowns.length === 0
+    ) {
+      return undefined;
+    }
+    const now = this.mg.ticks();
+    let earliest: number | null = null;
+    for (const s of this._slotCooldowns) {
+      if (this._isSlotReady(s, now)) return undefined; // At least one slot ready
+      const end = s!.start + this._effectiveSlotDuration(s!.duration);
+      if (earliest === null || end < earliest) earliest = end;
+    }
+    return earliest ?? undefined;
   }
 
   setTargetTile(targetTile: TileRef | undefined) {
