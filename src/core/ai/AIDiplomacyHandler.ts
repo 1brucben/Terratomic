@@ -404,67 +404,16 @@ export class AIDiplomacyHandler {
     }
 
     // Factor 2: Military strength ratio
-    // effectiveOwnStrength / totalEnemyStrength
-    // effectiveOwnStrength = own + allies against target (scaled by target's share of their wars)
-    // totalEnemyStrength = target + sum of current enemies (weighted by border status)
+    // Numerator: ownStrength weighted by target's share of all enemies
+    // Denominator: target's military strength only
     const militaryStrengthWeight =
       this.params.warScoreMilitaryStrengthWeight ?? 0;
     if (militaryStrengthWeight !== 0) {
-      const nonReachableWeight =
-        this.params.warScoreNonReachableEnemyWeight ?? 0.2;
-      const coBelligerentDiscount =
-        this.params.warScoreCoBelligerentDiscount ?? 0.9;
-      let effectiveOwnStrength = player.militaryStrength();
-      let coBelligerentSum = 0;
+      const ownStrength = player.militaryStrength();
+      const targetStrength = other.militaryStrength();
 
-      // Add military strength of others already at war with target, scaled by
-      // how much of their attention is on the target
-      for (const ally of this.mg.players()) {
-        if (
-          ally.id() !== player.id() &&
-          ally.id() !== other.id() &&
-          ally.isAlive() &&
-          ally.type() !== PlayerType.Bot &&
-          ally.isAtWarWith(other)
-        ) {
-          // Calculate total military strength of all players at war with this ally
-          // weighted by whether they can reach the ally
-          let totalEnemyStrengthOfAlly = 0;
-          for (const allyEnemy of this.mg.players()) {
-            if (
-              allyEnemy.id() !== ally.id() &&
-              allyEnemy.isAlive() &&
-              allyEnemy.type() !== PlayerType.Bot &&
-              ally.isAtWarWith(allyEnemy)
-            ) {
-              const enemyStrength = allyEnemy.militaryStrength();
-              if (this.isReachable(allyEnemy, ally)) {
-                totalEnemyStrengthOfAlly += enemyStrength;
-              } else {
-                totalEnemyStrengthOfAlly += enemyStrength * nonReachableWeight;
-              }
-            }
-          }
-
-          // Scale ally's contribution by target's share of their total enemies
-          // Also scale by whether the ally can reach the target
-          if (totalEnemyStrengthOfAlly > 0) {
-            let targetStrengthForAlly = other.militaryStrength();
-            if (!this.isReachable(ally, other)) {
-              targetStrengthForAlly *= nonReachableWeight;
-            }
-            const targetShare =
-              targetStrengthForAlly / totalEnemyStrengthOfAlly;
-            coBelligerentSum += ally.militaryStrength() * targetShare;
-          }
-        }
-      }
-
-      effectiveOwnStrength += coBelligerentSum * coBelligerentDiscount;
-
-      let totalEnemyStrength = other.militaryStrength();
-
-      // Add military strength of all players we're already at war with
+      // Sum military strength of countries we are already at war with
+      let existingEnemiesStrength = 0;
       for (const enemy of this.mg.players()) {
         if (
           enemy.id() !== player.id() &&
@@ -473,22 +422,16 @@ export class AIDiplomacyHandler {
           enemy.type() !== PlayerType.Bot &&
           player.isAtWarWith(enemy)
         ) {
-          const enemyStrength = enemy.militaryStrength();
-          if (this.isReachable(enemy, player)) {
-            // Reachable enemy: full weight
-            totalEnemyStrength += enemyStrength;
-          } else {
-            // Non-reachable enemy: reduced weight (harder for them to attack us)
-            totalEnemyStrength += enemyStrength * nonReachableWeight;
-          }
+          existingEnemiesStrength += enemy.militaryStrength();
         }
       }
 
-      if (totalEnemyStrength > 0) {
-        const strengthRatio = Math.min(
-          effectiveOwnStrength / totalEnemyStrength,
-          4,
-        );
+      if (targetStrength > 0) {
+        // Weight own strength by target's share of total enemy burden
+        const targetShare =
+          targetStrength / (targetStrength + existingEnemiesStrength);
+        const weightedOwnStrength = ownStrength * targetShare;
+        const strengthRatio = Math.min(weightedOwnStrength / targetStrength, 4);
         score += militaryStrengthWeight * strengthRatio;
       }
     }
@@ -603,50 +546,11 @@ export class AIDiplomacyHandler {
     const militaryStrengthWeight =
       this.params.warScoreMilitaryStrengthWeight ?? 0;
     if (militaryStrengthWeight !== 0) {
-      const nonReachableWeight =
-        this.params.warScoreNonReachableEnemyWeight ?? 0.2;
-      const coBelligerentDiscount =
-        this.params.warScoreCoBelligerentDiscount ?? 0.9;
-      let effectiveOwnStrength = player.militaryStrength();
-      let coBelligerentSum = 0;
-      for (const ally of this.mg.players()) {
-        if (
-          ally.id() !== player.id() &&
-          ally.id() !== other.id() &&
-          ally.isAlive() &&
-          ally.type() !== PlayerType.Bot &&
-          ally.isAtWarWith(other)
-        ) {
-          let totalEnemyStrengthOfAlly = 0;
-          for (const allyEnemy of this.mg.players()) {
-            if (
-              allyEnemy.id() !== ally.id() &&
-              allyEnemy.isAlive() &&
-              allyEnemy.type() !== PlayerType.Bot &&
-              ally.isAtWarWith(allyEnemy)
-            ) {
-              const enemyStrength = allyEnemy.militaryStrength();
-              if (this.isReachable(allyEnemy, ally)) {
-                totalEnemyStrengthOfAlly += enemyStrength;
-              } else {
-                totalEnemyStrengthOfAlly += enemyStrength * nonReachableWeight;
-              }
-            }
-          }
-          if (totalEnemyStrengthOfAlly > 0) {
-            let targetStrengthForAlly = other.militaryStrength();
-            if (!this.isReachable(ally, other)) {
-              targetStrengthForAlly *= nonReachableWeight;
-            }
-            const targetShare =
-              targetStrengthForAlly / totalEnemyStrengthOfAlly;
-            coBelligerentSum += ally.militaryStrength() * targetShare;
-          }
-        }
-      }
-      effectiveOwnStrength += coBelligerentSum * coBelligerentDiscount;
+      const ownStrength = player.militaryStrength();
+      const targetStrength = other.militaryStrength();
 
-      let totalEnemyStrength = other.militaryStrength();
+      // Sum military strength of countries we are already at war with
+      let existingEnemiesStrength = 0;
       for (const enemy of this.mg.players()) {
         if (
           enemy.id() !== player.id() &&
@@ -655,19 +559,16 @@ export class AIDiplomacyHandler {
           enemy.type() !== PlayerType.Bot &&
           player.isAtWarWith(enemy)
         ) {
-          const enemyStrength = enemy.militaryStrength();
-          if (this.isReachable(enemy, player)) {
-            totalEnemyStrength += enemyStrength;
-          } else {
-            totalEnemyStrength += enemyStrength * nonReachableWeight;
-          }
+          existingEnemiesStrength += enemy.militaryStrength();
         }
       }
-      if (totalEnemyStrength > 0) {
-        const strengthRatio = Math.min(
-          effectiveOwnStrength / totalEnemyStrength,
-          4,
-        );
+
+      if (targetStrength > 0) {
+        // Weight own strength by target's share of total enemy burden
+        const targetShare =
+          targetStrength / (targetStrength + existingEnemiesStrength);
+        const weightedOwnStrength = ownStrength * targetShare;
+        const strengthRatio = Math.min(weightedOwnStrength / targetStrength, 4);
         militaryScore = militaryStrengthWeight * strengthRatio;
       }
     }
