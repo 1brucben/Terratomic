@@ -99,6 +99,10 @@ export class AIConstructionHandler {
         t !== UnitType.SAMLauncher,
     );
 
+  // Types excluded from distance checks — used to skip Construction units building these
+  private static readonly DISTANCE_CHECK_EXCLUDED_CONSTRUCTION_TYPES: Set<UnitType> =
+    new Set([UnitType.DefensePost, UnitType.SAMLauncher]);
+
   // Tiered zone boundaries for structure proximity penalty (squared for fast comparison)
   // Diameters: atom inner 2×12=24, atom outer 2×30=60, hydro inner 2×80=160, hydro outer 2×100=200
   private static readonly ZONE_BOUNDARIES = [24, 60, 160, 200] as const;
@@ -1264,6 +1268,14 @@ export class AIConstructionHandler {
       let weightedValue = 0;
       for (const { unit, distSquared } of nearbyStructures) {
         if (unit.owner().id() !== pid) continue;
+        // Skip Construction units building excluded types (SAM, DefensePost)
+        if (
+          unit.type() === UnitType.Construction &&
+          AIConstructionHandler.DISTANCE_CHECK_EXCLUDED_CONSTRUCTION_TYPES.has(
+            unit.constructionType()!,
+          )
+        )
+          continue;
         // Determine zone index (0-3) based on distance²
         let zi = 0;
         if (distSquared > zoneSq[0]) {
@@ -1306,6 +1318,14 @@ export class AIConstructionHandler {
       for (const { unit, distSquared } of structures) {
         if (distSquared > roadRangeSq) continue;
         if (unit.owner().id() !== pid) continue;
+        // Skip Construction units building excluded types (SAM, DefensePost)
+        if (
+          unit.type() === UnitType.Construction &&
+          AIConstructionHandler.DISTANCE_CHECK_EXCLUDED_CONSTRUCTION_TYPES.has(
+            unit.constructionType()!,
+          )
+        )
+          continue;
         hasNearby = true;
         break;
       }
@@ -1416,6 +1436,14 @@ export class AIConstructionHandler {
       let weightedValue = 0;
       for (const { unit, distSquared } of nearbyStructures) {
         if (unit.owner().id() !== pid) continue;
+        // Skip Construction units building excluded types (SAM, DefensePost)
+        if (
+          unit.type() === UnitType.Construction &&
+          AIConstructionHandler.DISTANCE_CHECK_EXCLUDED_CONSTRUCTION_TYPES.has(
+            unit.constructionType()!,
+          )
+        )
+          continue;
         let zi = 0;
         if (distSquared > zoneSq[0]) {
           if (distSquared > zoneSq[2]) zi = 3;
@@ -1469,6 +1497,14 @@ export class AIConstructionHandler {
       for (const { unit, distSquared } of structures) {
         if (distSquared > roadRangeSq) continue;
         if (unit.owner().id() !== pid) continue;
+        // Skip Construction units building excluded types (SAM, DefensePost)
+        if (
+          unit.type() === UnitType.Construction &&
+          AIConstructionHandler.DISTANCE_CHECK_EXCLUDED_CONSTRUCTION_TYPES.has(
+            unit.constructionType()!,
+          )
+        )
+          continue;
         hasNearby = true;
         break;
       }
@@ -1951,9 +1987,21 @@ export class AIConstructionHandler {
     let score = 0;
 
     for (const structureType of AIConstructionHandler.ALL_STRUCTURE_TYPES) {
-      const structures = player
-        .units(structureType)
-        .filter((u) => u.isActive());
+      // Exclude SAMs and SAM constructions — their value shouldn't inflate
+      // the protected-value score (circular incentive).
+      if (structureType === UnitType.SAMLauncher) continue;
+
+      const structures = player.units(structureType).filter((u) => {
+        if (!u.isActive()) return false;
+        // Exclude Construction units that are building a SAM
+        if (
+          u.type() === UnitType.Construction &&
+          u.constructionType() === UnitType.SAMLauncher
+        ) {
+          return false;
+        }
+        return true;
+      });
 
       for (const structure of structures) {
         const structureTile = structure.tile();
