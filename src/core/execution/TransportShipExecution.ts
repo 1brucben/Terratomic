@@ -148,6 +148,23 @@ export class TransportShipExecution implements Execution {
     // Track intended target player on the boat for selective cancellation on peace
     (this.boat as any).setBoatTargetPlayerID?.(this.targetID);
 
+    // Immediately declare war on the target when launching a boat attack
+    if (this.target.isPlayer()) {
+      const targetPlayer = this.target as Player;
+      // Break alliance first if allied
+      const alliance = this.attacker.allianceWith(targetPlayer);
+      if (alliance) {
+        this.attacker.breakAlliance(alliance);
+      }
+      // Declare war if not already at war
+      if (!this.attacker.isAtWarWith(targetPlayer)) {
+        this.attacker.setWarWith(targetPlayer);
+        targetPlayer.setWarWith(this.attacker);
+        this.attacker.recordAggression(targetPlayer);
+        targetPlayer.recordAggression(this.attacker);
+      }
+    }
+
     // Notify the target player about the incoming naval invasion
     if (this.targetID && this.targetID !== mg.terraNullius().id()) {
       mg.displayIncomingUnit(
