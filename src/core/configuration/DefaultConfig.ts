@@ -369,7 +369,7 @@ export class DefaultConfig implements Config {
   // Trade rework parameters
   tradeGravityK(): number {
     // Tunable coefficient for gravity model demand accumulation
-    return 1e-2; // conservative default to avoid flooding the queue
+    return 1e-6; // conservative default to avoid flooding the queue
   }
   tradeDemandTickInterval(): number {
     return 10;
