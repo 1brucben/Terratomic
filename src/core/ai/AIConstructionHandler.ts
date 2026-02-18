@@ -39,7 +39,7 @@ export class AIConstructionHandler {
   // Structure types blocked from consideration until another structure is built/upgraded
   private _blockedStructures: Set<UnitType> = new Set();
 
-  private static readonly PORT_SCORE_MULTIPLIER = 1e4;
+  private static readonly PORT_SCORE_MULTIPLIER = 2e4;
   private static readonly HOSPITAL_BASE_SCORE = 5;
   private static readonly ACADEMY_BASE_SCORE = 7;
   private static readonly RESEARCH_LAB_BASE_SCORE = 5e3;
@@ -814,11 +814,23 @@ export class AIConstructionHandler {
   private scorePort(player: Player): number {
     const portCount = player.unitsOwned(UnitType.Port);
 
-    // If AI has 0 ports, take the max of the base first-port score and
-    // the current naval unit score (warship / submarine). This ensures
-    // the AI prioritises building a port when it wants naval units.
+    // If AI has 0 ports, score as discounted present value of 50% of
+    // total income, delayed by the time needed to afford the port:
+    //   score = d / r / (1 + r)^(T + 1)
+    // where d = 50% of total income/min, r = discount factor,
+    // T = minutes to afford the port at current income.
+    // Also take the max with the naval unit score so the AI still
+    // prioritises a port when it wants naval units.
     if (portCount === 0) {
-      const base = this.params.aiFirstPortScore ?? 1.0;
+      const grossGoldPerMinute = player.estimatedGoldIncomePerMinute();
+      const r = this.params.discountFactor ?? 0.1;
+      let base = 0;
+      if (grossGoldPerMinute > 0) {
+        const portCost = Number(this.mg.unitInfo(UnitType.Port).cost(player));
+        const T = portCost / grossGoldPerMinute;
+        const d = 0.5 * grossGoldPerMinute;
+        base = d / r / Math.pow(1 + r, T + 1);
+      }
       const navalScore = this._navalScoreProvider?.() ?? 0;
       return Math.max(base, navalScore);
     }
@@ -1199,6 +1211,27 @@ export class AIConstructionHandler {
       z += w3 * x3;
     }
 
+    // Feature 4: Nearby own structure stack count bonus (within road connection range)
+    {
+      const roadRangeSq = 120 * 120;
+      const bonusPerStack = this.params.tileNearbyStructureStackBonus ?? 0.01;
+      const pid = player.id();
+      let totalStacks = 0;
+      const structures =
+        precomputedNearbyStructures ??
+        this.mg.nearbyUnits(
+          tile,
+          AIConstructionHandler.ZONE_SEARCH_RADIUS,
+          AIConstructionHandler.DISTANCE_CHECK_STRUCTURE_TYPES,
+        );
+      for (const { unit, distSquared } of structures) {
+        if (distSquared > roadRangeSq) continue;
+        if (unit.owner().id() !== pid) continue;
+        totalStacks += unit.stackCount();
+      }
+      z += bonusPerStack * totalStacks;
+    }
+
     return AIConstructionHandler.sigmoid(z);
   }
 
@@ -1338,6 +1371,27 @@ export class AIConstructionHandler {
         const w4 = -(this.params.otherTileNearWaterPenalty ?? 0.8);
         z += w4 * x4;
       }
+    }
+
+    // Feature 5: Nearby own structure stack count bonus (within road connection range)
+    {
+      const roadRangeSq = 120 * 120;
+      const bonusPerStack = this.params.tileNearbyStructureStackBonus ?? 0.01;
+      const pid = player.id();
+      let totalStacks = 0;
+      const structures =
+        precomputedNearbyStructures ??
+        this.mg.nearbyUnits(
+          tile,
+          AIConstructionHandler.ZONE_SEARCH_RADIUS,
+          AIConstructionHandler.DISTANCE_CHECK_STRUCTURE_TYPES,
+        );
+      for (const { unit, distSquared } of structures) {
+        if (distSquared > roadRangeSq) continue;
+        if (unit.owner().id() !== pid) continue;
+        totalStacks += unit.stackCount();
+      }
+      z += bonusPerStack * totalStacks;
     }
 
     return AIConstructionHandler.sigmoid(z);

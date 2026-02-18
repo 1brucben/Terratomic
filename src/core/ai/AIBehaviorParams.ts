@@ -203,11 +203,6 @@ export interface AIBehaviorParams {
    * Default 0.7 (70%).
    */
   aiAssumedPopPercent?: number;
-  /**
-   * Base score for building the first port (when AI has 0 ports).
-   * Default 1.0.
-   */
-  aiFirstPortScore?: number;
 
   // === Port Tile Scoring ===
   /**
@@ -264,6 +259,13 @@ export interface AIBehaviorParams {
    * Default 0.2 (20% penalty).
    */
   otherTileNearWaterPenalty?: number;
+
+  /**
+   * Bonus added to the logistic z-score per own structure stack count
+   * within 120 tiles. Applied to both port and other (land) tile scores.
+   * Default 0.01.
+   */
+  tileNearbyStructureStackBonus?: number;
 
   // === Diplomacy ===
   /**
