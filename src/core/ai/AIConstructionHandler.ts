@@ -1157,12 +1157,12 @@ export class AIConstructionHandler {
         ({ unit }) => unit.owner().id() === player.id(),
       );
       if (ownNearbyStructures.length > 0) {
-        // Count total structure levels (sum of stackCount for all nearby structures)
-        let totalLevels = 0;
+        // Sum structure values (base cost + upgrades) and normalize by 1M
+        let totalValue = 0;
         for (const { unit } of ownNearbyStructures) {
-          totalLevels += unit.stackCount?.() ?? 1;
+          totalValue += this.getStructureValue(player, unit);
         }
-        const x2 = totalLevels;
+        const x2 = totalValue / 1_000_000;
         const w2 = -(this.params.portTileNearStructurePenalty ?? 0.3);
         z += w2 * x2;
       }
@@ -1275,12 +1275,12 @@ export class AIConstructionHandler {
         ({ unit }) => unit.owner().id() === player.id(),
       );
       if (ownNearbyStructures.length > 0) {
-        // Count total structure levels (sum of stackCount for all nearby structures)
-        let totalLevels = 0;
+        // Sum structure values (base cost + upgrades) and normalize by 1M
+        let totalValue = 0;
         for (const { unit } of ownNearbyStructures) {
-          totalLevels += unit.stackCount?.() ?? 1;
+          totalValue += this.getStructureValue(player, unit);
         }
-        const x2 = totalLevels;
+        const x2 = totalValue / 1_000_000;
         const w2 = -(this.params.otherTileNearStructurePenalty ?? 0.3);
         z += w2 * x2;
       }
