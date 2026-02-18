@@ -236,6 +236,8 @@ export class AINukeHandler {
 
     const friendlyDamageWeight = this.params.nukeFriendlyDamageWeight ?? 1.0;
 
+    const strongestEnemyId = this.getStrongestEnemyId();
+
     let atomEnemyValue = 0;
     let atomFriendlyValue = 0;
     let hydrogenEnemyValue = 0;
@@ -259,8 +261,9 @@ export class AINukeHandler {
         owner.id() !== this.playerId && this.player!.isAtWarWith(owner);
 
       if (isEnemy) {
-        hydrogenEnemyValue += value;
-        if (distSquared <= atomInnerRangeSq) atomEnemyValue += value;
+        const bonus = owner.id() === strongestEnemyId ? 1000 : 0;
+        hydrogenEnemyValue += value + bonus;
+        if (distSquared <= atomInnerRangeSq) atomEnemyValue += value + bonus;
       } else {
         hydrogenFriendlyValue += value;
         if (distSquared <= atomInnerRangeSq) atomFriendlyValue += value;
@@ -304,6 +307,27 @@ export class AINukeHandler {
   }
 
   /**
+   * Find the enemy at war with this AI player that has the highest
+   * military strength. Returns its PlayerID, or null if none.
+   */
+  private getStrongestEnemyId(): PlayerID | null {
+    let strongestId: PlayerID | null = null;
+    let highestStrength = -Infinity;
+    for (const p of this.mg.players()) {
+      if (!p.isAlive()) continue;
+      if (p.id() === this.playerId) continue;
+      if (p.type() !== PlayerType.Human && p.type() !== PlayerType.AI) continue;
+      if (!this.player!.isAtWarWith(p)) continue;
+      const strength = p.militaryStrength();
+      if (strength > highestStrength) {
+        highestStrength = strength;
+        strongestId = p.id();
+      }
+    }
+    return strongestId;
+  }
+
+  /**
    * Compute extra silo cost needed to support (1 + samLevels) bombs.
    */
   private computeSiloCost(samLevels: number, siloCapacity: number): number {
@@ -340,6 +364,8 @@ export class AINukeHandler {
 
     const friendlyDamageWeight = this.params.nukeFriendlyDamageWeight ?? 1.0;
 
+    const strongestEnemyId = this.getStrongestEnemyId();
+
     let enemyValue = 0;
     let friendlyValue = 0;
 
@@ -363,7 +389,8 @@ export class AINukeHandler {
       }
 
       if (this.player!.isAtWarWith(owner)) {
-        enemyValue += this.getStructureValue(structure);
+        const bonus = owner.id() === strongestEnemyId ? 1000 : 0;
+        enemyValue += this.getStructureValue(structure) + bonus;
       } else {
         friendlyValue += this.getStructureValue(structure);
       }

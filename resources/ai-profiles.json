@@ -75,15 +75,15 @@
         "warScoreCoBelligerentDiscount": 0.9,
         "warScoreAllyPenalty": 0,
         "warScoreDistancePenaltyWeight": 350,
-        "warScoreDominanceWeight": 80,
+        "warScoreDominanceWeight": 110,
         "peaceThresholdGap": 45,
         "nukeScoreConstructionThreshold": 0,
         "nukeFriendlyDamageWeight": 1.0,
         "nukeScoreMultiplier": 1.0,
         "discountFactor": 0.1,
         "weightWarship": 1,
-        "warshipTradeIncomeWeight": 0,
-        "warshipCoastalThreatWeight": 0
+        "warshipTradeIncomeWeight": 1e-6,
+        "warshipCoastalThreatWeight": 1e1
       }
     },
     {
