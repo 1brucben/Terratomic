@@ -40,7 +40,7 @@ export class AIConstructionHandler {
   private _blockedStructures: Set<UnitType> = new Set();
 
   private static readonly PORT_SCORE_MULTIPLIER = 1e4;
-  private static readonly HOSPITAL_BASE_SCORE = 4;
+  private static readonly HOSPITAL_BASE_SCORE = 5;
   private static readonly ACADEMY_BASE_SCORE = 5;
   private static readonly RESEARCH_LAB_BASE_SCORE = 5e3;
   private static readonly AIRFIELD_SCORE_MULTIPLIER = 4e3;
