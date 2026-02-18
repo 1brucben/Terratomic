@@ -42,10 +42,10 @@ export class AIConstructionHandler {
   private static readonly PORT_SCORE_MULTIPLIER = 3e4;
   private static readonly HOSPITAL_BASE_SCORE = 5;
   private static readonly ACADEMY_BASE_SCORE = 7;
-  private static readonly RESEARCH_LAB_BASE_SCORE = 5e3;
-  private static readonly AIRFIELD_SCORE_MULTIPLIER = 4e3;
+  private static readonly RESEARCH_LAB_BASE_SCORE = 4e3;
+  private static readonly AIRFIELD_SCORE_MULTIPLIER = 5e3;
   private static readonly SAM_BASE_SCORE = 2e-1;
-  private static readonly DEFENSE_POST_BASE_SCORE = 6e4;
+  private static readonly DEFENSE_POST_BASE_SCORE = 7e4;
   private static readonly MIN_TILE_EVALUATIONS_BEFORE_BUILD = 20;
   private static readonly TILE_EVALUATION_INTERVAL = 1;
   private static readonly TILE_CACHE_REBUILD_INTERVAL = 200; // Rebuild tile cache every ~10s (200 ticks at 20 tps)
@@ -66,16 +66,20 @@ export class AIConstructionHandler {
   private _otherEvalCount: number = 0;
 
   // Upgrade evaluation state for each stackable structure type
-  // Maps UnitType -> { score: number, unit: Unit | null, evaluatedIds: Set<number> }
-  // evaluatedIds tracks which specific structure IDs have been evaluated this cycle
-  private _upgradeScores: Map<
-    UnitType,
-    { score: number; unit: Unit | null; evaluatedIds: Set<number> }
-  > = new Map();
+  // Maps UnitType -> { score: number, unit: Unit | null }
+  private _upgradeScores: Map<UnitType, { score: number; unit: Unit | null }> =
+    new Map();
+
+  // Set by scoreTarget: whether upgrade composite (baseScore*tileScore) beats new-build composite.
+  private _upgradePreferred: Map<UnitType, boolean> = new Map();
 
   // Tracks the last tick each structure (by ID) was evaluated for upgrade.
   // Structures not in this map have never been evaluated and are prioritised.
   private _upgradeLastEvalTick: Map<number, number> = new Map();
+
+  // Tracks the tick of the last successful build or upgrade for each structure type.
+  // Used to require all upgrade candidates of that type to be re-evaluated before the next action.
+  private _lastBuildOrUpgradeTick: Map<UnitType, number> = new Map();
 
   private static readonly ALL_STRUCTURE_TYPES: UnitType[] = Object.values(
     UnitType,
@@ -215,6 +219,7 @@ export class AIConstructionHandler {
       // Upgrade path: stack an existing structure
       const result = this.tryStructureUpgrade(player, this.target);
       if (result === "success") {
+        this._lastBuildOrUpgradeTick.set(this.target, ticks);
         this.clearBlockedStructures();
         this.target = null;
         return;
@@ -262,6 +267,7 @@ export class AIConstructionHandler {
       this.mg.addExecution(
         new ConstructionExecution(player, this.target, spawnTile),
       );
+      this._lastBuildOrUpgradeTick.set(this.target, ticks);
       this.clearBlockedStructures();
     } else {
       // Failed to place - block this structure until another is built
@@ -332,6 +338,7 @@ export class AIConstructionHandler {
       return;
     }
     this._upgradeScores.delete(unitType);
+    this._upgradePreferred.delete(unitType);
   }
 
   /**
@@ -375,7 +382,8 @@ export class AIConstructionHandler {
   }
 
   /**
-   * Checks if all upgradeable structures of a given type have been evaluated.
+   * Checks if all upgradeable structures of a given type have been evaluated
+   * since the last build or upgrade of that type.
    * Returns true if there are no upgradeable structures or all have been evaluated.
    */
   private allStructuresEvaluatedForType(unitType: UnitType): boolean {
@@ -393,13 +401,12 @@ export class AIConstructionHandler {
     // If no upgradeable structures, consider all evaluated
     if (upgradeableUnits.length === 0) return true;
 
-    // Check if all have been evaluated
-    const upgradeData = this._upgradeScores.get(unitType);
-    if (!upgradeData) return false; // No evaluations done yet
-
-    const evaluatedIds = upgradeData.evaluatedIds;
+    // All candidates must have been evaluated after the last build/upgrade of this type
+    const lastBuildTick =
+      this._lastBuildOrUpgradeTick.get(unitType) ?? -Infinity;
     for (const unit of upgradeableUnits) {
-      if (!evaluatedIds.has(unit.id())) {
+      const lastEval = this._upgradeLastEvalTick.get(unit.id());
+      if (lastEval === undefined || lastEval <= lastBuildTick) {
         return false;
       }
     }
@@ -582,41 +589,39 @@ export class AIConstructionHandler {
     const upgradeStructureScore = upgradeBaseScore * weight;
 
     // Multiply by the max of (newBuild * tileScore) vs (upgrade * upgradeScore)
+    // Compute new-build and upgrade composites, record which wins.
+    let newComposite: number;
+    let upgComposite: number;
+
     if (unitType === UnitType.Port) {
-      // Use a fallback tile score of 1 only while we haven't evaluated enough
-      // tiles yet, so a high base port score (e.g. from naval unit demand) can
-      // compete before any tiles are scored.  Once enough evaluations have been
-      // done, use the real tile score — if it's still 0, no valid port location
-      // exists and the port score should drop to 0 so the AI moves on.
       const effectivePortTileScore =
         this._portEvalCount <
           AIConstructionHandler.MIN_TILE_EVALUATIONS_BEFORE_BUILD &&
         this._portTileScore === 0
           ? 1
           : this._portTileScore;
-      return Math.max(
-        newBuildScore * effectivePortTileScore,
-        upgradeStructureScore * upgradeScore,
-      );
+      newComposite = newBuildScore * effectivePortTileScore;
+      upgComposite = upgradeStructureScore * upgradeScore;
     } else if (unitType === UnitType.DefensePost) {
-      return newBuildScore * this._defensePostTileScore; // Defense posts cannot be stacked
+      newComposite = newBuildScore * this._defensePostTileScore;
+      upgComposite = 0; // Defense posts cannot be stacked
     } else if (unitType === UnitType.SAMLauncher) {
-      return Math.max(
-        newBuildScore * this._samTileScore,
-        upgradeStructureScore * upgradeScore,
-      );
-    } else if (unitType === UnitType.City || unitType === UnitType.Factory) {
-      // For City/Factory, use upgrade-cost-based base score for upgrade path
-      return Math.max(
-        newBuildScore * this._otherTileScore,
-        upgradeStructureScore * upgradeScore,
-      );
+      newComposite = newBuildScore * this._samTileScore;
+      upgComposite = upgradeStructureScore * upgradeScore;
     } else {
-      return Math.max(
-        newBuildScore * this._otherTileScore,
-        upgradeStructureScore * upgradeScore,
-      );
+      newComposite = newBuildScore * this._otherTileScore;
+      upgComposite = upgradeStructureScore * upgradeScore;
     }
+
+    // Record which mode the composite comparison favors.
+    // Use >= so that ties (equal tile scores) are broken by the cheaper
+    // upgrade cost (higher base score due to smaller T).
+    this._upgradePreferred.set(
+      unitType,
+      upgradeScore > 0 && upgComposite >= newComposite,
+    );
+
+    return Math.max(newComposite, upgComposite);
   }
 
   /**
@@ -659,11 +664,9 @@ export class AIConstructionHandler {
       return { score: this._defensePostTileScore, isUpgrade: false };
     }
 
-    // Get upgrade score for this structure type
     const upgradeData = this._upgradeScores.get(unitType);
     const upgradeScore = upgradeData?.score ?? 0;
 
-    // Get tile score by category
     let tileScore: number;
     if (unitType === UnitType.Port) {
       tileScore = this._portTileScore;
@@ -673,7 +676,9 @@ export class AIConstructionHandler {
       tileScore = this._otherTileScore;
     }
 
-    const isUpgrade = upgradeScore > tileScore;
+    // Read the decision that scoreTarget already computed using the full
+    // composite (baseScore × weight × tileScore) for both modes.
+    const isUpgrade = this._upgradePreferred.get(unitType) ?? false;
     return { score: Math.max(tileScore, upgradeScore), isUpgrade };
   }
 
@@ -1285,12 +1290,12 @@ export class AIConstructionHandler {
       z += w3 * x3;
     }
 
-    // Feature 4: Nearby own structure stack count bonus (within road connection range)
+    // Feature 4: Nearby own structure bonus (flat if any structure within road range)
     {
       const roadRangeSq = 120 * 120;
-      const bonusPerStack = this.params.tileNearbyStructureStackBonus ?? 0.01;
+      const bonus = this.params.tileNearbyStructureStackBonus ?? 0.01;
       const pid = player.id();
-      let totalStacks = 0;
+      let hasNearby = false;
       const structures =
         precomputedNearbyStructures ??
         this.mg.nearbyUnits(
@@ -1301,9 +1306,10 @@ export class AIConstructionHandler {
       for (const { unit, distSquared } of structures) {
         if (distSquared > roadRangeSq) continue;
         if (unit.owner().id() !== pid) continue;
-        totalStacks += unit.stackCount();
+        hasNearby = true;
+        break;
       }
-      z += bonusPerStack * totalStacks;
+      if (hasNearby) z += bonus;
     }
 
     return AIConstructionHandler.sigmoid(z);
@@ -1447,12 +1453,12 @@ export class AIConstructionHandler {
       }
     }
 
-    // Feature 5: Nearby own structure stack count bonus (within road connection range)
+    // Feature 5: Nearby own structure bonus (flat if any structure within road range)
     {
       const roadRangeSq = 120 * 120;
-      const bonusPerStack = this.params.tileNearbyStructureStackBonus ?? 0.01;
+      const bonus = this.params.tileNearbyStructureStackBonus ?? 0.01;
       const pid = player.id();
-      let totalStacks = 0;
+      let hasNearby = false;
       const structures =
         precomputedNearbyStructures ??
         this.mg.nearbyUnits(
@@ -1463,9 +1469,10 @@ export class AIConstructionHandler {
       for (const { unit, distSquared } of structures) {
         if (distSquared > roadRangeSq) continue;
         if (unit.owner().id() !== pid) continue;
-        totalStacks += unit.stackCount();
+        hasNearby = true;
+        break;
       }
-      z += bonusPerStack * totalStacks;
+      if (hasNearby) z += bonus;
     }
 
     return AIConstructionHandler.sigmoid(z);
@@ -1687,10 +1694,14 @@ export class AIConstructionHandler {
     const samRange = this.getEffectiveSAMRange(techLevel);
     const rangeSquared = samRange * samRange;
 
-    return (
-      this.evaluateSAMPlacementScore(player, tile, sams, rangeSquared) *
-      proximityMultiplier
+    const rawScore = this.evaluateSAMPlacementScore(
+      player,
+      tile,
+      sams,
+      rangeSquared,
     );
+
+    return rawScore * proximityMultiplier;
   }
 
   /**
@@ -1876,25 +1887,12 @@ export class AIConstructionHandler {
     // Get current upgrade data for this specific structure type
     const currentData = this._upgradeScores.get(unitType);
     const currentScore = currentData?.score ?? 0;
-    const currentEvaluatedIds = currentData?.evaluatedIds ?? new Set<number>();
-
-    // Add this structure to the evaluated set
-    const newEvaluatedIds = new Set(currentEvaluatedIds);
-    newEvaluatedIds.add(structure.id());
 
     // Update the upgrade score/unit for this structure type if this score is strictly greater
     if (score > currentScore) {
       this._upgradeScores.set(unitType, {
         score,
         unit: structure,
-        evaluatedIds: newEvaluatedIds,
-      });
-    } else {
-      // Still track that we evaluated this structure even if score didn't improve
-      this._upgradeScores.set(unitType, {
-        score: currentScore,
-        unit: currentData?.unit ?? null,
-        evaluatedIds: newEvaluatedIds,
       });
     }
 
@@ -1959,9 +1957,10 @@ export class AIConstructionHandler {
 
       for (const structure of structures) {
         const structureTile = structure.tile();
+        const distSq = this.mg.euclideanDistSquared(tile, structureTile);
 
         // Check if this structure would be covered by a SAM at the given tile
-        if (this.mg.euclideanDistSquared(tile, structureTile) > rangeSquared) {
+        if (distSq > rangeSquared) {
           continue; // Structure not in range
         }
 
@@ -1979,7 +1978,8 @@ export class AIConstructionHandler {
         const structureValue = this.getStructureValue(player, structure);
         const decay = this.params.samCoverageDecay ?? 0.05;
         const weight = 1 / (1 + Math.exp(decay * existingCoverage));
-        score += structureValue * weight;
+        const contribution = structureValue * weight;
+        score += contribution;
       }
     }
 
