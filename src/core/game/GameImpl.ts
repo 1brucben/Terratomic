@@ -860,6 +860,7 @@ export class GameImpl implements Game {
       (currentOwner as PlayerImpl)._lastTileChange = this._ticks;
       (currentOwner as PlayerImpl)._tiles.delete(tile);
       (currentOwner as PlayerImpl)._borderTiles.delete(tile);
+      (currentOwner as PlayerImpl).invalidateNeighborCache();
     }
     this._map.setOwnerID(tile, newOwner.smallID());
     (newOwner as PlayerImpl)._tiles.add(tile);
@@ -899,6 +900,7 @@ export class GameImpl implements Game {
     previousOwner._lastTileChange = this._ticks;
     previousOwner._tiles.delete(tile);
     previousOwner._borderTiles.delete(tile);
+    previousOwner.invalidateNeighborCache();
 
     this._map.setOwnerID(tile, 0);
     if (this._dirtyBorderTiles !== null) {
