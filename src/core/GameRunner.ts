@@ -1,5 +1,6 @@
 import { placeName } from "../client/graphics/NameBoxCalculator";
 import { AIBehaviorParams } from "./ai/AIBehaviorParams";
+import { AIDiplomacyHandler, WarScoreDebugData } from "./ai/AIDiplomacyHandler";
 import { getConfig } from "./configuration/ConfigLoader";
 import { AllianceExpireCheckExecution } from "./execution/alliance/AllianceExpireCheckExecution";
 import { CapitalRecalculationExecution } from "./execution/CapitalRecalculationExecution";
@@ -590,5 +591,12 @@ export class GameRunner {
       throw new Error(`player with id ${playerID} not found`);
     }
     return player.bestTransportShipSpawn(targetTile);
+  }
+
+  public warScoreDebug(): WarScoreDebugData[] {
+    return AIDiplomacyHandler.getAllWarScoreBreakdowns(
+      this.game,
+      this.game.ticks(),
+    );
   }
 }
