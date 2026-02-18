@@ -94,6 +94,12 @@ export interface AIBehaviorParams {
   buildSAMLaunchers?: boolean;
   /** Whether to build defense posts */
   buildDefensePosts?: boolean;
+  /**
+   * Percentage penalty (0-1) applied to defense post tile score when
+   * water is found within otherTileWaterCheckDistance of the tile.
+   * Applied as score *= (1 - penalty). Default 0 (no penalty).
+   */
+  defensePostNearWaterPenalty?: number;
   /** Whether to build doomsday devices */
   buildDoomsdayDevices?: boolean;
 
