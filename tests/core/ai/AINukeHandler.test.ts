@@ -95,6 +95,8 @@ describe("AINukeHandler", () => {
     // Give AI player enough workers so grossGoldPerMinute is non-trivial.
     // Without workers the discount-rate denominator (1+r)^T → ∞, zeroing all scores.
     aiPlayer.addWorkers(10000);
+    // Recompute estimated income so the discount formula doesn't divide by zero.
+    aiPlayer.updateIncomeTracking();
   });
 
   // --------------------------------------------------------------------------
@@ -411,7 +413,7 @@ describe("AINukeHandler", () => {
   // Silo cost in scoring
   // --------------------------------------------------------------------------
   describe("silo cost penalty", () => {
-    test("having a silo increases score (no silo build cost)", () => {
+    test("silo does not affect fast-path score (silo cost removed from tick scoring)", () => {
       // Build a high-value target cluster
       for (let i = 0; i < 5; i++) {
         enemy.buildUnit(UnitType.City, game.ref(55 + i, 55), {});
@@ -427,7 +429,7 @@ describe("AINukeHandler", () => {
       for (let i = 0; i < 1000; i++) h1.tick(i);
       const withoutSilo = h1.bestAtomTarget();
 
-      // With silo → no silo cost penalty
+      // With silo
       aiPlayer.buildUnit(UnitType.MissileSilo, game.ref(2, 2), {});
 
       const h2 = new AINukeHandler(
@@ -441,8 +443,9 @@ describe("AINukeHandler", () => {
 
       expect(withoutSilo).not.toBeNull();
       expect(withSilo).not.toBeNull();
-      // With a silo the score should be higher (no silo construction penalty)
-      expect(withSilo!.score).toBeGreaterThan(withoutSilo!.score);
+      // Silo cost is no longer included in the fast-path scoring,
+      // so the scores should be equal regardless of silo ownership.
+      expect(withSilo!.score).toBe(withoutSilo!.score);
     });
   });
 
