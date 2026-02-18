@@ -16,6 +16,7 @@ export interface WarScoreBreakdown {
   allyPenalty: number;
   distancePenalty: number;
   dominanceBonus: number;
+  militaryStrengthShare: number;
   movingAverage: number;
   isAtWar: boolean;
   isFriendly: boolean;
@@ -453,9 +454,7 @@ export class AIDiplomacyHandler {
         const playerWidth = Math.sqrt(player.numTilesOwned());
         if (playerWidth > 0) {
           const normalizedDist = shoreDist / playerWidth;
-          // Squared penalty
-          const penalty = normalizedDist * normalizedDist;
-          score -= distancePenaltyWeight * penalty;
+          score -= distancePenaltyWeight * normalizedDist;
         }
       }
     }
@@ -522,6 +521,7 @@ export class AIDiplomacyHandler {
         allyPenalty: 0,
         distancePenalty: 0,
         dominanceBonus: 0,
+        militaryStrengthShare: 0,
         movingAverage: this.getMovingAverageWarScore(other.id()) ?? 0,
         isAtWar: player.isAtWarWith(other),
         isFriendly: player.isFriendly(other),
@@ -590,8 +590,7 @@ export class AIDiplomacyHandler {
         const playerWidth = Math.sqrt(player.numTilesOwned());
         if (playerWidth > 0) {
           const normalizedDist = shoreDist / playerWidth;
-          const penalty = normalizedDist * normalizedDist;
-          distancePenaltyVal = distancePenaltyWeight * penalty;
+          distancePenaltyVal = distancePenaltyWeight * normalizedDist;
         }
       }
     }
@@ -647,6 +646,16 @@ export class AIDiplomacyHandler {
       allyPenalty: allyPenaltyVal,
       distancePenalty: distancePenaltyVal,
       dominanceBonus: dominanceBonusVal,
+      militaryStrengthShare: (() => {
+        let totalGameStrength = 0;
+        for (const p of this.mg.players()) {
+          if (!p.isAlive() || p.type() === PlayerType.Bot) continue;
+          totalGameStrength += p.militaryStrength();
+        }
+        return totalGameStrength > 0
+          ? other.militaryStrength() / totalGameStrength
+          : 0;
+      })(),
       movingAverage: this.getMovingAverageWarScore(other.id()) ?? total,
       isAtWar: player.isAtWarWith(other),
       isFriendly: player.isFriendly(other),
