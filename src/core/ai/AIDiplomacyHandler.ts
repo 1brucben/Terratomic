@@ -472,20 +472,20 @@ export class AIDiplomacyHandler {
     }
 
     // Factor 4: Distance penalty for non-bordering players
-    // Penalizes distant ocean-only targets
+    // Penalizes distant ocean-only targets, normalized by player's own size
     const distancePenaltyWeight =
       this.params.warScoreDistancePenaltyWeight ?? 0;
     if (distancePenaltyWeight !== 0 && !player.sharesBorderWith(other)) {
       const shoreDist = this.closestOceanShoreDistance(player, other, ticks);
       if (shoreDist !== null && shoreDist > 0) {
-        // Normalize by geometric mean of map dimensions
-        const mapWidth = this.mg.width();
-        const mapHeight = this.mg.height();
-        // Squared penalty
-        const geoMean = Math.sqrt(mapWidth * mapHeight);
-        const normalizedDist = shoreDist / geoMean;
-        const penalty = normalizedDist * normalizedDist;
-        score -= distancePenaltyWeight * penalty;
+        // Normalize by sqrt of own tile count (player's "width")
+        const playerWidth = Math.sqrt(player.numTilesOwned());
+        if (playerWidth > 0) {
+          const normalizedDist = shoreDist / playerWidth;
+          // Squared penalty
+          const penalty = normalizedDist * normalizedDist;
+          score -= distancePenaltyWeight * penalty;
+        }
       }
     }
 
