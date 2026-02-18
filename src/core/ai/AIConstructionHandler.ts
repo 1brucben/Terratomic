@@ -45,7 +45,7 @@ export class AIConstructionHandler {
   private static readonly RESEARCH_LAB_BASE_SCORE = 5e3;
   private static readonly AIRFIELD_SCORE_MULTIPLIER = 4e3;
   private static readonly SAM_BASE_SCORE = 2e-1;
-  private static readonly DEFENSE_POST_BASE_SCORE = 5e4;
+  private static readonly DEFENSE_POST_BASE_SCORE = 6e4;
   private static readonly MIN_TILE_EVALUATIONS_BEFORE_BUILD = 20;
   private static readonly TILE_EVALUATION_INTERVAL = 1;
   private static readonly TILE_CACHE_REBUILD_INTERVAL = 200; // Rebuild tile cache every ~10s (200 ticks at 20 tps)
@@ -1372,6 +1372,11 @@ export class AIConstructionHandler {
     const cy = this.mg.y(tile);
     const closestDistSqByOwner = new Map<number, number>();
 
+    // Piggyback water check onto the same area scan to avoid a second pass
+    const waterCheckDist = this.params.otherTileWaterCheckDistance ?? 5;
+    const waterCheckDistSq = waterCheckDist * waterCheckDist;
+    let hasNearbyWater = false;
+
     for (let dy = -defensePostRadius; dy <= defensePostRadius; dy++) {
       for (let dx = -defensePostRadius; dx <= defensePostRadius; dx++) {
         const distSq = dx * dx + dy * dy;
@@ -1380,6 +1385,15 @@ export class AIConstructionHandler {
         const ny = cy + dy;
         if (!this.mg.isValidCoord(nx, ny)) continue;
         const t = this.mg.ref(nx, ny);
+        // Check for nearby water within the water check distance
+        if (
+          !hasNearbyWater &&
+          waterCheckDist > 0 &&
+          distSq <= waterCheckDistSq &&
+          this.mg.isOcean(t)
+        ) {
+          hasNearbyWater = true;
+        }
         if (!this.mg.hasOwner(t)) continue;
         const oid = this.mg.ownerID(t);
         if (oid === playerSmallID || oid === 0) continue;
@@ -1450,6 +1464,11 @@ export class AIConstructionHandler {
 
       const overlapFraction = Math.min(1, totalOverlapArea / circleArea);
       score *= 1 - overlapFraction;
+    }
+
+    // Apply water avoidance penalty (same convention as otherTileNearWaterPenalty)
+    if (hasNearbyWater) {
+      score *= 1 - (this.params.defensePostNearWaterPenalty ?? 0);
     }
 
     return score;

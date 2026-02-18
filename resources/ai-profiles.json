@@ -67,6 +67,7 @@
         "otherTileCapitalDistancePenalty": 0.0001,
         "otherTileWaterCheckDistance": 20,
         "otherTileNearWaterPenalty": 0.2,
+        "defensePostNearWaterPenalty": 0.5,
         "warDeclarationThreshold": 100,
         "warScoreSharedBorderWeight": 30,
         "warScoreMilitaryStrengthWeight": 62,
@@ -75,15 +76,15 @@
         "warScoreCoBelligerentDiscount": 0.9,
         "warScoreAllyPenalty": 0,
         "warScoreDistancePenaltyWeight": 350,
-        "warScoreDominanceWeight": 110,
+        "warScoreDominanceWeight": 120,
         "peaceThresholdGap": 45,
         "nukeScoreConstructionThreshold": 0,
         "nukeFriendlyDamageWeight": 1.0,
         "nukeScoreMultiplier": 1.0,
         "discountFactor": 0.1,
         "weightWarship": 1,
-        "warshipTradeIncomeWeight": 1e-6,
-        "warshipCoastalThreatWeight": 1e1
+        "warshipTradeIncomeWeight": 2e-6,
+        "warshipCoastalThreatWeight": 2e1
       }
     },
     {
@@ -153,6 +154,7 @@
         "otherTileCapitalDistancePenalty": 0.0001,
         "otherTileWaterCheckDistance": 20,
         "otherTileNearWaterPenalty": 0.2,
+        "defensePostNearWaterPenalty": 0.8,
         "warDeclarationThreshold": 100,
         "warScoreSharedBorderWeight": 10,
         "warScoreMilitaryStrengthWeight": 61,
