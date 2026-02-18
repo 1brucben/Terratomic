@@ -1,5 +1,6 @@
 import { AttackDebugData } from "../ai/AIAttackHandler";
 import { WarScoreDebugData } from "../ai/AIDiplomacyHandler";
+import { TradeDebugPayload } from "../execution/TradeDebugData";
 import {
   PlayerActions,
   PlayerBorderTiles,
@@ -31,7 +32,9 @@ export type WorkerMessageType =
   | "war_score_debug"
   | "war_score_debug_result"
   | "attack_debug"
-  | "attack_debug_result";
+  | "attack_debug_result"
+  | "trade_debug"
+  | "trade_debug_result";
 
 // Base interface for all messages
 interface BaseWorkerMessage {
@@ -154,6 +157,15 @@ export interface AttackDebugResultMessage extends BaseWorkerMessage {
   result: AttackDebugData[];
 }
 
+export interface TradeDebugMessage extends BaseWorkerMessage {
+  type: "trade_debug";
+}
+
+export interface TradeDebugResultMessage extends BaseWorkerMessage {
+  type: "trade_debug_result";
+  result: TradeDebugPayload;
+}
+
 // Union types for type safety
 export type MainThreadMessage =
   | HeartbeatMessage
@@ -166,7 +178,8 @@ export type MainThreadMessage =
   | TransportShipSpawnMessage
   | SetMetricsEnabledMessage
   | WarScoreDebugMessage
-  | AttackDebugMessage;
+  | AttackDebugMessage
+  | TradeDebugMessage;
 
 // Message send from worker
 export type WorkerMessage =
@@ -179,4 +192,5 @@ export type WorkerMessage =
   | TransportShipSpawnResultMessage
   | ExecutionMetricsMessage
   | WarScoreDebugResultMessage
-  | AttackDebugResultMessage;
+  | AttackDebugResultMessage
+  | TradeDebugResultMessage;

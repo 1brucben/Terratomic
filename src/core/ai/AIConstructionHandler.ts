@@ -39,7 +39,7 @@ export class AIConstructionHandler {
   // Structure types blocked from consideration until another structure is built/upgraded
   private _blockedStructures: Set<UnitType> = new Set();
 
-  private static readonly PORT_SCORE_MULTIPLIER = 2e4;
+  private static readonly PORT_SCORE_MULTIPLIER = 3e4;
   private static readonly HOSPITAL_BASE_SCORE = 5;
   private static readonly ACADEMY_BASE_SCORE = 7;
   private static readonly RESEARCH_LAB_BASE_SCORE = 5e3;
@@ -1102,12 +1102,12 @@ export class AIConstructionHandler {
    * Features (xᵢ) and their weights (wᵢ):
    *   - w₀ = bias term (default 0, so σ(0) = 0.5 as baseline)
    *   - x₁ = (max(0, (maxDist - closestPlayerDist) / maxDist))² ∈ [0, 1], quadratic
-   *         w₁ = -portTileNearPlayerPenalty (negative = penalty for being close to enemies)
+   *         w₁ = -tileNearPlayerPenalty (negative = penalty for being close to enemies)
    *   - x₂ = tiered structure value penalty: Σ(structureValue * zoneWeight) / 1M
    *         Zones: ≤25, 25-61, 61-161, 161-201 tiles; each zone's weight is
    *         basePenalty * Π(zone multipliers) cascading from inner to outer.
    *   - x₃ = dist / maxMapDim, normalized by larger map dimension
-   *         w₃ = -portTileCapitalDistancePenalty (negative = penalty for being far from capital)
+   *         w₃ = -tileCapitalDistancePenalty (negative = penalty for being far from capital)
    *
    * Returns 0 if port cannot be built (hard constraint), otherwise score ∈ (0, 1).
    */
@@ -1156,7 +1156,7 @@ export class AIConstructionHandler {
           (avoidPlayerDist - closestPlayerDist) / avoidPlayerDist,
         );
         const x1 = linearX1 * linearX1; // Quadratic
-        const w1 = -(this.params.portTileNearPlayerPenalty ?? 2.0);
+        const w1 = -(this.params.tileNearPlayerPenalty ?? 2.0);
         z += w1 * x1;
       }
     }
@@ -1170,7 +1170,7 @@ export class AIConstructionHandler {
           AIConstructionHandler.ZONE_SEARCH_RADIUS,
           AIConstructionHandler.DISTANCE_CHECK_STRUCTURE_TYPES,
         );
-      const basePenalty = this.params.portTileNearStructurePenalty ?? 0.3;
+      const basePenalty = this.params.tileNearStructurePenalty ?? 0.3;
       const mul2 = this.params.nearStructureZone2Multiplier ?? 0.5;
       const mul3 = this.params.nearStructureZone3Multiplier ?? 0.5;
       const mul4 = this.params.nearStructureZone4Multiplier ?? 0.5;
@@ -1207,7 +1207,7 @@ export class AIConstructionHandler {
       const dist = Math.sqrt(this.mg.euclideanDistSquared(tile, capitalTile));
       const mapDim = Math.sqrt(this.mg.width() * this.mg.height());
       const x3 = dist / mapDim;
-      const w3 = -(this.params.portTileCapitalDistancePenalty ?? 1.0);
+      const w3 = -(this.params.tileCapitalDistancePenalty ?? 1.0);
       z += w3 * x3;
     }
 
@@ -1251,12 +1251,12 @@ export class AIConstructionHandler {
    * Features (xᵢ) and their weights (wᵢ):
    *   - w₀ = bias term (default 0, so σ(0) = 0.5 as baseline)
    *   - x₁ = (max(0, (maxDist - closestPlayerDist) / maxDist))² ∈ [0, 1], quadratic
-   *         w₁ = -otherTileNearPlayerPenalty (negative = penalty for being close to enemies)
+   *         w₁ = -tileNearPlayerPenalty (negative = penalty for being close to enemies)
    *   - x₂ = tiered structure value penalty: Σ(structureValue * zoneWeight) / 1M
    *         Zones: ≤25, 25-61, 61-161, 161-201 tiles; each zone's weight is
    *         basePenalty * Π(zone multipliers) cascading from inner to outer.
    *   - x₃ = dist / maxMapDim, normalized by larger map dimension
-   *         w₃ = -otherTileCapitalDistancePenalty (negative = penalty for being far from capital)
+   *         w₃ = -tileCapitalDistancePenalty (negative = penalty for being far from capital)
    *   - x₄ = nearby water indicator: 1 if water within distance, 0 otherwise
    *         w₄ = -otherTileNearWaterPenalty (negative = penalty for being near coast)
    *
@@ -1307,7 +1307,7 @@ export class AIConstructionHandler {
           (avoidPlayerDist - closestPlayerDist) / avoidPlayerDist,
         );
         const x1 = linearX1 * linearX1; // Quadratic
-        const w1 = -(this.params.otherTileNearPlayerPenalty ?? 2.0);
+        const w1 = -(this.params.tileNearPlayerPenalty ?? 2.0);
         z += w1 * x1;
       }
     }
@@ -1321,7 +1321,7 @@ export class AIConstructionHandler {
           AIConstructionHandler.ZONE_SEARCH_RADIUS,
           AIConstructionHandler.DISTANCE_CHECK_STRUCTURE_TYPES,
         );
-      const basePenalty = this.params.otherTileNearStructurePenalty ?? 0.3;
+      const basePenalty = this.params.tileNearStructurePenalty ?? 0.3;
       const mul2 = this.params.nearStructureZone2Multiplier ?? 0.5;
       const mul3 = this.params.nearStructureZone3Multiplier ?? 0.5;
       const mul4 = this.params.nearStructureZone4Multiplier ?? 0.5;
@@ -1357,7 +1357,7 @@ export class AIConstructionHandler {
       const dist = Math.sqrt(this.mg.euclideanDistSquared(tile, capitalTile));
       const mapDim = Math.sqrt(this.mg.width() * this.mg.height());
       const x3 = dist / mapDim;
-      const w3 = -(this.params.otherTileCapitalDistancePenalty ?? 1.0);
+      const w3 = -(this.params.tileCapitalDistancePenalty ?? 1.0);
       z += w3 * x3;
     }
 
@@ -1596,7 +1596,7 @@ export class AIConstructionHandler {
           (avoidPlayerDist - closestPlayerDist) / avoidPlayerDist,
         );
         const x = linearX * linearX; // Quadratic
-        const w = -(this.params.otherTileNearPlayerPenalty ?? 2.0);
+        const w = -(this.params.tileNearPlayerPenalty ?? 2.0);
         z += w * x;
       }
     }
