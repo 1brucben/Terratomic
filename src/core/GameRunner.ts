@@ -6,6 +6,11 @@ import { getConfig } from "./configuration/ConfigLoader";
 import { AllianceExpireCheckExecution } from "./execution/alliance/AllianceExpireCheckExecution";
 import { CapitalRecalculationExecution } from "./execution/CapitalRecalculationExecution";
 import { Executor } from "./execution/ExecutionManager";
+import {
+  TradeDebugPayload,
+  TradePlayerDebug,
+  TradeShipDebug,
+} from "./execution/TradeDebugData";
 import { TradeManagerExecution } from "./execution/TradeManagerExecution";
 import { WinCheckExecution } from "./execution/WinCheckExecution";
 import { AllianceImpl } from "./game/AllianceImpl";
@@ -603,5 +608,150 @@ export class GameRunner {
 
   public attackDebug(): AttackDebugData[] {
     return AIAttackHandler.getAllAttackDebugData(this.game);
+  }
+
+  public tradeDebug(): TradeDebugPayload {
+    const g = this.game;
+    const allShips = [...g.units(UnitType.TradeShip)];
+    const allPorts = [...g.units(UnitType.Port)];
+
+    // Group ships by owner
+    const byOwner = new Map<
+      string,
+      { player: Player; ships: typeof allShips }
+    >();
+    for (const ship of allShips) {
+      const owner = ship.owner();
+      const pid = owner.id();
+      if (!byOwner.has(pid)) {
+        byOwner.set(pid, { player: owner, ships: [] });
+      }
+      byOwner.get(pid)!.ships.push(ship);
+    }
+
+    // The queue length is set on the game object by TradeManagerExecution
+    const queueLength: number = (g as any).tradeDemandQueueLength?.() ?? 0;
+
+    const playerDebugList: TradePlayerDebug[] = [];
+
+    for (const [pid, { player, ships }] of byOwner) {
+      const shipDebugList: TradeShipDebug[] = [];
+      let idleCount = 0;
+      let toStartCount = 0;
+      let toEndCount = 0;
+      let returningCount = 0;
+      let stuckAtPortCount = 0;
+      let stationaryCount = 0;
+
+      for (const ship of ships) {
+        const tile = ship.tile();
+        const lastTile = ship.lastTile();
+        const x = g.x(tile);
+        const y = g.y(tile);
+        const isOnOcean = g.isOcean(tile);
+        const portsHere = g
+          .unitsAt(tile)
+          .filter((u) => u.type() === UnitType.Port);
+        const isAtPort = portsHere.length > 0;
+        const dockedPortId = isAtPort ? portsHere[0].id() : null;
+        const phase = ship.tradePhase();
+        const returning = ship.returning();
+        const target = ship.targetUnit();
+        const targetUnitId = target?.id() ?? null;
+        const targetX = target ? g.x(target.tile()) : null;
+        const targetY = target ? g.y(target.tile()) : null;
+        const distToTarget = target
+          ? g.manhattanDist(tile, target.tile())
+          : null;
+        const startOwner = ship.tradeRouteStartOwner();
+        const endOwner = ship.tradeRouteEndOwner();
+        const stationaryThisTick = tile === lastTile;
+        const adjacentOceanCount = g
+          .neighbors(tile)
+          .filter((t) => g.isOcean(t)).length;
+
+        const phaseStr = phase ?? "idle";
+
+        if (phase === null) idleCount++;
+        else if (phase === "toStart") toStartCount++;
+        else if (phase === "toEnd") toEndCount++;
+        if (returning) returningCount++;
+        if (stationaryThisTick) stationaryCount++;
+        // Heuristic for stuck at port: at a port, has a target, stationary, and very close to target
+        if (
+          isAtPort &&
+          target &&
+          stationaryThisTick &&
+          distToTarget !== null &&
+          distToTarget <= 2
+        ) {
+          stuckAtPortCount++;
+        }
+
+        shipDebugList.push({
+          shipId: ship.id(),
+          ownerName: player.displayName(),
+          ownerId: pid,
+          x,
+          y,
+          isOnOcean,
+          isAtPort,
+          dockedPortId,
+          phase: phaseStr,
+          returning,
+          targetUnitId,
+          targetX,
+          targetY,
+          distToTarget,
+          startOwner: startOwner?.displayName() ?? null,
+          endOwner: endOwner?.displayName() ?? null,
+          cargoGold: ship.cargoGold().toString(),
+          stationaryThisTick,
+          adjacentOceanCount,
+        });
+      }
+
+      // Sort ships: stuck-looking first, then by phase
+      shipDebugList.sort((a, b) => {
+        // Stuck at port first
+        const aStuck =
+          a.isAtPort && a.stationaryThisTick && a.targetUnitId !== null ? 0 : 1;
+        const bStuck =
+          b.isAtPort && b.stationaryThisTick && b.targetUnitId !== null ? 0 : 1;
+        if (aStuck !== bStuck) return aStuck - bStuck;
+        // Then by phase
+        const phaseOrder = { toStart: 0, toEnd: 1, idle: 2 };
+        return phaseOrder[a.phase] - phaseOrder[b.phase];
+      });
+
+      const portCount = allPorts.filter(
+        (p) => p.owner() === player && p.isActive(),
+      ).length;
+
+      playerDebugList.push({
+        playerId: pid,
+        playerName: player.displayName(),
+        totalShips: ships.length,
+        idleShips: idleCount,
+        toStartShips: toStartCount,
+        toEndShips: toEndCount,
+        returningShips: returningCount,
+        stuckAtPort: stuckAtPortCount,
+        stationaryShips: stationaryCount,
+        goldPerMinute: player.tradeShipGoldPerMinute(),
+        portCount,
+        ships: shipDebugList,
+      });
+    }
+
+    // Sort players by total ships descending
+    playerDebugList.sort((a, b) => b.totalShips - a.totalShips);
+
+    return {
+      tick: g.ticks(),
+      queueLength,
+      totalTradeShips: allShips.length,
+      players: playerDebugList,
+    };
   }
 }

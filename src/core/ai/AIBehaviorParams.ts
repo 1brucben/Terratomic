@@ -204,34 +204,17 @@ export interface AIBehaviorParams {
    */
   aiAssumedPopPercent?: number;
 
-  // === Port Tile Scoring ===
+  // === Tile Scoring (port, other/land, and SAM structures) ===
   /**
-   * Percentage penalty (0-1) for port tile if within avoid player distance from another player.
-   * Default 0.5 (50% penalty).
+   * Sigmoid weight for enemy proximity penalty on port/other/SAM tiles.
+   * Higher values penalize tiles near enemy borders more strongly. Default 2.0.
    */
-  portTileNearPlayerPenalty?: number;
-  /**
-   * Penalty weight for nearby own structures within zone 1 (≤25 tiles).
-   * Applied to structure value / 1M in the sigmoid. Default 0.3.
-   */
-  portTileNearStructurePenalty?: number;
-  /**
-   * Percentage penalty per tile of distance from capital (0-1).
-   * Tiles farther from capital get penalized. Default 0.01 (1% penalty per tile).
-   */
-  portTileCapitalDistancePenalty?: number;
-
-  // === Other Tile Scoring (non-port, non-defense post, non-SAM structures) ===
-  /**
-   * Percentage penalty (0-1) for other tile if within avoid player distance from another player.
-   * Default 0.5 (50% penalty).
-   */
-  otherTileNearPlayerPenalty?: number;
+  tileNearPlayerPenalty?: number;
   /**
    * Penalty weight for nearby own structures within zone 1 (≤25 tiles).
    * Applied to structure value / 1M in the sigmoid. Default 0.3.
    */
-  otherTileNearStructurePenalty?: number;
+  tileNearStructurePenalty?: number;
   /**
    * Multiplier for zone 2 penalty relative to zone 1 (25-61 tiles). Default 0.5.
    */
@@ -245,10 +228,10 @@ export interface AIBehaviorParams {
    */
   nearStructureZone4Multiplier?: number;
   /**
-   * Percentage penalty per tile of distance from capital (0-1).
-   * Tiles farther from capital get penalized. Default 0.01 (1% penalty per tile).
+   * Sigmoid weight for capital distance penalty on port/other tiles.
+   * Higher values penalize tiles far from capital more strongly. Default 1.0.
    */
-  otherTileCapitalDistancePenalty?: number;
+  tileCapitalDistancePenalty?: number;
   /**
    * Distance (in tiles) to check for nearby water.
    * Default 5.

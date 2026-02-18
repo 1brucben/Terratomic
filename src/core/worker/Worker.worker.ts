@@ -10,6 +10,7 @@ import {
   PlayerActionsResultMessage,
   PlayerBorderTilesResultMessage,
   PlayerProfileResultMessage,
+  TradeDebugResultMessage,
   TransportShipSpawnResultMessage,
   WarScoreDebugResultMessage,
   WorkerMessage,
@@ -232,6 +233,23 @@ ctx.addEventListener("message", async (e: MessageEvent<MainThreadMessage>) => {
         } as AttackDebugResultMessage);
       } catch (error) {
         console.error("Failed to get attack debug:", error);
+        throw error;
+      }
+      break;
+    case "trade_debug":
+      if (!gameRunner) {
+        throw new Error("Game runner not initialized");
+      }
+
+      try {
+        const tradeData = (await gameRunner).tradeDebug();
+        sendMessage({
+          type: "trade_debug_result",
+          id: message.id,
+          result: tradeData,
+        } as TradeDebugResultMessage);
+      } catch (error) {
+        console.error("Failed to get trade debug:", error);
         throw error;
       }
       break;
