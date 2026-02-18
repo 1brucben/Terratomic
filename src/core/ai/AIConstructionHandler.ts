@@ -39,7 +39,7 @@ export class AIConstructionHandler {
   // Structure types blocked from consideration until another structure is built/upgraded
   private _blockedStructures: Set<UnitType> = new Set();
 
-  private static readonly PORT_SCORE_MULTIPLIER = 3e4;
+  private static readonly PORT_SCORE_MULTIPLIER = 4e4;
   private static readonly HOSPITAL_BASE_SCORE = 5;
   private static readonly ACADEMY_BASE_SCORE = 7;
   private static readonly RESEARCH_LAB_BASE_SCORE = 4e3;
@@ -853,7 +853,8 @@ export class AIConstructionHandler {
           costOverride ?? this.mg.unitInfo(UnitType.Port).cost(player),
         );
         const T = portCost / grossGoldPerMinute;
-        const d = 0.5 * grossGoldPerMinute;
+        const incomeShare = this.params.firstPortIncomeShare ?? 0.5;
+        const d = incomeShare * grossGoldPerMinute;
         base = d / r / Math.pow(1 + r, T + 1);
       }
       const navalScore = this._navalScoreProvider?.() ?? 0;

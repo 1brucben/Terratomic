@@ -197,6 +197,12 @@ export interface AIBehaviorParams {
   /** Weight for doomsday device build priority */
   weightDoomsdayDevice?: number;
 
+  /**
+   * Fraction of total income/min used as the perpetual income stream when
+   * scoring the first port (portCount === 0). Default 0.5 (50%).
+   */
+  firstPortIncomeShare?: number;
+
   // === Structure Scoring ===
   /**
    * Assumed population percentage of max pop when scoring structures.
