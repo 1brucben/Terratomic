@@ -194,9 +194,8 @@ export interface AIBehaviorParams {
    */
   portTileNearPlayerPenalty?: number;
   /**
-   * Maximum percentage penalty (0-1) for port tile based on distance to closest own structure.
-   * Penalty scales linearly from this value at distance 0 to 0 at maxDistance.
-   * Default 0.3 (30% max penalty).
+   * Penalty weight for nearby own structures within zone 1 (≤25 tiles).
+   * Applied to structure value / 1M in the sigmoid. Default 0.3.
    */
   portTileNearStructurePenalty?: number;
   /**
@@ -212,11 +211,22 @@ export interface AIBehaviorParams {
    */
   otherTileNearPlayerPenalty?: number;
   /**
-   * Maximum percentage penalty (0-1) for other tile based on distance to closest own structure.
-   * Penalty scales linearly from this value at distance 0 to 0 at maxDistance.
-   * Default 0.3 (30% max penalty).
+   * Penalty weight for nearby own structures within zone 1 (≤25 tiles).
+   * Applied to structure value / 1M in the sigmoid. Default 0.3.
    */
   otherTileNearStructurePenalty?: number;
+  /**
+   * Multiplier for zone 2 penalty relative to zone 1 (25-61 tiles). Default 0.5.
+   */
+  nearStructureZone2Multiplier?: number;
+  /**
+   * Multiplier for zone 3 penalty relative to zone 2 (61-161 tiles). Default 0.5.
+   */
+  nearStructureZone3Multiplier?: number;
+  /**
+   * Multiplier for zone 4 penalty relative to zone 3 (161-201 tiles). Default 0.5.
+   */
+  nearStructureZone4Multiplier?: number;
   /**
    * Percentage penalty per tile of distance from capital (0-1).
    * Tiles farther from capital get penalized. Default 0.01 (1% penalty per tile).
