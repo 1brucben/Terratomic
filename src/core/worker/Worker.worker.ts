@@ -3,6 +3,7 @@ import { createGameRunner, GameRunner } from "../GameRunner";
 import { ErrorUpdate, GameUpdateViewData } from "../game/GameUpdates";
 import {
   AttackAveragePositionResultMessage,
+  AttackDebugResultMessage,
   ExecutionMetricsMessage,
   InitializedMessage,
   MainThreadMessage,
@@ -220,6 +221,23 @@ ctx.addEventListener("message", async (e: MessageEvent<MainThreadMessage>) => {
         } as WarScoreDebugResultMessage);
       } catch (error) {
         console.error("Failed to get war score debug:", error);
+        throw error;
+      }
+      break;
+    case "attack_debug":
+      if (!gameRunner) {
+        throw new Error("Game runner not initialized");
+      }
+
+      try {
+        const attackData = (await gameRunner).attackDebug();
+        sendMessage({
+          type: "attack_debug_result",
+          id: message.id,
+          result: attackData,
+        } as AttackDebugResultMessage);
+      } catch (error) {
+        console.error("Failed to get attack debug:", error);
         throw error;
       }
       break;

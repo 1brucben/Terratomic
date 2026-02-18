@@ -1,10 +1,59 @@
 import { AttackExecution } from "../execution/AttackExecution";
 import { TransportShipExecution } from "../execution/TransportShipExecution";
-import { Game, Player, PlayerID, PlayerType } from "../game/Game";
+import { Game, Player, PlayerID, PlayerType, UnitType } from "../game/Game";
 import { TileRef } from "../game/GameMap";
 import { canBuildTransportShip } from "../game/TransportShipUtils";
 import { PseudoRandom } from "../PseudoRandom";
 import { AIBehaviorParams } from "./AIBehaviorParams";
+
+// ─── Debug overlay types ─────────────────────────────────────────────────────
+
+/** Per-enemy breakdown for a single AI player's attack evaluation. */
+export interface AttackTargetBreakdown {
+  targetId: PlayerID;
+  targetName: string;
+  isAtWar: boolean;
+  sharesBorder: boolean;
+  /** Which path was selected: "land", "boat", or "none". */
+  attackPath: "land" | "boat" | "none";
+  /** Why the attack was blocked, if it was. */
+  blockReason: string;
+  /** Manhattan distance to nearest enemy shore (boat targeting). 0 if N/A. */
+  boatDistance: number;
+  /** Does the enemy border ocean? */
+  enemyBordersOcean: boolean;
+}
+
+/** All attack debug data for one AI player. */
+export interface AttackDebugData {
+  playerId: PlayerID;
+  playerName: string;
+  /** Whether handleAttack() is being reached (not suppressed by TN/bot). */
+  handleAttackReached: boolean;
+  /** Last tick handleAttack() was called. */
+  lastHandleAttackTick: number;
+  /** Troop ratio vs threshold. */
+  troopRatio: number;
+  attackThreshold: number;
+  /** Defending troop ratio vs target. */
+  defendingRatio: number;
+  defendingTarget: number;
+  /** Does this player border ocean? */
+  bordersOcean: boolean;
+  /** Number of ocean shore tiles. */
+  oceanShoreTileCount: number;
+  /** Current transport ship count / max. */
+  boatCount: number;
+  boatMax: number;
+  /** Ticks since last boat attack. */
+  ticksSinceLastBoat: number;
+  /** Boat cooldown threshold. */
+  boatCooldown: number;
+  /** Per-enemy breakdown. */
+  targets: AttackTargetBreakdown[];
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 
 /**
  * Handles attack behavior against AI and Human players.
@@ -12,6 +61,8 @@ import { AIBehaviorParams } from "./AIBehaviorParams";
  * Bot and TerraNullius attacks are handled separately.
  */
 export class AIAttackHandler {
+  // Static registry for debug overlay access
+  private static readonly registry = new Map<PlayerID, AIAttackHandler>();
   // Number of random shore tiles to sample (in addition to extrema)
   private static readonly RANDOM_SHORE_SAMPLE_SIZE = 4;
 
@@ -25,13 +76,20 @@ export class AIAttackHandler {
   // Last tick we sent a boat attack
   private lastBoatAttackTick = 0;
 
+  // Debug: last tick handleAttack() was actually called
+  private _lastHandleAttackTick = 0;
+  // Debug: whether handleAttack was reached last tick cycle
+  private _handleAttackReached = false;
+
   constructor(
     private mg: Game,
     private playerId: PlayerID,
     private random: PseudoRandom,
     private params: AIBehaviorParams,
     private readonly thresholdOffset: number,
-  ) {}
+  ) {
+    AIAttackHandler.registry.set(playerId, this);
+  }
 
   private getPlayer(): Player | null {
     if (!this.mg.hasPlayer(this.playerId)) {
@@ -41,6 +99,9 @@ export class AIAttackHandler {
   }
 
   handleAttack(): boolean {
+    this._handleAttackReached = true;
+    this._lastHandleAttackTick = this.mg.ticks();
+
     const player = this.getPlayer();
     if (!player || !player.isAlive()) {
       return false;
@@ -347,5 +408,172 @@ export class AIAttackHandler {
       new TransportShipExecution(player, target.id(), targetTile, troops, null),
     );
     return true;
+  }
+
+  // ─── Debug overlay support ──────────────────────────────────────────────────
+
+  /**
+   * Collects debug data for all registered AI attack handlers.
+   */
+  public static getAllAttackDebugData(game: Game): AttackDebugData[] {
+    const results: AttackDebugData[] = [];
+    for (const [playerId, handler] of AIAttackHandler.registry) {
+      if (!game.hasPlayer(playerId)) continue;
+      const player = game.player(playerId);
+      if (!player.isPlayer() || !player.isAlive()) continue;
+      results.push(handler.collectDebugData(player));
+    }
+    return results;
+  }
+
+  private collectDebugData(player: Player): AttackDebugData {
+    const attackThreshold =
+      (this.params.attackTroopThreshold ?? 0.5) + this.thresholdOffset;
+    const maxPop = this.mg.config().maxPopulation(player);
+    const maxTroops = maxPop * player.targetTroopRatio();
+    const totalTroops = player.troops() + player.attackingTroops();
+    const troopRatio = totalTroops / maxTroops;
+
+    const defendingTroopTarget = this.params.defendingTroopTarget ?? 0.5;
+    const defendingRatio = totalTroops > 0 ? player.troops() / totalTroops : 1;
+
+    const currentTick = this.mg.ticks();
+    const boatMax = this.mg.config().boatMaxNumber();
+    const boatCount = player.unitCount(UnitType.TransportShip);
+
+    const targets: AttackTargetBreakdown[] = [];
+    for (const other of this.mg.players()) {
+      if (other.id() === player.id()) continue;
+      if (!other.isAlive()) continue;
+      if (other.type() !== PlayerType.Human && other.type() !== PlayerType.AI)
+        continue;
+      if (!player.isAtWarWith(other)) continue;
+
+      const sharesBorder = player.sharesBorderWith(other);
+      const enemyBordersOcean = other.bordersOcean();
+
+      let attackPath: "land" | "boat" | "none" = "none";
+      let blockReason = "";
+      let boatDistance = 0;
+
+      if (sharesBorder) {
+        // Would go through land attack path
+        attackPath = "land";
+        // Check if land attack would actually succeed
+        if (troopRatio < attackThreshold) {
+          blockReason = `troopRatio ${troopRatio.toFixed(2)} < threshold ${attackThreshold.toFixed(2)}`;
+        } else if (defendingRatio < defendingTroopTarget) {
+          blockReason = `defendingRatio ${defendingRatio.toFixed(2)} < target ${defendingTroopTarget.toFixed(2)}`;
+        } else {
+          // Check if conquerable tiles exist
+          const targetSmallID = other.smallID();
+          let hasConquerable = false;
+          for (const tile of player.borderTiles()) {
+            for (const n of this.mg.neighbors(tile)) {
+              if (!this.mg.isWater(n) && this.mg.ownerID(n) === targetSmallID) {
+                hasConquerable = true;
+                break;
+              }
+            }
+            if (hasConquerable) break;
+          }
+          if (!hasConquerable) {
+            blockReason = "no conquerable land tiles at border";
+          } else {
+            blockReason = "OK (land attack active)";
+          }
+        }
+      } else {
+        // Would go through boat attack path
+        attackPath = "boat";
+        if (troopRatio < attackThreshold) {
+          blockReason = `troopRatio ${troopRatio.toFixed(2)} < threshold ${attackThreshold.toFixed(2)}`;
+        } else if (defendingRatio < defendingTroopTarget) {
+          blockReason = `defendingRatio ${defendingRatio.toFixed(2)} < target ${defendingTroopTarget.toFixed(2)}`;
+        } else if (!player.bordersOcean()) {
+          blockReason = "player does not border ocean";
+        } else if (player.oceanShoreTiles().length === 0) {
+          blockReason = "player has no ocean shore tiles";
+        } else if (
+          currentTick - this.lastBoatAttackTick <
+          AIAttackHandler.BOAT_ATTACK_COOLDOWN
+        ) {
+          blockReason = `boat cooldown (${currentTick - this.lastBoatAttackTick}/${AIAttackHandler.BOAT_ATTACK_COOLDOWN} ticks)`;
+        } else if (!enemyBordersOcean) {
+          blockReason = "enemy does not border ocean";
+        } else if (other.oceanShoreTiles().length === 0) {
+          blockReason = "enemy has no ocean shore tiles";
+        } else if (boatCount >= boatMax) {
+          blockReason = `boat cap (${boatCount}/${boatMax})`;
+        } else {
+          // Check distance — simulate findBoatTarget
+          const playerSample = this.getOceanShoreSample(player, true);
+          const otherSample = this.getOceanShoreSample(other);
+          if (playerSample.length === 0) {
+            blockReason = "no player ocean shore sample";
+          } else if (otherSample.length === 0) {
+            blockReason = "no enemy ocean shore sample";
+          } else {
+            let minDist = Infinity;
+            for (const s of playerSample) {
+              for (const t of otherSample) {
+                const d = this.mg.manhattanDist(s, t);
+                if (d < minDist) minDist = d;
+              }
+            }
+            boatDistance = minDist;
+            // Try canBuildTransportShip
+            const bestEnemyTile = otherSample.reduce((best, t) => {
+              const dBest = this.mg.manhattanDist(playerSample[0], best);
+              const dT = this.mg.manhattanDist(playerSample[0], t);
+              return dT < dBest ? t : best;
+            });
+            if (
+              canBuildTransportShip(this.mg, player, bestEnemyTile) === false
+            ) {
+              blockReason = `canBuildTransportShip failed (dist=${minDist})`;
+            } else {
+              const boatTroopPercent =
+                this.params.attackBoatTroopPercent ?? 0.1;
+              const troops = player.troops() * boatTroopPercent;
+              if (troops < 1) {
+                blockReason = `boat troops too low (${troops.toFixed(0)})`;
+              } else {
+                blockReason = `OK (boat ready, dist=${minDist})`;
+              }
+            }
+          }
+        }
+      }
+
+      targets.push({
+        targetId: other.id(),
+        targetName: other.displayName(),
+        isAtWar: true,
+        sharesBorder,
+        attackPath,
+        blockReason,
+        boatDistance,
+        enemyBordersOcean,
+      });
+    }
+
+    return {
+      playerId: this.playerId,
+      playerName: player.displayName(),
+      handleAttackReached: this._handleAttackReached,
+      lastHandleAttackTick: this._lastHandleAttackTick,
+      troopRatio,
+      attackThreshold,
+      defendingRatio,
+      defendingTarget: defendingTroopTarget,
+      bordersOcean: player.bordersOcean(),
+      oceanShoreTileCount: player.oceanShoreTiles().length,
+      boatCount,
+      boatMax,
+      ticksSinceLastBoat: currentTick - this.lastBoatAttackTick,
+      boatCooldown: AIAttackHandler.BOAT_ATTACK_COOLDOWN,
+      targets,
+    };
   }
 }
