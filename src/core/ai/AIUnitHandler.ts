@@ -53,6 +53,8 @@ export class AIUnitHandler {
   private _lastPatrolUpdateTick: number = -Infinity;
   /** Tick when we last repositioned warships along the coast. */
   private _lastCoastalRepositionTick: number = -Infinity;
+  /** Tick when we last assigned idle (no-enemy) port patrol positions. */
+  private _lastIdlePatrolTick: number = -Infinity;
   /** Set of warship IDs currently assigned to intercept transports. */
   private _interceptingWarshipIds: Set<number> = new Set();
 
@@ -506,13 +508,21 @@ export class AIUnitHandler {
         }
       }
     } else {
-      // No enemy warships — patrol near average position of own ports
+      // No enemy warships — patrol near average position of own ports.
+      // Only reposition every COASTAL_REPOSITION_INTERVAL to avoid
+      // spamming setPatrolTile every 10 ticks when nothing has changed.
       this._patrolTargetUnit = null;
-      const avgPortTile = this.findAveragePortPosition(player);
-      if (avgPortTile !== null) {
-        for (const ws of warships) {
-          ws.setPatrolTile(avgPortTile);
-          ws.setTargetTile(undefined);
+      if (
+        this.mg.ticks() - this._lastIdlePatrolTick >=
+        AIUnitHandler.COASTAL_REPOSITION_INTERVAL
+      ) {
+        this._lastIdlePatrolTick = this.mg.ticks();
+        const avgPortTile = this.findAveragePortPosition(player);
+        if (avgPortTile !== null) {
+          for (const ws of warships) {
+            ws.setPatrolTile(avgPortTile);
+            ws.setTargetTile(undefined);
+          }
         }
       }
     }
