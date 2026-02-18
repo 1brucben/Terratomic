@@ -273,9 +273,6 @@ export class AINukeHandler {
       this.mg.unitInfo(UnitType.AtomBomb).cost(this.player!),
     );
     const siloCapacity = this.getPlayerSiloCapacity();
-    const siloCostExtra =
-      this.computeSiloCost(samLevels, siloCapacity) /
-      AINukeHandler.EXPECTED_NUKES_PER_SILO;
 
     // Use moving-average income estimate for time-to-fund
     const grossGoldPerMinute = this.player!.estimatedGoldIncomePerMinute();
@@ -284,8 +281,7 @@ export class AINukeHandler {
     // Atom score
     const atomNumerator =
       atomEnemyValue - friendlyDamageWeight * atomFriendlyValue;
-    const atomTotalCost =
-      atomBombCost + samLevels * atomBombCost + siloCostExtra;
+    const atomTotalCost = atomBombCost + samLevels * atomBombCost;
     const atomT =
       grossGoldPerMinute > 0 ? atomTotalCost / grossGoldPerMinute : Infinity;
     const atomScore = atomNumerator / Math.pow(1 + discountRate, atomT);
@@ -296,8 +292,7 @@ export class AINukeHandler {
     const hydrogenBombCost = Number(
       this.mg.unitInfo(UnitType.HydrogenBomb).cost(this.player!),
     );
-    const hydrogenTotalCost =
-      hydrogenBombCost + samLevels * atomBombCost + siloCostExtra;
+    const hydrogenTotalCost = hydrogenBombCost + samLevels * atomBombCost;
     const hydrogenT =
       grossGoldPerMinute > 0
         ? hydrogenTotalCost / grossGoldPerMinute
