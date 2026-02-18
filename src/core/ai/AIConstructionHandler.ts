@@ -979,7 +979,6 @@ export class AIConstructionHandler {
    * Computes the defense post base score as baseScoreParam / ((1+r)^T * ownMilitaryStrength).
    * T = minutes to earn the defense post cost at current gross gold income.
    * r = discount rate (from AI profile discountFactor, default 0.1).
-   * Dividing by own military strength means weaker players value defense posts more.
    */
   private scoreDefensePost(player: Player): number {
     const config = this.mg.config();
@@ -1012,10 +1011,9 @@ export class AIConstructionHandler {
     const T = costNum / grossGoldPerMinute;
     const discountRate = this.params.discountFactor ?? 0.1;
 
-    const ownStrength = Math.max(1, player.militaryStrength());
     return (
       AIConstructionHandler.DEFENSE_POST_BASE_SCORE /
-      (Math.pow(1 + discountRate, T) * ownStrength)
+      Math.pow(1 + discountRate, T)
     );
   }
 
@@ -1349,7 +1347,7 @@ export class AIConstructionHandler {
    * Calculates the defense post tile score based on nearby enemy threat.
    *
    * Score = Σ over each nearby enemy player:
-   *   militaryStrength(enemy) * distanceFactor
+   *   min(militaryStrength(enemy) / ownMilitaryStrength, 4) * distanceFactor
    *
    * where:
    *   x = closestEnemyBorderDist / defensePostRadius, clamped to [0, 1]
@@ -1394,6 +1392,7 @@ export class AIConstructionHandler {
 
     if (closestDistSqByOwner.size === 0) return 0;
 
+    const ownStrength = Math.max(1, player.militaryStrength());
     let score = 0;
 
     for (const [ownerSmallID, closestDistSq] of closestDistSqByOwner) {
@@ -1407,7 +1406,8 @@ export class AIConstructionHandler {
       // distanceFactor = -x² + 2x (parabola peaking at 1.0 when x = 1)
       const distanceFactor = -x * x + 2 * x;
 
-      score += other.militaryStrength() * distanceFactor;
+      const strengthRatio = Math.min(4, other.militaryStrength() / ownStrength);
+      score += strengthRatio * distanceFactor;
     }
 
     if (score <= 0) return 0;
