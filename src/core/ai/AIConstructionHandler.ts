@@ -91,6 +91,15 @@ export class AIConstructionHandler {
         t !== UnitType.SAMLauncher,
     );
 
+  // Tiered zone boundaries for structure proximity penalty (squared for fast comparison)
+  // Diameters: atom inner 2×12=24, atom outer 2×30=60, hydro inner 2×80=160, hydro outer 2×100=200
+  private static readonly ZONE_BOUNDARIES = [24, 60, 160, 200] as const;
+  private static readonly ZONE_BOUNDARIES_SQ = (
+    AIConstructionHandler.ZONE_BOUNDARIES as readonly number[]
+  ).map((d) => d * d);
+  private static readonly ZONE_SEARCH_RADIUS =
+    AIConstructionHandler.ZONE_BOUNDARIES[3]; // outermost zone
+
   // Phase seed for spreading periodic actions across AIs
   private readonly phaseSeed: number;
 
@@ -1084,8 +1093,9 @@ export class AIConstructionHandler {
    *   - w₀ = bias term (default 0, so σ(0) = 0.5 as baseline)
    *   - x₁ = (max(0, (maxDist - closestPlayerDist) / maxDist))² ∈ [0, 1], quadratic
    *         w₁ = -portTileNearPlayerPenalty (negative = penalty for being close to enemies)
-   *   - x₂ = total structure levels within range (sum of stackCount for nearby structures)
-   *         w₂ = -portTileNearStructurePenalty (fixed penalty per structure level)
+   *   - x₂ = tiered structure value penalty: Σ(structureValue * zoneWeight) / 1M
+   *         Zones: ≤25, 25-61, 61-161, 161-201 tiles; each zone's weight is
+   *         basePenalty * Π(zone multipliers) cascading from inner to outer.
    *   - x₃ = dist / maxMapDim, normalized by larger map dimension
    *         w₃ = -portTileCapitalDistancePenalty (negative = penalty for being far from capital)
    *
@@ -1141,30 +1151,41 @@ export class AIConstructionHandler {
       }
     }
 
-    // Feature 2: Own structure proximity penalty (count-based)
-    // x₂ = total structure levels within range
-    const maxStructureDist = this.params.aiStructureMinDistance ?? 60;
-    if (maxStructureDist > 0) {
-      // Use precomputed nearby structures if provided
+    // Feature 2: Own structure proximity penalty (tiered zones)
+    {
       const nearbyStructures =
         precomputedNearbyStructures ??
         this.mg.nearbyUnits(
           tile,
-          maxStructureDist,
+          AIConstructionHandler.ZONE_SEARCH_RADIUS,
           AIConstructionHandler.DISTANCE_CHECK_STRUCTURE_TYPES,
         );
-      const ownNearbyStructures = nearbyStructures.filter(
-        ({ unit }) => unit.owner().id() === player.id(),
-      );
-      if (ownNearbyStructures.length > 0) {
-        // Sum structure values (base cost + upgrades) and normalize by 1M
-        let totalValue = 0;
-        for (const { unit } of ownNearbyStructures) {
-          totalValue += this.getStructureValue(player, unit);
+      const basePenalty = this.params.portTileNearStructurePenalty ?? 0.3;
+      const mul2 = this.params.nearStructureZone2Multiplier ?? 0.5;
+      const mul3 = this.params.nearStructureZone3Multiplier ?? 0.5;
+      const mul4 = this.params.nearStructureZone4Multiplier ?? 0.5;
+      const zoneWeights = [
+        basePenalty,
+        basePenalty * mul2,
+        basePenalty * mul2 * mul3,
+        basePenalty * mul2 * mul3 * mul4,
+      ];
+      const zoneSq = AIConstructionHandler.ZONE_BOUNDARIES_SQ;
+      const pid = player.id();
+      let weightedValue = 0;
+      for (const { unit, distSquared } of nearbyStructures) {
+        if (unit.owner().id() !== pid) continue;
+        // Determine zone index (0-3) based on distance²
+        let zi = 0;
+        if (distSquared > zoneSq[0]) {
+          if (distSquared > zoneSq[2]) zi = 3;
+          else if (distSquared > zoneSq[1]) zi = 2;
+          else zi = 1;
         }
-        const x2 = totalValue / 1_000_000;
-        const w2 = -(this.params.portTileNearStructurePenalty ?? 0.3);
-        z += w2 * x2;
+        weightedValue += this.getStructureValue(player, unit) * zoneWeights[zi];
+      }
+      if (weightedValue > 0) {
+        z -= weightedValue / 1_000_000;
       }
     }
 
@@ -1200,8 +1221,9 @@ export class AIConstructionHandler {
    *   - w₀ = bias term (default 0, so σ(0) = 0.5 as baseline)
    *   - x₁ = (max(0, (maxDist - closestPlayerDist) / maxDist))² ∈ [0, 1], quadratic
    *         w₁ = -otherTileNearPlayerPenalty (negative = penalty for being close to enemies)
-   *   - x₂ = total structure levels within range (sum of stackCount for nearby structures)
-   *         w₂ = -otherTileNearStructurePenalty (fixed penalty per structure level)
+   *   - x₂ = tiered structure value penalty: Σ(structureValue * zoneWeight) / 1M
+   *         Zones: ≤25, 25-61, 61-161, 161-201 tiles; each zone's weight is
+   *         basePenalty * Π(zone multipliers) cascading from inner to outer.
    *   - x₃ = dist / maxMapDim, normalized by larger map dimension
    *         w₃ = -otherTileCapitalDistancePenalty (negative = penalty for being far from capital)
    *   - x₄ = nearby water indicator: 1 if water within distance, 0 otherwise
@@ -1259,30 +1281,40 @@ export class AIConstructionHandler {
       }
     }
 
-    // Feature 2: Own structure proximity penalty (count-based)
-    // x₂ = total structure levels within range
-    const maxStructureDist = this.params.aiStructureMinDistance ?? 60;
-    if (maxStructureDist > 0) {
-      // Use precomputed nearby structures if provided
+    // Feature 2: Own structure proximity penalty (tiered zones)
+    {
       const nearbyStructures =
         precomputedNearbyStructures ??
         this.mg.nearbyUnits(
           tile,
-          maxStructureDist,
+          AIConstructionHandler.ZONE_SEARCH_RADIUS,
           AIConstructionHandler.DISTANCE_CHECK_STRUCTURE_TYPES,
         );
-      const ownNearbyStructures = nearbyStructures.filter(
-        ({ unit }) => unit.owner().id() === player.id(),
-      );
-      if (ownNearbyStructures.length > 0) {
-        // Sum structure values (base cost + upgrades) and normalize by 1M
-        let totalValue = 0;
-        for (const { unit } of ownNearbyStructures) {
-          totalValue += this.getStructureValue(player, unit);
+      const basePenalty = this.params.otherTileNearStructurePenalty ?? 0.3;
+      const mul2 = this.params.nearStructureZone2Multiplier ?? 0.5;
+      const mul3 = this.params.nearStructureZone3Multiplier ?? 0.5;
+      const mul4 = this.params.nearStructureZone4Multiplier ?? 0.5;
+      const zoneWeights = [
+        basePenalty,
+        basePenalty * mul2,
+        basePenalty * mul2 * mul3,
+        basePenalty * mul2 * mul3 * mul4,
+      ];
+      const zoneSq = AIConstructionHandler.ZONE_BOUNDARIES_SQ;
+      const pid = player.id();
+      let weightedValue = 0;
+      for (const { unit, distSquared } of nearbyStructures) {
+        if (unit.owner().id() !== pid) continue;
+        let zi = 0;
+        if (distSquared > zoneSq[0]) {
+          if (distSquared > zoneSq[2]) zi = 3;
+          else if (distSquared > zoneSq[1]) zi = 2;
+          else zi = 1;
         }
-        const x2 = totalValue / 1_000_000;
-        const w2 = -(this.params.otherTileNearStructurePenalty ?? 0.3);
-        z += w2 * x2;
+        weightedValue += this.getStructureValue(player, unit) * zoneWeights[zi];
+      }
+      if (weightedValue > 0) {
+        z -= weightedValue / 1_000_000;
       }
     }
 
@@ -1578,15 +1610,11 @@ export class AIConstructionHandler {
         ? this.closestOtherPlayerDistance(player, tile, avoidPlayerDist)
         : null;
 
-    const maxStructureDist = this.params.aiStructureMinDistance ?? 60;
-    const nearbyStructures =
-      maxStructureDist > 0
-        ? this.mg.nearbyUnits(
-            tile,
-            maxStructureDist,
-            AIConstructionHandler.DISTANCE_CHECK_STRUCTURE_TYPES,
-          )
-        : [];
+    const nearbyStructures = this.mg.nearbyUnits(
+      tile,
+      AIConstructionHandler.ZONE_SEARCH_RADIUS,
+      AIConstructionHandler.DISTANCE_CHECK_STRUCTURE_TYPES,
+    );
 
     // Calculate port score with penalties and bonuses (only for ocean shore tiles)
     const portScore = this.calculatePortTileScore(
