@@ -1380,10 +1380,16 @@ export class AIConstructionHandler {
 
     if (score <= 0) return 0;
 
-    // Penalize overlap with existing defense posts (same radius circles)
+    // Penalize overlap with existing and under-construction defense posts (same radius circles)
     const existingDPs = player
       .units(UnitType.DefensePost)
       .filter((u) => u.isActive());
+    // Include defense posts under construction
+    for (const u of player.units(UnitType.Construction)) {
+      if (u.isActive() && u.constructionType() === UnitType.DefensePost) {
+        existingDPs.push(u);
+      }
+    }
     if (existingDPs.length > 0) {
       const r = defensePostRadius;
       const circleArea = Math.PI * r * r;
@@ -1491,8 +1497,13 @@ export class AIConstructionHandler {
     }
     const proximityMultiplier = AIConstructionHandler.sigmoid(z);
 
-    // Get current SAMs and range info
+    // Get current SAMs (including under-construction) and range info
     const sams = player.units(UnitType.SAMLauncher).filter((u) => u.isActive());
+    for (const u of player.units(UnitType.Construction)) {
+      if (u.isActive() && u.constructionType() === UnitType.SAMLauncher) {
+        sams.push(u);
+      }
+    }
     const techLevel = playerMaxStructureTechLevel(player, UnitType.SAMLauncher);
     const samRange = this.getEffectiveSAMRange(techLevel);
     const rangeSquared = samRange * samRange;
@@ -1738,7 +1749,13 @@ export class AIConstructionHandler {
    * Uses base construction cost + upgrade costs for each level.
    */
   private getStructureValue(player: Player, structure: Unit): number {
-    const unitType = structure.type();
+    let unitType = structure.type();
+    // For construction units, value by the type being built
+    if (unitType === UnitType.Construction) {
+      const ct = structure.constructionType();
+      if (ct === null) return 0;
+      unitType = ct;
+    }
     const baseCost = Number(this.mg.unitInfo(unitType).cost(player));
     const level = structure.stackCount?.() ?? 1;
 

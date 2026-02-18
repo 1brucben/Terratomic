@@ -1624,7 +1624,8 @@ export class PlayerImpl implements Player {
       this.troops() +
       0.9 * this.attackingTroops() +
       Number(this._gold) / 100 +
-      this._militaryAssetValue / 100
+      this._militaryAssetValue / 100 +
+      this.workers() * 0.5
     );
   }
 

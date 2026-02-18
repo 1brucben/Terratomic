@@ -256,6 +256,12 @@ export interface AIBehaviorParams {
   warScoreMilitaryStrengthWeight?: number;
 
   /**
+   * Multiplier for workers when computing militaryStrength.
+   * militaryStrength += workers * this value. Default 0.5.
+   */
+  militaryStrengthWorkerWeight?: number;
+
+  /**
    * Weight multiplier for non-reachable enemies in military strength calculation.
    * Enemies that can't reach us are less threatening (can't attack directly).
    * Value between 0-1; default 0.2 means non-reachable enemies count as 20% threat.

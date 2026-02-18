@@ -147,6 +147,7 @@ export class WarScoreOverlay implements Layer {
           <th style="text-align: right; padding: 2px 6px;">AllyPen</th>
           <th style="text-align: right; padding: 2px 6px;">DistPen</th>
           <th style="text-align: right; padding: 2px 6px;">Domn</th>
+          <th style="text-align: right; padding: 2px 6px;">MilShr</th>
           <th style="text-align: right; padding: 2px 6px;">Status</th>
         </tr>
         ${sorted.map((b) => this.renderRow(b)).join("")}
@@ -172,6 +173,7 @@ export class WarScoreOverlay implements Layer {
     allyPenalty: number;
     distancePenalty: number;
     dominanceBonus: number;
+    militaryStrengthShare: number;
     isAtWar: boolean;
     isFriendly: boolean;
     unreachable: boolean;
@@ -210,6 +212,7 @@ export class WarScoreOverlay implements Layer {
       <td style="text-align: right; padding: 2px 6px;">${colorNum(-b.allyPenalty)}</td>
       <td style="text-align: right; padding: 2px 6px;">${colorNum(-b.distancePenalty)}</td>
       <td style="text-align: right; padding: 2px 6px;">${colorNum(b.dominanceBonus)}</td>
+      <td style="text-align: right; padding: 2px 6px; color: #aaa;">${(b.militaryStrengthShare * 100).toFixed(1)}%</td>
       <td style="text-align: right; padding: 2px 6px;">${status}</td>
     </tr>`;
   }
