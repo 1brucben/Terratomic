@@ -7,6 +7,7 @@ import { TransformHandler } from "./TransformHandler";
 import { UIState } from "./UIState";
 import { AABulletLayer } from "./layers/AABulletLayer";
 import { ArtilleryLayer } from "./layers/ArtilleryLayer";
+import { AttackDebugOverlay } from "./layers/AttackDebugOverlay";
 import { AttackWarningOverlay } from "./layers/AttackWarningOverlay";
 import { BuildMenu } from "./layers/BuildMenu";
 import { CargoTruckLayer } from "./layers/CargoTruckLayer";
@@ -323,6 +324,7 @@ export function createRenderer(
     multiTabModal,
     new DevHud(game, transformHandler),
     new WarScoreOverlay(game),
+    new AttackDebugOverlay(game),
   ];
 
   return new GameRenderer(

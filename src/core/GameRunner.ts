@@ -1,4 +1,5 @@
 import { placeName } from "../client/graphics/NameBoxCalculator";
+import { AIAttackHandler, AttackDebugData } from "./ai/AIAttackHandler";
 import { AIBehaviorParams } from "./ai/AIBehaviorParams";
 import { AIDiplomacyHandler, WarScoreDebugData } from "./ai/AIDiplomacyHandler";
 import { getConfig } from "./configuration/ConfigLoader";
@@ -598,5 +599,9 @@ export class GameRunner {
       this.game,
       this.game.ticks(),
     );
+  }
+
+  public attackDebug(): AttackDebugData[] {
+    return AIAttackHandler.getAllAttackDebugData(this.game);
   }
 }
