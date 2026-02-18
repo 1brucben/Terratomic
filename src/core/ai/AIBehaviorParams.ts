@@ -110,6 +110,22 @@ export interface AIBehaviorParams {
   // === Unit Build Weights ===
   /** Multiplicative weight for warship build scoring. Default 1. */
   weightWarship?: number;
+  /**
+   * Weight applied to the global moving-average trade-ship income
+   * (sum of tradeShipGoldPerMinute across all players) when computing
+   * the warship score numerator.
+   * numerator += warshipTradeIncomeWeight * globalTradeShipGoldPerMinute.
+   * Default 0.
+   */
+  warshipTradeIncomeWeight?: number;
+  /**
+   * Bonus added to the warship score numerator when the player is at war
+   * with a militarily stronger enemy that does NOT share a land border
+   * (i.e. the coastal-threat / naval-invasion indicator).
+   * numerator += warshipCoastalThreatWeight * indicator (0 or 1).
+   * Default 0.
+   */
+  warshipCoastalThreatWeight?: number;
 
   /**
    * If the best construction target score is less than this multiplier times

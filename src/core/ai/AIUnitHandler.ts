@@ -667,7 +667,10 @@ export class AIUnitHandler {
    * Warship score: if we already have more warships than the most-armed
    * enemy we're at war with, score is 0. Otherwise:
    *
-   *   score = (WARSHIP_BASE_SCORE * weightWarship) / (1 + r)^T
+   *   numerator = WARSHIP_BASE_SCORE
+   *             + warshipTradeIncomeWeight  * globalTradeShipGoldPerMinute
+   *             + warshipCoastalThreatWeight * coastalThreatIndicator
+   *   score = (numerator * weightWarship) / (1 + r)^T
    *
    * where T = minutes to fund (enemyMax + 1) warships at current income.
    */
@@ -689,10 +692,23 @@ export class AIUnitHandler {
     const discountRate = this.params.discountFactor ?? 0.1;
     const weight = this.params.weightWarship ?? 1;
 
-    return (
-      (AIUnitHandler.WARSHIP_BASE_SCORE * weight) /
-      Math.pow(1 + discountRate, T)
-    );
+    // Build the numerator: base + trade-income component + coastal-threat component
+    const tradeWeight = this.params.warshipTradeIncomeWeight ?? 0;
+    const coastalWeight = this.params.warshipCoastalThreatWeight ?? 0;
+
+    // Sum trade income across all players for a global moving average
+    let globalTradeIncome = 0;
+    for (const p of this.mg.players()) {
+      globalTradeIncome += p.tradeShipGoldPerMinute();
+    }
+    const tradeComponent = tradeWeight * globalTradeIncome;
+    const coastalIndicator = this.shouldUseCoastalDefense(player) ? 1 : 0;
+    const coastalComponent = coastalWeight * coastalIndicator;
+
+    const numerator =
+      AIUnitHandler.WARSHIP_BASE_SCORE + tradeComponent + coastalComponent;
+
+    return (numerator * weight) / Math.pow(1 + discountRate, T);
   }
 
   /**
