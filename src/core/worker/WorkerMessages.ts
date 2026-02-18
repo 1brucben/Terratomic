@@ -1,3 +1,4 @@
+import { WarScoreDebugData } from "../ai/AIDiplomacyHandler";
 import {
   PlayerActions,
   PlayerBorderTiles,
@@ -25,7 +26,9 @@ export type WorkerMessageType =
   | "transport_ship_spawn"
   | "transport_ship_spawn_result"
   | "set_metrics_enabled"
-  | "execution_metrics";
+  | "execution_metrics"
+  | "war_score_debug"
+  | "war_score_debug_result";
 
 // Base interface for all messages
 interface BaseWorkerMessage {
@@ -130,6 +133,15 @@ export interface ExecutionMetricsMessage extends BaseWorkerMessage {
   metrics: Array<{ type: string; time: number; count: number }>;
 }
 
+export interface WarScoreDebugMessage extends BaseWorkerMessage {
+  type: "war_score_debug";
+}
+
+export interface WarScoreDebugResultMessage extends BaseWorkerMessage {
+  type: "war_score_debug_result";
+  result: WarScoreDebugData[];
+}
+
 // Union types for type safety
 export type MainThreadMessage =
   | HeartbeatMessage
@@ -140,7 +152,8 @@ export type MainThreadMessage =
   | PlayerBorderTilesMessage
   | AttackAveragePositionMessage
   | TransportShipSpawnMessage
-  | SetMetricsEnabledMessage;
+  | SetMetricsEnabledMessage
+  | WarScoreDebugMessage;
 
 // Message send from worker
 export type WorkerMessage =
@@ -151,4 +164,5 @@ export type WorkerMessage =
   | PlayerBorderTilesResultMessage
   | AttackAveragePositionResultMessage
   | TransportShipSpawnResultMessage
-  | ExecutionMetricsMessage;
+  | ExecutionMetricsMessage
+  | WarScoreDebugResultMessage;

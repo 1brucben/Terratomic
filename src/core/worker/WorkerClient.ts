@@ -1,4 +1,5 @@
 import { PerformanceMetrics } from "../../client/utilities/PerformanceMetrics";
+import { WarScoreDebugData } from "../ai/AIDiplomacyHandler";
 import {
   Cell,
   PlayerActions,
@@ -272,6 +273,31 @@ export class WorkerClient {
         id: messageId,
         playerID: playerID,
         targetTile: targetTile,
+      });
+    });
+  }
+
+  warScoreDebug(): Promise<WarScoreDebugData[]> {
+    return new Promise((resolve, reject) => {
+      if (!this.isInitialized) {
+        reject(new Error("Worker not initialized"));
+        return;
+      }
+
+      const messageId = generateID();
+
+      this.messageHandlers.set(messageId, (message) => {
+        if (
+          message.type === "war_score_debug_result" &&
+          message.result !== undefined
+        ) {
+          resolve(message.result);
+        }
+      });
+
+      this.worker.postMessage({
+        type: "war_score_debug",
+        id: messageId,
       });
     });
   }

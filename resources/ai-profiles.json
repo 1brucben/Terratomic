@@ -71,7 +71,7 @@
         "warScoreSharedBorderWeight": 10,
         "warScoreMilitaryStrengthWeight": 61,
         "warScoreNonReachableEnemyWeight": 0.2,
-        "warScoreCoBelligerentDiscount": 0.1,
+        "warScoreCoBelligerentDiscount": 0.9,
         "warScoreAllyPenalty": 0,
         "warScoreDistancePenaltyWeight": 50,
         "warScoreDominanceWeight": 32,

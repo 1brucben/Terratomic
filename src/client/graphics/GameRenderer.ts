@@ -44,6 +44,7 @@ import { TutorialToast } from "./layers/TutorialToast";
 import { TutorialTriggers } from "./layers/TutorialTriggers";
 import { UILayer } from "./layers/UILayer";
 import { UnitLayer } from "./layers/UnitLayer";
+import { WarScoreOverlay } from "./layers/WarScoreOverlay";
 import { WinModal } from "./layers/WinModal";
 
 // Debug flags (keep off for normal gameplay)
@@ -325,6 +326,7 @@ export function createRenderer(
     headsUpMessage,
     multiTabModal,
     new DevHud(game, transformHandler),
+    new WarScoreOverlay(game),
   ];
 
   return new GameRenderer(

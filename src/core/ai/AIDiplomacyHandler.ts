@@ -4,6 +4,34 @@ import { PseudoRandom } from "../PseudoRandom";
 import { AIBehaviorParams } from "./AIBehaviorParams";
 
 /**
+ * War score breakdown for a single AI → target pair (debug overlay).
+ */
+export interface WarScoreBreakdown {
+  targetId: PlayerID;
+  targetName: string;
+  total: number;
+  threshold: number;
+  borderScore: number;
+  militaryScore: number;
+  allyPenalty: number;
+  distancePenalty: number;
+  dominanceBonus: number;
+  movingAverage: number;
+  isAtWar: boolean;
+  isFriendly: boolean;
+  unreachable: boolean;
+}
+
+/**
+ * All war score breakdowns for one AI player (debug overlay).
+ */
+export interface WarScoreDebugData {
+  playerId: PlayerID;
+  playerName: string;
+  breakdowns: WarScoreBreakdown[];
+}
+
+/**
  * Cached ocean shore sample for a player.
  * Contains extremum tiles (min/max X/Y) plus a random sample.
  */
@@ -527,6 +555,231 @@ export class AIDiplomacyHandler {
     }
 
     return score;
+  }
+
+  /**
+   * Debug: returns per-factor breakdown of war score for a specific target.
+   * Used only by the debug overlay.
+   */
+  public calculateWarScoreBreakdown(
+    other: Player,
+    ticks: number,
+  ): WarScoreBreakdown | null {
+    const player = this.getPlayer();
+    if (!player || !player.isAlive()) return null;
+    if (!other.isAlive()) return null;
+    if (!this.isReachable(player, other)) {
+      return {
+        targetId: other.id(),
+        targetName: other.displayName(),
+        total: 0,
+        threshold: this.effectiveWarThreshold,
+        borderScore: 0,
+        militaryScore: 0,
+        allyPenalty: 0,
+        distancePenalty: 0,
+        dominanceBonus: 0,
+        movingAverage: this.getMovingAverageWarScore(other.id()) ?? 0,
+        isAtWar: player.isAtWarWith(other),
+        isFriendly: player.isFriendly(other),
+        unreachable: true,
+      };
+    }
+
+    // Factor 1: Border
+    let borderScore = 0;
+    const sharedBorderWeight = this.params.warScoreSharedBorderWeight ?? 0;
+    if (sharedBorderWeight !== 0) {
+      const ownTotalBorderLength = player.borderTiles().size;
+      if (ownTotalBorderLength > 0) {
+        const sharedBorderLength = player.sharedBorderLength(other);
+        const borderRatio = sharedBorderLength / ownTotalBorderLength;
+        borderScore = sharedBorderWeight * borderRatio;
+      }
+    }
+
+    // Factor 2: Military
+    let militaryScore = 0;
+    const militaryStrengthWeight =
+      this.params.warScoreMilitaryStrengthWeight ?? 0;
+    if (militaryStrengthWeight !== 0) {
+      const nonReachableWeight =
+        this.params.warScoreNonReachableEnemyWeight ?? 0.2;
+      const coBelligerentDiscount =
+        this.params.warScoreCoBelligerentDiscount ?? 0.9;
+      let effectiveOwnStrength = player.militaryStrength();
+      let coBelligerentSum = 0;
+      for (const ally of this.mg.players()) {
+        if (
+          ally.id() !== player.id() &&
+          ally.id() !== other.id() &&
+          ally.isAlive() &&
+          ally.type() !== PlayerType.Bot &&
+          ally.isAtWarWith(other)
+        ) {
+          let totalEnemyStrengthOfAlly = 0;
+          for (const allyEnemy of this.mg.players()) {
+            if (
+              allyEnemy.id() !== ally.id() &&
+              allyEnemy.isAlive() &&
+              allyEnemy.type() !== PlayerType.Bot &&
+              ally.isAtWarWith(allyEnemy)
+            ) {
+              const enemyStrength = allyEnemy.militaryStrength();
+              if (this.isReachable(allyEnemy, ally)) {
+                totalEnemyStrengthOfAlly += enemyStrength;
+              } else {
+                totalEnemyStrengthOfAlly += enemyStrength * nonReachableWeight;
+              }
+            }
+          }
+          if (totalEnemyStrengthOfAlly > 0) {
+            let targetStrengthForAlly = other.militaryStrength();
+            if (!this.isReachable(ally, other)) {
+              targetStrengthForAlly *= nonReachableWeight;
+            }
+            const targetShare =
+              targetStrengthForAlly / totalEnemyStrengthOfAlly;
+            coBelligerentSum += ally.militaryStrength() * targetShare;
+          }
+        }
+      }
+      effectiveOwnStrength += coBelligerentSum * coBelligerentDiscount;
+
+      let totalEnemyStrength = other.militaryStrength();
+      for (const enemy of this.mg.players()) {
+        if (
+          enemy.id() !== player.id() &&
+          enemy.id() !== other.id() &&
+          enemy.isAlive() &&
+          enemy.type() !== PlayerType.Bot &&
+          player.isAtWarWith(enemy)
+        ) {
+          const enemyStrength = enemy.militaryStrength();
+          if (this.isReachable(enemy, player)) {
+            totalEnemyStrength += enemyStrength;
+          } else {
+            totalEnemyStrength += enemyStrength * nonReachableWeight;
+          }
+        }
+      }
+      if (totalEnemyStrength > 0) {
+        const strengthRatio = Math.min(
+          effectiveOwnStrength / totalEnemyStrength,
+          4,
+        );
+        militaryScore = militaryStrengthWeight * strengthRatio;
+      }
+    }
+
+    // Factor 3: Ally penalty
+    let allyPenaltyVal = 0;
+    const allyPenalty = this.params.warScoreAllyPenalty ?? 0;
+    if (allyPenalty !== 0 && player.isAlliedWith(other)) {
+      allyPenaltyVal = allyPenalty;
+    }
+
+    // Factor 4: Distance penalty
+    let distancePenaltyVal = 0;
+    const distancePenaltyWeight =
+      this.params.warScoreDistancePenaltyWeight ?? 0;
+    if (distancePenaltyWeight !== 0 && !player.sharesBorderWith(other)) {
+      const shoreDist = this.closestOceanShoreDistance(player, other, ticks);
+      if (shoreDist !== null && shoreDist > 0) {
+        const playerWidth = Math.sqrt(player.numTilesOwned());
+        if (playerWidth > 0) {
+          const normalizedDist = shoreDist / playerWidth;
+          const penalty = normalizedDist * normalizedDist;
+          distancePenaltyVal = distancePenaltyWeight * penalty;
+        }
+      }
+    }
+
+    // Factor 5: Dominance bonus
+    let dominanceBonusVal = 0;
+    const dominanceWeight = this.params.warScoreDominanceWeight ?? 0;
+    if (dominanceWeight !== 0) {
+      let totalGameStrength = 0;
+      let highestStrength = 0;
+      let secondHighestStrength = 0;
+      for (const p of this.mg.players()) {
+        if (!p.isAlive() || p.type() === PlayerType.Bot) continue;
+        const s = p.militaryStrength();
+        totalGameStrength += s;
+        if (s > highestStrength) {
+          secondHighestStrength = highestStrength;
+          highestStrength = s;
+        } else if (s > secondHighestStrength) {
+          secondHighestStrength = s;
+        }
+      }
+      const targetStrength = other.militaryStrength();
+      if (
+        totalGameStrength > 0 &&
+        targetStrength >= highestStrength &&
+        targetStrength > 0
+      ) {
+        const targetShare = targetStrength / totalGameStrength;
+        const denominator = 0.8 - targetShare;
+        if (denominator > 0 && secondHighestStrength > 0) {
+          const gapPercent =
+            (targetStrength - secondHighestStrength) / secondHighestStrength;
+          dominanceBonusVal = dominanceWeight * (gapPercent / denominator);
+        }
+      }
+    }
+
+    const total =
+      borderScore +
+      militaryScore -
+      allyPenaltyVal -
+      distancePenaltyVal +
+      dominanceBonusVal;
+
+    return {
+      targetId: other.id(),
+      targetName: other.displayName(),
+      total,
+      threshold: this.effectiveWarThreshold,
+      borderScore,
+      militaryScore,
+      allyPenalty: allyPenaltyVal,
+      distancePenalty: distancePenaltyVal,
+      dominanceBonus: dominanceBonusVal,
+      movingAverage: this.getMovingAverageWarScore(other.id()) ?? total,
+      isAtWar: player.isAtWarWith(other),
+      isFriendly: player.isFriendly(other),
+      unreachable: false,
+    };
+  }
+
+  /**
+   * Debug: returns war score breakdowns for all AI players against all others.
+   */
+  public static getAllWarScoreBreakdowns(
+    game: Game,
+    ticks: number,
+  ): WarScoreDebugData[] {
+    const results: WarScoreDebugData[] = [];
+    for (const [playerId, handler] of AIDiplomacyHandler.registry) {
+      const player = game.player(playerId);
+      if (!player.isPlayer() || !player.isAlive()) continue;
+
+      const breakdowns: WarScoreBreakdown[] = [];
+      for (const other of game.players()) {
+        if (other.id() === playerId) continue;
+        if (!other.isAlive()) continue;
+        if (other.type() === PlayerType.Bot) continue;
+        const bd = handler.calculateWarScoreBreakdown(other, ticks);
+        if (bd) breakdowns.push(bd);
+      }
+      results.push({
+        playerId,
+        playerName: player.displayName(),
+        breakdowns,
+      });
+    }
+    return results;
   }
 
   /**

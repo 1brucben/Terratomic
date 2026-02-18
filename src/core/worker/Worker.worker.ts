@@ -10,6 +10,7 @@ import {
   PlayerBorderTilesResultMessage,
   PlayerProfileResultMessage,
   TransportShipSpawnResultMessage,
+  WarScoreDebugResultMessage,
   WorkerMessage,
 } from "./WorkerMessages";
 
@@ -203,6 +204,23 @@ ctx.addEventListener("message", async (e: MessageEvent<MainThreadMessage>) => {
         } as TransportShipSpawnResultMessage);
       } catch (error) {
         console.error("Failed to spawn transport ship:", error);
+      }
+      break;
+    case "war_score_debug":
+      if (!gameRunner) {
+        throw new Error("Game runner not initialized");
+      }
+
+      try {
+        const debugData = (await gameRunner).warScoreDebug();
+        sendMessage({
+          type: "war_score_debug_result",
+          id: message.id,
+          result: debugData,
+        } as WarScoreDebugResultMessage);
+      } catch (error) {
+        console.error("Failed to get war score debug:", error);
+        throw error;
       }
       break;
     default:
