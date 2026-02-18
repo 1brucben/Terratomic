@@ -603,6 +603,24 @@ export class GameImpl implements Game {
       }
     }
 
+    // Log aggregate income by source every 50 ticks (all players)
+    if (this._ticks % 50 === 0) {
+      let totalIndustrial = 0;
+      let totalCargo = 0;
+      let totalTrade = 0;
+      for (const p of this.players()) {
+        const cargo = p.cargoTruckGoldPerMinute();
+        const trade = p.tradeShipGoldPerMinute();
+        const estimated = p.estimatedGoldIncomePerMinute();
+        totalCargo += cargo;
+        totalTrade += trade;
+        totalIndustrial += estimated - cargo - trade;
+      }
+      console.log(
+        `[tick ${this._ticks}] All income/min — Industrial: ${totalIndustrial.toFixed(1)}, Cargo: ${totalCargo.toFixed(1)}, Trade: ${totalTrade.toFixed(1)}, Total: ${(totalIndustrial + totalCargo + totalTrade).toFixed(1)}`,
+      );
+    }
+
     this._ticks++;
     return this.updates;
   }

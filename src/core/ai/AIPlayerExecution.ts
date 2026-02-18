@@ -88,7 +88,7 @@ export class AIPlayerExecution implements Execution {
   private static readonly NUKE_REDUNDANCY_CHECK_INTERVAL = 10;
 
   /** Internal multiplier applied to nuke scores when comparing against construction scores. */
-  private static readonly NUKE_SCORE_INTERNAL_MULTIPLIER = 15;
+  private static readonly NUKE_SCORE_INTERNAL_MULTIPLIER = 14;
 
   constructor(
     private gameID: GameID,
