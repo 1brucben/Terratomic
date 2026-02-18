@@ -73,6 +73,10 @@ export class AIConstructionHandler {
     { score: number; unit: Unit | null; evaluatedIds: Set<number> }
   > = new Map();
 
+  // Tracks the last tick each structure (by ID) was evaluated for upgrade.
+  // Structures not in this map have never been evaluated and are prioritised.
+  private _upgradeLastEvalTick: Map<number, number> = new Map();
+
   private static readonly ALL_STRUCTURE_TYPES: UnitType[] = Object.values(
     UnitType,
   ).filter((t) => isStructureType(t));
@@ -549,21 +553,31 @@ export class AIConstructionHandler {
     const upgradeData = this._upgradeScores.get(unitType);
     const upgradeScore = upgradeData?.score ?? 0;
 
-    // For City and Factory, recompute base score using upgrade cost for T
+    // Recompute base score using upgrade cost for T (all stackable structures)
     let upgradeBaseScore = baseScore;
-    if (
-      (unitType === UnitType.City || unitType === UnitType.Factory) &&
-      upgradeScore > 0
-    ) {
+    if (upgradeScore > 0 && unitType !== UnitType.DefensePost) {
       const baseCost = this.mg.unitInfo(unitType).cost(player);
       const upgMultiplier = this.mg
         .config()
         .structureUpgradeCostMultiplier(unitType);
       const upgCost = computeUpgradeStepCost(baseCost, upgMultiplier);
-      upgradeBaseScore =
-        unitType === UnitType.City
-          ? this.scoreCity(player, upgCost)
-          : this.scoreFactory(player, upgCost);
+      if (unitType === UnitType.City) {
+        upgradeBaseScore = this.scoreCity(player, upgCost);
+      } else if (unitType === UnitType.Factory) {
+        upgradeBaseScore = this.scoreFactory(player, upgCost);
+      } else if (unitType === UnitType.Port) {
+        upgradeBaseScore = this.scorePort(player, upgCost);
+      } else if (unitType === UnitType.Hospital) {
+        upgradeBaseScore = this.scoreHospital(player, upgCost);
+      } else if (unitType === UnitType.Academy) {
+        upgradeBaseScore = this.scoreAcademy(player, upgCost);
+      } else if (unitType === UnitType.ResearchLab) {
+        upgradeBaseScore = this.scoreResearchLab(player, upgCost);
+      } else if (unitType === UnitType.Airfield) {
+        upgradeBaseScore = this.scoreAirfield(player, upgCost);
+      } else if (unitType === UnitType.SAMLauncher) {
+        upgradeBaseScore = this.scoreSAMLauncher(player, upgCost);
+      }
     }
     const upgradeStructureScore = upgradeBaseScore * weight;
 
@@ -582,14 +596,14 @@ export class AIConstructionHandler {
           : this._portTileScore;
       return Math.max(
         newBuildScore * effectivePortTileScore,
-        newBuildScore * upgradeScore,
+        upgradeStructureScore * upgradeScore,
       );
     } else if (unitType === UnitType.DefensePost) {
       return newBuildScore * this._defensePostTileScore; // Defense posts cannot be stacked
     } else if (unitType === UnitType.SAMLauncher) {
       return Math.max(
         newBuildScore * this._samTileScore,
-        newBuildScore * upgradeScore,
+        upgradeStructureScore * upgradeScore,
       );
     } else if (unitType === UnitType.City || unitType === UnitType.Factory) {
       // For City/Factory, use upgrade-cost-based base score for upgrade path
@@ -600,7 +614,7 @@ export class AIConstructionHandler {
     } else {
       return Math.max(
         newBuildScore * this._otherTileScore,
-        newBuildScore * upgradeScore,
+        upgradeStructureScore * upgradeScore,
       );
     }
   }
@@ -811,7 +825,7 @@ export class AIConstructionHandler {
   /**
    * Computes the port base score based on trade demand.
    */
-  private scorePort(player: Player): number {
+  private scorePort(player: Player, costOverride?: bigint): number {
     const portCount = player.unitsOwned(UnitType.Port);
 
     // If AI has 0 ports, score as discounted present value of 50% of
@@ -826,7 +840,9 @@ export class AIConstructionHandler {
       const r = this.params.discountFactor ?? 0.1;
       let base = 0;
       if (grossGoldPerMinute > 0) {
-        const portCost = Number(this.mg.unitInfo(UnitType.Port).cost(player));
+        const portCost = Number(
+          costOverride ?? this.mg.unitInfo(UnitType.Port).cost(player),
+        );
         const T = portCost / grossGoldPerMinute;
         const d = 0.5 * grossGoldPerMinute;
         base = d / r / Math.pow(1 + r, T + 1);
@@ -861,21 +877,34 @@ export class AIConstructionHandler {
         ? 1 - globalShipsUnderConstruction / globalPortCount
         : 1;
 
-    // Base score = multiplier * (1 + queueRatio) * (1 - availableRatio) * tradeIncomeMods * constructionRatioMul * productivity
+    // Time-discount: (1+r)^T where T = minutes to fund the port
+    const portCost = Number(
+      costOverride ?? this.mg.unitInfo(UnitType.Port).cost(player),
+    );
+    const grossGoldPerMinute = player.estimatedGoldIncomePerMinute();
+    const r = this.params.discountFactor ?? 0.1;
+    let timeDiscount = 1;
+    if (grossGoldPerMinute > 0 && portCost > 0) {
+      const T = portCost / grossGoldPerMinute;
+      timeDiscount = Math.pow(1 + r, T);
+    }
+
+    // Base score = multiplier * (1 + queueRatio) * (1 - availableRatio) * tradeIncomeMods * constructionRatioMul * productivity / (1+r)^T
     return (
-      AIConstructionHandler.PORT_SCORE_MULTIPLIER *
-      (1 + metrics.queueRatio) *
-      (1 - metrics.availableRatio) *
-      tradeIncomeMul *
-      Math.max(0, constructionRatioMul) *
-      player.productivity()
+      (AIConstructionHandler.PORT_SCORE_MULTIPLIER *
+        (1 + metrics.queueRatio) *
+        (1 - metrics.availableRatio) *
+        tradeIncomeMul *
+        Math.max(0, constructionRatioMul) *
+        player.productivity()) /
+      timeDiscount
     );
   }
 
   /**
    * Computes the hospital base score based on troop ratio and pop growth bonus.
    */
-  private scoreHospital(player: Player): number {
+  private scoreHospital(player: Player, costOverride?: bigint): number {
     const config = this.mg.config();
     const assumedPopPercent = this.params.aiAssumedPopPercent ?? 0.7;
     const targetTroopRatio = player.targetTroopRatio();
@@ -888,19 +917,32 @@ export class AIConstructionHandler {
     const projectedDeathMul = 0.6 + 0.4 * Math.pow(0.75, currentHospitals + 1);
     const hospitalBonus = currentDeathMul - projectedDeathMul;
 
+    // Time-discount: (1+r)^T where T = minutes to fund the hospital
+    const hospitalCost = Number(
+      costOverride ?? this.mg.unitInfo(UnitType.Hospital).cost(player),
+    );
+    const grossGoldPerMinute = player.estimatedGoldIncomePerMinute();
+    const discountRate = this.params.discountFactor ?? 0.1;
+    let timeDiscount = 1;
+    if (grossGoldPerMinute > 0 && hospitalCost > 0) {
+      const T = hospitalCost / grossGoldPerMinute;
+      timeDiscount = Math.pow(1 + discountRate, T);
+    }
+
     return (
-      AIConstructionHandler.HOSPITAL_BASE_SCORE *
-      maxPop *
-      targetTroopRatio *
-      assumedPopPercent *
-      hospitalBonus
+      (AIConstructionHandler.HOSPITAL_BASE_SCORE *
+        maxPop *
+        targetTroopRatio *
+        assumedPopPercent *
+        hospitalBonus) /
+      timeDiscount
     );
   }
 
   /**
    * Computes the academy base score based on troop ratio and combat bonus.
    */
-  private scoreAcademy(player: Player): number {
+  private scoreAcademy(player: Player, costOverride?: bigint): number {
     const config = this.mg.config();
     const assumedPopPercent = this.params.aiAssumedPopPercent ?? 0.7;
     const targetTroopRatio = player.targetTroopRatio();
@@ -914,19 +956,32 @@ export class AIConstructionHandler {
     const projectedModifier = 1.2 - 0.2 * Math.pow(0.5, currentAcademies + 1);
     const academyBonus = projectedModifier - currentModifier;
 
+    // Time-discount: (1+r)^T where T = minutes to fund the academy
+    const academyCost = Number(
+      costOverride ?? this.mg.unitInfo(UnitType.Academy).cost(player),
+    );
+    const grossGoldPerMinute = player.estimatedGoldIncomePerMinute();
+    const discountRate = this.params.discountFactor ?? 0.1;
+    let timeDiscount = 1;
+    if (grossGoldPerMinute > 0 && academyCost > 0) {
+      const T = academyCost / grossGoldPerMinute;
+      timeDiscount = Math.pow(1 + discountRate, T);
+    }
+
     return (
-      AIConstructionHandler.ACADEMY_BASE_SCORE *
-      maxPop *
-      targetTroopRatio *
-      assumedPopPercent *
-      academyBonus
+      (AIConstructionHandler.ACADEMY_BASE_SCORE *
+        maxPop *
+        targetTroopRatio *
+        assumedPopPercent *
+        academyBonus) /
+      timeDiscount
     );
   }
 
   /**
    * Computes the research lab base score based on research spending and lab bonus.
    */
-  private scoreResearchLab(player: Player): number {
+  private scoreResearchLab(player: Player, costOverride?: bigint): number {
     const config = this.mg.config();
 
     // Calculate total effective research spending
@@ -948,10 +1003,23 @@ export class AIConstructionHandler {
       (0.4 * (1 - Math.pow(0.5, currentLabs + 1))) / 0.5;
     const labBonus = projectedBoostSum - currentBoostSum;
 
+    // Time-discount: (1+r)^T where T = minutes to fund the research lab
+    const labCost = Number(
+      costOverride ?? this.mg.unitInfo(UnitType.ResearchLab).cost(player),
+    );
+    const grossGoldPerMinute = player.estimatedGoldIncomePerMinute();
+    const discountRate = this.params.discountFactor ?? 0.1;
+    let timeDiscount = 1;
+    if (grossGoldPerMinute > 0 && labCost > 0) {
+      const T = labCost / grossGoldPerMinute;
+      timeDiscount = Math.pow(1 + discountRate, T);
+    }
+
     return (
-      AIConstructionHandler.RESEARCH_LAB_BASE_SCORE *
-      researchSpending *
-      labBonus
+      (AIConstructionHandler.RESEARCH_LAB_BASE_SCORE *
+        researchSpending *
+        labBonus) /
+      timeDiscount
     );
   }
 
@@ -959,7 +1027,7 @@ export class AIConstructionHandler {
    * Computes the airfield base score based on enemy structures.
    * Score = multiplier * (total non-self structures / (airfields owned + 1))
    */
-  private scoreAirfield(player: Player): number {
+  private scoreAirfield(player: Player, costOverride?: bigint): number {
     // Count total structures not owned by this player, including levels
     let totalNonSelfStructures = 0;
     for (const other of this.mg.players()) {
@@ -973,9 +1041,22 @@ export class AIConstructionHandler {
 
     const airfieldCount = player.unitsOwned(UnitType.Airfield);
 
+    // Time-discount: (1+r)^T where T = minutes to fund the airfield
+    const airfieldCost = Number(
+      costOverride ?? this.mg.unitInfo(UnitType.Airfield).cost(player),
+    );
+    const grossGoldPerMinute = player.estimatedGoldIncomePerMinute();
+    const discountRate = this.params.discountFactor ?? 0.1;
+    let timeDiscount = 1;
+    if (grossGoldPerMinute > 0 && airfieldCost > 0) {
+      const T = airfieldCost / grossGoldPerMinute;
+      timeDiscount = Math.pow(1 + discountRate, T);
+    }
+
     return (
-      AIConstructionHandler.AIRFIELD_SCORE_MULTIPLIER *
-      (totalNonSelfStructures / (airfieldCount + 1))
+      (AIConstructionHandler.AIRFIELD_SCORE_MULTIPLIER *
+        (totalNonSelfStructures / (airfieldCount + 1))) /
+      timeDiscount
     );
   }
 
@@ -983,8 +1064,20 @@ export class AIConstructionHandler {
    * Computes the SAM launcher base score.
    * Uses SAM_BASE_SCORE as a fixed multiplier, similar to other structures.
    */
-  private scoreSAMLauncher(_player: Player): number {
-    return AIConstructionHandler.SAM_BASE_SCORE;
+  private scoreSAMLauncher(player: Player, costOverride?: bigint): number {
+    // Time-discount: (1+r)^T where T = minutes to fund the SAM launcher
+    const samCost = Number(
+      costOverride ?? this.mg.unitInfo(UnitType.SAMLauncher).cost(player),
+    );
+    const grossGoldPerMinute = player.estimatedGoldIncomePerMinute();
+    const discountRate = this.params.discountFactor ?? 0.1;
+    let timeDiscount = 1;
+    if (grossGoldPerMinute > 0 && samCost > 0) {
+      const T = samCost / grossGoldPerMinute;
+      timeDiscount = Math.pow(1 + discountRate, T);
+    }
+
+    return AIConstructionHandler.SAM_BASE_SCORE / timeDiscount;
   }
 
   /**
@@ -993,30 +1086,11 @@ export class AIConstructionHandler {
    * r = discount rate (from AI profile discountFactor, default 0.1).
    */
   private scoreDefensePost(player: Player): number {
-    const config = this.mg.config();
     const cost = this.mg.unitInfo(UnitType.DefensePost).cost(player);
     const costNum = Number(cost);
     if (costNum <= 0) return 0;
 
-    // Compute current gross gold per tick (same formula as city/factory scoring)
-    const assumedPopPercent = this.params.aiAssumedPopPercent ?? 0.7;
-    const targetTroopRatio = player.targetTroopRatio();
-    const currentMaxPop = config.maxPopulation(player);
-    const currentTotalPop = currentMaxPop * assumedPopPercent;
-    const workers = currentTotalPop * (1 - targetTroopRatio);
-    const k = player.unitsOwned(UnitType.Factory);
-    const factoryFactor = Math.pow(1 + k, 0.35);
-    const productivity = player.productivity();
-    const multiplier = config.gameConfig().goldMultiplier ?? 1;
-    const grossGoldPerTick =
-      0.11 *
-      Math.pow(workers, 0.65) *
-      productivity *
-      factoryFactor *
-      multiplier;
-
-    const TICKS_PER_MINUTE = 600;
-    const grossGoldPerMinute = grossGoldPerTick * TICKS_PER_MINUTE;
+    const grossGoldPerMinute = player.estimatedGoldIncomePerMinute();
     if (grossGoldPerMinute <= 0) return 0;
 
     // T = minutes to earn the defense post cost
@@ -1641,17 +1715,9 @@ export class AIConstructionHandler {
 
     if (this._cachedTiles.length === 0) return;
 
-    // Randomly decide between evaluating a new tile or an existing structure for upgrade
-    const evaluateUpgrade = this.random.chance(2); // 1/2 = 50% chance
-
-    if (evaluateUpgrade) {
-      // Try to evaluate an upgrade candidate, fall back to new tile if none available
-      if (!this.evaluateUpgradeCandidate(player)) {
-        this.evaluateNewTile(player);
-      }
-    } else {
-      this.evaluateNewTile(player);
-    }
+    // Evaluate both a new tile and an existing structure for upgrade every tick
+    this.evaluateNewTile(player);
+    this.evaluateUpgradeCandidate(player, ticks);
   }
 
   /**
@@ -1747,12 +1813,12 @@ export class AIConstructionHandler {
   }
 
   /**
-   * Evaluates a random existing structure for potential upgrade/stacking.
-   * Prioritizes structures that haven't been evaluated yet this cycle.
+   * Evaluates the least-recently-checked existing structure for potential upgrade/stacking.
+   * Structures that have never been evaluated are checked first.
    * Uses the same scoring as new tiles but divides by UPGRADE_SCORE_DIVISOR.
    * Returns true if a structure was evaluated, false if no upgradeable structures exist.
    */
-  private evaluateUpgradeCandidate(player: Player): boolean {
+  private evaluateUpgradeCandidate(player: Player, ticks: number): boolean {
     // Get all stackable structures owned by this player
     const stackableTypes = [
       UnitType.City,
@@ -1779,18 +1845,21 @@ export class AIConstructionHandler {
 
     if (upgradeableStructures.length === 0) return false;
 
-    // Prioritize structures that haven't been evaluated yet
-    const unevaluatedStructures = upgradeableStructures.filter((u) => {
-      const data = this._upgradeScores.get(u.type());
-      return !data || !data.evaluatedIds.has(u.id());
-    });
+    // Pick the structure that was evaluated the longest ago (never-evaluated first)
+    let structure = upgradeableStructures[0];
+    let oldestTick = this._upgradeLastEvalTick.get(structure.id()) ?? -Infinity;
+    for (let i = 1; i < upgradeableStructures.length; i++) {
+      const candidate = upgradeableStructures[i];
+      const lastTick =
+        this._upgradeLastEvalTick.get(candidate.id()) ?? -Infinity;
+      if (lastTick < oldestTick) {
+        oldestTick = lastTick;
+        structure = candidate;
+      }
+    }
 
-    // Pick from unevaluated if any exist, otherwise pick from all
-    const candidatePool =
-      unevaluatedStructures.length > 0
-        ? unevaluatedStructures
-        : upgradeableStructures;
-    const structure = this.random.randElement(candidatePool);
+    // Record this evaluation tick
+    this._upgradeLastEvalTick.set(structure.id(), ticks);
     const tile = structure.tile();
     const unitType = structure.type();
 
@@ -1803,9 +1872,6 @@ export class AIConstructionHandler {
     } else {
       score = this.calculateOtherTileScore(player, tile, true);
     }
-
-    // Divide by UPGRADE_SCORE_DIVISOR (upgrades need to be better to win)
-    score /= AIConstructionHandler.UPGRADE_SCORE_DIVISOR;
 
     // Get current upgrade data for this specific structure type
     const currentData = this._upgradeScores.get(unitType);
