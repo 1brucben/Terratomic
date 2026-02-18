@@ -147,6 +147,8 @@ export class TransportShipExecution implements Execution {
     });
     // Track intended target player on the boat for selective cancellation on peace
     (this.boat as any).setBoatTargetPlayerID?.(this.targetID);
+    // Track the destination tile on the boat so AI warships can intercept
+    (this.boat as any).setBoatTargetTile?.(this.dst);
 
     // Immediately declare war on the target when launching a boat attack
     if (this.target.isPlayer()) {
