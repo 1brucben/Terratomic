@@ -1402,13 +1402,23 @@ export class StructureLayer implements Layer {
   private updateLoadingBar(render: StructureRenderInfo) {
     const unit = render.unit;
 
-    // Only show loading bar for structures on cooldown
-    if (
-      !unit.isActive() ||
-      !unit.isCooldown() ||
-      (unit.type() !== UnitType.MissileSilo &&
-        unit.type() !== UnitType.SAMLauncher)
-    ) {
+    // Determine whether this unit should show a loading bar:
+    // 1. Silo / SAM on cooldown
+    // 2. Construction in progress (only for local player)
+    const isConstruction = unit.type() === UnitType.Construction;
+    const isSiloOrSAM =
+      unit.type() === UnitType.MissileSilo ||
+      unit.type() === UnitType.SAMLauncher;
+
+    const showConstruction =
+      isConstruction &&
+      unit.isActive() &&
+      this.game.myPlayer()?.id() !== undefined &&
+      unit.owner().id() === this.game.myPlayer()!.id();
+
+    const showCooldown = isSiloOrSAM && unit.isActive() && unit.isCooldown();
+
+    if (!showConstruction && !showCooldown) {
       if (render.loadingBarGraphics) {
         render.loadingBarGraphics.destroy();
         render.loadingBarGraphics = null;
@@ -1427,10 +1437,7 @@ export class StructureLayer implements Layer {
     graphics.clear();
 
     // Get the structure's icon size and scale
-    const unitType =
-      unit.type() === UnitType.Construction
-        ? unit.constructionType()
-        : unit.type();
+    const unitType = isConstruction ? unit.constructionType() : unit.type();
     const shape: BgShape =
       unitType !== undefined
         ? (STRUCTURE_BG_SHAPES[unitType as UnitType] ?? "circle")
@@ -1449,18 +1456,37 @@ export class StructureLayer implements Layer {
     graphics.x = render.pixiSprite.x;
     graphics.y = render.pixiSprite.y + yOffset;
 
-    // Calculate progress using cooldownEndsAt (authoritative field)
-    const totalCooldown =
-      unit.type() === UnitType.MissileSilo
-        ? (unit.cooldownDuration() ?? this.game.config().SiloCooldown())
-        : (unit.cooldownDuration() ?? this.game.config().SAMNukeCooldown());
-    const endsAt = unit.cooldownEndsAt();
+    // Calculate progress
+    let progress: number;
     const currentTick = this.game.ticks();
 
-    // Progress from 0 (just started) to 1 (ready)
-    const startTick = endsAt ? endsAt - totalCooldown : currentTick;
-    const elapsed = currentTick - startTick;
-    const progress = Math.min(1, Math.max(0, elapsed / totalCooldown));
+    if (isConstruction) {
+      // Construction progress: use constructionDuration and ticksLeftInCooldown
+      const constructionType = unit.constructionType();
+      const totalDuration =
+        constructionType !== undefined
+          ? (this.game.unitInfo(constructionType).constructionDuration ?? 0)
+          : 0;
+      if (totalDuration <= 0) {
+        progress = 1;
+      } else {
+        const ticksLeft = unit.ticksLeftInCooldown() ?? 0;
+        progress = Math.min(
+          1,
+          Math.max(0, (totalDuration - ticksLeft) / totalDuration),
+        );
+      }
+    } else {
+      // Silo / SAM cooldown progress using cooldownEndsAt
+      const totalCooldown =
+        unit.type() === UnitType.MissileSilo
+          ? (unit.cooldownDuration() ?? this.game.config().SiloCooldown())
+          : (unit.cooldownDuration() ?? this.game.config().SAMNukeCooldown());
+      const endsAt = unit.cooldownEndsAt();
+      const startTick = endsAt ? endsAt - totalCooldown : currentTick;
+      const elapsed = currentTick - startTick;
+      progress = Math.min(1, Math.max(0, elapsed / totalCooldown));
+    }
 
     // Background (black border)
     graphics.beginFill(0x000000, 1);
