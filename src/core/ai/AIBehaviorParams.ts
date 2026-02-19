@@ -134,9 +134,8 @@ export interface AIBehaviorParams {
    */
   warshipTradeIncomeWeight?: number;
   /**
-   * Bonus added to the warship score numerator when the player is at war
-   * with a militarily stronger enemy that does NOT share a land border
-   * (i.e. the coastal-threat / naval-invasion indicator).
+   * Bonus added to the warship score numerator when ALL enemies the player
+   * is at war with are naval-only (no shared land border).
    * numerator += warshipCoastalThreatWeight * indicator (0 or 1).
    * Default 0.
    */
