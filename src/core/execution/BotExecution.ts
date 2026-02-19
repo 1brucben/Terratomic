@@ -1,10 +1,4 @@
-import {
-  Execution,
-  Game,
-  Player,
-  PlayerType,
-  TerraNullius,
-} from "../game/Game";
+import { Execution, Game, Player, TerraNullius } from "../game/Game";
 import { PseudoRandom } from "../PseudoRandom";
 import { simpleHash } from "../Util";
 import { AttackExecution } from "./AttackExecution";
@@ -79,21 +73,9 @@ export class BotExecution implements Execution {
   }
 
   private maybeAttack() {
-    if (this.neighborsTerraNullius) {
-      if (this.bot.sharesBorderWith(this.mg.terraNullius())) {
-        this.sendAttack(this.mg.terraNullius());
-        return;
-      }
-      this.neighborsTerraNullius = false;
-    }
-
-    const neighbors = this.bot
-      .neighbors()
-      .filter((n): n is Player => n.isPlayer() && n.type() === PlayerType.Bot);
-
-    if (neighbors.length > 0) {
-      const target = this.random.randElement(neighbors);
-      this.sendAttack(target);
+    // Bots only attack terra nullius — no bot-vs-bot combat
+    if (this.bot.sharesBorderWith(this.mg.terraNullius())) {
+      this.sendAttack(this.mg.terraNullius());
     }
   }
 
