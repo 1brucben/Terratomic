@@ -57,9 +57,13 @@ export class AIUnitHandler {
   private _lastIdlePatrolTick: number = -Infinity;
   /** Set of warship IDs currently assigned to intercept transports. */
   private _interceptingWarshipIds: Set<number> = new Set();
+  /** Previous set of intercepting warship IDs (for detecting freed warships). */
+  private _prevInterceptingWarshipIds: Set<number> = new Set();
+  /** When true, forces the next patrol update to run regardless of interval. */
+  private _patrolDirty = true;
 
   /** How often (in ticks) to re-evaluate warship patrol targets. */
-  private static readonly PATROL_UPDATE_INTERVAL = 10;
+  private static readonly PATROL_UPDATE_INTERVAL = 60;
   /** How often (in ticks) to reposition warships along the coast. */
   private static readonly COASTAL_REPOSITION_INTERVAL = 600;
   /** How often (in ticks) to rescan enemy warship counts. */
@@ -148,9 +152,22 @@ export class AIUnitHandler {
       ticks - this._cachedEnemyWarshipsTick >=
       AIUnitHandler.WARSHIP_SCAN_INTERVAL
     ) {
+      const prev = this._cachedEnemyMaxWarships;
       this.refreshEnemyWarshipCount(player);
       this._cachedEnemyWarshipsTick = ticks;
+      // If the enemy fleet size changed, force an immediate patrol update
+      if (this._cachedEnemyMaxWarships !== prev) {
+        this._patrolDirty = true;
+      }
     }
+  }
+
+  /**
+   * Force the next patrol update to run immediately (e.g. after spawning
+   * warships, or when war/peace state changes externally).
+   */
+  markPatrolDirty(): void {
+    this._patrolDirty = true;
   }
 
   /**
@@ -251,12 +268,12 @@ export class AIUnitHandler {
    *   position of own ports.
    */
   tickUnitMovement(ticks: number): void {
-    if (
-      ticks - this._lastPatrolUpdateTick <
-      AIUnitHandler.PATROL_UPDATE_INTERVAL
-    )
-      return;
+    const intervalElapsed =
+      ticks - this._lastPatrolUpdateTick >=
+      AIUnitHandler.PATROL_UPDATE_INTERVAL;
+    if (!intervalElapsed && !this._patrolDirty) return;
     this._lastPatrolUpdateTick = ticks;
+    this._patrolDirty = false;
 
     const player = this.getPlayer();
     if (!player || !player.isAlive()) return;
@@ -320,6 +337,14 @@ export class AIUnitHandler {
         newlyAssigned.add(bestWs.id());
       }
     }
+    // Detect warships freed from interception duty — force them to get a
+    // fresh patrol tile immediately so they don't linger at stale positions.
+    const freedFromIntercept = new Set(
+      [...this._prevInterceptingWarshipIds].filter(
+        (id) => !newlyAssigned.has(id),
+      ),
+    );
+    this._prevInterceptingWarshipIds = new Set(newlyAssigned);
     this._interceptingWarshipIds = newlyAssigned;
 
     // Warships not assigned to interception
@@ -327,6 +352,13 @@ export class AIUnitHandler {
       (ws) => !this._interceptingWarshipIds.has(ws.id()),
     );
     if (freeWarships.length === 0) return;
+
+    // Clear stale patrol tiles on warships just freed from intercept duty
+    for (const ws of freeWarships) {
+      if (freedFromIntercept.has(ws.id())) {
+        ws.setTargetTile(undefined);
+      }
+    }
 
     // --- Phase 2: Coastal defense mode ---
     if (this.shouldUseCoastalDefense(player)) {
@@ -389,8 +421,7 @@ export class AIUnitHandler {
       // Find an ocean tile near this shore tile for patrol
       const oceanTile = this.findOceanNearTile(coastTile);
       if (oceanTile !== null) {
-        warships[i].setPatrolTile(oceanTile);
-        warships[i].setTargetTile(undefined);
+        this.setPatrolIfChanged(warships[i], oceanTile);
       }
     }
   }
@@ -493,8 +524,7 @@ export class AIUnitHandler {
         // We outnumber the strongest enemy fleet — patrol near enemy
         this._patrolTargetUnit = nearestEnemy;
         for (const ws of warships) {
-          ws.setPatrolTile(nearestEnemy.tile());
-          ws.setTargetTile(undefined);
+          this.setPatrolIfChanged(ws, nearestEnemy.tile());
         }
       } else {
         // Outnumbered — retreat to nearest friendly port
@@ -502,8 +532,7 @@ export class AIUnitHandler {
         const portTile = this.findNearestPortToCapital(player);
         if (portTile !== null) {
           for (const ws of warships) {
-            ws.setPatrolTile(portTile);
-            ws.setTargetTile(undefined);
+            this.setPatrolIfChanged(ws, portTile);
           }
         }
       }
@@ -520,12 +549,21 @@ export class AIUnitHandler {
         const avgPortTile = this.findAveragePortPosition(player);
         if (avgPortTile !== null) {
           for (const ws of warships) {
-            ws.setPatrolTile(avgPortTile);
-            ws.setTargetTile(undefined);
+            this.setPatrolIfChanged(ws, avgPortTile);
           }
         }
       }
     }
+  }
+
+  /**
+   * Set a warship's patrol tile only when it actually changed, to avoid
+   * clearing in-progress pathfinding unnecessarily.
+   */
+  private setPatrolIfChanged(ws: Unit, newPatrol: TileRef): void {
+    if (ws.patrolTile() === newPatrol) return;
+    ws.setPatrolTile(newPatrol);
+    ws.setTargetTile(undefined);
   }
 
   /**
