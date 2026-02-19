@@ -566,6 +566,9 @@ export class AINukeHandler {
    * Returns the stack count of the player's largest silo, or 0 if none exist.
    */
   getPlayerSiloCapacity(): number {
+    if (this._cachedTickNumber === -1) {
+      return this.computeSiloCapacity();
+    }
     return this._cachedSiloCapacity;
   }
 

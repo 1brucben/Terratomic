@@ -1,6 +1,6 @@
 import { Execution, Game, Player, Unit, UnitType } from "../game/Game";
 import { TileRef } from "../game/GameMap";
-import { maxUnitLevel } from "../game/Upgradeables";
+import { playerMaxUnitLevel } from "../game/Upgradeables";
 import { PseudoRandom } from "../PseudoRandom";
 import { BomberExecution } from "./BomberExecution";
 import { CargoPlaneExecution } from "./CargoPlaneExecution";
@@ -17,7 +17,6 @@ export class AirfieldExecution implements Execution {
   constructor(
     private player: Player,
     private tile: TileRef,
-    private initialBomberLevel: number = 1, // Bomber tech upgrade level
     private stackCount: number = 1, // Stack count (how many bombers to spawn/maintain)
   ) {}
 
@@ -54,11 +53,8 @@ export class AirfieldExecution implements Execution {
       }
       this.lastStackCount = this.stackCount;
 
-      // Set initial bomber upgrade level if specified (clamped to max)
-      const bomberLvl = Math.min(
-        maxUnitLevel(UnitType.Bomber),
-        Math.max(1, this.initialBomberLevel),
-      );
+      // Set bomber level based on player's current tech research
+      const bomberLvl = playerMaxUnitLevel(this.player, UnitType.Bomber);
       if (bomberLvl > 1) {
         this.airfield.setBomberLevel?.(bomberLvl);
       }
