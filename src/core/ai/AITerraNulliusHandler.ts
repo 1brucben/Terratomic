@@ -237,17 +237,12 @@ export class AITerraNulliusHandler {
     const origin = borderTiles[this.random.nextInt(0, borderTiles.length - 1)];
     const originX = this.mg.x(origin);
     const originY = this.mg.y(origin);
+    const range = this.params.terraNulliusOpportunisticBoatRange ?? 20;
 
     for (let i = 0; i < AITerraNulliusHandler.OPPORTUNISTIC_BOAT_SAMPLES; i++) {
-      // Pick a random tile within max search range
-      const randX = this.random.nextInt(
-        originX - AITerraNulliusHandler.MAX_SEARCH_RANGE,
-        originX + AITerraNulliusHandler.MAX_SEARCH_RANGE,
-      );
-      const randY = this.random.nextInt(
-        originY - AITerraNulliusHandler.MAX_SEARCH_RANGE,
-        originY + AITerraNulliusHandler.MAX_SEARCH_RANGE,
-      );
+      // Pick a random tile within opportunistic boat range
+      const randX = this.random.nextInt(originX - range, originX + range);
+      const randY = this.random.nextInt(originY - range, originY + range);
 
       if (!this.mg.isValidCoord(randX, randY)) {
         continue;
