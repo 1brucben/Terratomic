@@ -98,11 +98,6 @@ export class AIPlayerExecution implements Execution {
   private initialInvestmentSet = false;
   private roadInvestmentSet = false;
 
-  // Cached spending-priority scores (refreshed every SCORE_CACHE_PERIOD ticks)
-  private _cachedConstructionScore = 0;
-  private _cachedUnitScore = 0;
-  private static readonly SCORE_CACHE_PERIOD = 5;
-
   // Nuke launch state machine
   private nukeState: NukeSequenceState | null = null;
   private static readonly MAIN_BOMB_DELAY_TICKS = 15;
@@ -111,6 +106,10 @@ export class AIPlayerExecution implements Execution {
 
   /** Internal multiplier applied to nuke scores when comparing against construction scores. */
   private static readonly NUKE_SCORE_INTERNAL_MULTIPLIER = 1;
+
+  // Wall-clock perf logging (shared across all AI instances)
+  private static readonly PERF_LOG_INTERVAL_MS = 10_000;
+  private static _lastPerfLogTime = 0;
 
   constructor(
     private gameID: GameID,
@@ -240,14 +239,20 @@ export class AIPlayerExecution implements Execution {
     const constructionRescorePeriod = 100;
 
     // Update shared nuke target evaluation
+    performance.mark("ai-nukeEval");
     this.nukeEvaluator?.tick(this.random, ticks);
+    performance.measure("nukeEval", "ai-nukeEval");
 
     // Update per-player nuke target evaluation (must run before tickNukeSequence
     // so scores are fresh when the nuke sequence reads them)
+    performance.mark("ai-nukeHandler");
     this.nukeHandler?.tick(ticks);
+    performance.measure("nukeHandler", "ai-nukeHandler");
 
     // --- Nuke orchestration ---
+    performance.mark("ai-nukeSequence");
     this.tickNukeSequence(ticks);
+    performance.measure("nukeSequence", "ai-nukeSequence");
 
     // --- Spending priority ---
     // After nuke orchestration, determine which handler is allowed to spend.
@@ -255,14 +260,16 @@ export class AIPlayerExecution implements Execution {
     // Otherwise, the highest score wins.
 
     // Refresh unit caches before scoring so data is always fresh
+    performance.mark("ai-unitRefreshCaches");
     this.unitHandler?.refreshCaches(ticks);
+    performance.measure("unitRefreshCaches", "ai-unitRefreshCaches");
 
-    // Refresh cached spending scores periodically (staggered across AIs)
-    if (this.shouldRunPeriodic(ticks, AIPlayerExecution.SCORE_CACHE_PERIOD)) {
-      this._cachedConstructionScore =
-        this.constructionHandler?.bestConstructionScore() ?? 0;
-      this._cachedUnitScore = this.unitHandler?.bestUnitScore() ?? 0;
-    }
+    // Compute spending scores fresh every tick
+    performance.mark("ai-scoreCache");
+    const constructionScore =
+      this.constructionHandler?.bestConstructionScore() ?? 0;
+    const unitScore = this.unitHandler?.bestUnitScore() ?? 0;
+    performance.measure("scoreCache", "ai-scoreCache");
 
     const nukeSequenceActive =
       this.nukeState !== null && this.nukeState.phase !== "idle";
@@ -271,7 +278,7 @@ export class AIPlayerExecution implements Execution {
     let allowUnitSpending = false;
 
     if (!nukeSequenceActive) {
-      if (this._cachedConstructionScore >= this._cachedUnitScore) {
+      if (constructionScore >= unitScore) {
         allowConstructionSpending = true;
       } else {
         allowUnitSpending = true;
@@ -279,19 +286,25 @@ export class AIPlayerExecution implements Execution {
     }
 
     // Construction always ticks (tile evaluation), but spending is gated
+    performance.mark("ai-construction");
     this.constructionHandler?.tickConstruction(
       ticks,
       this.shouldRunPeriodic(ticks, constructionRescorePeriod),
       allowConstructionSpending,
     );
+    performance.measure("construction", "ai-construction");
 
     // Unit purchases only run when unit score wins
+    performance.mark("ai-unitPurchase");
     if (allowUnitSpending) {
       this.unitHandler?.tickUnitPurchase(ticks);
     }
+    performance.measure("unitPurchase", "ai-unitPurchase");
 
     // Unit movement decisions always run
+    performance.mark("ai-unitMovement");
     this.unitHandler?.tickUnitMovement(ticks);
+    performance.measure("unitMovement", "ai-unitMovement");
 
     // Handle slider updates every 100 ticks
     if (this.shouldRunPeriodic(ticks, sliderPeriod)) {
@@ -299,25 +312,83 @@ export class AIPlayerExecution implements Execution {
     }
 
     // Handle Terra Nullius expansion every tick
+    performance.mark("ai-terraNullius");
     const tnAttacked =
       this.terraNulliusHandler?.handleTerraNulliusAttack() ?? false;
+    performance.measure("terraNullius", "ai-terraNullius");
 
     // Handle bot attacks every tick (skip if TN already attacked)
+    performance.mark("ai-botAttack");
     let botAttacked = false;
     if (!tnAttacked) {
       botAttacked = this.botAttackHandler?.handleBotAttack() ?? false;
     }
+    performance.measure("botAttack", "ai-botAttack");
 
     // Handle attacks against AI/Human players we're at war with (skip if already attacked)
+    performance.mark("ai-attack");
     if (!tnAttacked && !botAttacked) {
       this.attackHandler?.handleAttack();
     }
+    performance.measure("attack", "ai-attack");
 
     // Handle diplomacy (war declarations, peace requests, etc.)
+    performance.mark("ai-diplomacy");
     this.diplomacyHandler?.tickDiplomacy(ticks);
-
-    // Handle incoming peace requests (auto-accept/reject)
     this.diplomacyHandler?.handleIncomingPeaceRequests(ticks);
+    performance.measure("diplomacy", "ai-diplomacy");
+
+    // Periodic wall-clock perf log (every 10 real seconds, one AI triggers it)
+    AIPlayerExecution.maybeDumpPerfLog();
+  }
+
+  /**
+   * If 10 real-time seconds have elapsed since the last dump, log all
+   * performance.measure() entries grouped by name with percentage shares,
+   * then clear the entries.
+   */
+  private static maybeDumpPerfLog(): void {
+    const now = performance.now();
+    if (
+      AIPlayerExecution._lastPerfLogTime !== 0 &&
+      now - AIPlayerExecution._lastPerfLogTime <
+        AIPlayerExecution.PERF_LOG_INTERVAL_MS
+    ) {
+      return;
+    }
+    // On the very first call just set the baseline and return
+    if (AIPlayerExecution._lastPerfLogTime === 0) {
+      AIPlayerExecution._lastPerfLogTime = now;
+      performance.clearMeasures();
+      performance.clearMarks();
+      return;
+    }
+    AIPlayerExecution._lastPerfLogTime = now;
+
+    const entries = performance.getEntriesByType(
+      "measure",
+    ) as PerformanceMeasure[];
+    if (entries.length === 0) return;
+
+    const totals = new Map<string, number>();
+    for (const e of entries) {
+      totals.set(e.name, (totals.get(e.name) ?? 0) + e.duration);
+    }
+    const grand = [...totals.values()].reduce((a, b) => a + b, 0);
+
+    const lines = [...totals.entries()]
+      .sort((a, b) => b[1] - a[1])
+      .map(
+        ([name, ms]) =>
+          `  ${name.padEnd(20)} ${ms.toFixed(1).padStart(8)}ms  ${((ms / grand) * 100).toFixed(1).padStart(5)}%`,
+      );
+
+    console.log(
+      `\n[AI Perf – last 10 s]  total ${grand.toFixed(1)}ms\n${lines.join("\n")}`,
+    );
+
+    performance.clearMeasures();
+    performance.clearMarks();
   }
 
   // ---------------------------------------------------------------------------
@@ -382,8 +453,9 @@ export class AIPlayerExecution implements Execution {
           currentScore *
           profileMultiplier *
           AIPlayerExecution.NUKE_SCORE_INTERNAL_MULTIPLIER;
-        const constructionScore = this._cachedConstructionScore;
-        const unitScore = this._cachedUnitScore;
+        const constructionScore =
+          this.constructionHandler?.bestConstructionScore() ?? 0;
+        const unitScore = this.unitHandler?.bestUnitScore() ?? 0;
         if (adjustedScore <= constructionScore || adjustedScore <= unitScore) {
           this.resetNukeSequence();
           return;
@@ -443,12 +515,11 @@ export class AIPlayerExecution implements Execution {
     bestScore *=
       profileMultiplier * AIPlayerExecution.NUKE_SCORE_INTERNAL_MULTIPLIER;
 
-    // Compare against cached construction and unit scores
-    if (
-      bestScore <= this._cachedConstructionScore ||
-      bestScore <= this._cachedUnitScore
-    )
-      return;
+    // Compare against fresh construction and unit scores
+    const constructionScore =
+      this.constructionHandler?.bestConstructionScore() ?? 0;
+    const unitScore = this.unitHandler?.bestUnitScore() ?? 0;
+    if (bestScore <= constructionScore || bestScore <= unitScore) return;
 
     // Start the nuke sequence
     const sams = this.nukeHandler.getSAMsInRange(bestTile);

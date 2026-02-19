@@ -57,6 +57,25 @@ export class AIConstructionHandler {
   private _cachedGlobalShipsUnderConstruction = 0;
   private _cachedPortStatsTick = -Infinity;
 
+  // Lazy-computed map dimension (√(width×height), never changes)
+  private _cachedMapDim = 0;
+
+  // Lazy-computed zone weights (derived from params, never change)
+  private _cachedZoneWeights: number[] | null = null;
+
+  // Cached airfield enemy structure count (refreshed periodically)
+  private _cachedAirfieldEnemyStructures = 0;
+  private _cachedAirfieldTick = -Infinity;
+  private static readonly AIRFIELD_STATS_CACHE_INTERVAL = 50;
+
+  // Cached structure base costs per type (refreshed once per scoring cycle)
+  private _cachedStructureCosts: Map<UnitType, number> = new Map();
+  private _cachedCostsTick = -Infinity;
+
+  // scoreTarget cache for external callers (bestConstructionScore, constructionScoreBreakdown)
+  private _scoreTargetCache: Map<UnitType, number> = new Map();
+  private _scoreTargetCacheDirty = true;
+
   // Tile evaluation state (ports, defense posts, SAMs, others)
   private _portTileScore: number = 0;
   private _portTile: TileRef | null = null;
@@ -165,11 +184,77 @@ export class AIConstructionHandler {
     return this.mg.player(this.playerId);
   }
 
+  /** Lazy getter for √(width×height), computed once. */
+  private getMapDim(): number {
+    if (this._cachedMapDim === 0) {
+      this._cachedMapDim = Math.sqrt(this.mg.width() * this.mg.height());
+    }
+    return this._cachedMapDim;
+  }
+
+  /** Lazy getter for tiered zone weights, computed once from params. */
+  private getZoneWeights(): number[] {
+    if (this._cachedZoneWeights === null) {
+      const basePenalty = this.params.tileNearStructurePenalty ?? 0.3;
+      const mul2 = this.params.nearStructureZone2Multiplier ?? 0.5;
+      const mul3 = this.params.nearStructureZone3Multiplier ?? 0.5;
+      const mul4 = this.params.nearStructureZone4Multiplier ?? 0.5;
+      this._cachedZoneWeights = [
+        basePenalty,
+        basePenalty * mul2,
+        basePenalty * mul2 * mul3,
+        basePenalty * mul2 * mul3 * mul4,
+      ];
+    }
+    return this._cachedZoneWeights;
+  }
+
+  /**
+   * Returns the cached base cost (as number) for a unit type, refreshing
+   * once per tick to avoid repeated BigInt→Number conversions.
+   */
+  private getCachedStructureCost(player: Player, unitType: UnitType): number {
+    const tick = this.mg.ticks();
+    if (tick !== this._cachedCostsTick) {
+      this._cachedStructureCosts.clear();
+      this._cachedCostsTick = tick;
+    }
+    let cost = this._cachedStructureCosts.get(unitType);
+    if (cost === undefined) {
+      cost = Number(this.mg.unitInfo(unitType).cost(player));
+      this._cachedStructureCosts.set(unitType, cost);
+    }
+    return cost;
+  }
+
+  /**
+   * Build the SAM + under-construction-SAM list and range data for a player.
+   * Call once per tile evaluation cycle and pass the result to tile score functions.
+   */
+  private buildSAMData(
+    player: Player,
+  ): { units: Unit[]; rangeSq: number } | null {
+    const sams = player.units(UnitType.SAMLauncher).filter((u) => u.isActive());
+    for (const u of player.units(UnitType.Construction)) {
+      if (u.isActive() && u.constructionType() === UnitType.SAMLauncher) {
+        sams.push(u);
+      }
+    }
+    if (sams.length === 0) return null;
+    const techLevel = playerMaxStructureTechLevel(player, UnitType.SAMLauncher);
+    const samRange = this.getEffectiveSAMRange(techLevel);
+    return { units: sams, rangeSq: samRange * samRange };
+  }
+
   tickConstruction(
     ticks: number,
     shouldRecalculate: boolean,
     allowSpending: boolean = true,
   ): void {
+    // Invalidate scoreTarget cache every tick since base scores depend on
+    // live game state (income, unit counts, trade demand, etc.)
+    this._scoreTargetCacheDirty = true;
+
     const player = this.getPlayer();
     if (!player || !player.isAlive()) {
       return;
@@ -349,6 +434,7 @@ export class AIConstructionHandler {
     }
     this._upgradeScores.delete(unitType);
     this._upgradePreferred.delete(unitType);
+    this._scoreTargetCacheDirty = true;
   }
 
   /**
@@ -471,6 +557,9 @@ export class AIConstructionHandler {
         this._otherTileScore = newScore;
       }
     }
+
+    // Tile scores may have changed, invalidate scoreTarget cache
+    this._scoreTargetCacheDirty = true;
   }
 
   private recalculateTarget(player: Player): void {
@@ -1060,16 +1149,24 @@ export class AIConstructionHandler {
    * Score = multiplier * (total non-self structures / (airfields owned + 1))
    */
   private scoreAirfield(player: Player, costOverride?: bigint): number {
-    // Count total structures not owned by this player, including levels
-    let totalNonSelfStructures = 0;
-    for (const other of this.mg.players()) {
-      if (other.id() === player.id()) continue;
-      if (!other.isAlive()) continue;
-      // Sum up all structure types including their levels (unitsOwned counts levels)
-      for (const structureType of AIConstructionHandler.NON_DEFENSE_STRUCTURE_TYPES) {
-        totalNonSelfStructures += other.unitsOwned(structureType);
+    // Use cached enemy structure count (refreshed every AIRFIELD_STATS_CACHE_INTERVAL ticks)
+    const currentTick = this.mg.ticks();
+    if (
+      currentTick - this._cachedAirfieldTick >=
+      AIConstructionHandler.AIRFIELD_STATS_CACHE_INTERVAL
+    ) {
+      this._cachedAirfieldTick = currentTick;
+      let total = 0;
+      for (const other of this.mg.players()) {
+        if (other.id() === player.id()) continue;
+        if (!other.isAlive()) continue;
+        for (const structureType of AIConstructionHandler.NON_DEFENSE_STRUCTURE_TYPES) {
+          total += other.unitsOwned(structureType);
+        }
       }
+      this._cachedAirfieldEnemyStructures = total;
     }
+    const totalNonSelfStructures = this._cachedAirfieldEnemyStructures;
 
     const airfieldCount = player.unitsOwned(UnitType.Airfield);
 
@@ -1182,6 +1279,7 @@ export class AIConstructionHandler {
       this._otherTile = null;
       this._otherEvalCount = 0;
     }
+    this._scoreTargetCacheDirty = true;
   }
 
   /**
@@ -1223,6 +1321,7 @@ export class AIConstructionHandler {
     skipSpacingCheck: boolean = false,
     precomputedClosestPlayerDist?: number | null | undefined,
     precomputedNearbyStructures?: Array<{ unit: Unit; distSquared: number }>,
+    precomputedSAMs?: { units: Unit[]; rangeSq: number } | null,
   ): number {
     // Early terrain check: ports must be on ocean shore
     if (!this.mg.isOceanShore(tile)) {
@@ -1276,16 +1375,7 @@ export class AIConstructionHandler {
           AIConstructionHandler.ZONE_SEARCH_RADIUS,
           AIConstructionHandler.DISTANCE_CHECK_STRUCTURE_TYPES,
         );
-      const basePenalty = this.params.tileNearStructurePenalty ?? 0.3;
-      const mul2 = this.params.nearStructureZone2Multiplier ?? 0.5;
-      const mul3 = this.params.nearStructureZone3Multiplier ?? 0.5;
-      const mul4 = this.params.nearStructureZone4Multiplier ?? 0.5;
-      const zoneWeights = [
-        basePenalty,
-        basePenalty * mul2,
-        basePenalty * mul2 * mul3,
-        basePenalty * mul2 * mul3 * mul4,
-      ];
+      const zoneWeights = this.getZoneWeights();
       const zoneSq = AIConstructionHandler.ZONE_BOUNDARIES_SQ;
       const pid = player.id();
       let weightedValue = 0;
@@ -1319,7 +1409,7 @@ export class AIConstructionHandler {
     if (capital !== null) {
       const capitalTile = this.mg.ref(capital.x, capital.y);
       const dist = Math.sqrt(this.mg.euclideanDistSquared(tile, capitalTile));
-      const mapDim = Math.sqrt(this.mg.width() * this.mg.height());
+      const mapDim = this.getMapDim();
       const x3 = dist / mapDim;
       const w3 = -(this.params.tileCapitalDistancePenalty ?? 1.0);
       z += w3 * x3;
@@ -1357,23 +1447,15 @@ export class AIConstructionHandler {
 
     // Feature 5: SAM coverage bonus (flat +0.01 if within range of an existing or under-construction SAM)
     {
-      const sams = player
-        .units(UnitType.SAMLauncher)
-        .filter((u) => u.isActive());
-      for (const u of player.units(UnitType.Construction)) {
-        if (u.isActive() && u.constructionType() === UnitType.SAMLauncher) {
-          sams.push(u);
-        }
-      }
-      if (sams.length > 0) {
-        const techLevel = playerMaxStructureTechLevel(
-          player,
-          UnitType.SAMLauncher,
-        );
-        const samRange = this.getEffectiveSAMRange(techLevel);
-        const samRangeSq = samRange * samRange;
-        for (const sam of sams) {
-          if (this.mg.euclideanDistSquared(tile, sam.tile()) <= samRangeSq) {
+      const samData =
+        precomputedSAMs !== undefined
+          ? precomputedSAMs
+          : this.buildSAMData(player);
+      if (samData !== null) {
+        for (const sam of samData.units) {
+          if (
+            this.mg.euclideanDistSquared(tile, sam.tile()) <= samData.rangeSq
+          ) {
             z += 0.01;
             break;
           }
@@ -1417,6 +1499,7 @@ export class AIConstructionHandler {
     skipSpacingCheck: boolean = false,
     precomputedClosestPlayerDist?: number | null | undefined,
     precomputedNearbyStructures?: Array<{ unit: Unit; distSquared: number }>,
+    precomputedSAMs?: { units: Unit[]; rangeSq: number } | null,
   ): number {
     // Early terrain check: land structures cannot be on ocean
     if (this.mg.isOcean(tile)) {
@@ -1470,16 +1553,7 @@ export class AIConstructionHandler {
           AIConstructionHandler.ZONE_SEARCH_RADIUS,
           AIConstructionHandler.DISTANCE_CHECK_STRUCTURE_TYPES,
         );
-      const basePenalty = this.params.tileNearStructurePenalty ?? 0.3;
-      const mul2 = this.params.nearStructureZone2Multiplier ?? 0.5;
-      const mul3 = this.params.nearStructureZone3Multiplier ?? 0.5;
-      const mul4 = this.params.nearStructureZone4Multiplier ?? 0.5;
-      const zoneWeights = [
-        basePenalty,
-        basePenalty * mul2,
-        basePenalty * mul2 * mul3,
-        basePenalty * mul2 * mul3 * mul4,
-      ];
+      const zoneWeights = this.getZoneWeights();
       const zoneSq = AIConstructionHandler.ZONE_BOUNDARIES_SQ;
       const pid = player.id();
       let weightedValue = 0;
@@ -1512,7 +1586,7 @@ export class AIConstructionHandler {
     if (capital !== null) {
       const capitalTile = this.mg.ref(capital.x, capital.y);
       const dist = Math.sqrt(this.mg.euclideanDistSquared(tile, capitalTile));
-      const mapDim = Math.sqrt(this.mg.width() * this.mg.height());
+      const mapDim = this.getMapDim();
       const x3 = dist / mapDim;
       const w3 = -(this.params.tileCapitalDistancePenalty ?? 1.0);
       z += w3 * x3;
@@ -1562,23 +1636,15 @@ export class AIConstructionHandler {
 
     // Feature 6: SAM coverage bonus (flat +0.01 if within range of an existing or under-construction SAM)
     {
-      const sams = player
-        .units(UnitType.SAMLauncher)
-        .filter((u) => u.isActive());
-      for (const u of player.units(UnitType.Construction)) {
-        if (u.isActive() && u.constructionType() === UnitType.SAMLauncher) {
-          sams.push(u);
-        }
-      }
-      if (sams.length > 0) {
-        const techLevel = playerMaxStructureTechLevel(
-          player,
-          UnitType.SAMLauncher,
-        );
-        const samRange = this.getEffectiveSAMRange(techLevel);
-        const samRangeSq = samRange * samRange;
-        for (const sam of sams) {
-          if (this.mg.euclideanDistSquared(tile, sam.tile()) <= samRangeSq) {
+      const samData =
+        precomputedSAMs !== undefined
+          ? precomputedSAMs
+          : this.buildSAMData(player);
+      if (samData !== null) {
+        for (const sam of samData.units) {
+          if (
+            this.mg.euclideanDistSquared(tile, sam.tile()) <= samData.rangeSq
+          ) {
             z += 0.01;
             break;
           }
@@ -1761,6 +1827,7 @@ export class AIConstructionHandler {
     tile: TileRef,
     precomputedClosestPlayerDist?: number | null | undefined,
     skipSpacingCheck: boolean = false,
+    precomputedSAMs?: { units: Unit[]; rangeSq: number } | null,
   ): number {
     if (this.mg.isOcean(tile)) return 0;
     if (!this.mg.hasOwner(tile) || this.mg.owner(tile).id() !== player.id())
@@ -1794,16 +1861,13 @@ export class AIConstructionHandler {
     }
     const proximityMultiplier = AIConstructionHandler.sigmoid(z);
 
-    // Get current SAMs (including under-construction) and range info
-    const sams = player.units(UnitType.SAMLauncher).filter((u) => u.isActive());
-    for (const u of player.units(UnitType.Construction)) {
-      if (u.isActive() && u.constructionType() === UnitType.SAMLauncher) {
-        sams.push(u);
-      }
-    }
-    const techLevel = playerMaxStructureTechLevel(player, UnitType.SAMLauncher);
-    const samRange = this.getEffectiveSAMRange(techLevel);
-    const rangeSquared = samRange * samRange;
+    // Use precomputed SAM data or build it
+    const samData =
+      precomputedSAMs !== undefined
+        ? precomputedSAMs
+        : this.buildSAMData(player);
+    const sams = samData?.units ?? [];
+    const rangeSquared = samData?.rangeSq ?? 0;
 
     const rawScore = this.evaluateSAMPlacementScore(
       player,
@@ -1865,6 +1929,7 @@ export class AIConstructionHandler {
     // Precompute shared expensive values once for all score functions:
     // closestOtherPlayerDistance is used by port, other, and SAM (all with same radius)
     // nearbyUnits is used by port and other (same tile, same params)
+    // SAM list + range is used by port, other, and SAM tile scoring
     const avoidPlayerDist = this.avoidPlayerDistanceFor(UnitType.Port); // Same for Port, City, SAMLauncher
     const closestPlayerDist =
       avoidPlayerDist > 0
@@ -1877,6 +1942,8 @@ export class AIConstructionHandler {
       AIConstructionHandler.DISTANCE_CHECK_STRUCTURE_TYPES,
     );
 
+    const samData = this.buildSAMData(player);
+
     // Calculate port score with penalties and bonuses (only for ocean shore tiles)
     const portScore = this.calculatePortTileScore(
       player,
@@ -1884,6 +1951,7 @@ export class AIConstructionHandler {
       false,
       closestPlayerDist,
       nearbyStructures,
+      samData,
     );
 
     // Land structures (defense post, SAM, and other) can only be built on non-ocean tiles
@@ -1895,13 +1963,20 @@ export class AIConstructionHandler {
           false,
           closestPlayerDist,
           nearbyStructures,
+          samData,
         );
     const defensePostScore = isOceanTile
       ? 0
       : this.calculateDefensePostTileScore(player, tile);
     const samScore = isOceanTile
       ? 0
-      : this.calculateSAMTileScore(player, tile, closestPlayerDist);
+      : this.calculateSAMTileScore(
+          player,
+          tile,
+          closestPlayerDist,
+          false,
+          samData,
+        );
 
     // Increment evaluation counts for each type
     this._portEvalCount++;
@@ -1913,24 +1988,28 @@ export class AIConstructionHandler {
     if (portScore > this._portTileScore) {
       this._portTileScore = portScore;
       this._portTile = tile;
+      this._scoreTargetCacheDirty = true;
     }
 
     // Update defense post tile if this score is strictly greater
     if (defensePostScore > this._defensePostTileScore) {
       this._defensePostTileScore = defensePostScore;
       this._defensePostTile = tile;
+      this._scoreTargetCacheDirty = true;
     }
 
     // Update SAM tile if this score is strictly greater
     if (samScore > this._samTileScore) {
       this._samTileScore = samScore;
       this._samTile = tile;
+      this._scoreTargetCacheDirty = true;
     }
 
     // Update other structures tile if this score is strictly greater
     if (otherScore > this._otherTileScore) {
       this._otherTileScore = otherScore;
       this._otherTile = tile;
+      this._scoreTargetCacheDirty = true;
     }
   }
 
@@ -2005,6 +2084,7 @@ export class AIConstructionHandler {
         score,
         unit: structure,
       });
+      this._scoreTargetCacheDirty = true;
     }
 
     return true;
@@ -2032,7 +2112,7 @@ export class AIConstructionHandler {
       if (ct === null) return 0;
       unitType = ct;
     }
-    const baseCost = Number(this.mg.unitInfo(unitType).cost(player));
+    const baseCost = this.getCachedStructureCost(player, unitType);
     const level = structure.stackCount?.() ?? 1;
 
     if (level <= 1) {
@@ -2223,12 +2303,24 @@ export class AIConstructionHandler {
   bestConstructionScore(): number {
     const player = this.getPlayer();
     if (!player) return 0;
+    // Use cached scores if available; they're invalidated by tile/upgrade score changes
+    if (!this._scoreTargetCacheDirty && this._scoreTargetCache.size > 0) {
+      let best = 0;
+      for (const s of this._scoreTargetCache.values()) {
+        if (s > best) best = s;
+      }
+      return best;
+    }
+    // Rebuild cache
+    this._scoreTargetCache.clear();
     const candidates = this.candidateTargets();
     let best = 0;
     for (const t of candidates) {
       const s = this.scoreTarget(player, t);
+      this._scoreTargetCache.set(t, s);
       if (s > best) best = s;
     }
+    this._scoreTargetCacheDirty = false;
     return best;
   }
 
@@ -2236,14 +2328,20 @@ export class AIConstructionHandler {
    * Returns a map of candidate structure type → score for debugging/logging.
    */
   constructionScoreBreakdown(): Map<UnitType, number> {
-    const result = new Map<UnitType, number>();
     const player = this.getPlayer();
-    if (!player) return result;
+    if (!player) return new Map();
+    // Use cached scores if available
+    if (!this._scoreTargetCacheDirty && this._scoreTargetCache.size > 0) {
+      return new Map(this._scoreTargetCache);
+    }
+    // Rebuild cache
+    this._scoreTargetCache.clear();
     const candidates = this.candidateTargets();
     for (const t of candidates) {
-      result.set(t, this.scoreTarget(player, t));
+      this._scoreTargetCache.set(t, this.scoreTarget(player, t));
     }
-    return result;
+    this._scoreTargetCacheDirty = false;
+    return new Map(this._scoreTargetCache);
   }
 
   /**
