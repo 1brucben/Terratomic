@@ -121,6 +121,9 @@ export class TradeManagerExecution implements Execution {
     // 2) Maintain per-port replacement timers and spawn replacements when due
     this.processPortSupply(ticks);
 
+    // 2.5) Recover stranded idle ships (on ocean, not at a port, no target/phase)
+    this.recoverStrandedShips();
+
     // 3) Drop any queued routes that are now embargoed
     this.pruneEmbargoedRoutes();
 
@@ -705,6 +708,29 @@ export class TradeManagerExecution implements Execution {
   public requeueRoute(from: Player, to: Player): void {
     this.queue.push({ from, to });
   }
+
+  /**
+   * Detect trade ships that are idle (no phase, no target, not returning) but
+   * stranded on the ocean (not at a port tile). These ships can never be
+   * assigned a new route because availableShips() requires docking at a port.
+   * Spawn a lightweight execution to navigate them to their nearest port.
+   */
+  private recoverStrandedShips(): void {
+    for (const ship of this.cachedShips) {
+      if (!ship.isActive()) continue;
+      if (ship.returning()) continue;
+      if (ship.tradePhase && ship.tradePhase() !== null) continue;
+      if (ship.targetUnit() !== undefined) continue;
+      // Ship is idle — check if it's on the ocean and NOT at a port
+      if (!this.mg.isOcean(ship.tile())) continue;
+      const isAtPort = this.mg
+        .unitsAt(ship.tile())
+        .some((u) => u.type() === UnitType.Port);
+      if (isAtPort) continue;
+      // This ship is stranded. Send it home.
+      this.mg.addExecution(new StrandedTradeShipReturnExecution(ship));
+    }
+  }
 }
 
 export class AssignedTradeRouteExecution implements Execution {
@@ -912,6 +938,8 @@ export class AssignedTradeRouteExecution implements Execution {
       // Propagate cleared phase immediately
       this.ship.touch();
       this.active = false;
+      // If ship is on ocean and not at a port, send it home so it doesn't get stranded
+      this.sendHomeIfStranded();
       this.log(
         `externalRetargetCancel ship=${this.ship.id()} oldTargetUnit=${this.ship
           .targetUnit()
@@ -979,6 +1007,8 @@ export class AssignedTradeRouteExecution implements Execution {
       const neighbors = this.mg.neighbors(targetTile);
       const oceanAdj = neighbors.filter((t) => this.mg.isOcean(t));
       this.active = false;
+      // Send ship home so it doesn't get stranded on the ocean
+      this.sendHomeIfStranded();
       this.log(
         `abort ship=${this.ship.id()} reason=noNavTarget destPort=${expectedTargetUnit.id()} portTile=(${this.mg.x(
           targetTile,
@@ -1123,6 +1153,8 @@ export class AssignedTradeRouteExecution implements Execution {
           );
         }
         this.active = false;
+        // Send ship home so it doesn't get stranded on the ocean
+        this.sendHomeIfStranded();
         this.log(
           `abort ship=${this.ship.id()} reason=pathNotFound phase=${this.phase} requeuedRoute=(${this.startPort.owner().smallID()}->${this.endPort
             .owner()
@@ -1298,10 +1330,184 @@ export class AssignedTradeRouteExecution implements Execution {
     return list[0] ?? null;
   }
 
+  /**
+   * If the ship is on ocean and not co-located with a port, spawn a
+   * StrandedTradeShipReturnExecution to navigate it back home.
+   * Called from abort paths to prevent ships from being stranded.
+   */
+  private sendHomeIfStranded(): void {
+    if (!this.ship.isActive()) return;
+    if (!this.mg.isOcean(this.ship.tile())) return;
+    const isAtPort = this.mg
+      .unitsAt(this.ship.tile())
+      .some((u) => u.type() === UnitType.Port);
+    if (isAtPort) return;
+    this.mg.addExecution(new StrandedTradeShipReturnExecution(this.ship));
+  }
+
   // --- Logging helpers (human owners only) ---
   private log(msg: string): void {
     const owner = this.ship.owner();
     // Per-request: trade logging removed
   }
   // Per-tile movement logging removed per user request.
+}
+
+/**
+ * Lightweight execution that navigates a stranded idle trade ship back to its
+ * owner's nearest port. Once docked, the ship becomes available for new routes.
+ */
+class StrandedTradeShipReturnExecution implements Execution {
+  private mg!: Game;
+  private pathfinder!: PathFinder;
+  private active = true;
+  private lastMoveTick = 0;
+  private destPort: Unit | null = null;
+
+  constructor(private ship: Unit) {}
+
+  init(mg: Game, ticks: number): void {
+    this.mg = mg;
+    this.pathfinder = PathFinder.Mini(mg, 2500);
+    this.lastMoveTick = ticks;
+    // Mark a transient trade phase so the recovery manager doesn't re-detect this ship
+    this.ship.setTradePhase("toStart");
+    this.destPort = this.selectNearestPort(this.ship.owner());
+    if (this.destPort) {
+      this.ship.setTargetUnit(this.destPort);
+    } else {
+      // No port to return to; clear phase and give up
+      this.ship.setTradePhase(null);
+      this.active = false;
+    }
+  }
+
+  isActive(): boolean {
+    return this.active;
+  }
+
+  activeDuringSpawnPhase(): boolean {
+    return false;
+  }
+
+  tick(ticks: number): void {
+    if (!this.active) return;
+    if (!this.ship.isActive()) {
+      this.active = false;
+      return;
+    }
+    if (!this.destPort || !this.destPort.isActive()) {
+      this.destPort = this.selectNearestPort(this.ship.owner());
+      if (!this.destPort) {
+        this.ship.setTradePhase(null);
+        this.ship.setTargetUnit(undefined);
+        this.active = false;
+        return;
+      }
+      this.ship.setTargetUnit(this.destPort);
+    }
+
+    if (ticks - this.lastMoveTick < 1) return;
+    this.lastMoveTick = ticks;
+
+    const targetTile = this.destPort.tile();
+
+    // Adjacent to port -> dock
+    if (this.mg.manhattanDist(this.ship.tile(), targetTile) === 1) {
+      this.ship.move(targetTile);
+      this.ship.setTradePhase(null);
+      this.ship.setTargetUnit(undefined);
+      this.ship.touch();
+      this.active = false;
+      return;
+    }
+
+    // Already on port tile
+    if (this.ship.tile() === targetTile) {
+      this.ship.setTradePhase(null);
+      this.ship.setTargetUnit(undefined);
+      this.ship.touch();
+      this.active = false;
+      return;
+    }
+
+    const navTarget = this.navTargetForPort(targetTile);
+    if (navTarget === null) {
+      this.ship.setTradePhase(null);
+      this.ship.setTargetUnit(undefined);
+      this.active = false;
+      return;
+    }
+
+    // If somehow on land without being at a port, step into ocean
+    if (!this.mg.isOcean(this.ship.tile())) {
+      const adjOcean = this.mg
+        .neighbors(this.ship.tile())
+        .filter((t) => this.mg.isOcean(t))
+        .sort(
+          (a, b) =>
+            this.mg.manhattanDist(a, navTarget) -
+            this.mg.manhattanDist(b, navTarget),
+        );
+      if (adjOcean.length > 0) {
+        this.ship.move(adjOcean[0]);
+        return;
+      }
+      this.ship.setTradePhase(null);
+      this.ship.setTargetUnit(undefined);
+      this.active = false;
+      return;
+    }
+
+    const res = this.pathfinder.nextTile(this.ship.tile(), navTarget);
+    switch (res.type) {
+      case PathFindResultType.Completed:
+        this.ship.move(navTarget);
+        break;
+      case PathFindResultType.NextTile:
+        this.ship.move(res.node);
+        break;
+      case PathFindResultType.Pending:
+        this.ship.touch();
+        break;
+      case PathFindResultType.PathNotFound:
+        // Cannot reach port; give up
+        this.ship.setTradePhase(null);
+        this.ship.setTargetUnit(undefined);
+        this.active = false;
+        break;
+    }
+  }
+
+  private navTargetForPort(portTile: TileRef): TileRef | null {
+    if (this.mg.isOcean(portTile)) return portTile;
+    const candidates = this.mg
+      .neighbors(portTile)
+      .filter((t) => this.mg.isOcean(t));
+    if (candidates.length === 0) return null;
+    candidates.sort(
+      (a, b) =>
+        this.mg.manhattanDist(this.ship.tile(), a) -
+        this.mg.manhattanDist(this.ship.tile(), b),
+    );
+    return candidates[0];
+  }
+
+  private selectNearestPort(owner: Player): Unit | null {
+    const ports = [...this.mg.units(UnitType.Port)].filter(
+      (p) => p.isActive() && p.owner() === owner,
+    );
+    if (ports.length === 0) return null;
+    let best: Unit | null = null;
+    let bestDist = Number.POSITIVE_INFINITY;
+    const here = this.ship.tile();
+    for (const p of ports) {
+      const d = this.mg.euclideanDistSquared(here, p.tile());
+      if (d < bestDist) {
+        bestDist = d;
+        best = p;
+      }
+    }
+    return best;
+  }
 }
