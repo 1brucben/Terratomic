@@ -50,6 +50,12 @@ export class AIConstructionHandler {
   private static readonly TILE_EVALUATION_INTERVAL = 1;
   private static readonly TILE_CACHE_REBUILD_INTERVAL = 200; // Rebuild tile cache every ~10s (200 ticks at 20 tps)
   private static readonly UPGRADE_SCORE_DIVISOR = 0.8;
+  private static readonly PORT_STATS_CACHE_INTERVAL = 50;
+
+  // Cached global port statistics (refreshed every PORT_STATS_CACHE_INTERVAL ticks)
+  private _cachedGlobalPortCount = 0;
+  private _cachedGlobalShipsUnderConstruction = 0;
+  private _cachedPortStatsTick = -Infinity;
 
   // Tile evaluation state (ports, defense posts, SAMs, others)
   private _portTileScore: number = 0;
@@ -878,16 +884,26 @@ export class AIConstructionHandler {
     const tradeIncomeMul = tradeMods.incomeMul * tradeMods.tradeShipIncomeMul;
 
     // Calculate global ships under construction vs global ports multiplier
-    // Global port count sums levels (stackCount) but ignores health
-    const allPorts = this.mg.units(UnitType.Port).filter((p) => p.isActive());
-    const globalPortCount = allPorts.reduce(
-      (sum, port) => sum + (port.stackCount?.() ?? 1),
-      0,
-    );
-    const globalShipsUnderConstruction = allPorts.reduce(
-      (sum, port) => sum + (port as any).pendingTradeShipDueTicks().length,
-      0,
-    );
+    // Uses cached values refreshed every PORT_STATS_CACHE_INTERVAL ticks
+    const currentTick = this.mg.ticks();
+    if (
+      currentTick - this._cachedPortStatsTick >=
+      AIConstructionHandler.PORT_STATS_CACHE_INTERVAL
+    ) {
+      this._cachedPortStatsTick = currentTick;
+      const allPorts = this.mg.units(UnitType.Port).filter((p) => p.isActive());
+      this._cachedGlobalPortCount = allPorts.reduce(
+        (sum, port) => sum + (port.stackCount?.() ?? 1),
+        0,
+      );
+      this._cachedGlobalShipsUnderConstruction = allPorts.reduce(
+        (sum, port) => sum + (port as any).pendingTradeShipDueTicks().length,
+        0,
+      );
+    }
+    const globalPortCount = this._cachedGlobalPortCount;
+    const globalShipsUnderConstruction =
+      this._cachedGlobalShipsUnderConstruction;
     const constructionRatioMul =
       globalPortCount > 0
         ? 1 - globalShipsUnderConstruction / globalPortCount
