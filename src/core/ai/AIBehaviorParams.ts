@@ -172,12 +172,6 @@ export interface AIBehaviorParams {
   nukeWarScoreSigmoidScale?: number;
 
   /**
-   * Minimum distance (in tiles) required between non-defense-post structures.
-   * This is applied by the AI on top of the game's own placement rules.
-   */
-  aiStructureMinDistance?: number;
-
-  /**
    * Minimum distance (in tiles) to keep away from other players when placing
    * non-defense-post structures.
    */
