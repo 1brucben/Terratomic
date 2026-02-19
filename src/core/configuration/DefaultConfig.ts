@@ -1096,7 +1096,7 @@ export class DefaultConfig implements Config {
         case Difficulty.Easy:
           return 2_500 + 1000 * (playerInfo?.nation?.strength ?? 1);
         case Difficulty.Medium:
-          return 5_000 + 2000 * (playerInfo?.nation?.strength ?? 1);
+          return 8_000 + 4000 * (playerInfo?.nation?.strength ?? 1);
         case Difficulty.Hard:
           return 18_000 + 4000 * (playerInfo?.nation?.strength ?? 1);
         case Difficulty.Impossible:
