@@ -69,6 +69,9 @@ export class AIDiplomacyHandler {
   // Current war scores for each player (keyed by PlayerID)
   private _warScores: Map<PlayerID, number> = new Map();
 
+  // War scores without dominance bonus, cached for at-war players (keyed by PlayerID)
+  private _warScoresNoDominance: Map<PlayerID, number> = new Map();
+
   // Historical war scores for moving average (keyed by PlayerID -> circular buffer of scores)
   private _warScoreHistory: Map<PlayerID, number[]> = new Map();
 
@@ -385,6 +388,19 @@ export class AIDiplomacyHandler {
     other: Player,
     ticks: number,
   ): number {
+    const base = this.calculateWarScoreBase(player, other, ticks);
+    return base + this.calculateDominanceBonus(other);
+  }
+
+  /**
+   * War score factors 1-4 (border, military, ally penalty, distance).
+   * Excludes the dominance bonus so it can be cached separately.
+   */
+  private calculateWarScoreBase(
+    player: Player,
+    other: Player,
+    ticks: number,
+  ): number {
     // No point declaring war on someone we can't reach
     if (!this.isReachable(player, other)) {
       return 0;
@@ -458,44 +474,49 @@ export class AIDiplomacyHandler {
       }
     }
 
-    // Factor 5: Dominance bonus – incentivise attacking the strongest player
-    // Only fires when the target has the highest military strength in the game.
+    return score;
+  }
+
+  /**
+   * Factor 5: Dominance bonus – incentivise attacking the strongest player.
+   * Separated so calculateWarScoreBase can be cached independently.
+   */
+  private calculateDominanceBonus(other: Player): number {
     const dominanceWeight = this.params.warScoreDominanceWeight ?? 0;
-    if (dominanceWeight !== 0) {
-      let totalGameStrength = 0;
-      let highestStrength = 0;
-      let secondHighestStrength = 0;
+    if (dominanceWeight === 0) return 0;
 
-      for (const p of this.mg.players()) {
-        if (!p.isAlive() || p.type() === PlayerType.Bot) continue;
-        const s = p.militaryStrength();
-        totalGameStrength += s;
-        if (s > highestStrength) {
-          secondHighestStrength = highestStrength;
-          highestStrength = s;
-        } else if (s > secondHighestStrength) {
-          secondHighestStrength = s;
-        }
-      }
+    let totalGameStrength = 0;
+    let highestStrength = 0;
+    let secondHighestStrength = 0;
 
-      const targetStrength = other.militaryStrength();
-      if (
-        totalGameStrength > 0 &&
-        targetStrength >= highestStrength &&
-        targetStrength > 0
-      ) {
-        const targetShare = targetStrength / totalGameStrength;
-        const denominator = 0.8 - targetShare;
-        // Only apply when target share is below 80% (denominator > 0)
-        if (denominator > 0 && secondHighestStrength > 0) {
-          const gapPercent =
-            (targetStrength - secondHighestStrength) / secondHighestStrength;
-          score += dominanceWeight * (gapPercent / denominator);
-        }
+    for (const p of this.mg.players()) {
+      if (!p.isAlive() || p.type() === PlayerType.Bot) continue;
+      const s = p.militaryStrength();
+      totalGameStrength += s;
+      if (s > highestStrength) {
+        secondHighestStrength = highestStrength;
+        highestStrength = s;
+      } else if (s > secondHighestStrength) {
+        secondHighestStrength = s;
       }
     }
 
-    return score;
+    const targetStrength = other.militaryStrength();
+    if (
+      totalGameStrength > 0 &&
+      targetStrength >= highestStrength &&
+      targetStrength > 0
+    ) {
+      const targetShare = targetStrength / totalGameStrength;
+      const denominator = 0.8 - targetShare;
+      // Only apply when target share is below 80% (denominator > 0)
+      if (denominator > 0 && secondHighestStrength > 0) {
+        const gapPercent =
+          (targetStrength - secondHighestStrength) / secondHighestStrength;
+        return dominanceWeight * (gapPercent / denominator);
+      }
+    }
+    return 0;
   }
 
   /**
@@ -828,6 +849,15 @@ export class AIDiplomacyHandler {
   }
 
   /**
+   * Returns the cached war score without dominance bonus for a target.
+   * Populated during evaluatePeaceScores for at-war players.
+   * Returns 0 if no cached value exists.
+   */
+  warScoreWithoutDominance(otherId: PlayerID): number {
+    return this._warScoresNoDominance.get(otherId) ?? 0;
+  }
+
+  /**
    * Gets all current war scores.
    */
   getAllWarScores(): Map<PlayerID, number> {
@@ -872,7 +902,9 @@ export class AIDiplomacyHandler {
       // calculateWarScore already does this: it counts the target as the
       // primary enemy and adds OTHER current enemies separately (excluding
       // the target via the enemy.id() !== other.id() check).
-      const score = this.calculateWarScore(player, other, ticks);
+      const base = this.calculateWarScoreBase(player, other, ticks);
+      this._warScoresNoDominance.set(other.id(), base);
+      const score = base + this.calculateDominanceBonus(other);
       this._peaceScores.set(other.id(), score);
     }
 

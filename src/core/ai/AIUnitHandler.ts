@@ -69,7 +69,7 @@ export class AIUnitHandler {
   /** How often (in ticks) to rescan enemy warship counts. */
   private static readonly WARSHIP_SCAN_INTERVAL = 50;
   /** Internal base constant for warship score numerator. */
-  private static readonly WARSHIP_BASE_SCORE = 3e5;
+  private static readonly WARSHIP_BASE_SCORE = 2.5e5;
 
   constructor(
     private mg: Game,

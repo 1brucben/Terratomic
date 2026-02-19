@@ -163,6 +163,15 @@ export interface AIBehaviorParams {
   nukeScoreMultiplier?: number;
 
   /**
+   * Scale parameter inside the sigmoid that modulates nuke enemy-value by
+   * war score (without dominance).  Each enemy structure contribution is
+   * multiplied by sigmoid(nukeWarScoreSigmoidScale * (warScore - 4)).
+   * Higher values make the sigmoid steeper; 0 disables the modulation.
+   * Default 1/50 = 0.02.
+   */
+  nukeWarScoreSigmoidScale?: number;
+
+  /**
    * Minimum distance (in tiles) required between non-defense-post structures.
    * This is applied by the AI on top of the game's own placement rules.
    */

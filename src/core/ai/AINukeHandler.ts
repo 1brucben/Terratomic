@@ -62,6 +62,12 @@ export class AINukeHandler {
   // Phase seed for spreading periodic actions across AIs
   private readonly phaseSeed: number;
 
+  /**
+   * Optional callback that returns the war-score (without dominance) for a
+   * given target player.  Set via `setWarScoreProvider`.
+   */
+  private _warScoreProvider: ((targetId: PlayerID) => number) | null = null;
+
   constructor(
     private mg: Game,
     private playerId: PlayerID,
@@ -81,6 +87,30 @@ export class AINukeHandler {
   private shouldRunPeriodic(ticks: number, period: number): boolean {
     const p = Math.max(1, Math.floor(period));
     return ticks % p === this.phaseSeed % p;
+  }
+
+  /**
+   * Set the provider that returns war-score (without dominance) for a target.
+   */
+  setWarScoreProvider(provider: (targetId: PlayerID) => number): void {
+    this._warScoreProvider = provider;
+  }
+
+  /** Sigmoid helper: 1 / (1 + exp(-x)). */
+  private static sigmoid(x: number): number {
+    return 1 / (1 + Math.exp(-x));
+  }
+
+  /**
+   * Returns the sigmoid multiplier for enemy value based on the war-score
+   * (without dominance) against `targetId`.  Returns 1 when no provider is
+   * set or the scale param is 0.
+   */
+  private warScoreSigmoid(targetId: PlayerID): number {
+    const scale = this.params.nukeWarScoreSigmoidScale ?? 1 / 50;
+    if (scale === 0 || !this._warScoreProvider) return 1;
+    const ws = this._warScoreProvider(targetId);
+    return AINukeHandler.sigmoid(scale * (ws - 4));
   }
 
   /**
@@ -262,8 +292,10 @@ export class AINukeHandler {
 
       if (isEnemy) {
         const bonus = owner.id() === strongestEnemyId ? 1000 : 0;
-        hydrogenEnemyValue += value + bonus;
-        if (distSquared <= atomInnerRangeSq) atomEnemyValue += value + bonus;
+        const sig = this.warScoreSigmoid(owner.id());
+        hydrogenEnemyValue += (value + bonus) * sig;
+        if (distSquared <= atomInnerRangeSq)
+          atomEnemyValue += (value + bonus) * sig;
       } else {
         hydrogenFriendlyValue += value;
         if (distSquared <= atomInnerRangeSq) atomFriendlyValue += value;
@@ -390,7 +422,8 @@ export class AINukeHandler {
 
       if (this.player!.isAtWarWith(owner)) {
         const bonus = owner.id() === strongestEnemyId ? 1000 : 0;
-        enemyValue += this.getStructureValue(structure) + bonus;
+        const sig = this.warScoreSigmoid(owner.id());
+        enemyValue += (this.getStructureValue(structure) + bonus) * sig;
       } else {
         friendlyValue += this.getStructureValue(structure);
       }

@@ -173,6 +173,13 @@ export class AIPlayerExecution implements Execution {
       this.params,
     );
 
+    // Wire war-score (without dominance) into nuke scoring so enemy value
+    // is modulated by how much the AI wants to fight each target.
+    this.nukeHandler.setWarScoreProvider(
+      (targetId) =>
+        this.diplomacyHandler?.warScoreWithoutDominance(targetId) ?? 0,
+    );
+
     // Wire naval scores into port scoring so the AI builds a port
     // when it wants warships/submarines but has none.
     this.constructionHandler.setNavalScoreProvider(
