@@ -43,6 +43,13 @@ export interface AIBehaviorParams {
    */
   botAttackBoatSearchRangeGrowth?: number;
 
+  /**
+   * Initial maximum Manhattan distance for bot boat attacks.
+   * Grows over time when no target is found within range.
+   * Default 50.
+   */
+  botAttackBoatInitialRange?: number;
+
   // === AI/Human Attack Behavior ===
   /** Minimum troop ratio (troops / maxTroops) before attacking AI/Human players (0-1) */
   attackTroopThreshold?: number;
@@ -323,6 +330,20 @@ export interface AIBehaviorParams {
    * Default 0.1 (10%).
    */
   attackBoatTroopPercent?: number;
+
+  /**
+   * Initial maximum Manhattan distance for boat attacks against AI/Human
+   * players. Grows over time when no target is found within range.
+   * Default 50.
+   */
+  attackBoatInitialRange?: number;
+
+  /**
+   * How much the boat search range grows per failed attempt (no target
+   * within range). Never resets, no cap.
+   * Default 0.5 (tiles per attempt).
+   */
+  attackBoatRangeGrowth?: number;
 
   /**
    * Gap below warDeclarationThreshold at which the AI will seek/accept peace.
