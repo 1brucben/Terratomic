@@ -266,6 +266,19 @@ export class UnitLayer implements Layer {
     this.pixiCanvas = document.createElement("canvas");
     this.pixiCanvas.width = window.innerWidth;
     this.pixiCanvas.height = window.innerHeight;
+
+    // Use DOM overlay instead of drawImage compositing to avoid
+    // expensive WebGL-to-2D-canvas GPU readback every frame.
+    this.pixiCanvas.style.position = "fixed";
+    this.pixiCanvas.style.left = "0";
+    this.pixiCanvas.style.top = "0";
+    this.pixiCanvas.style.width = "100%";
+    this.pixiCanvas.style.height = "100%";
+    this.pixiCanvas.style.pointerEvents = "none";
+    // Render above ArtilleryLayer PIXI (z-32), below AABulletLayer PIXI (z-34)
+    this.pixiCanvas.style.zIndex = "33";
+    document.body.appendChild(this.pixiCanvas);
+
     this.pixiStage = new PIXI.Container();
     await this.pixiRenderer.init({
       canvas: this.pixiCanvas,
@@ -938,7 +951,7 @@ export class UnitLayer implements Layer {
     this.updateInterpolatedUnits();
 
     // Update and render PIXI units
-    this.renderPixiUnits(context);
+    this.renderPixiUnits();
 
     PerformanceMetrics.getInstance().incrementVisibleEntities(
       this.renderedUnits.size + this.pixiRenders.length,
@@ -968,7 +981,7 @@ export class UnitLayer implements Layer {
     }
   }
 
-  private renderPixiUnits(mainContext: CanvasRenderingContext2D) {
+  private renderPixiUnits() {
     if (!this.pixiRenderer) return;
 
     const metrics = PerformanceMetrics.getInstance();
@@ -1019,17 +1032,10 @@ export class UnitLayer implements Layer {
     // Update ghost sprite positions
     this.updatePixiGhosts();
 
-    // Render PIXI stage to its canvas
+    // Render PIXI stage to its own DOM-overlaid canvas.
+    // No drawImage compositing needed — the browser's hardware compositor
+    // layers the WebGL canvas on top of the 2D canvas for free.
     this.pixiRenderer.render(this.pixiStage);
-
-    // Save current transform, reset to DPR base, draw PIXI canvas, then restore.
-    // The PIXI canvas is in CSS-pixel space but the backing buffer is DPR-scaled,
-    // so we must apply (dpr, 0, 0, dpr) instead of plain identity.
-    const dpr = window.devicePixelRatio || 1;
-    mainContext.save();
-    mainContext.setTransform(dpr, 0, 0, dpr, 0, 0);
-    mainContext.drawImage(this.pixiRenderer.canvas, 0, 0);
-    mainContext.restore();
   }
 
   private updatePixiSpritePosition(render: UnitRenderInfo) {

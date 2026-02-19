@@ -238,6 +238,18 @@ export class StructureLayer implements Layer {
     this.pixicanvas = document.createElement("canvas");
     this.pixicanvas.width = window.innerWidth;
     this.pixicanvas.height = window.innerHeight;
+
+    // DOM overlay: avoids expensive WebGL-to-2D drawImage compositing.
+    this.pixicanvas.style.position = "fixed";
+    this.pixicanvas.style.left = "0";
+    this.pixicanvas.style.top = "0";
+    this.pixicanvas.style.width = "100%";
+    this.pixicanvas.style.height = "100%";
+    this.pixicanvas.style.pointerEvents = "none";
+    // Above main 2D canvas (z-30), below ArtilleryLayer PIXI (z-32)
+    this.pixicanvas.style.zIndex = "31";
+    document.body.appendChild(this.pixicanvas);
+
     this.stage = new PIXI.Container();
     this.stage.position.set(0, 0);
     this.stage.width = this.pixicanvas.width;
@@ -416,7 +428,6 @@ export class StructureLayer implements Layer {
       this.renderer.render(this.stage);
       this.shouldRedraw = false;
     }
-    mainContext.drawImage(this.renderer.canvas, 0, 0);
   }
 
   private canAffordUpgrade(unit?: UnitView): boolean {

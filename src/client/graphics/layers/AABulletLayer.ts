@@ -41,7 +41,18 @@ export class AABulletLayer implements Layer {
     this.pixiCanvas = document.createElement("canvas");
     this.pixiCanvas.width = window.innerWidth;
     this.pixiCanvas.height = window.innerHeight;
+
+    // DOM overlay: avoids expensive WebGL-to-2D drawImage compositing.
+    this.pixiCanvas.style.position = "fixed";
+    this.pixiCanvas.style.left = "0";
+    this.pixiCanvas.style.top = "0";
+    this.pixiCanvas.style.width = "100%";
+    this.pixiCanvas.style.height = "100%";
     this.pixiCanvas.style.pointerEvents = "none";
+    // Above UnitLayer PIXI (z-33), below FxLayer PIXI (z-35)
+    this.pixiCanvas.style.zIndex = "34";
+    document.body.appendChild(this.pixiCanvas);
+
     this.stage = new PIXI.Container();
     this.bulletContainer = new PIXI.Container();
     this.stage.addChild(this.bulletContainer);
@@ -112,8 +123,6 @@ export class AABulletLayer implements Layer {
   renderLayer(context: CanvasRenderingContext2D) {
     const now = Date.now();
     if (now - this.lastRefresh < this.refreshRate) {
-      // Still draw the cached frame
-      context.drawImage(this.pixiCanvas, 0, 0);
       return;
     }
     this.lastRefresh = now;
@@ -163,11 +172,8 @@ export class AABulletLayer implements Layer {
       bullet.graphics.fill({ color: 0xffdd66, alpha: 0.4 });
     }
 
-    // Render PIXI stage
+    // Render PIXI stage to its own DOM-overlaid canvas.
     this.renderer.render(this.stage);
-
-    // Draw onto the main canvas
-    context.drawImage(this.pixiCanvas, 0, 0);
   }
 
   redraw() {
