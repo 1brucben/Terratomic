@@ -1,6 +1,7 @@
 import { PerformanceMetrics } from "../../client/utilities/PerformanceMetrics";
 import { AttackDebugData } from "../ai/AIAttackHandler";
 import { WarScoreDebugData } from "../ai/AIDiplomacyHandler";
+import { ConstructionDebugData } from "../ai/ConstructionDebugData";
 import { TradeDebugPayload } from "../execution/TradeDebugData";
 import {
   Cell,
@@ -349,6 +350,31 @@ export class WorkerClient {
 
       this.worker.postMessage({
         type: "trade_debug",
+        id: messageId,
+      });
+    });
+  }
+
+  constructionDebug(): Promise<ConstructionDebugData[]> {
+    return new Promise((resolve, reject) => {
+      if (!this.isInitialized) {
+        reject(new Error("Worker not initialized"));
+        return;
+      }
+
+      const messageId = generateID();
+
+      this.messageHandlers.set(messageId, (message) => {
+        if (
+          message.type === "construction_debug_result" &&
+          message.result !== undefined
+        ) {
+          resolve(message.result);
+        }
+      });
+
+      this.worker.postMessage({
+        type: "construction_debug",
         id: messageId,
       });
     });

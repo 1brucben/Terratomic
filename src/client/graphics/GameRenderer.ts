@@ -13,6 +13,7 @@ import { BuildMenu } from "./layers/BuildMenu";
 import { CargoTruckLayer } from "./layers/CargoTruckLayer";
 import { ChatDisplay } from "./layers/ChatDisplay";
 import { ChatModal } from "./layers/ChatModal";
+import { ConstructionDebugOverlay } from "./layers/ConstructionDebugOverlay";
 import { ControlPanel } from "./layers/ControlPanel";
 import { ControlPanel2 } from "./layers/ControlPanel2";
 import { DevHud } from "./layers/DevHud";
@@ -331,6 +332,7 @@ export function createRenderer(
     new WarScoreOverlay(game),
     new AttackDebugOverlay(game),
     new TradeDebugOverlay(game),
+    new ConstructionDebugOverlay(game),
   ];
 
   return new GameRenderer(
