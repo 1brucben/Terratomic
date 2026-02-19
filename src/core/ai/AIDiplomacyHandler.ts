@@ -51,6 +51,8 @@ export class AIDiplomacyHandler {
   private static readonly WAR_SCORE_EVALUATION_INTERVAL = 50;
   // 30 seconds / 5 seconds per sample = 6 samples for moving average
   private static readonly WAR_SCORE_HISTORY_LENGTH = 6;
+  // Minimum number of history samples before the AI may declare war (warmup period)
+  private static readonly WAR_SCORE_MIN_SAMPLES = 3;
   // Invalidate shore sample cache every 100 ticks (10 seconds)
   private static readonly SHORE_SAMPLE_CACHE_TTL = 100;
   // Number of random shore tiles to sample (in addition to 4 extrema)
@@ -676,7 +678,7 @@ export class AIDiplomacyHandler {
           ? other.militaryStrength() / totalGameStrength
           : 0;
       })(),
-      movingAverage: this.getMovingAverageWarScore(other.id()) ?? total,
+      movingAverage: this.getMovingAverageWarScore(other.id()) || total,
       isAtWar: player.isAtWarWith(other),
       isFriendly: player.isFriendly(other),
       unreachable: false,
@@ -826,6 +828,15 @@ export class AIDiplomacyHandler {
     const threshold = this.effectiveWarThreshold;
 
     for (const [otherId] of this._warScores) {
+      // Require enough history samples before declaring war so
+      // a single spike right after spawn doesn't trigger it.
+      const history = this._warScoreHistory.get(otherId);
+      if (
+        !history ||
+        history.length < AIDiplomacyHandler.WAR_SCORE_MIN_SAMPLES
+      ) {
+        continue;
+      }
       const avgScore = this.getMovingAverageWarScore(otherId);
       if (avgScore > threshold) {
         const other = this.mg.player(otherId);
