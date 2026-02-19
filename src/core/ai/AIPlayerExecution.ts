@@ -98,6 +98,11 @@ export class AIPlayerExecution implements Execution {
   private initialInvestmentSet = false;
   private roadInvestmentSet = false;
 
+  // Cached spending-priority scores (refreshed every SCORE_CACHE_PERIOD ticks)
+  private _cachedConstructionScore = 0;
+  private _cachedUnitScore = 0;
+  private static readonly SCORE_CACHE_PERIOD = 5;
+
   // Nuke launch state machine
   private nukeState: NukeSequenceState | null = null;
   private static readonly MAIN_BOMB_DELAY_TICKS = 15;
@@ -252,6 +257,13 @@ export class AIPlayerExecution implements Execution {
     // Refresh unit caches before scoring so data is always fresh
     this.unitHandler?.refreshCaches(ticks);
 
+    // Refresh cached spending scores periodically (staggered across AIs)
+    if (this.shouldRunPeriodic(ticks, AIPlayerExecution.SCORE_CACHE_PERIOD)) {
+      this._cachedConstructionScore =
+        this.constructionHandler?.bestConstructionScore() ?? 0;
+      this._cachedUnitScore = this.unitHandler?.bestUnitScore() ?? 0;
+    }
+
     const nukeSequenceActive =
       this.nukeState !== null && this.nukeState.phase !== "idle";
 
@@ -259,11 +271,7 @@ export class AIPlayerExecution implements Execution {
     let allowUnitSpending = false;
 
     if (!nukeSequenceActive) {
-      const constructionScore =
-        this.constructionHandler?.bestConstructionScore() ?? 0;
-      const unitScore = this.unitHandler?.bestUnitScore() ?? 0;
-
-      if (constructionScore >= unitScore) {
+      if (this._cachedConstructionScore >= this._cachedUnitScore) {
         allowConstructionSpending = true;
       } else {
         allowUnitSpending = true;
@@ -374,9 +382,8 @@ export class AIPlayerExecution implements Execution {
           currentScore *
           profileMultiplier *
           AIPlayerExecution.NUKE_SCORE_INTERNAL_MULTIPLIER;
-        const constructionScore =
-          this.constructionHandler.bestConstructionScore();
-        const unitScore = this.unitHandler?.bestUnitScore() ?? 0;
+        const constructionScore = this._cachedConstructionScore;
+        const unitScore = this._cachedUnitScore;
         if (adjustedScore <= constructionScore || adjustedScore <= unitScore) {
           this.resetNukeSequence();
           return;
@@ -436,11 +443,12 @@ export class AIPlayerExecution implements Execution {
     bestScore *=
       profileMultiplier * AIPlayerExecution.NUKE_SCORE_INTERNAL_MULTIPLIER;
 
-    // Compare against best construction score and best unit score
-    const constructionScore = this.constructionHandler.bestConstructionScore();
-    const unitScore = this.unitHandler?.bestUnitScore() ?? 0;
-
-    if (bestScore <= constructionScore || bestScore <= unitScore) return;
+    // Compare against cached construction and unit scores
+    if (
+      bestScore <= this._cachedConstructionScore ||
+      bestScore <= this._cachedUnitScore
+    )
+      return;
 
     // Start the nuke sequence
     const sams = this.nukeHandler.getSAMsInRange(bestTile);

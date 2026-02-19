@@ -51,6 +51,9 @@ export class AIUnitHandler {
   private _navalShareEMA = 0;
   private _lastNavalShareTick = -Infinity;
 
+  // --- Global trade income cache (refreshed alongside warship count) ---
+  private _cachedGlobalTradeIncome = 0;
+
   // --- Warship patrol state ---
   /** Set of warship IDs currently on default (coast) patrol. */
   private _availableWarshipIds: Set<number> = new Set();
@@ -166,6 +169,7 @@ export class AIUnitHandler {
       AIUnitHandler.WARSHIP_SCAN_INTERVAL
     ) {
       this.refreshEnemyWarshipCount(player);
+      this.refreshGlobalTradeIncome();
       this._cachedEnemyWarshipsTick = ticks;
     }
 
@@ -862,11 +866,8 @@ export class AIUnitHandler {
     const tradeWeight = this.params.warshipTradeIncomeWeight ?? 0;
     const coastalWeight = this.params.warshipCoastalThreatWeight ?? 0;
 
-    // Sum trade income across all players for a global moving average
-    let globalTradeIncome = 0;
-    for (const p of this.mg.players()) {
-      globalTradeIncome += p.tradeShipGoldPerMinute();
-    }
+    // Use cached global trade income (refreshed every WARSHIP_SCAN_INTERVAL ticks)
+    const globalTradeIncome = this._cachedGlobalTradeIncome;
     const tradeComponent = tradeWeight * globalTradeIncome;
     const coastalComponent = coastalWeight * this._navalShareEMA;
 
@@ -892,6 +893,18 @@ export class AIUnitHandler {
       if (count > maxWarships) maxWarships = count;
     }
     this._cachedEnemyMaxWarships = maxWarships;
+  }
+
+  /**
+   * Cache the sum of tradeShipGoldPerMinute across all players.
+   * Called alongside refreshEnemyWarshipCount (every WARSHIP_SCAN_INTERVAL ticks).
+   */
+  private refreshGlobalTradeIncome(): void {
+    let total = 0;
+    for (const p of this.mg.players()) {
+      total += p.tradeShipGoldPerMinute();
+    }
+    this._cachedGlobalTradeIncome = total;
   }
 
   // ---------------------------------------------------------------------------
