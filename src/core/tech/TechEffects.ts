@@ -167,9 +167,9 @@ export const TECHS: Readonly<Record<string, TechDefinition>> = Object.freeze({
   [RESEARCH_TECH_IDS.LAND_ROADS_HOSPITALS]: {
     meta: {
       name: "Road Network",
-      shortDescription: "Roads, Trade Routes",
+      shortDescription: "Roads",
       description:
-        "Develop critical infrastructure to boost your economy and military mobility. Unlocks Roads (increases unit movement speed and generates passive trade income per connected tile) and Trade Routes (enables trade ships to establish international commerce routes, generating continuous gold income).",
+        "Develop critical infrastructure to boost your economy and military mobility. Unlocks Roads (increases unit movement speed and generates passive trade income per connected tile).",
     },
     effects: {
       onComplete: (player, game) => {
