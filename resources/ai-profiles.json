@@ -77,7 +77,7 @@
         "warScoreCoBelligerentDiscount": 0.9,
         "warScoreAllyPenalty": 0,
         "warScoreDistancePenaltyWeight": 370,
-        "warScoreDominanceWeight": 130,
+        "warScoreDominanceWeight": 135,
         "peaceThresholdGap": 45,
         "nukeScoreConstructionThreshold": 0,
         "nukeFriendlyDamageWeight": 1.0,

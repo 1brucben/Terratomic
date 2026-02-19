@@ -58,6 +58,12 @@ interface NukeSequenceState {
   samTargets: { sam: Unit; levelsRemaining: number }[];
   /** Tick when we entered waitForMain phase. */
   waitStartTick: number;
+  /**
+   * True after we call addExecution for a silo ConstructionExecution but
+   * before the Construction unit actually appears on the map (one-tick gap).
+   * Prevents queuing a duplicate silo build.
+   */
+  siloConstructionQueued: boolean;
 }
 
 /**
@@ -433,6 +439,7 @@ export class AIPlayerExecution implements Execution {
         levelsRemaining: s.stackCount(),
       })),
       waitStartTick: 0,
+      siloConstructionQueued: false,
     };
   }
 
@@ -527,6 +534,16 @@ export class AIPlayerExecution implements Execution {
     // If a silo is already under construction, wait for it to finish
     // (or be destroyed/captured) before attempting another build.
     if (this.hasSiloUnderConstruction()) {
+      // The real Construction unit now exists — the queued flag is no longer
+      // needed; clear it so it doesn't become stale.
+      state.siloConstructionQueued = false;
+      return;
+    }
+
+    // Guard against the one-tick gap: the ConstructionExecution was queued
+    // last tick but its Construction unit hasn't been created yet (it runs
+    // after the AI in the execution list). Wait one more tick.
+    if (state.siloConstructionQueued) {
       return;
     }
 
@@ -570,6 +587,9 @@ export class AIPlayerExecution implements Execution {
         ),
       );
     }
+    // Mark that we've queued a silo build so the next tick doesn't duplicate it
+    // before the Construction unit appears on the map.
+    state.siloConstructionQueued = true;
     // Stay in buildSilo phase; next tick will re-check capacity
   }
 
