@@ -574,7 +574,8 @@ export class AIPlayerExecution implements Execution {
     }
 
     if (largestSilo !== null) {
-      // Upgrade the existing largest silo
+      // Upgrade the existing largest silo (instant one-shot; no Construction
+      // unit is created, so no need to set the siloConstructionQueued guard).
       this.mg.addExecution(
         new UpgradeStructureExecution(this.player, largestSilo),
       );
@@ -600,10 +601,10 @@ export class AIPlayerExecution implements Execution {
           bombsNeeded,
         ),
       );
+      // Mark that we've queued a silo build so the next tick doesn't duplicate
+      // it before the Construction unit appears on the map.
+      state.siloConstructionQueued = true;
     }
-    // Mark that we've queued a silo build so the next tick doesn't duplicate it
-    // before the Construction unit appears on the map.
-    state.siloConstructionQueued = true;
     // Stay in buildSilo phase; next tick will re-check capacity
   }
 
