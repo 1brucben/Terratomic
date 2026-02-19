@@ -6,6 +6,7 @@ import {
   Game,
   Nation,
   Player,
+  PlayerID,
   Unit,
   UnitType,
   UpgradeType,
@@ -25,6 +26,13 @@ import { AINukeHandler } from "./AINukeHandler";
 import { AISpawnHandler } from "./AISpawnHandler";
 import { AITerraNulliusHandler } from "./AITerraNulliusHandler";
 import { AIUnitHandler } from "./AIUnitHandler";
+import {
+  ConstructionDebugData,
+  ConstructionScoreEntry,
+  NukeScoreDebugInfo,
+  NukeSequenceDebugInfo,
+  UnitScoreEntry,
+} from "./ConstructionDebugData";
 
 /**
  * Phases for the nuke launch state machine.
@@ -70,6 +78,9 @@ interface NukeSequenceState {
  * AI Player Execution - A configurable AI player with behavior parameters.
  */
 export class AIPlayerExecution implements Execution {
+  // Static registry for debug overlay access
+  private static readonly registry = new Map<PlayerID, AIPlayerExecution>();
+
   private active = true;
   private mg: Game;
   private player: Player | undefined;
@@ -191,6 +202,9 @@ export class AIPlayerExecution implements Execution {
     this.constructionHandler.setNavalScoreProvider(
       () => this.unitHandler?.bestNavalScore() ?? 0,
     );
+
+    // Register for debug overlay access
+    AIPlayerExecution.registry.set(this.nation.playerInfo.id, this);
   }
 
   isActive(): boolean {
@@ -875,5 +889,160 @@ export class AIPlayerExecution implements Execution {
     finalRate = Math.max(0, Math.min(1, finalRate));
 
     player.setRoadInvestmentRate(finalRate);
+  }
+
+  // ─── Debug overlay support ──────────────────────────────────────────────────
+
+  /**
+   * Collects construction/spending debug data for all registered AI players.
+   */
+  public static getAllConstructionDebugData(
+    game: Game,
+  ): ConstructionDebugData[] {
+    const results: ConstructionDebugData[] = [];
+    for (const [playerId, exec] of AIPlayerExecution.registry) {
+      if (!game.hasPlayer(playerId)) continue;
+      const player = game.player(playerId);
+      if (!player.isPlayer() || !player.isAlive()) continue;
+      const data = exec.collectConstructionDebugData(player);
+      if (data) results.push(data);
+    }
+    return results;
+  }
+
+  private collectConstructionDebugData(
+    player: Player,
+  ): ConstructionDebugData | null {
+    if (!this.constructionHandler || !this.unitHandler || !this.nukeHandler)
+      return null;
+
+    const gold = Number(player.gold());
+    const goldPerMinute = player.estimatedGoldIncomePerMinute();
+
+    // Construction scores
+    const constructionBreakdown =
+      this.constructionHandler.constructionScoreBreakdown();
+    const constructionScores: ConstructionScoreEntry[] = [];
+    for (const [unitType, score] of constructionBreakdown) {
+      constructionScores.push({
+        unitType,
+        score,
+        upgradePreferred: this.constructionHandler.isUpgradePreferred(unitType),
+      });
+    }
+    constructionScores.sort((a, b) => b.score - a.score);
+
+    // Unit scores
+    const unitBreakdown = this.unitHandler.unitScoreBreakdown();
+    const unitScores: UnitScoreEntry[] = [];
+    for (const [unitType, score] of unitBreakdown) {
+      unitScores.push({ unitType, score });
+    }
+    unitScores.sort((a, b) => b.score - a.score);
+
+    const bestConstructionScore =
+      this.constructionHandler.bestConstructionScore();
+    const bestUnitScore = this.unitHandler.bestUnitScore();
+
+    // Nuke scores
+    const atomTarget = this.nukeHandler.bestAtomTarget();
+    const hydrogenTarget = this.nukeHandler.bestHydrogenTarget();
+    const profileMultiplier = this.params.nukeScoreMultiplier ?? 1;
+
+    let bestRawNukeScore = atomTarget?.score ?? 0;
+    let bestNukeBombType: UnitType = UnitType.AtomBomb;
+    if (
+      hydrogenTarget &&
+      hydrogenTarget.score > bestRawNukeScore &&
+      player.hasUpgrade(UpgradeType.ThermonuclearStaging)
+    ) {
+      bestRawNukeScore = hydrogenTarget.score;
+      bestNukeBombType = UnitType.HydrogenBomb;
+    }
+    const adjustedBestNukeScore =
+      bestRawNukeScore *
+      profileMultiplier *
+      AIPlayerExecution.NUKE_SCORE_INTERNAL_MULTIPLIER;
+
+    // Identify target player for nuke tiles
+    const atomTargetPlayer = atomTarget
+      ? this.identifyTileOwner(atomTarget.tile)
+      : null;
+    const hydrogenTargetPlayer = hydrogenTarget
+      ? this.identifyTileOwner(hydrogenTarget.tile)
+      : null;
+
+    const nukeScores: NukeScoreDebugInfo = {
+      bestAtomScore: atomTarget?.score ?? 0,
+      bestAtomTargetPlayerName: atomTargetPlayer?.displayName() ?? "—",
+      bestHydrogenScore: hydrogenTarget?.score ?? 0,
+      bestHydrogenTargetPlayerName: hydrogenTargetPlayer?.displayName() ?? "—",
+      adjustedBestNukeScore,
+    };
+
+    // Spending winner
+    const nukeSequenceActive =
+      this.nukeState !== null && this.nukeState.phase !== "idle";
+    let spendingWinner: "construction" | "unit" | "nuke" | "none" = "none";
+    if (nukeSequenceActive) {
+      spendingWinner = "nuke";
+    } else if (bestConstructionScore >= bestUnitScore) {
+      spendingWinner = "construction";
+    } else {
+      spendingWinner = "unit";
+    }
+
+    // Nuke sequence info
+    let nukeSequence: NukeSequenceDebugInfo | null = null;
+    if (this.nukeState && this.nukeState.phase !== "idle") {
+      const state = this.nukeState;
+      const targetPlayer = this.identifyTileOwner(state.targetTile);
+      const totalSAMLevels = state.samTargets.reduce(
+        (sum, s) => sum + s.levelsRemaining,
+        0,
+      );
+      const siloCapacity = this.nukeHandler.getPlayerSiloCapacity();
+      const bombsNeeded = 1 + totalSAMLevels;
+      const totalCost = this.calculateNukeSequenceCost(state);
+      const currentScore = this.nukeHandler.scoreForTile(
+        state.targetTile,
+        state.bombType,
+      );
+
+      nukeSequence = {
+        phase: state.phase,
+        bombType: state.bombType,
+        targetPlayerName: targetPlayer?.displayName() ?? "—",
+        targetPlayerId: targetPlayer?.id() ?? "—",
+        samNukesNeeded: totalSAMLevels,
+        siloCapacity,
+        bombsNeeded,
+        estimatedTotalCost: totalCost,
+        currentScore,
+      };
+    }
+
+    return {
+      playerId: player.id(),
+      playerName: player.displayName(),
+      gold,
+      goldPerMinute,
+      spendingWinner,
+      bestConstructionScore,
+      bestUnitScore,
+      constructionScores,
+      unitScores,
+      nukeScores,
+      nukeSequence,
+    };
+  }
+
+  /**
+   * Identify which player owns the tile (or the strongest enemy structure on it).
+   */
+  private identifyTileOwner(tile: TileRef): Player | null {
+    const owner = this.mg.owner(tile);
+    if (owner.isPlayer()) return owner;
+    return null;
   }
 }

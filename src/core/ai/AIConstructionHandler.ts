@@ -2225,6 +2225,13 @@ export class AIConstructionHandler {
   }
 
   /**
+   * Returns whether the upgrade path is preferred over new-build for a given type.
+   */
+  isUpgradePreferred(unitType: UnitType): boolean {
+    return this._upgradePreferred.get(unitType) ?? false;
+  }
+
+  /**
    * Returns detailed component breakdowns for city and factory base scores.
    * Used for debugging/logging.
    */

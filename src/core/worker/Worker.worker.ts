@@ -4,6 +4,7 @@ import { ErrorUpdate, GameUpdateViewData } from "../game/GameUpdates";
 import {
   AttackAveragePositionResultMessage,
   AttackDebugResultMessage,
+  ConstructionDebugResultMessage,
   ExecutionMetricsMessage,
   InitializedMessage,
   MainThreadMessage,
@@ -250,6 +251,23 @@ ctx.addEventListener("message", async (e: MessageEvent<MainThreadMessage>) => {
         } as TradeDebugResultMessage);
       } catch (error) {
         console.error("Failed to get trade debug:", error);
+        throw error;
+      }
+      break;
+    case "construction_debug":
+      if (!gameRunner) {
+        throw new Error("Game runner not initialized");
+      }
+
+      try {
+        const constructionData = (await gameRunner).constructionDebug();
+        sendMessage({
+          type: "construction_debug_result",
+          id: message.id,
+          result: constructionData,
+        } as ConstructionDebugResultMessage);
+      } catch (error) {
+        console.error("Failed to get construction debug:", error);
         throw error;
       }
       break;

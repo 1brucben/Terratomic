@@ -2,6 +2,8 @@ import { placeName } from "../client/graphics/NameBoxCalculator";
 import { AIAttackHandler, AttackDebugData } from "./ai/AIAttackHandler";
 import { AIBehaviorParams } from "./ai/AIBehaviorParams";
 import { AIDiplomacyHandler, WarScoreDebugData } from "./ai/AIDiplomacyHandler";
+import { AIPlayerExecution } from "./ai/AIPlayerExecution";
+import { ConstructionDebugData } from "./ai/ConstructionDebugData";
 import { getConfig } from "./configuration/ConfigLoader";
 import { AllianceExpireCheckExecution } from "./execution/alliance/AllianceExpireCheckExecution";
 import { CapitalRecalculationExecution } from "./execution/CapitalRecalculationExecution";
@@ -610,6 +612,10 @@ export class GameRunner {
 
   public attackDebug(): AttackDebugData[] {
     return AIAttackHandler.getAllAttackDebugData(this.game);
+  }
+
+  public constructionDebug(): ConstructionDebugData[] {
+    return AIPlayerExecution.getAllConstructionDebugData(this.game);
   }
 
   public tradeDebug(): TradeDebugPayload {
