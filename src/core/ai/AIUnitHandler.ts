@@ -82,7 +82,7 @@ export class AIUnitHandler {
    */
   private static readonly NAVAL_SHARE_EMA_ALPHA = 2 / 61;
   /** Internal base constant for warship score numerator. */
-  private static readonly WARSHIP_BASE_SCORE = 2.5e5;
+  private static readonly WARSHIP_BASE_SCORE = 2e5;
 
   constructor(
     private mg: Game,
