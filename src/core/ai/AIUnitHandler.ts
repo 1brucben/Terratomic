@@ -371,6 +371,26 @@ export class AIUnitHandler {
   }
 
   /**
+   * Check if ALL enemies are naval-only (no shared land border).
+   * Used for warship *scoring* — the coastal-threat bonus applies when
+   * every enemy the AI is fighting is across water.
+   */
+  private allEnemiesAreNaval(player: Player): boolean {
+    let hasEnemy = false;
+    for (const other of this.mg.players()) {
+      if (other.id() === player.id()) continue;
+      if (other.type() !== PlayerType.Human && other.type() !== PlayerType.AI)
+        continue;
+      if (!player.isAtWarWith(other)) continue;
+      hasEnemy = true;
+      if (player.sharesBorderWith(other)) {
+        return false;
+      }
+    }
+    return hasEnemy;
+  }
+
+  /**
    * Check if coastal defense mode should be active.
    * True when at war with a player that has higher military strength
    * and does not share a land border with us.
@@ -410,7 +430,18 @@ export class AIUnitHandler {
       return;
     }
 
-    // Evenly distribute warships along the coast
+    this.spreadWarshipsAlongCoast(warships, coastTiles);
+  }
+
+  /**
+   * Evenly distribute warships along a set of coastal tiles.
+   * Each warship is assigned an ocean tile near an evenly-spaced shore tile.
+   */
+  private spreadWarshipsAlongCoast(
+    warships: Unit[],
+    coastTiles: TileRef[],
+  ): void {
+    if (coastTiles.length === 0 || warships.length === 0) return;
     const step = Math.max(1, Math.floor(coastTiles.length / warships.length));
     for (let i = 0; i < warships.length; i++) {
       const coastIdx = Math.min(
@@ -418,7 +449,6 @@ export class AIUnitHandler {
         coastTiles.length - 1,
       );
       const coastTile = coastTiles[coastIdx];
-      // Find an ocean tile near this shore tile for patrol
       const oceanTile = this.findOceanNearTile(coastTile);
       if (oceanTile !== null) {
         this.setPatrolIfChanged(warships[i], oceanTile);
@@ -497,7 +527,7 @@ export class AIUnitHandler {
    * Standard patrol logic (original behavior):
    * - If enemy warships exist and we outnumber them, patrol near enemy.
    * - If outnumbered, retreat to nearest friendly port.
-   * - If no enemies, patrol near average port position.
+   * - If no enemy warships, spread along enemy coasts (or own coast if none).
    */
   private assignStandardPatrol(player: Player, warships: Unit[]): void {
     // Validate current patrol target is still alive and still an enemy
@@ -537,7 +567,7 @@ export class AIUnitHandler {
         }
       }
     } else {
-      // No enemy warships — patrol near average position of own ports.
+      // No enemy warships — spread along enemy coasts, or own coast as fallback.
       // Only reposition every COASTAL_REPOSITION_INTERVAL to avoid
       // spamming setPatrolTile every 10 ticks when nothing has changed.
       this._patrolTargetUnit = null;
@@ -546,10 +576,34 @@ export class AIUnitHandler {
         AIUnitHandler.COASTAL_REPOSITION_INTERVAL
       ) {
         this._lastIdlePatrolTick = this.mg.ticks();
-        const avgPortTile = this.findAveragePortPosition(player);
-        if (avgPortTile !== null) {
-          for (const ws of warships) {
-            this.setPatrolIfChanged(ws, avgPortTile);
+
+        // Collect coastal tiles of all enemies we're at war with
+        const enemyCoastTiles: TileRef[] = [];
+        for (const other of this.mg.players()) {
+          if (other.id() === player.id()) continue;
+          if (
+            other.type() !== PlayerType.Human &&
+            other.type() !== PlayerType.AI
+          )
+            continue;
+          if (!player.isAtWarWith(other)) continue;
+          for (const tile of this.getCoastalBorderTiles(other)) {
+            enemyCoastTiles.push(tile);
+          }
+        }
+
+        if (enemyCoastTiles.length > 0) {
+          // Sort for spatial consistency before spreading
+          enemyCoastTiles.sort((a, b) => {
+            const dx = this.mg.x(a) - this.mg.x(b);
+            return dx !== 0 ? dx : this.mg.y(a) - this.mg.y(b);
+          });
+          this.spreadWarshipsAlongCoast(warships, enemyCoastTiles);
+        } else {
+          // No enemy coast — spread along own coast
+          const ownCoast = this.getCoastalBorderTiles(player);
+          if (ownCoast.length > 0) {
+            this.spreadWarshipsAlongCoast(warships, ownCoast);
           }
         }
       }
@@ -750,7 +804,7 @@ export class AIUnitHandler {
       globalTradeIncome += p.tradeShipGoldPerMinute();
     }
     const tradeComponent = tradeWeight * globalTradeIncome;
-    const coastalIndicator = this.shouldUseCoastalDefense(player) ? 1 : 0;
+    const coastalIndicator = this.allEnemiesAreNaval(player) ? 1 : 0;
     const coastalComponent = coastalWeight * coastalIndicator;
 
     const numerator =
