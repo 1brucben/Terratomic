@@ -1,6 +1,6 @@
 # Mobile UI Architecture
 
-> Last updated: 2026-02-16
+> Last updated: 2026-02-19
 
 Quick-reference architecture map for the mobile UI layer. All source lives under `src/client/mobile/`.
 
@@ -136,7 +136,7 @@ Toggle in action grid enables upgrade-mode: subsequent taps upgrade the nearest 
 | File                                      | Lines |
 | ----------------------------------------- | ----- |
 | `MobileActionGrid.ts`                     | 1449  |
-| `MobileUI.ts`                             | 873   |
+| `MobileUI.ts`                             | 878   |
 | `MobileTopBar.ts`                         | 394   |
 | `MobileDetector.ts`                       | 120   |
 | `MobileUIStyles.ts`                       | 322   |
@@ -169,3 +169,17 @@ Toggle in action grid enables upgrade-mode: subsequent taps upgrade the nearest 
 | `utils/Icons.ts`                          | 70    |
 | `utils/OverlayPositioning.ts`             | 46    |
 | `MobileUIOverlayCoordinator.ts`           | 48    |
+
+---
+
+## Lobby / Pre-game UI
+
+The public lobby has its own responsive stylesheet separate from the in-game mobile UI layer:
+
+| File                                      | Lines | Notes                                                     |
+| ----------------------------------------- | ----- | --------------------------------------------------------- |
+| `src/client/styles/mobile/main-lobby.css` | 2043  | Landscape + portrait responsive layout for the main lobby |
+
+The file is imported via `src/client/styles.css` and applies media-query-driven layout adjustments for the lobby screen (game list, map previews, join flow). It is independent of `MobileUIStyles.ts` and only active on the lobby route — no in-game components depend on it.
+
+Map names displayed in the lobby are resolved through `GameMapType` for correct i18n lookup (`src/client/PublicLobby.ts`).
