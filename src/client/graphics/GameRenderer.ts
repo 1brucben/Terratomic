@@ -50,7 +50,7 @@ import { WarScoreOverlay } from "./layers/WarScoreOverlay";
 import { WinModal } from "./layers/WinModal";
 
 // Debug flags (keep off for normal gameplay)
-const DEBUG_SHOW_POINTER_COORDS = true;
+const DEBUG_SHOW_POINTER_COORDS = false;
 
 export function createRenderer(
   canvas: HTMLCanvasElement,
