@@ -606,6 +606,13 @@ export class AIConstructionHandler {
           : this._portTileScore;
       newComposite = newBuildScore * effectivePortTileScore;
       upgComposite = upgradeStructureScore * upgradeScore;
+
+      // When the AI has no ports, the naval unit score acts as a floor
+      // on the final composite so it isn't diluted by weight × tileScore.
+      if (player.unitsOwned(UnitType.Port) === 0) {
+        const navalScore = this._navalScoreProvider?.() ?? 0;
+        newComposite = Math.max(newComposite, navalScore);
+      }
     } else if (unitType === UnitType.DefensePost) {
       newComposite = newBuildScore * this._defensePostTileScore;
       upgComposite = 0; // Defense posts cannot be stacked
@@ -837,13 +844,13 @@ export class AIConstructionHandler {
   private scorePort(player: Player, costOverride?: bigint): number {
     const portCount = player.unitsOwned(UnitType.Port);
 
-    // If AI has 0 ports, score as discounted present value of 50% of
-    // total income, delayed by the time needed to afford the port:
+    // When the AI has 0 ports, score the first port as a discounted
+    // present value of a share of total income:
     //   score = d / r / (1 + r)^(T + 1)
-    // where d = 50% of total income/min, r = discount factor,
+    // where d = incomeShare * grossGoldPerMinute, r = discount factor,
     // T = minutes to afford the port at current income.
-    // Also take the max with the naval unit score so the AI still
-    // prioritises a port when it wants naval units.
+    // The naval-score boost is applied later in scoreTarget (on the
+    // final composite) so it isn't diluted by weight × tileScore.
     if (portCount === 0) {
       const grossGoldPerMinute = player.estimatedGoldIncomePerMinute();
       const r = this.params.discountFactor ?? 0.1;
@@ -857,8 +864,7 @@ export class AIConstructionHandler {
         const d = incomeShare * grossGoldPerMinute;
         base = d / r / Math.pow(1 + r, T + 1);
       }
-      const navalScore = this._navalScoreProvider?.() ?? 0;
-      return Math.max(base, navalScore);
+      return base;
     }
 
     // Get global trade demand queue length

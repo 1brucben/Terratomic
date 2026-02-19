@@ -84,8 +84,8 @@
         "nukeWarScoreSigmoidScale": 0.025,
         "discountFactor": 0.1,
         "weightWarship": 1,
-        "warshipTradeIncomeWeight": 2e-6,
-        "warshipCoastalThreatWeight": 2e1,
+        "warshipTradeIncomeWeight": 0,
+        "warshipCoastalThreatWeight": 0,
         "firstPortIncomeShare": 0.45
       }
     },
