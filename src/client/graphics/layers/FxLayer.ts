@@ -51,6 +51,18 @@ export class FxLayer implements Layer {
     this.pixicanvas = document.createElement("canvas");
     this.pixicanvas.width = window.innerWidth;
     this.pixicanvas.height = window.innerHeight;
+
+    // DOM overlay: avoids expensive WebGL-to-2D drawImage compositing.
+    this.pixicanvas.style.position = "fixed";
+    this.pixicanvas.style.left = "0";
+    this.pixicanvas.style.top = "0";
+    this.pixicanvas.style.width = "100%";
+    this.pixicanvas.style.height = "100%";
+    this.pixicanvas.style.pointerEvents = "none";
+    // Above AABulletLayer PIXI (z-34), below NameLayer DOM (z-40)
+    this.pixicanvas.style.zIndex = "35";
+    document.body.appendChild(this.pixicanvas);
+
     this.stage = new PIXI.Container();
 
     await this.renderer.init({
@@ -278,8 +290,6 @@ export class FxLayer implements Layer {
       }
 
       this.renderer.render(this.stage);
-
-      context.drawImage(this.pixicanvas, 0, 0);
     }
   }
 
