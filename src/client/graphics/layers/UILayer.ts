@@ -144,24 +144,8 @@ export class UILayer implements Layer {
 
   onUnitEvent(unit: UnitView) {
     switch (unit.type()) {
-      case UnitType.Construction: {
-        const playerId = this.game.myPlayer()?.id();
-        if (
-          unit.isActive() &&
-          playerId !== undefined &&
-          unit.owner().id() === playerId
-        ) {
-          const constructionType = unit.constructionType();
-          if (constructionType === undefined) {
-            // Skip units without construction type
-            return;
-          }
-          const endTick =
-            this.game.unitInfo(constructionType).constructionDuration ?? 0;
-          this.drawLoadingBar(unit, endTick);
-        }
-        break;
-      }
+      // Note: Construction loading bars are now handled in StructureLayer
+      // for proper z-ordering with the PIXI-rendered structure icons.
       case UnitType.Warship: {
         this.drawHealthBar(unit);
         break;

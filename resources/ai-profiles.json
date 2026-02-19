@@ -85,7 +85,7 @@
         "discountFactor": 0.1,
         "weightWarship": 1,
         "warshipTradeIncomeWeight": 0,
-        "warshipCoastalThreatWeight": 0,
+        "warshipCoastalThreatWeight": 5e4,
         "firstPortIncomeShare": 0.45
       }
     },
