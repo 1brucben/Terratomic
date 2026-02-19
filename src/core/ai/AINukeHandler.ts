@@ -68,6 +68,14 @@ export class AINukeHandler {
    */
   private _warScoreProvider: ((targetId: PlayerID) => number) | null = null;
 
+  // --- Per-tick caches (refreshed at the start of each tick()) ---
+  private _cachedTickNumber: number = -1;
+  private _cachedStrongestEnemyId: PlayerID | null = null;
+  private _cachedSigmoids: Map<PlayerID, number> = new Map();
+  private _cachedSiloCapacity: number = 0;
+  /** Per-tick cache for unitInfo().cost() results, keyed by "unitType:playerId". */
+  private _cachedUnitCosts: Map<string, number> = new Map();
+
   constructor(
     private mg: Game,
     private playerId: PlayerID,
@@ -101,17 +109,7 @@ export class AINukeHandler {
     return 1 / (1 + Math.exp(-x));
   }
 
-  /**
-   * Returns the sigmoid multiplier for enemy value based on the war-score
-   * (without dominance) against `targetId`.  Returns 1 when no provider is
-   * set or the scale param is 0.
-   */
-  private warScoreSigmoid(targetId: PlayerID): number {
-    const scale = this.params.nukeWarScoreSigmoidScale ?? 1 / 50;
-    if (scale === 0 || !this._warScoreProvider) return 1;
-    const ws = this._warScoreProvider(targetId);
-    return AINukeHandler.sigmoid(scale * (ws - 4));
-  }
+  // warScoreSigmoid is now served by getCachedSigmoid / computeWarScoreSigmoid
 
   /**
    * Called each tick by the owning AI player. Evaluates every other tick
@@ -120,6 +118,9 @@ export class AINukeHandler {
   tick(ticks: number): void {
     this.player = this.mg.player(this.playerId);
     if (!this.player || !this.player.isAlive()) return;
+
+    // Refresh per-tick caches
+    this.refreshTickCaches(ticks);
 
     // Periodic reevaluation of saved best tiles (always check, independent of skip)
     if (
@@ -171,31 +172,54 @@ export class AINukeHandler {
   // ---------------------------------------------------------------------------
 
   /**
+   * Refresh all per-tick caches. Called once at the start of each tick().
+   */
+  private refreshTickCaches(ticks: number): void {
+    if (ticks === this._cachedTickNumber) return;
+    this._cachedTickNumber = ticks;
+
+    // Strongest enemy
+    this._cachedStrongestEnemyId = this.computeStrongestEnemyId();
+
+    // Sigmoid cache
+    this._cachedSigmoids.clear();
+
+    // Silo capacity
+    this._cachedSiloCapacity = this.computeSiloCapacity();
+
+    // Unit cost cache
+    this._cachedUnitCosts.clear();
+  }
+
+  /**
    * Pick a random tile within a hydrogen bomb's inner radius of a random
    * enemy structure (owned by an AI or Human player we're at war with).
+   *
+   * Picks a random enemy player first, then a random structure from that
+   * player, avoiding a full iteration over every structure on the map.
    * Returns null if no enemy structures exist.
    */
   private pickTileNearEnemyStructure(): TileRef | null {
-    // Single call for all structure types instead of 12 separate calls
-    const enemyStructures: Unit[] = [];
-    for (const structure of this.mg.units(
-      ...AINukeHandler.ALL_STRUCTURE_TYPES,
-    )) {
-      if (!structure.isActive()) continue;
-      const owner = structure.owner();
-      if (owner.type() !== PlayerType.Human && owner.type() !== PlayerType.AI) {
-        continue;
-      }
-      if (owner.id() === this.playerId) continue;
-      if (!this.player!.isAtWarWith(owner)) continue;
-      enemyStructures.push(structure);
+    // Collect enemy players we're at war with
+    const enemyPlayers: Player[] = [];
+    for (const p of this.mg.players()) {
+      if (!p.isAlive()) continue;
+      if (p.id() === this.playerId) continue;
+      if (p.type() !== PlayerType.Human && p.type() !== PlayerType.AI) continue;
+      if (!this.player!.isAtWarWith(p)) continue;
+      enemyPlayers.push(p);
     }
+    if (enemyPlayers.length === 0) return null;
 
-    if (enemyStructures.length === 0) return null;
+    // Pick a random enemy player
+    const enemy = enemyPlayers[this.random.nextInt(0, enemyPlayers.length)];
 
-    // Pick a random enemy structure
-    const target =
-      enemyStructures[this.random.nextInt(0, enemyStructures.length)];
+    // Get that player's structures
+    const structures = enemy.units(...AINukeHandler.ALL_STRUCTURE_TYPES);
+    if (structures.length === 0) return null;
+
+    // Pick a random structure from that player
+    const target = structures[this.random.nextInt(0, structures.length)];
     const structureTile = target.tile();
 
     // Random offset within hydrogen bomb inner radius
@@ -266,7 +290,7 @@ export class AINukeHandler {
 
     const friendlyDamageWeight = this.params.nukeFriendlyDamageWeight ?? 1.0;
 
-    const strongestEnemyId = this.getStrongestEnemyId();
+    const strongestEnemyId = this._cachedStrongestEnemyId;
 
     let atomEnemyValue = 0;
     let atomFriendlyValue = 0;
@@ -292,7 +316,7 @@ export class AINukeHandler {
 
       if (isEnemy) {
         const bonus = owner.id() === strongestEnemyId ? 1000 : 0;
-        const sig = this.warScoreSigmoid(owner.id());
+        const sig = this.getCachedSigmoid(owner.id());
         hydrogenEnemyValue += (value + bonus) * sig;
         if (distSquared <= atomInnerRangeSq)
           atomEnemyValue += (value + bonus) * sig;
@@ -304,10 +328,11 @@ export class AINukeHandler {
 
     // Shared cost components (SAM penalty + silo capacity)
     const samLevels = this.calculateSAMPenalty(tile);
-    const atomBombCost = Number(
-      this.mg.unitInfo(UnitType.AtomBomb).cost(this.player!),
+    const atomBombCost = this.getCachedUnitCost(
+      UnitType.AtomBomb,
+      this.player!,
     );
-    const siloCapacity = this.getPlayerSiloCapacity();
+    const siloCapacity = this._cachedSiloCapacity;
 
     // Use moving-average income estimate for time-to-fund
     const grossGoldPerMinute = this.player!.estimatedGoldIncomePerMinute();
@@ -324,8 +349,9 @@ export class AINukeHandler {
     // Hydrogen score
     const hydrogenNumerator =
       hydrogenEnemyValue - friendlyDamageWeight * hydrogenFriendlyValue;
-    const hydrogenBombCost = Number(
-      this.mg.unitInfo(UnitType.HydrogenBomb).cost(this.player!),
+    const hydrogenBombCost = this.getCachedUnitCost(
+      UnitType.HydrogenBomb,
+      this.player!,
     );
     const hydrogenTotalCost = hydrogenBombCost + samLevels * atomBombCost;
     const hydrogenT =
@@ -339,10 +365,33 @@ export class AINukeHandler {
   }
 
   /**
+   * Look up the cached war-score sigmoid for `targetId`, computing and
+   * storing it on first access within this tick.
+   */
+  private getCachedSigmoid(targetId: PlayerID): number {
+    let val = this._cachedSigmoids.get(targetId);
+    if (val === undefined) {
+      val = this.computeWarScoreSigmoid(targetId);
+      this._cachedSigmoids.set(targetId, val);
+    }
+    return val;
+  }
+
+  /**
+   * Raw sigmoid computation (not cached). Use `getCachedSigmoid` instead.
+   */
+  private computeWarScoreSigmoid(targetId: PlayerID): number {
+    const scale = this.params.nukeWarScoreSigmoidScale ?? 1 / 50;
+    if (scale === 0 || !this._warScoreProvider) return 1;
+    const ws = this._warScoreProvider(targetId);
+    return AINukeHandler.sigmoid(scale * (ws - 4));
+  }
+
+  /**
    * Find the enemy at war with this AI player that has the highest
    * military strength. Returns its PlayerID, or null if none.
    */
-  private getStrongestEnemyId(): PlayerID | null {
+  private computeStrongestEnemyId(): PlayerID | null {
     let strongestId: PlayerID | null = null;
     let highestStrength = -Infinity;
     for (const p of this.mg.players()) {
@@ -366,9 +415,7 @@ export class AINukeHandler {
     const bombsNeeded = 1 + samLevels;
     if (siloCapacity >= bombsNeeded) return 0;
 
-    const siloCost = Number(
-      this.mg.unitInfo(UnitType.MissileSilo).cost(this.player!),
-    );
+    const siloCost = this.getCachedUnitCost(UnitType.MissileSilo, this.player!);
     const levelsNeeded = bombsNeeded - siloCapacity;
 
     if (siloCapacity > 0) {
@@ -396,7 +443,7 @@ export class AINukeHandler {
 
     const friendlyDamageWeight = this.params.nukeFriendlyDamageWeight ?? 1.0;
 
-    const strongestEnemyId = this.getStrongestEnemyId();
+    const strongestEnemyId = this._cachedStrongestEnemyId;
 
     let enemyValue = 0;
     let friendlyValue = 0;
@@ -422,7 +469,7 @@ export class AINukeHandler {
 
       if (this.player!.isAtWarWith(owner)) {
         const bonus = owner.id() === strongestEnemyId ? 1000 : 0;
-        const sig = this.warScoreSigmoid(owner.id());
+        const sig = this.getCachedSigmoid(owner.id());
         enemyValue += (this.getStructureValue(structure) + bonus) * sig;
       } else {
         friendlyValue += this.getStructureValue(structure);
@@ -431,12 +478,13 @@ export class AINukeHandler {
 
     const numerator = enemyValue - friendlyDamageWeight * friendlyValue;
 
-    const bombCost = Number(this.mg.unitInfo(bombType).cost(this.player!));
-    const atomBombCost = Number(
-      this.mg.unitInfo(UnitType.AtomBomb).cost(this.player!),
+    const bombCost = this.getCachedUnitCost(bombType, this.player!);
+    const atomBombCost = this.getCachedUnitCost(
+      UnitType.AtomBomb,
+      this.player!,
     );
     const samLevels = this.calculateSAMPenalty(tile);
-    const siloCapacity = this.getPlayerSiloCapacity();
+    const siloCapacity = this._cachedSiloCapacity;
     const totalCost =
       bombCost +
       samLevels * atomBombCost +
@@ -479,12 +527,27 @@ export class AINukeHandler {
   }
 
   /**
+   * Get the cached cost (as number) for a unit type owned by a player.
+   * Avoids repeated unitInfo() object allocation + cost() calls.
+   */
+  private getCachedUnitCost(unitType: UnitType, owner: Player): number {
+    const key = `${unitType}:${owner.id()}`;
+    let cost = this._cachedUnitCosts.get(key);
+    if (cost === undefined) {
+      cost = Number(this.mg.unitInfo(unitType).cost(owner));
+      this._cachedUnitCosts.set(key, cost);
+    }
+    return cost;
+  }
+
+  /**
    * Compute the value of a structure: base cost + 80% per upgrade level.
    */
   private getStructureValue(structure: Unit): number {
-    const unitType = structure.type();
-    const owner = structure.owner();
-    const baseCost = Number(this.mg.unitInfo(unitType).cost(owner));
+    const baseCost = this.getCachedUnitCost(
+      structure.type(),
+      structure.owner(),
+    );
     const level = structure.stackCount?.() ?? 1;
 
     if (level <= 1) {
@@ -499,10 +562,17 @@ export class AINukeHandler {
   }
 
   /**
-   * Get the silo launch capacity for this AI player.
+   * Get the silo launch capacity for this AI player (cached per tick).
    * Returns the stack count of the player's largest silo, or 0 if none exist.
    */
   getPlayerSiloCapacity(): number {
+    return this._cachedSiloCapacity;
+  }
+
+  /**
+   * Compute the silo capacity from scratch (called once per tick).
+   */
+  private computeSiloCapacity(): number {
     let maxCapacity = 0;
     for (const silo of this.mg.units(UnitType.MissileSilo)) {
       if (!silo.isActive()) continue;
