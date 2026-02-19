@@ -120,7 +120,6 @@ import {
   maxUnitLevel,
   playerMaxUnitLevel,
 } from "../core/game/Upgradeables";
-import { ToggleBomberUpgradeModeEvent } from "./events/ToggleBomberUpgradeModeEvent";
 import { ToggleUpgradeModeEvent } from "./events/ToggleUpgradeModeEvent";
 import { TransformHandler } from "./graphics/TransformHandler";
 import { UIState } from "./graphics/UIState";
@@ -407,11 +406,6 @@ export class InputHandler {
         this.uiState.upgradeMode = false;
         this.eventBus.emit(new ToggleUpgradeModeEvent(false));
       }
-      // Disable bomber upgrade mode on build action
-      if (this.uiState.bomberUpgradeMode) {
-        this.uiState.bomberUpgradeMode = false;
-        this.eventBus.emit(new ToggleBomberUpgradeModeEvent(false));
-      }
       const cell = this.transformHandler.screenToWorldCoordinates(
         this.lastPointerX,
         this.lastPointerY,
@@ -511,12 +505,6 @@ export class InputHandler {
         this.uiState.upgradeMode = false;
         this.eventBus.emit(new ToggleUpgradeModeEvent(false));
       }
-      // Disable bomber upgrade mode on build action
-      if (this.uiState.bomberUpgradeMode) {
-        this.uiState.bomberUpgradeMode = false;
-        this.eventBus.emit(new ToggleBomberUpgradeModeEvent(false));
-      }
-
       if (
         this.uiState.pendingBuildUnitType === UnitType.Artillery &&
         !this.validateArtilleryBuildDistance(tile, true)

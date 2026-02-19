@@ -53,10 +53,6 @@ export class SendUpgradeStructureIntentEvent implements GameEvent {
   ) {}
 }
 
-export class SendUpgradeBomberIntentEvent implements GameEvent {
-  constructor(public readonly airfieldId: number) {}
-}
-
 export class SendAllianceReplyIntentEvent implements GameEvent {
   constructor(
     // The original alliance requestor
@@ -363,9 +359,6 @@ export class Transport {
 
     this.eventBus.on(SendUpgradeStructureIntentEvent, (e) =>
       this.onSendUpgradeStructureIntent(e),
-    );
-    this.eventBus.on(SendUpgradeBomberIntentEvent, (e) =>
-      this.onSendUpgradeBomberIntent(e),
     );
     this.eventBus.on(SendParatrooperAttackIntentEvent, (e) =>
       this.onSendParatrooperAttackIntent(e),
@@ -780,7 +773,6 @@ export class Transport {
 
     // Read stack count from localStorage (in-game communication)
     let stackCount: number | undefined;
-    let bomberLevel: number | undefined;
     try {
       const rawStack = localStorage.getItem("buildSettings.stackCount");
       if (rawStack) {
@@ -792,7 +784,6 @@ export class Transport {
       }
     } catch {
       stackCount = undefined;
-      bomberLevel = undefined;
     }
 
     console.log(
@@ -804,7 +795,6 @@ export class Transport {
       unit: event.unit,
       tile: event.tile,
       targetLevel: stackCount, // Renamed semantically but keeping wire format for now
-      bomberLevel,
     });
   }
 
@@ -815,14 +805,6 @@ export class Transport {
       clientID: this.lobbyConfig.clientID,
       unitId: event.unitId,
       unitType: event.unitType,
-    });
-  }
-
-  private onSendUpgradeBomberIntent(event: SendUpgradeBomberIntentEvent) {
-    this.sendIntent({
-      type: "upgrade_bomber",
-      clientID: this.lobbyConfig.clientID,
-      airfieldId: event.airfieldId,
     });
   }
 

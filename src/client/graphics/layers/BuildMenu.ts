@@ -21,10 +21,7 @@ import shieldIcon from "../../../../resources/images/ShieldIconWhite.svg";
 import submarineIcon from "../../../../resources/images/submarine.svg";
 import { translateText } from "../../../client/Utils";
 import { EventBus } from "../../../core/EventBus";
-import {
-  aggregateStructureBuildCost,
-  computeBomberUpgradeCost,
-} from "../../../core/game/Costs";
+import { aggregateStructureBuildCost } from "../../../core/game/Costs";
 import { Gold, UnitType, UpgradeType } from "../../../core/game/Game";
 import { GameView } from "../../../core/game/GameView";
 import {
@@ -37,7 +34,6 @@ import {
   playerMaxStructureTechLevel,
   playerMaxUnitLevel,
 } from "../../../core/game/Upgradeables";
-import { ToggleBomberUpgradeModeEvent } from "../../events/ToggleBomberUpgradeModeEvent";
 import { ToggleUpgradeModeEvent } from "../../events/ToggleUpgradeModeEvent";
 import { displayKey, renderNumber } from "../../Utils";
 import { UIState } from "../UIState";
@@ -561,7 +557,7 @@ export class BuildMenu extends LitElement {
     // Stackable structures: use stack count for cost calculation
     if (isStackableStructure(item.unitType)) {
       const stackCount = this._desiredStackCount(item.unitType);
-      let structureCost =
+      const structureCost =
         stackCount <= 1
           ? base
           : aggregateStructureBuildCost(
@@ -571,16 +567,6 @@ export class BuildMenu extends LitElement {
               stackCount,
               this.game.config().structureUpgradeCostMultiplier(item.unitType),
             );
-      // Add bomber upgrade cost for airfields (based on tech level, not stack)
-      if (item.unitType === UnitType.Airfield) {
-        const bomberLevel = this._structureTechLevel(UnitType.Airfield);
-        structureCost += computeBomberUpgradeCost(
-          this.game.config(),
-          this.game.myPlayer()!,
-          bomberLevel,
-          stackCount,
-        );
-      }
       return structureCost;
     }
     // Units: use hardcoded costs from UnitUpgrades (aggregateStructureBuildCost handles this)
@@ -793,11 +779,6 @@ export class BuildMenu extends LitElement {
     if (this.uiState?.upgradeMode) {
       this.uiState.upgradeMode = false;
       this.eventBus?.emit(new ToggleUpgradeModeEvent(false));
-    }
-    // Disable bomber upgrade mode on build action
-    if (this.uiState?.bomberUpgradeMode) {
-      this.uiState.bomberUpgradeMode = false;
-      this.eventBus?.emit(new ToggleBomberUpgradeModeEvent(false));
     }
     if (this.uiState.pendingBuildUnitType === item.unitType) {
       this.uiState.pendingBuildUnitType = null;

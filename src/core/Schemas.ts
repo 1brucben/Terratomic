@@ -61,8 +61,7 @@ export type Intent =
   | MarkDisconnectedIntent
   | SetAutoBombingIntent
   | KickPlayerIntent
-  | UpgradeStructureIntent
-  | UpgradeBomberIntent;
+  | UpgradeStructureIntent;
 
 export type AttackIntent = z.infer<typeof AttackIntentSchema>;
 export type CancelAttackIntent = z.infer<typeof CancelAttackIntentSchema>;
@@ -118,8 +117,6 @@ export type KickPlayerIntent = z.infer<typeof KickPlayerIntentSchema>;
 export type UpgradeStructureIntent = z.infer<
   typeof UpgradeStructureIntentSchema
 >;
-export type UpgradeBomberIntent = z.infer<typeof UpgradeBomberIntentSchema>;
-
 export type Turn = z.infer<typeof TurnSchema>;
 export enum PeaceTimerDuration {
   None = 0,
@@ -439,20 +436,12 @@ export const BuildUnitIntentSchema = BaseIntentSchema.extend({
   // Optional desired starting level for upgradeable structures.
   // Server will clamp based on type and game rules.
   targetLevel: z.number().int().min(1).max(99).optional(),
-  // Optional desired bomber upgrade level for airfields.
-  // Server will clamp based on maxUnitLevel(UnitType.Bomber).
-  bomberLevel: z.number().int().min(1).max(99).optional(),
 });
 
 export const UpgradeStructureIntentSchema = BaseIntentSchema.extend({
   type: z.literal("upgrade_structure"),
   unitId: z.number(),
   unitType: z.enum(UnitType),
-});
-
-export const UpgradeBomberIntentSchema = BaseIntentSchema.extend({
-  type: z.literal("upgrade_bomber"),
-  airfieldId: z.number(),
 });
 
 export const ResearchTreeSelectIntentSchema = BaseIntentSchema.extend({
@@ -558,7 +547,6 @@ const IntentSchema = z.discriminatedUnion("type", [
   ResearchInvestmentIntentSchema,
   BuildUnitIntentSchema,
   UpgradeStructureIntentSchema,
-  UpgradeBomberIntentSchema,
   ResearchTreeSelectIntentSchema,
   EmbargoIntentSchema,
   MoveWarshipIntentSchema,

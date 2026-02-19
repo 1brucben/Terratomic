@@ -24,7 +24,6 @@ import {
   type InvestmentSyncDetail,
 } from "../../events/InvestmentEvents";
 import { PlayerListChangedEvent } from "../../events/PlayerListChangedEvent";
-import { ToggleBomberUpgradeModeEvent } from "../../events/ToggleBomberUpgradeModeEvent";
 import { ToggleUpgradeModeEvent } from "../../events/ToggleUpgradeModeEvent";
 import { AttackRatioEvent } from "../../InputHandler";
 import "../../StatisticsModal"; // ensure statistics modal is registered
@@ -797,11 +796,6 @@ export class ControlPanel2 extends LitElement implements Layer {
       this.uiState.upgradeMode = false;
       this.eventBus.emit(new ToggleUpgradeModeEvent(false));
     }
-    // Disable bomber upgrade mode if mass production is enabled
-    if (this._multibuildEnabled && this.uiState.bomberUpgradeMode) {
-      this.uiState.bomberUpgradeMode = false;
-      this.eventBus.emit(new ToggleBomberUpgradeModeEvent(false));
-    }
     this.requestUpdate();
   }
 
@@ -1225,12 +1219,6 @@ export class ControlPanel2 extends LitElement implements Layer {
                       if (enabled && this._multibuildEnabled) {
                         this._multibuildEnabled = false;
                         this.uiState.multibuildEnabled = false;
-                      }
-                      if (enabled && this.uiState.bomberUpgradeMode) {
-                        this.uiState.bomberUpgradeMode = false;
-                        this.eventBus.emit(
-                          new ToggleBomberUpgradeModeEvent(false),
-                        );
                       }
                       if (enabled) {
                         this.uiState.pendingBuildUnitType = null;
