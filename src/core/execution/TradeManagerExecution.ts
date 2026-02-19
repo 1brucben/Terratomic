@@ -14,6 +14,7 @@ import { PathFindResultType } from "../pathfinding/AStar";
 import { PathFinder } from "../pathfinding/PathFinding";
 import { PseudoRandom } from "../PseudoRandom";
 import { roadEffectModifiers, tradeIncomeModifiers } from "../tech/TechEffects";
+import { TradeDemandDebug } from "./TradeDebugData";
 
 type PairKey = string; // `${fromId}->${toId}`
 
@@ -97,6 +98,69 @@ export class TradeManagerExecution implements Execution {
 
   activeDuringSpawnPhase(): boolean {
     return false;
+  }
+
+  /** Expose bilateral demand + queue breakdown for the debug overlay. */
+  public getDemandDebug(): TradeDemandDebug[] {
+    // Collect all players referenced in demand map or queue
+    const playerById = new Map<string, Player>();
+    for (const p of this.mg.players()) {
+      playerById.set(p.id(), p);
+    }
+
+    // Count queued routes per pair
+    const queueCounts = new Map<PairKey, number>();
+    for (const { from, to } of this.queue) {
+      const k = this.key(from, to);
+      queueCounts.set(k, (queueCounts.get(k) ?? 0) + 1);
+    }
+
+    // Count active ships per pair (ships with a tradePhase that are en route)
+    const activeShipCounts = new Map<PairKey, number>();
+    for (const ship of this.cachedShips) {
+      if (!ship.isActive()) continue;
+      const phase = ship.tradePhase?.();
+      if (phase === null || phase === undefined) continue;
+      const startOwner = ship.tradeRouteStartOwner?.();
+      const endOwner = ship.tradeRouteEndOwner?.();
+      if (startOwner && endOwner) {
+        const k = this.key(startOwner, endOwner);
+        activeShipCounts.set(k, (activeShipCounts.get(k) ?? 0) + 1);
+      }
+    }
+
+    // Collect all pair keys from demand, queue and active ships
+    const allKeys = new Set<PairKey>([
+      ...this.demand.keys(),
+      ...queueCounts.keys(),
+      ...activeShipCounts.keys(),
+    ]);
+
+    const results: TradeDemandDebug[] = [];
+    for (const k of allKeys) {
+      const [fromId, toId] = k.split("->");
+      const fromPlayer = playerById.get(fromId);
+      const toPlayer = playerById.get(toId);
+      if (!fromPlayer || !toPlayer) continue;
+      results.push({
+        fromId,
+        fromName: fromPlayer.displayName(),
+        toId,
+        toName: toPlayer.displayName(),
+        fractionalDemand: this.demand.get(k) ?? 0,
+        queuedRoutes: queueCounts.get(k) ?? 0,
+        activeShips: activeShipCounts.get(k) ?? 0,
+      });
+    }
+
+    // Sort by queued+active descending, then fractional demand descending
+    results.sort(
+      (a, b) =>
+        b.queuedRoutes + b.activeShips - (a.queuedRoutes + a.activeShips) ||
+        b.fractionalDemand - a.fractionalDemand,
+    );
+
+    return results;
   }
 
   tick(ticks: number): void {

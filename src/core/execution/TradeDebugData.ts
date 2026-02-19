@@ -56,10 +56,25 @@ export interface TradePlayerDebug {
   ships: TradeShipDebug[];
 }
 
+/** Per-pair bilateral demand snapshot */
+export interface TradeDemandDebug {
+  fromId: string;
+  fromName: string;
+  toId: string;
+  toName: string;
+  /** Fractional demand accumulated (enqueue threshold = 1.0) */
+  fractionalDemand: number;
+  /** Number of routes currently queued for this pair */
+  queuedRoutes: number;
+  /** Number of active ships currently servicing this pair */
+  activeShips: number;
+}
+
 /** Top-level debug payload */
 export interface TradeDebugPayload {
   tick: number;
   queueLength: number;
   totalTradeShips: number;
   players: TradePlayerDebug[];
+  demands: TradeDemandDebug[];
 }

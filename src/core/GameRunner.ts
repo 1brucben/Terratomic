@@ -258,6 +258,7 @@ export class GameRunner {
 
   // Optional profile map: maps playerInfo.id → AIBehaviorParams for calibration
   private aiProfileMap?: Map<string, AIBehaviorParams>;
+  private tradeManager?: TradeManagerExecution;
 
   constructor(
     public game: Game,
@@ -426,7 +427,8 @@ export class GameRunner {
     // Background: periodically compute player capitals (geographic centers)
     this.game.addExecution(new CapitalRecalculationExecution());
     // Trade rework: central trade manager for demand/supply/assignment
-    this.game.addExecution(new TradeManagerExecution());
+    this.tradeManager = new TradeManagerExecution();
+    this.game.addExecution(this.tradeManager);
   }
 
   public addTurn(turn: Turn): void {
@@ -752,6 +754,7 @@ export class GameRunner {
       queueLength,
       totalTradeShips: allShips.length,
       players: playerDebugList,
+      demands: this.tradeManager?.getDemandDebug() ?? [],
     };
   }
 }

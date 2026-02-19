@@ -1,5 +1,6 @@
 import {
   TradeDebugPayload,
+  TradeDemandDebug,
   TradePlayerDebug,
   TradeShipDebug,
 } from "../../../core/execution/TradeDebugData";
@@ -22,6 +23,8 @@ export class TradeDebugOverlay implements Layer {
   private cachedData: TradeDebugPayload | null = null;
   private fetching = false;
   private selectedPlayer: string | null = null;
+  private viewMode: "ships" | "demand" = "ships";
+  private demandFilter: string = "";
 
   private static readonly REFRESH_INTERVAL = 2000;
 
@@ -55,6 +58,18 @@ export class TradeDebugOverlay implements Layer {
       const id = target.dataset.playerId;
       if (id !== undefined) {
         this.selectedPlayer = id === this.selectedPlayer ? null : id;
+        this.renderContent();
+      }
+      if (target.dataset.viewMode) {
+        this.viewMode = target.dataset.viewMode as "ships" | "demand";
+        this.renderContent();
+      }
+    });
+
+    this.container.addEventListener("input", (e) => {
+      const target = e.target as HTMLInputElement;
+      if (target.dataset.demandFilter !== undefined) {
+        this.demandFilter = target.value;
         this.renderContent();
       }
     });
@@ -134,24 +149,47 @@ export class TradeDebugOverlay implements Layer {
       })
       .join("");
 
-    const sel = data.players.find((d) => d.playerId === this.selectedPlayer);
-    let body = "";
-    if (sel) {
-      body = this.renderPlayerDetail(sel);
-    }
-
     const globalSummary = `
       <span style="color: #888; font-size: 10px;">
         Tick: ${data.tick} &nbsp;|&nbsp; Queue: ${data.queueLength} &nbsp;|&nbsp; Total Ships: ${data.totalTradeShips}
       </span>
     `;
 
+    const shipsBg =
+      this.viewMode === "ships"
+        ? "background: rgba(80,120,200,0.5);"
+        : "background: rgba(255,255,255,0.1);";
+    const demandBg =
+      this.viewMode === "demand"
+        ? "background: rgba(80,120,200,0.5);"
+        : "background: rgba(255,255,255,0.1);";
+    const viewTabs = `
+      <span data-view-mode="ships" style="cursor: pointer; padding: 3px 8px; margin-right: 4px; border-radius: 3px; ${shipsBg}">Ships</span>
+      <span data-view-mode="demand" style="cursor: pointer; padding: 3px 8px; margin-right: 4px; border-radius: 3px; ${demandBg}">Demand</span>
+    `;
+
+    let body = "";
+    if (this.viewMode === "ships") {
+      const sel = data.players.find((d) => d.playerId === this.selectedPlayer);
+      if (sel) {
+        body = this.renderPlayerDetail(sel);
+      }
+    } else {
+      body = this.renderDemandView(data.demands);
+    }
+
+    const playerTabs =
+      this.viewMode === "ships"
+        ? `<div style="margin-bottom: 6px; flex-wrap: wrap;">${tabs}</div>`
+        : "";
+
     this.container.innerHTML = `
       <div style="margin-bottom: 6px; font-weight: bold; font-size: 12px;">
         Trade Ship Debug <span style="font-weight: normal; color: #888; font-size: 10px;">(F11 to close)</span>
       </div>
       <div style="margin-bottom: 6px;">${globalSummary}</div>
-      <div style="margin-bottom: 6px; flex-wrap: wrap;">${tabs}</div>
+      <div style="margin-bottom: 6px;">${viewTabs}</div>
+      ${playerTabs}
       ${body}
     `;
   }
@@ -201,6 +239,84 @@ export class TradeDebugOverlay implements Layer {
     </table>`;
 
     return summary + table;
+  }
+
+  private renderDemandView(demands: TradeDemandDebug[]): string {
+    if (demands.length === 0) {
+      return '<div style="color: #888; padding: 8px;">No demand data available.</div>';
+    }
+
+    // Filter by search term
+    const filter = this.demandFilter.toLowerCase();
+    const filtered = filter
+      ? demands.filter(
+          (d) =>
+            d.fromName.toLowerCase().includes(filter) ||
+            d.toName.toLowerCase().includes(filter),
+        )
+      : demands;
+
+    const searchBox = `
+      <div style="margin-bottom: 8px;">
+        <input data-demand-filter type="text" placeholder="Filter by country name…"
+          value="${this.esc(this.demandFilter)}"
+          style="background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.2);
+                 color: #e0e0e0; font-family: monospace; font-size: 11px; padding: 3px 6px;
+                 border-radius: 3px; width: 200px;" />
+        <span style="color: #888; font-size: 10px; margin-left: 6px;">${filtered.length} of ${demands.length} pairs</span>
+      </div>
+    `;
+
+    // Demand bar: visual representation of fractional demand (0–1)
+    const demandBar = (frac: number): string => {
+      const pct = Math.min(frac * 100, 100);
+      const color =
+        frac >= 0.8
+          ? "#88cc88"
+          : frac >= 0.5
+            ? "#cccc44"
+            : frac >= 0.2
+              ? "#cc8844"
+              : "#666";
+      return `<div style="display: inline-block; width: 50px; height: 8px; background: rgba(255,255,255,0.1); border-radius: 2px; vertical-align: middle;">
+        <div style="width: ${pct}%; height: 100%; background: ${color}; border-radius: 2px;"></div>
+      </div>`;
+    };
+
+    const rows = filtered
+      .map((d) => {
+        const hasQueue = d.queuedRoutes > 0;
+        const hasActive = d.activeShips > 0;
+        const rowBg = hasQueue
+          ? "background: rgba(255,170,0,0.07);"
+          : hasActive
+            ? "background: rgba(80,200,80,0.07);"
+            : "";
+        return `<tr style="${rowBg} border-bottom: 1px solid rgba(255,255,255,0.05);">
+          <td style="padding: 2px 6px;">${this.esc(d.fromName)}</td>
+          <td style="text-align: center; padding: 2px 6px; color: #888;">→</td>
+          <td style="padding: 2px 6px;">${this.esc(d.toName)}</td>
+          <td style="text-align: center; padding: 2px 6px;">${demandBar(d.fractionalDemand)} <span style="color: #aaa;">${d.fractionalDemand.toFixed(3)}</span></td>
+          <td style="text-align: center; padding: 2px 6px; color: ${hasQueue ? "#ffaa00" : "#888"}; font-weight: ${hasQueue ? "bold" : "normal"};">${d.queuedRoutes}</td>
+          <td style="text-align: center; padding: 2px 6px; color: ${hasActive ? "#88cc88" : "#888"};">${d.activeShips}</td>
+        </tr>`;
+      })
+      .join("");
+
+    return `
+      ${searchBox}
+      <table style="width: 100%; border-collapse: collapse;">
+        <tr style="border-bottom: 1px solid rgba(255,255,255,0.2);">
+          <th style="text-align: left; padding: 2px 6px;">From</th>
+          <th style="padding: 2px 6px;"></th>
+          <th style="text-align: left; padding: 2px 6px;">To</th>
+          <th style="text-align: center; padding: 2px 6px;">Demand</th>
+          <th style="text-align: center; padding: 2px 6px;">Queued</th>
+          <th style="text-align: center; padding: 2px 6px;">Active</th>
+        </tr>
+        ${rows}
+      </table>
+    `;
   }
 
   private renderShipRow(s: TradeShipDebug): string {
