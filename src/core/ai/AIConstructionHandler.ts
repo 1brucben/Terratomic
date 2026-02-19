@@ -46,7 +46,7 @@ export class AIConstructionHandler {
   private static readonly AIRFIELD_SCORE_MULTIPLIER = 5e3;
   private static readonly SAM_BASE_SCORE = 2e-1;
   private static readonly DEFENSE_POST_BASE_SCORE = 7e4;
-  private static readonly MIN_TILE_EVALUATIONS_BEFORE_BUILD = 20;
+  private static readonly MIN_TILE_EVALUATIONS_BEFORE_BUILD = 30;
   private static readonly TILE_EVALUATION_INTERVAL = 1;
   private static readonly TILE_CACHE_REBUILD_INTERVAL = 200; // Rebuild tile cache every ~10s (200 ticks at 20 tps)
   private static readonly UPGRADE_SCORE_DIVISOR = 0.8;
