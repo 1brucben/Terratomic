@@ -240,10 +240,10 @@ export class TradeManagerExecution implements Execution {
         if (i === j) continue;
         const a = players[i];
         const b = players[j];
-        // If either side has an embargo against the other, demand is zero
+        // If either side has an embargo against the other, skip accumulation
+        // but preserve the existing fractional demand so it resumes where it
+        // left off once the embargo lifts.
         if (a.hasEmbargoAgainst(b) || b.hasEmbargoAgainst(a)) {
-          // Keep fractional demand at 0 for this pair
-          this.demand.set(this.key(a, b), 0);
           continue;
         }
         const capA = a.capital();
