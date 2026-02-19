@@ -1811,7 +1811,6 @@ export class PlayerImpl implements Player {
       );
     }
 
-    const cost = this.mg.unitInfo(type).cost(this);
     const b = new UnitImpl(
       type,
       this.mg,
@@ -1822,7 +1821,7 @@ export class PlayerImpl implements Player {
     );
     this._units.push(b);
     this.recordUnitConstructed(type);
-    this.removeGold(cost);
+    // Gold is handled by ConstructionExecution upfront; no deduction here.
     this.removeTroops("troops" in params ? (params.troops ?? 0) : 0);
     this.mg.addUpdate(b.toUpdate());
     this.mg.addUnit(b);
@@ -1834,12 +1833,15 @@ export class PlayerImpl implements Player {
   public buildableUnits(tile: TileRef): BuildableUnit[] {
     const validTiles = this.validStructureSpawnTiles(tile);
     return Object.values(UnitType).map((u) => {
+      const cost = this.mg.config().unitInfo(u).cost(this);
       return {
         type: u,
         canBuild: this.mg.inSpawnPhase()
           ? false
-          : this.canBuild(u, tile, validTiles),
-        cost: this.mg.config().unitInfo(u).cost(this),
+          : this.gold() < cost
+            ? false
+            : this.canBuild(u, tile, validTiles),
+        cost,
       } as BuildableUnit;
     });
   }
@@ -1916,10 +1918,11 @@ export class PlayerImpl implements Player {
       return false;
     }
 
-    const cost = this.mg.unitInfo(unitType).cost(this);
-    if (!this.isAlive() || this.gold() < cost) {
+    if (!this.isAlive()) {
       return false;
     }
+    // Gold affordability is checked by ConstructionExecution and buildableUnits(),
+    // not here, to avoid false negatives when gold is already reserved.
     return this.canBuildAtTileInternal(unitType, targetTile, validTiles);
   }
 

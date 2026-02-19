@@ -102,11 +102,7 @@ export class ConstructionExecution implements Execution {
           return;
         }
         this.player.removeGold(total);
-        // Refund base before constructing final unit (buildUnit deducts base)
-        if (this.baseCost > 0n) {
-          this.player.addGold(this.baseCost);
-        }
-        // Immediately complete construction logic
+        // Gold is fully reserved upfront; buildUnit no longer deducts.
         this.completeConstruction();
         this.active = false;
         return;
@@ -159,11 +155,7 @@ export class ConstructionExecution implements Execution {
     if (this.ticksUntilComplete === 0) {
       this.player = this.construction.owner();
       this.construction.delete(false);
-      // Refund only base cost; PlayerImpl.buildUnit will deduct base again.
-      // Net effect over the flow is total aggregated cost.
-      if (this.baseCost > 0n) {
-        this.player.addGold(this.baseCost);
-      }
+      // Gold was fully reserved upfront; buildUnit no longer deducts.
       this.completeConstruction();
       this.active = false;
       return;
