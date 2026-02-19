@@ -27,6 +27,8 @@ export interface AIBehaviorParams {
   terraNulliusMaxDistance?: number;
   /** Minimum spacing between TN boat targets to prevent clustering */
   terraNulliusBoatSpacing?: number;
+  /** Search range for opportunistic boat attacks (random probes for nearby TN across water). Default 20. */
+  terraNulliusOpportunisticBoatRange?: number;
 
   // === Bot Attack Behavior ===
   /** Minimum troop ratio (troops / maxTroops) before attacking bots (0-1) */
