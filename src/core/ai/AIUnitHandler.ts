@@ -46,6 +46,11 @@ export class AIUnitHandler {
   private _cachedEnemyMaxWarships = 0;
   private _cachedEnemyWarshipsTick = -Infinity;
 
+  // --- Naval share EMA (refreshed every NAVAL_SHARE_SCAN_INTERVAL ticks) ---
+  /** EMA of the military-strength-weighted share of enemies that are naval. [0, 1] */
+  private _navalShareEMA = 0;
+  private _lastNavalShareTick = -Infinity;
+
   // --- Warship patrol state ---
   /** Set of warship IDs currently on default (coast) patrol. */
   private _availableWarshipIds: Set<number> = new Set();
@@ -68,6 +73,14 @@ export class AIUnitHandler {
   private static readonly ASSIGNED_PATROL_INTERVAL = 300;
   /** How often (in ticks) to rescan enemy warship counts. */
   private static readonly WARSHIP_SCAN_INTERVAL = 50;
+  /** How often (in ticks) to recompute the naval-share EMA. */
+  private static readonly NAVAL_SHARE_SCAN_INTERVAL = 10;
+  /**
+   * EMA smoothing factor for naval share.
+   * Window ≈ 600 ticks (1 minute), updated every 10 ticks → 60 samples.
+   * alpha = 2 / (60 + 1) ≈ 0.0328.
+   */
+  private static readonly NAVAL_SHARE_EMA_ALPHA = 2 / 61;
   /** Internal base constant for warship score numerator. */
   private static readonly WARSHIP_BASE_SCORE = 2.5e5;
 
@@ -154,6 +167,14 @@ export class AIUnitHandler {
     ) {
       this.refreshEnemyWarshipCount(player);
       this._cachedEnemyWarshipsTick = ticks;
+    }
+
+    if (
+      ticks - this._lastNavalShareTick >=
+      AIUnitHandler.NAVAL_SHARE_SCAN_INTERVAL
+    ) {
+      this.refreshNavalShareEMA(player);
+      this._lastNavalShareTick = ticks;
     }
   }
 
@@ -646,23 +667,33 @@ export class AIUnitHandler {
   // ---------------------------------------------------------------------------
 
   /**
-   * Check if ALL enemies are naval-only (no shared land border).
-   * Used for warship *scoring* — the coastal-threat bonus applies when
-   * every enemy the AI is fighting is across water.
+   * Recompute the military-strength-weighted share of enemies that are
+   * naval-only (no shared land border) and feed it into the EMA.
+   *
+   * navalShare = Σ(isNaval_i * milStr_i) / Σ(milStr_i)  ∈ [0, 1]
+   *
+   * Called every NAVAL_SHARE_SCAN_INTERVAL ticks from refreshCaches.
    */
-  private allEnemiesAreNaval(player: Player): boolean {
-    let hasEnemy = false;
+  private refreshNavalShareEMA(player: Player): void {
+    let totalWeight = 0;
+    let navalWeight = 0;
+
     for (const other of this.mg.players()) {
       if (other.id() === player.id()) continue;
       if (other.type() !== PlayerType.Human && other.type() !== PlayerType.AI)
         continue;
       if (!player.isAtWarWith(other)) continue;
-      hasEnemy = true;
-      if (player.sharesBorderWith(other)) {
-        return false;
+
+      const strength = other.militaryStrength();
+      totalWeight += strength;
+      if (!player.sharesBorderWith(other)) {
+        navalWeight += strength;
       }
     }
-    return hasEnemy;
+
+    const sample = totalWeight > 0 ? navalWeight / totalWeight : 0;
+    const alpha = AIUnitHandler.NAVAL_SHARE_EMA_ALPHA;
+    this._navalShareEMA = alpha * sample + (1 - alpha) * this._navalShareEMA;
   }
 
   /**
@@ -802,10 +833,12 @@ export class AIUnitHandler {
    *
    *   numerator = WARSHIP_BASE_SCORE
    *             + warshipTradeIncomeWeight  * globalTradeShipGoldPerMinute
-   *             + warshipCoastalThreatWeight * coastalThreatIndicator
+   *             + warshipCoastalThreatWeight * navalShareEMA
    *   score = (numerator * weightWarship) / (1 + r)^T
    *
-   * where T = minutes to fund (enemyMax + 1) warships at current income.
+   * where T = minutes to fund (enemyMax + 1) warships at current income,
+   * and navalShareEMA is an exponential moving average [0,1] of the
+   * military-strength-weighted share of enemies that are naval-only.
    */
   private scoreWarship(player: Player): number {
     const ownWarships = player.unitCount(UnitType.Warship);
@@ -835,8 +868,7 @@ export class AIUnitHandler {
       globalTradeIncome += p.tradeShipGoldPerMinute();
     }
     const tradeComponent = tradeWeight * globalTradeIncome;
-    const coastalIndicator = this.allEnemiesAreNaval(player) ? 1 : 0;
-    const coastalComponent = coastalWeight * coastalIndicator;
+    const coastalComponent = coastalWeight * this._navalShareEMA;
 
     const numerator =
       AIUnitHandler.WARSHIP_BASE_SCORE + tradeComponent + coastalComponent;
