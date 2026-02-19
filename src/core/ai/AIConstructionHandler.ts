@@ -1333,6 +1333,32 @@ export class AIConstructionHandler {
       if (hasNearby) z += bonus;
     }
 
+    // Feature 5: SAM coverage bonus (flat +0.01 if within range of an existing or under-construction SAM)
+    {
+      const sams = player
+        .units(UnitType.SAMLauncher)
+        .filter((u) => u.isActive());
+      for (const u of player.units(UnitType.Construction)) {
+        if (u.isActive() && u.constructionType() === UnitType.SAMLauncher) {
+          sams.push(u);
+        }
+      }
+      if (sams.length > 0) {
+        const techLevel = playerMaxStructureTechLevel(
+          player,
+          UnitType.SAMLauncher,
+        );
+        const samRange = this.getEffectiveSAMRange(techLevel);
+        const samRangeSq = samRange * samRange;
+        for (const sam of sams) {
+          if (this.mg.euclideanDistSquared(tile, sam.tile()) <= samRangeSq) {
+            z += 0.01;
+            break;
+          }
+        }
+      }
+    }
+
     return AIConstructionHandler.sigmoid(z);
   }
 
@@ -1510,6 +1536,32 @@ export class AIConstructionHandler {
         break;
       }
       if (hasNearby) z += bonus;
+    }
+
+    // Feature 6: SAM coverage bonus (flat +0.01 if within range of an existing or under-construction SAM)
+    {
+      const sams = player
+        .units(UnitType.SAMLauncher)
+        .filter((u) => u.isActive());
+      for (const u of player.units(UnitType.Construction)) {
+        if (u.isActive() && u.constructionType() === UnitType.SAMLauncher) {
+          sams.push(u);
+        }
+      }
+      if (sams.length > 0) {
+        const techLevel = playerMaxStructureTechLevel(
+          player,
+          UnitType.SAMLauncher,
+        );
+        const samRange = this.getEffectiveSAMRange(techLevel);
+        const samRangeSq = samRange * samRange;
+        for (const sam of sams) {
+          if (this.mg.euclideanDistSquared(tile, sam.tile()) <= samRangeSq) {
+            z += 0.01;
+            break;
+          }
+        }
+      }
     }
 
     return AIConstructionHandler.sigmoid(z);
