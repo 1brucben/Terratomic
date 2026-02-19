@@ -20,7 +20,7 @@ export class AIBotAttackHandler {
   private targetShoreCache: Map<PlayerID, { tiles: TileRef[]; tick: number }> =
     new Map();
   private lastBoatAttackTick: number = 0;
-  private currentBoatSearchRange: number = 50;
+  private currentBoatSearchRange: number | null = null;
   private static readonly UNREACHABLE_RECHECK_INTERVAL = 100;
   private static readonly NEIGHBOR_CACHE_INTERVAL = 10;
   private static readonly SHORE_CACHE_INTERVAL = 10;
@@ -40,6 +40,13 @@ export class AIBotAttackHandler {
       return null;
     }
     return this.mg.player(this.playerId);
+  }
+
+  private getBoatSearchRange(): number {
+    if (this.currentBoatSearchRange === null) {
+      this.currentBoatSearchRange = this.params.botAttackBoatInitialRange ?? 50;
+    }
+    return this.currentBoatSearchRange;
   }
 
   handleBotAttack(): boolean {
@@ -285,11 +292,11 @@ export class AIBotAttackHandler {
       const dist =
         Math.abs(this.mg.x(closest.x) - this.mg.x(closest.y)) +
         Math.abs(this.mg.y(closest.x) - this.mg.y(closest.y));
-      if (dist > this.currentBoatSearchRange) {
+      if (dist > this.getBoatSearchRange()) {
         // Too far — grow the range for next attempt
         const growth = this.params.botAttackBoatSearchRangeGrowth ?? 0.5;
         this.currentBoatSearchRange = Math.min(
-          this.currentBoatSearchRange + growth,
+          this.getBoatSearchRange() + growth,
           AIBotAttackHandler.MAX_BOAT_SEARCH_RANGE,
         );
         return false;

@@ -49,6 +49,8 @@ export interface AttackDebugData {
   ticksSinceLastBoat: number;
   /** Boat cooldown threshold. */
   boatCooldown: number;
+  /** Current boat search range (Manhattan distance). */
+  boatSearchRange: number;
   /** Per-enemy breakdown. */
   targets: AttackTargetBreakdown[];
 }
@@ -75,6 +77,9 @@ export class AIAttackHandler {
 
   // Last tick we sent a boat attack
   private lastBoatAttackTick = 0;
+
+  // Growing boat search range (Manhattan distance)
+  private currentBoatSearchRange: number | null = null;
 
   // Debug: last tick handleAttack() was actually called
   private _lastHandleAttackTick = 0;
@@ -285,8 +290,19 @@ export class AIAttackHandler {
     }
 
     if (bestTarget === null || bestTile === null) {
+      // No target found at all — grow range for next attempt
+      this.growBoatSearchRange();
       return null;
     }
+
+    // Check if the best target is within the current search range
+    const range = this.getBoatSearchRange();
+    if (shortestDistance > range) {
+      // Target exists but too far — grow range for next attempt
+      this.growBoatSearchRange();
+      return null;
+    }
+
     return { target: bestTarget, tile: bestTile };
   }
 
@@ -353,6 +369,18 @@ export class AIAttackHandler {
       }
     }
     return result;
+  }
+
+  private getBoatSearchRange(): number {
+    if (this.currentBoatSearchRange === null) {
+      this.currentBoatSearchRange = this.params.attackBoatInitialRange ?? 50;
+    }
+    return this.currentBoatSearchRange;
+  }
+
+  private growBoatSearchRange(): void {
+    const growth = this.params.attackBoatRangeGrowth ?? 0.5;
+    this.currentBoatSearchRange = this.getBoatSearchRange() + growth;
   }
 
   private launchLandAttack(player: Player, target: Player): void {
@@ -522,24 +550,29 @@ export class AIAttackHandler {
               }
             }
             boatDistance = minDist;
-            // Try canBuildTransportShip
-            const bestEnemyTile = otherSample.reduce((best, t) => {
-              const dBest = this.mg.manhattanDist(playerSample[0], best);
-              const dT = this.mg.manhattanDist(playerSample[0], t);
-              return dT < dBest ? t : best;
-            });
-            if (
-              canBuildTransportShip(this.mg, player, bestEnemyTile) === false
-            ) {
-              blockReason = `canBuildTransportShip failed (dist=${minDist})`;
+            const currentRange = this.getBoatSearchRange();
+            if (minDist > currentRange) {
+              blockReason = `out of range (dist=${minDist}, range=${currentRange.toFixed(1)})`;
             } else {
-              const boatTroopPercent =
-                this.params.attackBoatTroopPercent ?? 0.1;
-              const troops = player.troops() * boatTroopPercent;
-              if (troops < 1) {
-                blockReason = `boat troops too low (${troops.toFixed(0)})`;
+              // Try canBuildTransportShip
+              const bestEnemyTile = otherSample.reduce((best, t) => {
+                const dBest = this.mg.manhattanDist(playerSample[0], best);
+                const dT = this.mg.manhattanDist(playerSample[0], t);
+                return dT < dBest ? t : best;
+              });
+              if (
+                canBuildTransportShip(this.mg, player, bestEnemyTile) === false
+              ) {
+                blockReason = `canBuildTransportShip failed (dist=${minDist})`;
               } else {
-                blockReason = `OK (boat ready, dist=${minDist})`;
+                const boatTroopPercent =
+                  this.params.attackBoatTroopPercent ?? 0.1;
+                const troops = player.troops() * boatTroopPercent;
+                if (troops < 1) {
+                  blockReason = `boat troops too low (${troops.toFixed(0)})`;
+                } else {
+                  blockReason = `OK (boat ready, dist=${minDist})`;
+                }
               }
             }
           }
@@ -573,6 +606,7 @@ export class AIAttackHandler {
       boatMax,
       ticksSinceLastBoat: currentTick - this.lastBoatAttackTick,
       boatCooldown: AIAttackHandler.BOAT_ATTACK_COOLDOWN,
+      boatSearchRange: this.getBoatSearchRange(),
       targets,
     };
   }

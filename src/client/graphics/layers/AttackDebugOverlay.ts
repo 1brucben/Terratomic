@@ -171,6 +171,7 @@ export class AttackDebugOverlay implements Layer {
         &nbsp;|&nbsp; <b>oceanShore:</b> ${d.oceanShoreTileCount} tiles
         &nbsp;|&nbsp; <b>boats:</b> <span style="color:${boatColor}">${d.boatCount}/${d.boatMax}</span>
         &nbsp;|&nbsp; <b>boatCooldown:</b> <span style="color:${cooldownOk}">${d.ticksSinceLastBoat}/${d.boatCooldown}</span>
+        &nbsp;|&nbsp; <b>boatRange:</b> ${d.boatSearchRange.toFixed(1)}
       </div>
     `;
 
