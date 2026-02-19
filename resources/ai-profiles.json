@@ -72,7 +72,7 @@
         "defensePostNearWaterPenalty": 0.5,
         "warDeclarationThreshold": 100,
         "warScoreSharedBorderWeight": 30,
-        "warScoreMilitaryStrengthWeight": 63,
+        "warScoreMilitaryStrengthWeight": 64,
         "warScoreNonReachableEnemyWeight": 0.2,
         "warScoreCoBelligerentDiscount": 0.9,
         "warScoreAllyPenalty": 0,
