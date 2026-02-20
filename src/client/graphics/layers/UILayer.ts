@@ -144,7 +144,7 @@ export class UILayer implements Layer {
 
   onUnitEvent(unit: UnitView) {
     switch (unit.type()) {
-      // Note: Construction loading bars are now handled in StructureLayer
+      // Construction loading bars are handled in StructureLayer
       // for proper z-ordering with the PIXI-rendered structure icons.
       case UnitType.Warship: {
         this.drawHealthBar(unit);
