@@ -418,13 +418,17 @@ export class AIPlayerExecution implements Execution {
 
     // Periodically re-evaluate the entire nuke plan: score, SAMs,
     // redundancy, construction comparison, and retargeting.
+    // Only run during pre-launch phases so we don't detect our own
+    // in-flight SAM-suppression nukes once launching has started.
+    const isPreLaunch =
+      state.phase === "waitForFunds" || state.phase === "buildSilo";
     if (
       this.shouldRunPeriodic(
         ticks,
         AIPlayerExecution.NUKE_REDUNDANCY_CHECK_INTERVAL,
       )
     ) {
-      if (this.isNukeAlreadyInbound(state)) {
+      if (isPreLaunch && this.isNukeAlreadyInbound(state)) {
         this.resetNukeSequence();
         return;
       }
@@ -711,12 +715,18 @@ export class AIPlayerExecution implements Execution {
     if (!this.player || !this.nukeState || !this.nukeHandler) return;
     const state = this.nukeState;
 
-    // Before the first launch, do a score check and ensure we can afford
-    // ALL SAM atom bombs so we don't start launching and then stall mid-sequence.
+    // Before the first launch, do a score check, redundancy check, and
+    // ensure we can afford ALL SAM atom bombs so we don't start launching
+    // and then stall mid-sequence.
     const isFirstLaunch = state.samTargets.every(
       (s) => s.levelsRemaining === s.sam.stackCount(),
     );
     if (isFirstLaunch) {
+      // Abort if another player's nuke is already heading to this target
+      if (this.isNukeAlreadyInbound(state)) {
+        this.resetNukeSequence();
+        return;
+      }
       const freshScore = this.nukeHandler.scoreForTile(
         state.targetTile,
         state.bombType,
@@ -741,9 +751,14 @@ export class AIPlayerExecution implements Execution {
     const nextSam = state.samTargets.find((s) => s.levelsRemaining > 0);
     if (!nextSam) {
       // All SAM-targeting bombs launched (or there were none)
-      // If there were no SAMs at all, go directly to launchMain
+      // If there were no SAMs at all, check for inbound nukes before
+      // going directly to launchMain (the only launch in this sequence).
       const hadSAMs = state.samTargets.length > 0;
       if (!hadSAMs) {
+        if (this.isNukeAlreadyInbound(state)) {
+          this.resetNukeSequence();
+          return;
+        }
         state.phase = "launchMain";
       } else {
         state.phase = "waitForMain";
@@ -873,7 +888,7 @@ export class AIPlayerExecution implements Execution {
   }
 
   /**
-   * Check whether another nuke (from any player, including ourselves) is
+   * Check whether any nuke (from any player, including ourselves) is
    * already in flight toward the blast radius of our planned target.
    * Returns true if we should abort because the target will already be hit.
    */
@@ -889,8 +904,6 @@ export class AIPlayerExecution implements Execution {
 
     for (const nuke of inFlightNukes) {
       if (!nuke.isActive()) continue;
-      // Skip nukes we launched as part of this sequence's SAM suppression
-      if (nuke.owner().id() === this.player?.id()) continue;
       const target = nuke.targetTile();
       if (target === undefined) continue;
       const dist2 = this.mg.euclideanDistSquared(state.targetTile, target);
