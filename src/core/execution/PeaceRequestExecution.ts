@@ -2,7 +2,6 @@ import { Execution, Game, Player, PlayerID } from "../game/Game";
 
 export class PeaceRequestExecution implements Execution {
   executionName = "PeaceRequestExecution";
-  private mg: Game;
   private active = true;
   private recipient: Player | null = null;
 
