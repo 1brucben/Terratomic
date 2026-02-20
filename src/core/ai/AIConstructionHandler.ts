@@ -230,17 +230,16 @@ export class AIConstructionHandler {
   /**
    * Build the SAM + under-construction-SAM list and range data for a player.
    * Call once per tile evaluation cycle and pass the result to tile score functions.
+   * Always returns range data (needed to evaluate coverage of a potential new SAM)
+   * even when the player owns no SAMs yet.
    */
-  private buildSAMData(
-    player: Player,
-  ): { units: Unit[]; rangeSq: number } | null {
+  private buildSAMData(player: Player): { units: Unit[]; rangeSq: number } {
     const sams = player.units(UnitType.SAMLauncher).filter((u) => u.isActive());
     for (const u of player.units(UnitType.Construction)) {
       if (u.isActive() && u.constructionType() === UnitType.SAMLauncher) {
         sams.push(u);
       }
     }
-    if (sams.length === 0) return null;
     const techLevel = playerMaxStructureTechLevel(player, UnitType.SAMLauncher);
     const samRange = this.getEffectiveSAMRange(techLevel);
     return { units: sams, rangeSq: samRange * samRange };
@@ -1321,7 +1320,7 @@ export class AIConstructionHandler {
     skipSpacingCheck: boolean = false,
     precomputedClosestPlayerDist?: number | null | undefined,
     precomputedNearbyStructures?: Array<{ unit: Unit; distSquared: number }>,
-    precomputedSAMs?: { units: Unit[]; rangeSq: number } | null,
+    precomputedSAMs?: { units: Unit[]; rangeSq: number },
   ): number {
     // Early terrain check: ports must be on ocean shore
     if (!this.mg.isOceanShore(tile)) {
@@ -1451,14 +1450,10 @@ export class AIConstructionHandler {
         precomputedSAMs !== undefined
           ? precomputedSAMs
           : this.buildSAMData(player);
-      if (samData !== null) {
-        for (const sam of samData.units) {
-          if (
-            this.mg.euclideanDistSquared(tile, sam.tile()) <= samData.rangeSq
-          ) {
-            z += 0.01;
-            break;
-          }
+      for (const sam of samData.units) {
+        if (this.mg.euclideanDistSquared(tile, sam.tile()) <= samData.rangeSq) {
+          z += 0.01;
+          break;
         }
       }
     }
@@ -1499,7 +1494,7 @@ export class AIConstructionHandler {
     skipSpacingCheck: boolean = false,
     precomputedClosestPlayerDist?: number | null | undefined,
     precomputedNearbyStructures?: Array<{ unit: Unit; distSquared: number }>,
-    precomputedSAMs?: { units: Unit[]; rangeSq: number } | null,
+    precomputedSAMs?: { units: Unit[]; rangeSq: number },
   ): number {
     // Early terrain check: land structures cannot be on ocean
     if (this.mg.isOcean(tile)) {
@@ -1640,14 +1635,10 @@ export class AIConstructionHandler {
         precomputedSAMs !== undefined
           ? precomputedSAMs
           : this.buildSAMData(player);
-      if (samData !== null) {
-        for (const sam of samData.units) {
-          if (
-            this.mg.euclideanDistSquared(tile, sam.tile()) <= samData.rangeSq
-          ) {
-            z += 0.01;
-            break;
-          }
+      for (const sam of samData.units) {
+        if (this.mg.euclideanDistSquared(tile, sam.tile()) <= samData.rangeSq) {
+          z += 0.01;
+          break;
         }
       }
     }
@@ -1827,7 +1818,7 @@ export class AIConstructionHandler {
     tile: TileRef,
     precomputedClosestPlayerDist?: number | null | undefined,
     skipSpacingCheck: boolean = false,
-    precomputedSAMs?: { units: Unit[]; rangeSq: number } | null,
+    precomputedSAMs?: { units: Unit[]; rangeSq: number },
   ): number {
     if (this.mg.isOcean(tile)) return 0;
     if (!this.mg.hasOwner(tile) || this.mg.owner(tile).id() !== player.id())
@@ -1866,8 +1857,8 @@ export class AIConstructionHandler {
       precomputedSAMs !== undefined
         ? precomputedSAMs
         : this.buildSAMData(player);
-    const sams = samData?.units ?? [];
-    const rangeSquared = samData?.rangeSq ?? 0;
+    const sams = samData.units;
+    const rangeSquared = samData.rangeSq;
 
     const rawScore = this.evaluateSAMPlacementScore(
       player,
