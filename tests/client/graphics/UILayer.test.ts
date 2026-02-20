@@ -129,7 +129,7 @@ describe("UILayer", () => {
     expect((ui as any)["allProgressBars"].has(2)).toBe(true);
   });
 
-  it("should remove loading bar for inactive unit", () => {
+  it("should not add loading bar for Construction unit (handled by StructureLayer)", () => {
     const ui = new UILayer(game, eventBus, transformHandler);
     ui.redraw();
 
@@ -143,16 +143,12 @@ describe("UILayer", () => {
       ticksLeftInCooldown: (): number | undefined => 0,
     };
 
+    // Construction loading bars are now handled in StructureLayer
     (ui as any).onUnitEvent(unit);
-    expect((ui as any)["allProgressBars"].has(2)).toBe(true);
-
-    // an inactive unit should not have a loading bar
-    unit.isActive = () => false;
-    ui.tick();
     expect((ui as any)["allProgressBars"].has(2)).toBe(false);
   });
 
-  it("should remove loading bar for a finished progress bar", () => {
+  it("should not add loading bar for a Construction unit via onUnitEvent", () => {
     const ui = new UILayer(game, eventBus, transformHandler);
     ui.redraw();
 
@@ -166,12 +162,8 @@ describe("UILayer", () => {
       ticksLeftInCooldown: (): number | undefined => 0,
     };
 
+    // Construction loading bars are handled in StructureLayer, not UILayer
     (ui as any).onUnitEvent(unit);
-    expect((ui as any)["allProgressBars"].has(2)).toBe(true);
-
-    // simulate enough ticks for completion
-    game.ticks = () => 6;
-    ui.tick();
     expect((ui as any)["allProgressBars"].has(2)).toBe(false);
   });
 
