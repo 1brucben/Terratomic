@@ -1442,12 +1442,15 @@ export class StructureLayer implements Layer {
     const scale = this.transformHandler.scale;
 
     if (isConstruction) {
+      // Use the same effective scale as the icon so the bar stops/starts
+      // growing at the same zoom thresholds the icon does.
+      const effectiveScale = render.pixiSprite.scale.x * ICON_TEXTURE_QUALITY;
       // World-pixel dimensions converted to screen space
-      barWidth = 13 * scale;
-      barHeight = 1 * scale;
+      barWidth = 26 * effectiveScale;
+      barHeight = 2 * effectiveScale;
       // Centered horizontally on the icon, just below it
       graphics.x = render.pixiSprite.x;
-      graphics.y = render.pixiSprite.y + 6 * scale;
+      graphics.y = render.pixiSprite.y + 12 * effectiveScale;
     } else {
       // Silo / SAM: icon-relative sizing (same as health bar)
       const unitType = unit.type();
