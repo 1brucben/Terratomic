@@ -141,25 +141,8 @@ describe("UILayer", () => {
       tile: () => ({}),
       isActive: () => true,
       ticksLeftInCooldown: (): number | undefined => 0,
-    };
-
-    // Construction loading bars are now handled in StructureLayer
-    (ui as any).onUnitEvent(unit);
-    expect((ui as any)["allProgressBars"].has(2)).toBe(false);
-  });
-
-  it("should not add loading bar for a Construction unit via onUnitEvent", () => {
-    const ui = new UILayer(game, eventBus, transformHandler);
-    ui.redraw();
-
-    const unit: any = {
-      id: () => 2,
-      type: () => "Construction",
-      constructionType: () => "City",
-      owner: () => ({ id: () => 1 }),
-      tile: () => ({}),
-      isActive: () => true,
-      ticksLeftInCooldown: (): number | undefined => 0,
+      cooldownEndsAt: () => 6,
+      cooldownDuration: () => 5,
     };
 
     // Construction loading bars are handled in StructureLayer, not UILayer

@@ -1436,45 +1436,50 @@ export class StructureLayer implements Layer {
     const graphics = render.loadingBarGraphics;
     graphics.clear();
 
-    // Get the structure's icon size and scale
-    const unitType = isConstruction ? unit.constructionType() : unit.type();
-    const shape: BgShape =
-      unitType !== undefined
-        ? (STRUCTURE_BG_SHAPES[unitType as UnitType] ?? "circle")
-        : "circle";
-    const iconDim = ICON_SIZES[shape] ?? ICON_SIZE;
-    const spriteScale = render.pixiSprite.scale.x; // Assumes uniform scaling
-    const scaledIconSize = iconDim * spriteScale;
+    // Bar dimensions and positioning differ between construction and silo/SAM
+    let barWidth: number;
+    let barHeight: number;
+    const scale = this.transformHandler.scale;
 
-    // Bar dimensions scale with the icon (same as health bar)
-    const barWidth = scaledIconSize * 3; // 300% of icon width
-    const barHeight = scaledIconSize * 0.3; // 30% of icon height, min 4px
-    const gap = scaledIconSize * 1.8;
-    const yOffset = scaledIconSize / 2 + barHeight + gap; // Below the icon with scaled gap
+    if (isConstruction) {
+      // World-pixel dimensions converted to screen space
+      barWidth = 13 * scale;
+      barHeight = 1 * scale;
+      // Centered horizontally on the icon, just below it
+      graphics.x = render.pixiSprite.x;
+      graphics.y = render.pixiSprite.y + 6 * scale;
+    } else {
+      // Silo / SAM: icon-relative sizing (same as health bar)
+      const unitType = unit.type();
+      const shape: BgShape =
+        STRUCTURE_BG_SHAPES[unitType as UnitType] ?? "circle";
+      const iconDim = ICON_SIZES[shape] ?? ICON_SIZE;
+      const spriteScale = render.pixiSprite.scale.x;
+      const scaledIconSize = iconDim * spriteScale;
 
-    // Position relative to sprite center
-    graphics.x = render.pixiSprite.x;
-    graphics.y = render.pixiSprite.y + yOffset;
+      barWidth = scaledIconSize * 3;
+      barHeight = scaledIconSize * 0.3;
+      const gap = scaledIconSize * 1.8;
+      const yOffset = scaledIconSize / 2 + barHeight + gap;
+
+      graphics.x = render.pixiSprite.x;
+      graphics.y = render.pixiSprite.y + yOffset;
+    }
 
     // Calculate progress
     let progress: number;
     const currentTick = this.game.ticks();
 
     if (isConstruction) {
-      // Construction progress: use constructionDuration and ticksLeftInCooldown
-      const constructionType = unit.constructionType();
-      const totalDuration =
-        constructionType !== undefined
-          ? (this.game.unitInfo(constructionType).constructionDuration ?? 0)
-          : 0;
-      if (totalDuration <= 0) {
-        progress = 1;
+      // Construction progress: use cooldownEndsAt and cooldownDuration
+      const endsAt = unit.cooldownEndsAt();
+      const duration = unit.cooldownDuration();
+      if (endsAt !== undefined && duration !== undefined && duration > 0) {
+        const startTick = endsAt - duration;
+        const elapsed = currentTick - startTick;
+        progress = Math.min(1, Math.max(0, elapsed / duration));
       } else {
-        const ticksLeft = unit.ticksLeftInCooldown() ?? 0;
-        progress = Math.min(
-          1,
-          Math.max(0, (totalDuration - ticksLeft) / totalDuration),
-        );
+        progress = 0;
       }
     } else {
       // Silo / SAM cooldown progress using cooldownEndsAt
@@ -1488,9 +1493,15 @@ export class StructureLayer implements Layer {
       progress = Math.min(1, Math.max(0, elapsed / totalCooldown));
     }
 
-    // Background (black border)
+    // Background (black border) — padding scales with zoom so bar looks consistent
+    const pad = barHeight;
     graphics.beginFill(0x000000, 1);
-    graphics.drawRect(-barWidth / 2 - 1, -1, barWidth + 2, barHeight + 2);
+    graphics.drawRect(
+      -barWidth / 2 - pad,
+      -pad,
+      barWidth + pad * 2,
+      barHeight + pad * 2,
+    );
     graphics.endFill();
 
     // Progress fill (color based on progress)
