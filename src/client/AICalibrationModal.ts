@@ -27,7 +27,7 @@ export class AICalibrationModal extends LitElement {
   @state() private numPlayers = 10;
   @state() private selectedProfileA = "";
   @state() private selectedProfileB = "";
-  @state() private selectedMap: GameMapType = GameMapType.World;
+  @state() private selectedMap: GameMapType = GameMapType.WorldMap;
   @state() private bots = 0;
   @state() private maxTicks = 30000;
   @state() private numMatches = 10;
