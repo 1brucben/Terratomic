@@ -1,5 +1,4 @@
 import { ConstructionExecution } from "../execution/ConstructionExecution";
-import { NukeExecution } from "../execution/NukeExecution";
 import { UpgradeStructureExecution } from "../execution/UpgradeStructureExecution";
 import {
   Execution,
@@ -778,7 +777,11 @@ export class AIPlayerExecution implements Execution {
 
     // Launch atom bomb at this SAM's tile
     this.mg.addExecution(
-      new NukeExecution(UnitType.AtomBomb, this.player, nextSam.sam.tile()),
+      new ConstructionExecution(
+        this.player,
+        UnitType.AtomBomb,
+        nextSam.sam.tile(),
+      ),
     );
     nextSam.levelsRemaining--;
   }
@@ -822,7 +825,7 @@ export class AIPlayerExecution implements Execution {
 
     // Fire the main bomb
     this.mg.addExecution(
-      new NukeExecution(state.bombType, this.player, state.targetTile),
+      new ConstructionExecution(this.player, state.bombType, state.targetTile),
     );
 
     // Sequence complete — reset
