@@ -1662,9 +1662,9 @@ export class PlayerImpl implements Player {
     return (
       this.troops() +
       0.9 * this.attackingTroops() +
-      Number(this._gold) / 100 +
-      this._militaryAssetValue / 100 +
-      this.workers() * 0.8
+      Number(this._gold) / 10 +
+      this._militaryAssetValue / 10 +
+      this.estimatedGoldIncomePerMinute() / 100
     );
   }
 
@@ -1680,9 +1680,50 @@ export class PlayerImpl implements Player {
     this._militaryAssetValueLastTick = currentTick;
 
     let total = 0n;
+    const excludedTypes = new Set<UnitType>([
+      // Economic / non-military structures
+      UnitType.City,
+      UnitType.Factory,
+      UnitType.Port,
+      // In-flight projectiles / transient units
+      UnitType.Shell,
+      UnitType.SAMMissile,
+      UnitType.AtomBomb,
+      UnitType.HydrogenBomb,
+      UnitType.MIRV,
+      UnitType.MIRVWarhead,
+      UnitType.AABullet,
+      // Non-combat / transport units
+      UnitType.TransportShip,
+      UnitType.TradeShip,
+      UnitType.CargoPlane,
+      // Excluded military units
+      UnitType.Bomber,
+      UnitType.DoomsdayDevice,
+    ]);
     for (const unit of this._units) {
       const t = unit.type();
-      if (t === UnitType.City) continue;
+      if (excludedTypes.has(t)) continue;
+
+      // For in-progress constructions, use the target unit's cost instead of 0.
+      // Gold was already deducted upfront, so this restores visibility during build.
+      if (t === UnitType.Construction) {
+        const targetType = unit.constructionType();
+        if (targetType === null || excludedTypes.has(targetType)) continue;
+        const targetLevel = unit.constructionTargetLevel();
+        let constructionCost: Gold;
+        if (targetLevel > 1) {
+          const levelCost = getUnitLevelCost(targetType, targetLevel);
+          constructionCost =
+            levelCost > 0n
+              ? levelCost
+              : this.mg.unitInfo(targetType).cost(this);
+        } else {
+          constructionCost = this.mg.unitInfo(targetType).cost(this);
+        }
+        total += constructionCost;
+        continue;
+      }
 
       // Use level-specific cost when available, otherwise base cost
       const level = unit.level();
