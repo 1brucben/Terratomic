@@ -16,7 +16,10 @@ import { Theme } from "../../../core/configuration/Config";
 import { EventBus } from "../../../core/EventBus";
 import { computeUpgradeStepCost } from "../../../core/game/Costs";
 import { Cell, PlayerID, UnitType } from "../../../core/game/Game";
-import { GameUpdateType } from "../../../core/game/GameUpdates";
+import {
+  GameUpdateType,
+  type PlayerUpdate,
+} from "../../../core/game/GameUpdates";
 import { GameView, UnitView } from "../../../core/game/GameView";
 import { getUnitUpgradeCost } from "../../../core/game/UnitUpgrades";
 import {
@@ -110,6 +113,13 @@ export class StructureLayer implements Layer {
     number,
     { primary: number; secondary: number }
   >();
+  // Track tech levels per player to detect changes (for star display refresh)
+  private lastPlayerTechLevels = new Map<
+    number,
+    { samLevel: number; airfieldLevel: number }
+  >();
+  private techLevelCheckCounter = 0;
+  private static readonly TECH_LEVEL_CHECK_INTERVAL = 10;
 
   // Icons registry
   private structures: Map<
@@ -257,6 +267,65 @@ export class StructureLayer implements Layer {
 
   tick() {
     const updates = this.game.updatesSinceLastTick();
+
+    // Handle player updates for research tech changes (rebuild textures for SAM/Airfield stars)
+    // Only check every 10 ticks — research is rare and a brief delay is imperceptible
+    this.techLevelCheckCounter++;
+    if (
+      this.techLevelCheckCounter >= StructureLayer.TECH_LEVEL_CHECK_INTERVAL
+    ) {
+      this.techLevelCheckCounter = 0;
+      const playerUpdates =
+        updates !== null
+          ? (updates[GameUpdateType.Player] as PlayerUpdate[])
+          : [];
+      for (const playerUpdate of playerUpdates) {
+        const player = this.game.playerBySmallID(playerUpdate.smallID);
+        // Skip if player not found or is TerraNullius (no research)
+        if (!player || !player.isPlayer()) continue;
+
+        const currentSamLevel = playerMaxStructureTechLevel(
+          player,
+          UnitType.SAMLauncher,
+        );
+        const currentAirfieldLevel = playerMaxStructureTechLevel(
+          player,
+          UnitType.Airfield,
+        );
+        const cached = this.lastPlayerTechLevels.get(playerUpdate.smallID);
+
+        // Check if levels changed (or first encounter with upgraded levels)
+        const samChanged = !cached
+          ? currentSamLevel > 1
+          : cached.samLevel !== currentSamLevel;
+        const airfieldChanged = !cached
+          ? currentAirfieldLevel > 1
+          : cached.airfieldLevel !== currentAirfieldLevel;
+
+        // Always update cache with current levels
+        this.lastPlayerTechLevels.set(playerUpdate.smallID, {
+          samLevel: currentSamLevel,
+          airfieldLevel: currentAirfieldLevel,
+        });
+
+        // Rebuild textures if levels changed
+        if (samChanged || airfieldChanged) {
+          for (const r of this.renders) {
+            const unitType = r.unit.type();
+            if (r.unit.owner().smallID() !== playerUpdate.smallID) continue;
+
+            if (
+              (unitType === UnitType.SAMLauncher && samChanged) ||
+              (unitType === UnitType.Airfield && airfieldChanged)
+            ) {
+              r.pixiSprite.texture = this.createTexture(r.unit);
+              this.shouldRedraw = true;
+            }
+          }
+        }
+      }
+    }
+
     const unitUpdates = updates !== null ? updates[GameUpdateType.Unit] : [];
     for (const u of unitUpdates) {
       const unitView = this.game.unit(u.id);
