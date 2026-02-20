@@ -189,35 +189,5 @@
     "category": "fantasy",
     "frequency": 1,
     "playerCounts": [25, 20, 15]
-  },
-  {
-    "fileName": "NukeWars2000",
-    "displayName": "NukeWars 2000",
-    "category": "fantasy",
-    "generatorScript": "src/scripts/createNukeWars2000Image.ts",
-    "frequency": 1,
-    "playerCounts": [25, 20, 15]
-  },
-  {
-    "fileName": "NukeWarsQuad",
-    "displayName": "NukeWars Quad",
-    "category": "fantasy",
-    "generatorScript": "src/scripts/createNukeWarsQuadMap.ts",
-    "frequency": 1,
-    "playerCounts": [25, 20, 15]
-  },
-  {
-    "fileName": "Nukewars1024",
-    "displayName": "Nukewars 1024",
-    "category": "fantasy",
-    "frequency": 1,
-    "playerCounts": [25, 20, 15]
-  },
-  {
-    "fileName": "NukeWars2",
-    "displayName": "NukeWars 2",
-    "category": "fantasy",
-    "frequency": 1,
-    "playerCounts": [25, 20, 15]
   }
 ]
