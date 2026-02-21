@@ -433,7 +433,7 @@ export class AIAttackHandler {
 
     this.lastBoatAttackTick = this.mg.ticks();
     this.mg.addExecution(
-      new TransportShipExecution(player, target.id(), targetTile, troops, null),
+      new TransportShipExecution(player, targetTile, troops),
     );
     return true;
   }

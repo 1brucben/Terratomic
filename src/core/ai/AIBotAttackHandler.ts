@@ -308,13 +308,7 @@ export class AIBotAttackHandler {
       }
       this.lastBoatAttackTick = currentTick;
       this.mg.addExecution(
-        new TransportShipExecution(
-          player,
-          target.id(),
-          closest.y,
-          troops,
-          null,
-        ),
+        new TransportShipExecution(player, closest.y, troops),
       );
       return true;
     }

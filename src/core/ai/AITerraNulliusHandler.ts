@@ -274,9 +274,7 @@ export class AITerraNulliusHandler {
       }
 
       this.pendingBoatTargets.add(tile);
-      this.mg.addExecution(
-        new TransportShipExecution(player, null, tile, troops, null),
-      );
+      this.mg.addExecution(new TransportShipExecution(player, tile, troops));
       return true;
     }
 
@@ -318,9 +316,7 @@ export class AITerraNulliusHandler {
       }
 
       this.pendingBoatTargets.add(dst);
-      this.mg.addExecution(
-        new TransportShipExecution(player, null, dst, troops, null),
-      );
+      this.mg.addExecution(new TransportShipExecution(player, dst, troops));
       return true;
     }
     return false;
