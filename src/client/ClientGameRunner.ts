@@ -580,7 +580,7 @@ export class ClientGameRunner {
             this.myPlayer.troops() * this.renderer.uiState.attackRatio,
           ),
         );
-      } else if (this.canBoatAttack(actions, tile)) {
+      } else if (this.canAutoBoat(actions, tile)) {
         this.sendBoatAttackIntent(tile);
       }
     });
@@ -599,7 +599,7 @@ export class ClientGameRunner {
     }
 
     this.myPlayer.actions(tile).then((actions) => {
-      if (this.canBoatAttack(actions, tile)) {
+      if (this.canBoatAttack(actions) !== false) {
         this.sendBoatAttackIntent(tile);
       }
     });
@@ -647,7 +647,7 @@ export class ClientGameRunner {
     return this.gameView.ref(cell.x, cell.y);
   }
 
-  private canBoatAttack(actions: PlayerActions, tile: TileRef): boolean {
+  private canBoatAttack(actions: PlayerActions): false | TileRef {
     const bu = actions.buildableUnits.find(
       (bu) => bu.type === UnitType.TransportShip,
     );
@@ -655,7 +655,7 @@ export class ClientGameRunner {
       console.warn(`no transport ship buildable units`);
       return false;
     }
-    return bu.canBuild !== false && this.gameView.isLand(tile);
+    return bu.canBuild;
   }
 
   private sendBoatAttackIntent(tile: TileRef) {
@@ -674,16 +674,20 @@ export class ClientGameRunner {
     });
   }
 
-  private shouldBoat(tile: TileRef, src: TileRef) {
+  private canAutoBoat(actions: PlayerActions, tile: TileRef): boolean {
+    if (!this.gameView.isLand(tile)) return false;
+
+    const canBuild = this.canBoatAttack(actions);
+    if (canBuild === false) return false;
+
     // TODO: Global enable flag
     // TODO: Global limit autoboat to nearby shore flag
     // if (!enableAutoBoat) return false;
     // if (!limitAutoBoatNear) return true;
-    const distanceSquared = this.gameView.euclideanDistSquared(tile, src);
+    const distanceSquared = this.gameView.euclideanDistSquared(tile, canBuild);
     const limit = 100;
     const limitSquared = limit * limit;
-    if (distanceSquared > limitSquared) return false;
-    return true;
+    return distanceSquared < limitSquared;
   }
 
   private onMouseMove(event: MouseMoveEvent) {
