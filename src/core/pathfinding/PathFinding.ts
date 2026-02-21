@@ -162,6 +162,7 @@ export class PathFinder {
   private curr: TileRef | null = null;
   private dst: TileRef | null = null;
   private path: TileRef[] | null = null;
+  private path_idx: number = 0;
   private aStar: AStar<TileRef>;
   private computeFinished = true;
 
@@ -203,6 +204,7 @@ export class PathFinder {
       return { type: PathFindResultType.PathNotFound };
     }
     if (this.game.manhattanDist(curr, dst) < dist) {
+      this.path = null;
       return { type: PathFindResultType.Completed, node: curr };
     }
 
@@ -211,11 +213,12 @@ export class PathFinder {
         this.curr = curr;
         this.dst = dst;
         this.path = null;
+        this.path_idx = 0;
         this.aStar = this.newAStar(curr, dst);
         this.computeFinished = false;
         return this.nextTile(curr, dst);
       } else {
-        const tile = this.path?.shift();
+        const tile = this.path?.[this.path_idx++];
         if (tile === undefined) {
           // Path exhausted unexpectedly. If already within step distance, report completion.
           if (this.game.manhattanDist(curr, dst) < dist) {
@@ -225,6 +228,7 @@ export class PathFinder {
           this.curr = curr;
           this.dst = dst;
           this.path = null;
+          this.path_idx = 0;
           this.aStar = this.newAStar(curr, dst);
           this.computeFinished = false;
           return this.nextTile(curr, dst);
@@ -237,8 +241,9 @@ export class PathFinder {
       case PathFindResultType.Completed:
         this.computeFinished = true;
         this.path = this.aStar.reconstructPath();
-        // Remove the start tile
-        this.path.shift();
+
+        // exclude first tile
+        this.path_idx = 1;
         // If the reconstructed path is empty, fall back to completion or path-not-found handling.
         if (!this.path || this.path.length === 0) {
           if (this.game.manhattanDist(curr, dst) < dist) {
