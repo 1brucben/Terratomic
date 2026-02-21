@@ -8,10 +8,10 @@ import {
 } from "./PathFinder.Parabola";
 import { PathFinderBuilder } from "./PathFinderBuilder";
 import { StepperConfig } from "./PathFinderStepper";
-import { BresenhamSmoothingTransformer } from "./smoothing/BresenhamPathSmoother";
 import { ComponentCheckTransformer } from "./transformers/ComponentCheckTransformer";
 import { MiniMapTransformer } from "./transformers/MiniMapTransformer";
 import { ShoreCoercingTransformer } from "./transformers/ShoreCoercingTransformer";
+import { SmoothingWaterTransformer } from "./transformers/SmoothingWaterTransformer";
 import { PathStatus, SteppingPathFinder } from "./types";
 
 /**
@@ -43,7 +43,7 @@ export class PathFinding {
 
     return PathFinderBuilder.create(pf)
       .wrap((pf) => new ComponentCheckTransformer(pf, componentCheckFn))
-      .wrap((pf) => new BresenhamSmoothingTransformer(pf, miniMap))
+      .wrap((pf) => new SmoothingWaterTransformer(pf, miniMap))
       .wrap((pf) => new ShoreCoercingTransformer(pf, miniMap))
       .wrap((pf) => new MiniMapTransformer(pf, game.map(), miniMap))
       .buildWithStepper(tileStepperConfig(game));
