@@ -41,7 +41,29 @@ class SAMTargetingSystem {
   }
 
   updateUnreachableNukes(nearbyUnits: { unit: Unit; distSquared: number }[]) {
-    const nearbyUnitSet = new Set(nearbyUnits.map((u) => u.unit.id()));
+    if (this.precomputedNukes.size === 0) return;
+
+    // Avoid per-tick allocations for the common case where only a few nukes are tracked.
+    if (this.precomputedNukes.size <= 16) {
+      for (const nukeId of this.precomputedNukes.keys()) {
+        let found = false;
+        for (const u of nearbyUnits) {
+          if (u.unit.id() === nukeId) {
+            found = true;
+            break;
+          }
+        }
+        if (!found) {
+          this.precomputedNukes.delete(nukeId);
+        }
+      }
+      return;
+    }
+
+    const nearbyUnitSet = new Set<number>();
+    for (const u of nearbyUnits) {
+      nearbyUnitSet.add(u.unit.id());
+    }
     for (const nukeId of this.precomputedNukes.keys()) {
       if (!nearbyUnitSet.has(nukeId)) {
         this.precomputedNukes.delete(nukeId);

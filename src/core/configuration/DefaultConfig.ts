@@ -207,6 +207,7 @@ export abstract class DefaultServerConfig implements ServerConfig {
 export class DefaultConfig implements Config {
   private pastelTheme: PastelTheme = new PastelTheme();
   private pastelThemeDark: PastelThemeDark = new PastelThemeDark();
+  private unitInfoCache = new Map<UnitType, UnitInfo>();
   constructor(
     private _serverConfig: ServerConfig,
     private _gameConfig: GameConfig,
@@ -600,6 +601,14 @@ export class DefaultConfig implements Config {
   }
 
   unitInfo(type: UnitType): UnitInfo {
+    const cached = this.unitInfoCache.get(type);
+    if (cached !== undefined) return cached;
+    const info = this.computeUnitInfo(type);
+    this.unitInfoCache.set(type, info);
+    return info;
+  }
+
+  private computeUnitInfo(type: UnitType): UnitInfo {
     switch (type) {
       case UnitType.TransportShip:
         return {
