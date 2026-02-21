@@ -812,6 +812,30 @@ export class AIPlayerExecution implements Execution {
       // If there were no SAMs at all, check for inbound nukes before
       // going directly to launchMain (the only launch in this sequence).
       const hadSAMs = state.samTargets.length > 0;
+
+      // Log SAM phase completion
+      const totalBombsLaunched = state.samTargets.reduce(
+        (sum, s) => sum + (s.sam.stackCount() - s.levelsRemaining),
+        0,
+      );
+      if (totalBombsLaunched > 5 || state.samTargets.length > 5) {
+        const tileX = this.mg.x(state.targetTile);
+        const tileY = this.mg.y(state.targetTile);
+        const currentSAMs = this.nukeHandler.getSAMsInRange(state.targetTile);
+        const currentTotalLevels = currentSAMs.reduce(
+          (sum, s) => sum + s.stackCount(),
+          0,
+        );
+        console.warn(
+          `[NUKE-DIAG] SAM-PHASE DONE: player=${this.player.id()} ` +
+            `target=(${tileX},${tileY}) totalBombsLaunched=${totalBombsLaunched} ` +
+            `trackedSAMs=${state.samTargets.length} hadSAMs=${hadSAMs} ` +
+            `currentSAMsStillInRange=${currentSAMs.length} currentTotalLevels=${currentTotalLevels} ` +
+            `deficit=${currentTotalLevels - totalBombsLaunched} ` +
+            `tracked=[${state.samTargets.map((s) => `{id=${s.sam.id()} stack=${s.sam.stackCount()} launched=${s.sam.stackCount() - s.levelsRemaining} active=${s.sam.isActive()}}`).join(", ")}]`,
+        );
+      }
+
       if (!hadSAMs) {
         if (this.isNukeAlreadyInbound(state)) {
           this.resetNukeSequence();
