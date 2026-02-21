@@ -27,6 +27,10 @@ import { DifficultyDescription } from "./components/Difficulties";
 import "./components/Maps";
 import type { FlagInput } from "./FlagInput";
 import type { JoinLobbyEvent } from "./Main";
+import {
+  getMobileViewportProfile,
+  type MobileViewportProfile,
+} from "./mobile/MobileViewportProfile";
 import type { UsernameInput } from "./UsernameInput";
 import { renderUnitTypeOptions } from "./utilities/RenderUnitTypeOptions";
 
@@ -64,7 +68,13 @@ export class SinglePlayerModal extends LitElement {
   @state() private goldMultiplier: GoldMultiplierOption = 1;
 
   @state() private disabledUnits: UnitType[] = [];
-  @state() private showUnitSettings = true; // Open by default
+  @state() private showUnitSettings = false; // Closed by default
+  @state() private activeMapCategory: string = "continental";
+  @state() private viewportProfile: MobileViewportProfile | null = null;
+
+  private resizeHandler = (): void => {
+    this.updateViewportProfile();
+  };
 
   render() {
     // Calculate percentage for the CSS variable
@@ -117,6 +127,85 @@ export class SinglePlayerModal extends LitElement {
           }
         }
 
+        /* Responsive adjustments for compact phones in portrait */
+        body[data-lobby-size-class="compact"][data-lobby-orientation="portrait"]
+          .sp-category-tab {
+          font-size: 10px;
+          padding: 6px 10px;
+        }
+        body[data-lobby-size-class="compact"][data-lobby-orientation="portrait"]
+          .sp-map-col {
+          padding: 12px 4px 12px 12px;
+        }
+        body[data-lobby-size-class="compact"][data-lobby-orientation="portrait"]
+          .sp-category-tabs {
+          gap: 6px;
+          margin-bottom: 10px;
+        }
+        body[data-lobby-size-class="compact"][data-lobby-orientation="portrait"]
+          map-display {
+          transform: scale(0.9);
+        }
+        body[data-lobby-size-class="compact"][data-lobby-orientation="portrait"]
+          .sp-map-carousel {
+          gap: 8px;
+          padding: 6px 10px 12px;
+        }
+        body[data-lobby-size-class="compact"][data-lobby-orientation="portrait"]
+          .sp-select {
+          font-size: 13px;
+          padding: 6px;
+        }
+        body[data-lobby-size-class="compact"][data-lobby-orientation="portrait"]
+          .sp-btn {
+          min-height: 32px;
+          padding: 5px 7px;
+        }
+        body[data-lobby-size-class="compact"][data-lobby-orientation="portrait"]
+          .sp-btn-label {
+          font-size: 12px;
+        }
+        body[data-lobby-size-class="compact"][data-lobby-orientation="portrait"]
+          .sp-section {
+          padding: 10px;
+        }
+
+        /* Responsive adjustments for compact phones in landscape */
+        body[data-lobby-size-class="compact"][data-lobby-orientation="landscape"]
+          .sp-category-tab {
+          font-size: 11px;
+          padding: 6px 12px;
+        }
+        body[data-lobby-size-class="compact"][data-lobby-orientation="landscape"]
+          .sp-map-carousel {
+          gap: 10px;
+        }
+        body[data-lobby-size-class="compact"][data-lobby-orientation="landscape"]
+          map-display {
+          transform: scale(0.95);
+        }
+
+        /* Responsive adjustments for regular phones */
+        body[data-lobby-size-class="regular"] .sp-category-tab {
+          font-size: 11px;
+          padding: 7px 14px;
+        }
+        body[data-lobby-size-class="regular"] map-display {
+          transform: scale(0.98);
+        }
+
+        /* Responsive adjustments for large tablets */
+        body[data-lobby-size-class="large"] .sp-category-tab {
+          font-size: 13px;
+          padding: 10px 18px;
+        }
+        body[data-lobby-size-class="large"] map-display {
+          transform: scale(1.1);
+        }
+        body[data-lobby-size-class="large"] .sp-map-carousel {
+          gap: 14px;
+        }
+
         /* Map Column (Left) */
         .sp-map-col {
           background: rgba(0, 0, 0, 0.2);
@@ -126,6 +215,46 @@ export class SinglePlayerModal extends LitElement {
           flex-direction: column;
           height: 100%;
           overflow: hidden;
+        }
+
+        /* Category Tabs */
+        .sp-category-tabs {
+          display: flex;
+          gap: 8px;
+          margin-bottom: 12px;
+          padding: 0 12px;
+          flex-wrap: nowrap;
+          overflow-x: auto;
+          scrollbar-width: none;
+        }
+        .sp-category-tabs::-webkit-scrollbar {
+          display: none;
+        }
+        .sp-category-tab {
+          flex: 1;
+          min-width: fit-content;
+          background: rgba(0, 0, 0, 0.3);
+          border: 1px solid rgba(255, 255, 255, 0.1);
+          border-radius: 6px;
+          padding: 8px 16px;
+          cursor: pointer;
+          font-size: 12px;
+          font-weight: 600;
+          text-transform: uppercase;
+          letter-spacing: 0.5px;
+          color: var(--ui-text-muted);
+          transition: all 0.2s ease;
+          text-align: center;
+        }
+        .sp-category-tab:hover {
+          background: rgba(255, 255, 255, 0.05);
+          border-color: rgba(255, 255, 255, 0.2);
+        }
+        .sp-category-tab.active {
+          background: rgba(39, 71, 110, 0.35);
+          border-color: var(--ui-secondary);
+          color: var(--ui-text-accent);
+          box-shadow: inset 0 0 0 1px rgba(224, 166, 129, 0.3);
         }
 
         .sp-scroll-area {
@@ -146,6 +275,32 @@ export class SinglePlayerModal extends LitElement {
         .sp-scroll-area::-webkit-scrollbar-thumb {
           background: rgba(255, 255, 255, 0.2);
           border-radius: 4px;
+        }
+
+        /* Horizontal Map Carousel */
+        .sp-map-carousel {
+          display: flex;
+          gap: 12px;
+          overflow-x: auto;
+          padding: 8px 12px 16px;
+          scrollbar-width: thin;
+          scrollbar-color: rgba(255, 255, 255, 0.3) rgba(0, 0, 0, 0.1);
+          scroll-snap-type: x proximity;
+        }
+        .sp-map-carousel::-webkit-scrollbar {
+          height: 6px;
+        }
+        .sp-map-carousel::-webkit-scrollbar-track {
+          background: rgba(0, 0, 0, 0.2);
+          border-radius: 3px;
+        }
+        .sp-map-carousel::-webkit-scrollbar-thumb {
+          background: rgba(255, 255, 255, 0.3);
+          border-radius: 3px;
+        }
+        .sp-map-carousel .map-item-wrapper {
+          flex: 0 0 auto;
+          scroll-snap-align: start;
         }
 
         /* Settings Column (Right) */
@@ -373,6 +528,10 @@ export class SinglePlayerModal extends LitElement {
           font-size: 14px;
           outline: none;
         }
+        .sp-select option {
+          background: var(--ui-panel-shell-top);
+          color: var(--ui-text-default);
+        }
 
         /* Collapse Header */
         .sp-collapse-header {
@@ -419,61 +578,63 @@ export class SinglePlayerModal extends LitElement {
         <div class="sp-layout">
           <!-- LEFT COLUMN: Maps -->
           <div class="sp-map-col">
-            <div class="sp-scroll-area">
-              ${Object.entries(mapCategories).map(
-                ([categoryKey, maps]) => html`
-                  <div class="w-full mb-4">
-                    <h3
-                      class="text-xs font-bold uppercase tracking-wider mb-2 text-center text-gray-400 border-b border-gray-700 pb-1 mx-10"
-                    >
-                      ${translateText(`map_categories.${categoryKey}`)}
-                    </h3>
-                    <div class="map-grid">
-                      ${maps.map((mapValue) => {
-                        const mapKey = Object.keys(GameMapType).find(
-                          (key) =>
-                            GameMapType[key as keyof typeof GameMapType] ===
-                            mapValue,
-                        );
-                        return html`
-                          <div
-                            class="map-item-wrapper"
-                            @click=${() => this.handleMapSelection(mapValue)}
-                          >
-                            <map-display
-                              .mapKey=${mapKey}
-                              .selected=${!this.useRandomMap &&
-                              this.selectedMap === mapValue}
-                              .translation=${translateText(
-                                `map.${mapKey?.toLowerCase()}`,
-                              )}
-                            ></map-display>
-                          </div>
-                        `;
-                      })}
-                    </div>
+            <!-- Category Tabs -->
+            <div class="sp-category-tabs">
+              ${Object.keys(mapCategories).map(
+                (categoryKey) => html`
+                  <div
+                    class="sp-category-tab ${this.activeMapCategory ===
+                    categoryKey
+                      ? "active"
+                      : ""}"
+                    @click=${() => (this.activeMapCategory = categoryKey)}
+                  >
+                    ${translateText(`map_categories.${categoryKey}`)}
                   </div>
                 `,
               )}
+            </div>
 
-              <!-- Random Map -->
-              <div class="w-full flex justify-center mb-4 pt-2">
-                <div
-                  class="option-card random-map ${this.useRandomMap
-                    ? "selected"
-                    : ""} map-item-wrapper"
-                  @click=${this.handleRandomMapToggle}
-                  style="width: 100px;"
-                >
-                  <div class="option-image">
-                    <img
-                      src=${randomMap}
-                      style="width:100%; aspect-ratio:4/2; object-fit:cover; border-radius:8px;"
-                    />
+            <!-- Horizontal Map Carousel -->
+            <div class="sp-map-carousel">
+              ${mapCategories[this.activeMapCategory]?.map((mapValue) => {
+                const mapKey = Object.keys(GameMapType).find(
+                  (key) =>
+                    GameMapType[key as keyof typeof GameMapType] === mapValue,
+                );
+                return html`
+                  <div
+                    class="map-item-wrapper"
+                    @click=${() => this.handleMapSelection(mapValue)}
+                  >
+                    <map-display
+                      .mapKey=${mapKey}
+                      .selected=${!this.useRandomMap &&
+                      this.selectedMap === mapValue}
+                      .translation=${translateText(
+                        `map.${mapKey?.toLowerCase()}`,
+                      )}
+                    ></map-display>
                   </div>
-                  <div class="option-card-title">
-                    ${translateText("map.random")}
-                  </div>
+                `;
+              })}
+
+              <!-- Random Map (always visible in all categories) -->
+              <div
+                class="option-card random-map ${this.useRandomMap
+                  ? "selected"
+                  : ""} map-item-wrapper"
+                @click=${this.handleRandomMapToggle}
+                style="width: 100px; flex: 0 0 auto;"
+              >
+                <div class="option-image">
+                  <img
+                    src=${randomMap}
+                    style="width:100%; aspect-ratio:4/2; object-fit:cover; border-radius:8px;"
+                  />
+                </div>
+                <div class="option-card-title">
+                  ${translateText("map.random")}
                 </div>
               </div>
             </div>
@@ -806,6 +967,35 @@ export class SinglePlayerModal extends LitElement {
     });
   }
 
+  connectedCallback() {
+    super.connectedCallback();
+    this.updateViewportProfile();
+    window.addEventListener("resize", this.resizeHandler);
+  }
+
+  disconnectedCallback() {
+    super.disconnectedCallback();
+    window.removeEventListener("resize", this.resizeHandler);
+  }
+
+  private updateViewportProfile() {
+    this.viewportProfile = getMobileViewportProfile(
+      window.innerWidth,
+      window.innerHeight,
+    );
+    this.applyResponsiveStyles();
+  }
+
+  private applyResponsiveStyles() {
+    if (!this.viewportProfile) return;
+
+    const { sizeClass, orientation } = this.viewportProfile;
+
+    // Apply data attributes for CSS targeting
+    document.body.dataset.lobbySizeClass = sizeClass;
+    document.body.dataset.lobbyOrientation = orientation;
+  }
+
   createRenderRoot() {
     return this; // light DOM
   }
@@ -814,11 +1004,24 @@ export class SinglePlayerModal extends LitElement {
     this.modalEl?.open();
     this.useRandomMap = false;
     this.startingGold = 0;
-    this.showUnitSettings = true;
+    this.showUnitSettings = false;
+    this.updateActiveCategoryFromSelectedMap();
   }
 
   public close() {
     this.modalEl?.close();
+  }
+
+  private updateActiveCategoryFromSelectedMap() {
+    // Find which category contains the currently selected map
+    for (const [categoryKey, maps] of Object.entries(mapCategories)) {
+      if (maps.includes(this.selectedMap)) {
+        this.activeMapCategory = categoryKey;
+        return;
+      }
+    }
+    // Fallback to first category if not found
+    this.activeMapCategory = Object.keys(mapCategories)[0] || "continental";
   }
 
   private handleRandomMapToggle() {
@@ -828,6 +1031,7 @@ export class SinglePlayerModal extends LitElement {
   private handleMapSelection(value: GameMapType) {
     this.selectedMap = value;
     this.useRandomMap = false;
+    this.updateActiveCategoryFromSelectedMap();
   }
 
   private handleDifficultySelection(value: Difficulty) {
