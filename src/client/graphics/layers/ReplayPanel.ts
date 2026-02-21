@@ -81,9 +81,9 @@ export class ReplayPanel extends LitElement implements Layer {
           style="color: var(--ui-text-accent)"
           translate="no"
         >
-          ${this._isSinglePlayer
-            ? translateText("replay_panel.game_speed")
-            : translateText("replay_panel.replay_speed")}
+          ${this.game?.config()?.isReplay()
+            ? translateText("replay_panel.replay_speed")
+            : translateText("replay_panel.game_speed")}
         </label>
         <div class="grid grid-cols-2 gap-1">
           ${options.map(
