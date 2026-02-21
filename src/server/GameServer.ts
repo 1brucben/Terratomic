@@ -49,6 +49,7 @@ export class GameServer {
   private allClients: Map<ClientID, Client> = new Map();
   private clientsDisconnectedStatus: Map<ClientID, boolean> = new Map();
   private _hasStarted = false;
+  private _hasEnded = false;
   private _startTime: number | null = null;
 
   private endTurnIntervalID: ReturnType<typeof setInterval> | undefined;
@@ -503,7 +504,7 @@ export class GameServer {
   }
 
   public start() {
-    if (this._hasStarted) {
+    if (this._hasStarted || this._hasEnded) {
       return;
     }
     this._hasStarted = true;
@@ -585,8 +586,10 @@ export class GameServer {
   }
 
   async end() {
+    this._hasEnded = true;
     // Close all WebSocket connections
     clearInterval(this.endTurnIntervalID);
+    this.endTurnIntervalID = undefined;
     this.websockets.forEach((ws) => {
       if (ws.readyState === WebSocket.OPEN) {
         ws.close(1000, "game has ended");
