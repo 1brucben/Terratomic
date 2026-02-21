@@ -61,7 +61,8 @@ export type Intent =
   | SetAutoBombingIntent
   | KickPlayerIntent
   | UpgradeStructureIntent
-  | UpgradeBomberIntent;
+  | UpgradeBomberIntent
+  | UpdateGameConfigIntent;
 
 export type AttackIntent = z.infer<typeof AttackIntentSchema>;
 export type CancelAttackIntent = z.infer<typeof CancelAttackIntentSchema>;
@@ -111,6 +112,9 @@ export type MarkDisconnectedIntent = z.infer<
   typeof MarkDisconnectedIntentSchema
 >;
 export type KickPlayerIntent = z.infer<typeof KickPlayerIntentSchema>;
+export type UpdateGameConfigIntent = z.infer<
+  typeof UpdateGameConfigIntentSchema
+>;
 export type UpgradeStructureIntent = z.infer<
   typeof UpgradeStructureIntentSchema
 >;
@@ -524,6 +528,11 @@ export const KickPlayerIntentSchema = BaseIntentSchema.extend({
   target: ID,
 });
 
+export const UpdateGameConfigIntentSchema = BaseIntentSchema.extend({
+  type: z.literal("update_game_config"),
+  config: GameConfigSchema.partial(),
+});
+
 const IntentSchema = z.discriminatedUnion("type", [
   AttackIntentSchema,
   CancelAttackIntentSchema,
@@ -560,6 +569,7 @@ const IntentSchema = z.discriminatedUnion("type", [
   QuickChatIntentSchema,
   SetAutoBombingIntentSchema,
   KickPlayerIntentSchema,
+  UpdateGameConfigIntentSchema,
 ]);
 
 //

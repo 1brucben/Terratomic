@@ -1555,7 +1555,6 @@ export class HostLobbyModal extends LitElement {
   }
 
   private async putGameConfig() {
-    const config = await getServerConfigFromClient();
     const assignmentsPayload =
       this.gameMode === GameMode.Team
         ? this.sanitizeAssignmentsForPayload(
@@ -1563,33 +1562,33 @@ export class HostLobbyModal extends LitElement {
             this.computeTeamCount(),
           )
         : {};
-    const response = await fetch(
-      `${window.location.origin}/${config.workerPath(this.lobbyId)}/api/game/${this.lobbyId}`,
-      {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          gameMap: this.selectedMap,
-          difficulty: this.selectedDifficulty,
-          disableNPCs: this.disableNPCs,
-          bots: this.bots,
-          infiniteGold: this.infiniteGold,
-          infiniteTroops: this.infiniteTroops,
-          instantBuild: this.instantBuild,
-          instantResearchHumanOnly: this.instantResearchHumanOnly,
-          researchAllTechs: this.researchAllTechs,
-          gameMode: this.gameMode,
-          disabledUnits: this.disabledUnits,
-          playerTeams: this.teamCount,
-          playerTeamAssignments: assignmentsPayload,
-          peaceTimerDurationMinutes: this.selectedPeaceTimerDuration,
-          startingGold: this.startingGold,
-          goldMultiplier: this.goldMultiplier,
-          chatEnabled: this.chatEnabled,
-        } satisfies Partial<GameConfig>),
-      },
+    this.dispatchEvent(
+      new CustomEvent("update-game-config", {
+        detail: {
+          config: {
+            gameMap: this.selectedMap,
+            difficulty: this.selectedDifficulty,
+            disableNPCs: this.disableNPCs,
+            bots: this.bots,
+            infiniteGold: this.infiniteGold,
+            infiniteTroops: this.infiniteTroops,
+            instantBuild: this.instantBuild,
+            instantResearchHumanOnly: this.instantResearchHumanOnly,
+            researchAllTechs: this.researchAllTechs,
+            gameMode: this.gameMode,
+            disabledUnits: this.disabledUnits,
+            playerTeams: this.teamCount,
+            playerTeamAssignments: assignmentsPayload,
+            peaceTimerDurationMinutes: this.selectedPeaceTimerDuration,
+            startingGold: this.startingGold,
+            goldMultiplier: this.goldMultiplier,
+            chatEnabled: this.chatEnabled,
+          } satisfies Partial<GameConfig>,
+        },
+        bubbles: true,
+        composed: true,
+      }),
     );
-    return response;
   }
 
   private toggleUnit(unit: UnitType, checked: boolean): void {
