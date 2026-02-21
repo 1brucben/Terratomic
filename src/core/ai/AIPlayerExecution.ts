@@ -443,10 +443,41 @@ export class AIPlayerExecution implements Execution {
       // Fully refresh SAM list from scratch: picks up new SAMs, removes
       // destroyed ones, and updates stack counts on surviving ones.
       const freshSAMs = this.nukeHandler.getSAMsInRange(state.targetTile);
+      const oldTotalLevels = state.samTargets.reduce(
+        (sum, s) => sum + s.levelsRemaining,
+        0,
+      );
       state.samTargets = freshSAMs.map((s) => ({
         sam: s,
         levelsRemaining: s.stackCount(),
       }));
+      const newTotalLevels = state.samTargets.reduce(
+        (sum, s) => sum + s.levelsRemaining,
+        0,
+      );
+      if (newTotalLevels > 5 || oldTotalLevels > 5) {
+        const tileX = this.mg.x(state.targetTile);
+        const tileY = this.mg.y(state.targetTile);
+        console.warn(
+          `[NUKE-DIAG] REFRESH SAMs: player=${this.player.id()} ` +
+            `phase=${state.phase} target=(${tileX},${tileY}) ` +
+            `oldTotalLevels=${oldTotalLevels} newSAMs=${freshSAMs.length} ` +
+            `newTotalLevels=${newTotalLevels} ` +
+            `SAM details=[${freshSAMs
+              .map((s) => {
+                const ox = this.mg.x(s.tile());
+                const oy = this.mg.y(s.tile());
+                const dist = Math.sqrt(
+                  this.mg.euclideanDistSquared(state.targetTile, s.tile()),
+                );
+                const ownerRange = this.nukeHandler!.getEffectiveSAMRange(
+                  s.owner(),
+                );
+                return `{id=${s.id()} pos=(${ox},${oy}) owner=${s.owner().id()} stack=${s.stackCount()} dist=${dist.toFixed(1)} ownerRange=${ownerRange.toFixed(1)} isActive=${s.isActive()}}`;
+              })
+              .join(", ")}]`,
+        );
+      }
 
       // During pre-launch phases, perform additional checks
       if (state.phase === "waitForFunds" || state.phase === "buildSilo") {
@@ -526,14 +557,42 @@ export class AIPlayerExecution implements Execution {
 
     // Start the nuke sequence
     const sams = this.nukeHandler.getSAMsInRange(bestTile);
+    const samTargets = sams.map((s) => ({
+      sam: s,
+      levelsRemaining: s.stackCount(),
+    }));
+    const totalSAMLevelsAtStart = samTargets.reduce(
+      (sum, s) => sum + s.levelsRemaining,
+      0,
+    );
+    if (totalSAMLevelsAtStart > 5) {
+      const tileX = this.mg.x(bestTile);
+      const tileY = this.mg.y(bestTile);
+      console.warn(
+        `[NUKE-DIAG] START sequence: player=${this.player.id()} ` +
+          `target=(${tileX},${tileY}) bombType=${bombType} ` +
+          `SAMs found=${sams.length} totalSAMLevels=${totalSAMLevelsAtStart} ` +
+          `maxSAMRange=${this.nukeHandler["_maxSAMRange"].toFixed(1)} ` +
+          `SAM details=[${sams
+            .map((s) => {
+              const ox = this.mg.x(s.tile());
+              const oy = this.mg.y(s.tile());
+              const dist = Math.sqrt(
+                this.mg.euclideanDistSquared(bestTile, s.tile()),
+              );
+              const ownerRange = this.nukeHandler.getEffectiveSAMRange(
+                s.owner(),
+              );
+              return `{id=${s.id()} pos=(${ox},${oy}) owner=${s.owner().id()} stack=${s.stackCount()} dist=${dist.toFixed(1)} ownerRange=${ownerRange.toFixed(1)} isActive=${s.isActive()}}`;
+            })
+            .join(", ")}]`,
+      );
+    }
     this.nukeState = {
       phase: "waitForFunds",
       bombType,
       targetTile: bestTile,
-      samTargets: sams.map((s) => ({
-        sam: s,
-        levelsRemaining: s.stackCount(),
-      })),
+      samTargets,
       waitStartTick: 0,
       siloConstructionQueued: false,
     };
@@ -776,6 +835,25 @@ export class AIPlayerExecution implements Execution {
     }
 
     // Launch atom bomb at this SAM's tile
+    const totalLevelsBeforeLaunch = state.samTargets.reduce(
+      (sum, s) => sum + s.levelsRemaining,
+      0,
+    );
+    if (totalLevelsBeforeLaunch > 5) {
+      const tileX = this.mg.x(state.targetTile);
+      const tileY = this.mg.y(state.targetTile);
+      const samX = this.mg.x(nextSam.sam.tile());
+      const samY = this.mg.y(nextSam.sam.tile());
+      console.warn(
+        `[NUKE-DIAG] LAUNCH SAM-bomb: player=${this.player.id()} ` +
+          `target=(${tileX},${tileY}) samTarget=(${samX},${samY}) ` +
+          `samId=${nextSam.sam.id()} samOwner=${nextSam.sam.owner().id()} ` +
+          `samStack=${nextSam.sam.stackCount()} samActive=${nextSam.sam.isActive()} ` +
+          `levelsRemaining=${nextSam.levelsRemaining} ` +
+          `totalLevelsRemaining=${totalLevelsBeforeLaunch} ` +
+          `allSamTargets=[${state.samTargets.map((s) => `{id=${s.sam.id()} stack=${s.sam.stackCount()} remaining=${s.levelsRemaining} active=${s.sam.isActive()}}`).join(", ")}]`,
+      );
+    }
     this.mg.addExecution(
       new ConstructionExecution(
         this.player,
@@ -824,6 +902,36 @@ export class AIPlayerExecution implements Execution {
     }
 
     // Fire the main bomb
+    {
+      const totalSAMLevelsAtLaunch = state.samTargets.reduce(
+        (sum, s) => sum + s.levelsRemaining,
+        0,
+      );
+      const totalSAMBombsLaunched = state.samTargets.reduce(
+        (sum, s) => sum + (s.sam.stackCount() - s.levelsRemaining),
+        0,
+      );
+      if (totalSAMBombsLaunched > 5 || state.samTargets.length > 5) {
+        const tileX = this.mg.x(state.targetTile);
+        const tileY = this.mg.y(state.targetTile);
+        // Re-query SAMs at main launch time to compare with what we tracked
+        const currentSAMs = this.nukeHandler.getSAMsInRange(state.targetTile);
+        const currentTotalLevels = currentSAMs.reduce(
+          (sum, s) => sum + s.stackCount(),
+          0,
+        );
+        console.warn(
+          `[NUKE-DIAG] LAUNCH MAIN: player=${this.player.id()} ` +
+            `target=(${tileX},${tileY}) bombType=${state.bombType} ` +
+            `SAM-bombs launched=${totalSAMBombsLaunched} ` +
+            `levelsStillRemaining=${totalSAMLevelsAtLaunch} ` +
+            `trackedSAMs=${state.samTargets.length} ` +
+            `currentSAMsInRange=${currentSAMs.length} currentTotalLevels=${currentTotalLevels} ` +
+            `tracked=[${state.samTargets.map((s) => `{id=${s.sam.id()} stack=${s.sam.stackCount()} remaining=${s.levelsRemaining} active=${s.sam.isActive()}}`).join(", ")}] ` +
+            `current=[${currentSAMs.map((s) => `{id=${s.id()} stack=${s.stackCount()} pos=(${this.mg.x(s.tile())},${this.mg.y(s.tile())}) active=${s.isActive()}}`).join(", ")}]`,
+        );
+      }
+    }
     this.mg.addExecution(
       new ConstructionExecution(this.player, state.bombType, state.targetTile),
     );
