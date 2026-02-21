@@ -1,4 +1,8 @@
-export type MobileViewportSizeClass = "compact" | "regular" | "large";
+export type MobileViewportSizeClass =
+  | "compact"
+  | "regular"
+  | "large"
+  | "extra-large";
 export type MobileViewportOrientation = "portrait" | "landscape";
 
 export interface MobileViewportProfile {
@@ -26,7 +30,13 @@ export function getMobileViewportProfile(
     safeWidth > safeHeight ? "landscape" : "portrait";
 
   const sizeClass: MobileViewportSizeClass =
-    shortestSide <= 360 ? "compact" : shortestSide <= 430 ? "regular" : "large";
+    shortestSide <= 360
+      ? "compact"
+      : shortestSide <= 430
+        ? "regular"
+        : shortestSide <= 768
+          ? "large"
+          : "extra-large";
 
   const isReferenceBaseline = shortestSide === 430 && longestSide === 932;
 
@@ -240,6 +250,56 @@ export function getMobileResponsiveTokens(
       "--m-grid-icon-size-multi": "40px",
       "--m-grid-font-size": "12px",
       "--m-grid-font-size-multi": "14px",
+    };
+  }
+
+  if (
+    profile.orientation === "landscape" &&
+    profile.sizeClass === "extra-large"
+  ) {
+    return {
+      ...baselineTokens,
+      "--m-panel-top-offset": "calc(44px + env(safe-area-inset-top, 0px))",
+      "--m-panel-safe-top-padding": "0px",
+      "--m-grid-gap": "12px",
+      "--m-grid-max-h": "50dvh",
+      "--m-grid-padding": "24px",
+      "--m-grid-padding-bottom": "24px",
+      "--m-grid-radius": "24px",
+      "--m-grid-column-min": "85px",
+      "--m-grid-tile-min-h": "82px",
+      "--m-grid-tile-min-h-multi": "92px",
+      "--m-grid-tile-padding": "10px",
+      "--m-grid-tile-gap": "5px",
+      "--m-grid-icon-size": "38px",
+      "--m-grid-icon-size-multi": "48px",
+      "--m-grid-font-size": "14px",
+      "--m-grid-font-size-multi": "16px",
+    };
+  }
+
+  if (
+    profile.orientation === "portrait" &&
+    profile.sizeClass === "extra-large"
+  ) {
+    return {
+      ...baselineTokens,
+      "--m-panel-top-offset": "calc(44px + env(safe-area-inset-top, 0px))",
+      "--m-panel-safe-top-padding": "0px",
+      "--m-grid-gap": "12px",
+      "--m-grid-max-h": "58dvh",
+      "--m-grid-padding": "24px",
+      "--m-grid-padding-bottom": "24px",
+      "--m-grid-radius": "24px",
+      "--m-grid-column-min": "85px",
+      "--m-grid-tile-min-h": "82px",
+      "--m-grid-tile-min-h-multi": "92px",
+      "--m-grid-tile-padding": "10px",
+      "--m-grid-tile-gap": "5px",
+      "--m-grid-icon-size": "38px",
+      "--m-grid-icon-size-multi": "48px",
+      "--m-grid-font-size": "14px",
+      "--m-grid-font-size-multi": "16px",
     };
   }
 
