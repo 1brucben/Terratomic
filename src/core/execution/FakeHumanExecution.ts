@@ -64,7 +64,9 @@ export class FakeHumanExecution implements Execution {
     this.diplomacyTick = this.random.nextInt(0, 10);
     this.triggerRatio = 70 / 100;
     this.reserveRatio = 50 / 100;
-    this.heckleEmoji = ["🤡", "😡"].map((e) => flattenedEmojiTable.indexOf(e));
+    this.heckleEmoji = ["≡ƒñí", "≡ƒÿí"].map((e) =>
+      flattenedEmojiTable.indexOf(e),
+    );
   }
 
   init(mg: Game) {
@@ -288,13 +290,7 @@ export class FakeHumanExecution implements Execution {
     if (this.isTooCloseToExistingBoat(closest.y)) return;
     const troopsToSend = this.player.troops() / 5;
     this.mg.addExecution(
-      new TransportShipExecution(
-        this.player,
-        other.id(),
-        closest.y,
-        troopsToSend,
-        null,
-      ),
+      new TransportShipExecution(this.player, closest.y, troopsToSend),
     );
   }
 
@@ -393,10 +389,8 @@ export class FakeHumanExecution implements Execution {
         this.mg.addExecution(
           new TransportShipExecution(
             this.player,
-            null, // Terra Nullius
             dst,
             this.player.troops() / 10,
-            null,
           ),
         );
         return true;

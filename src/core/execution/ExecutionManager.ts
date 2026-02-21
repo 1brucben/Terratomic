@@ -101,14 +101,8 @@ export class Executor {
       case "spawn":
         return new SpawnExecution(player.info(), intent.tile);
       case "boat":
-        const src = intent.src ?? null;
-        return new TransportShipExecution(
-          player,
-          intent.targetID,
-          intent.dst,
-          intent.troops,
-          src,
-        );
+        return new TransportShipExecution(player, intent.dst, intent.troops);
+
       case "paratrooper_attack":
         return new ParatrooperAttackExecution(
           player,
