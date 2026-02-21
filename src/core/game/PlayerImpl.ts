@@ -1872,7 +1872,7 @@ export class PlayerImpl implements Player {
   }
 
   bestTransportShipSpawn(targetTile: TileRef): TileRef | false {
-    return bestShoreDeploymentSource(this.mg, this, targetTile);
+    return bestShoreDeploymentSource(this.mg, this, targetTile) ?? false;
   }
 
   // It's a probability list, so if an element appears twice it's because it's

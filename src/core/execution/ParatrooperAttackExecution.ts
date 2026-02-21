@@ -10,7 +10,7 @@ import {
 } from "../game/Game";
 
 import { TerrainType, TileRef } from "../game/GameMap";
-import { StraightPathFinder } from "../pathfinding/PathFinding";
+import { StraightPathFinder } from "../pathfinding/PathFinder.Straight";
 import { AttackExecution } from "./AttackExecution";
 
 export class ParatrooperAttackExecution implements Execution {

@@ -8,7 +8,7 @@ import {
   UnitType,
 } from "../game/Game";
 import { TileRef } from "../game/GameMap";
-import { StraightPathFinder } from "../pathfinding/PathFinding";
+import { StraightPathFinder } from "../pathfinding/PathFinder.Straight";
 
 export class CargoPlaneExecution implements Execution {
   executionName = "CargoPlaneExecution";

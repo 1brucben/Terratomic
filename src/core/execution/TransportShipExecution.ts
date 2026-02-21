@@ -11,7 +11,8 @@ import {
 } from "../game/Game";
 import { TileRef } from "../game/GameMap";
 import { targetTransportTile } from "../game/TransportShipUtils";
-import { PathFinder, PathFinders, PathStatus } from "../pathfinding/PathFinder";
+import { PathFinding } from "../pathfinding/PathFinder";
+import { PathStatus, SteppingPathFinder } from "../pathfinding/types";
 import { AttackExecution } from "./AttackExecution";
 
 export class TransportShipExecution implements Execution {
@@ -32,7 +33,7 @@ export class TransportShipExecution implements Execution {
 
   private boat: Unit;
 
-  private pathFinder: PathFinder;
+  private pathFinder: SteppingPathFinder<TileRef>;
 
   constructor(
     private attacker: Player,
@@ -78,7 +79,7 @@ export class TransportShipExecution implements Execution {
 
     this.lastMove = ticks;
     this.mg = mg;
-    this.pathFinder = PathFinders.Water(mg);
+    this.pathFinder = PathFinding.Water(mg);
 
     if (
       this.attacker.unitCount(UnitType.TransportShip) >=
@@ -149,6 +150,12 @@ export class TransportShipExecution implements Execution {
     // Track intended target player on the boat for selective cancellation on peace
     (this.boat as any).setBoatTargetPlayerID?.(this.targetID);
 
+    if (this.dst !== null) {
+      this.boat.setTargetTile(this.dst);
+    } else {
+      this.boat.setTargetTile(undefined);
+    }
+
     // Notify the target player about the incoming naval invasion
     if (this.targetID && this.targetID !== mg.terraNullius().id()) {
       mg.displayIncomingUnit(
@@ -184,7 +191,32 @@ export class TransportShipExecution implements Execution {
     this.lastMove = ticks;
 
     if (this.boat.retreating()) {
-      this.dst = this.src!; // src is guaranteed to be set at this point
+      // Ensure retreat source is still valid for (new) owner
+      if (this.mg.owner(this.src!) !== this.attacker) {
+        // Use bestTransportShipSpawn, not canBuild because of its max boats check etc
+        const newSrc = this.attacker.bestTransportShipSpawn(this.dst);
+        if (newSrc === false) {
+          this.src = null;
+        } else {
+          this.src = newSrc;
+        }
+      }
+
+      if (this.src === null) {
+        console.warn(
+          `TransportShipExecution: retreating but no src found for new attacker`,
+        );
+        this.attacker.addTroops(this.boat.troops());
+        this.boat.delete(false);
+        this.active = false;
+        return;
+      } else {
+        this.dst = this.src;
+
+        if (this.boat.targetTile() !== this.dst) {
+          this.boat.setTargetTile(this.dst);
+        }
+      }
     }
 
     const result = this.pathFinder.next(this.boat.tile(), this.dst);
@@ -228,13 +260,18 @@ export class TransportShipExecution implements Execution {
         break;
       case PathStatus.PENDING:
         break;
-      case PathStatus.NOT_FOUND:
+      case PathStatus.NOT_FOUND: {
         // TODO: add to poisoned port list
-        console.warn(`path not found to dst`);
+        const map = this.mg.map();
+        const boatTile = this.boat.tile();
+        console.warn(
+          `TransportShip path not found: boat@(${map.x(boatTile)},${map.y(boatTile)}) -> dst@(${map.x(this.dst)},${map.y(this.dst)}), attacker=${this.attacker.id()}, target=${this.targetID}`,
+        );
         this.attacker.addTroops(this.boat.troops());
         this.boat.delete(false);
         this.active = false;
         return;
+      }
     }
   }
 

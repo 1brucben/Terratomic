@@ -1,7 +1,7 @@
 import type { Execution, Game, Player, Unit } from "../game/Game";
 import { UnitType } from "../game/Game";
 import type { TileRef } from "../game/GameMap";
-import { StraightPathFinder } from "../pathfinding/PathFinding";
+import { StraightPathFinder } from "../pathfinding/PathFinder.Straight";
 import { roadEffectModifiers } from "../tech/TechEffects";
 
 export class BomberExecution implements Execution {

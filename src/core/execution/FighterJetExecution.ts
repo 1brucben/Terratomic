@@ -9,7 +9,7 @@ import {
 import { GameImpl } from "../game/GameImpl";
 import { TileRef } from "../game/GameMap";
 
-import { StraightPathFinder } from "../pathfinding/PathFinding";
+import { StraightPathFinder } from "../pathfinding/PathFinder.Straight";
 import { PseudoRandom } from "../PseudoRandom";
 import { ShellExecution } from "./ShellExecution";
 

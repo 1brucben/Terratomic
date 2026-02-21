@@ -1,6 +1,6 @@
 import { Execution, Game, Player, Unit, UnitType } from "../game/Game";
 import { TileRef } from "../game/GameMap";
-import { StraightPathFinder } from "../pathfinding/PathFinding";
+import { StraightPathFinder } from "../pathfinding/PathFinder.Straight";
 
 /**
  * Execution for a single AA bullet fired from a city at an enemy plane.

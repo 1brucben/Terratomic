@@ -11,8 +11,8 @@ import {
   UpgradeType,
 } from "../game/Game";
 import { TileRef } from "../game/GameMap";
-import { PathFindResultType } from "../pathfinding/AStar";
-import { MiniPathFinder } from "../pathfinding/PathFinding";
+import { PathFinding } from "../pathfinding/PathFinder";
+import { PathStatus, SteppingPathFinder } from "../pathfinding/types";
 import { PseudoRandom } from "../PseudoRandom";
 import { roadEffectModifiers, tradeIncomeModifiers } from "../tech/TechEffects";
 
@@ -693,7 +693,7 @@ export class TradeManagerExecution implements Execution {
 
 export class AssignedTradeRouteExecution implements Execution {
   private mg!: Game;
-  private path!: MiniPathFinder;
+  private path!: SteppingPathFinder<TileRef>;
   private active = true;
   private phase: "toStart" | "toEnd" = "toStart";
   private lastMoveTick = 0;
@@ -708,7 +708,7 @@ export class AssignedTradeRouteExecution implements Execution {
 
   init(mg: Game, ticks: number): void {
     this.mg = mg;
-    this.path = new MiniPathFinder(mg, 30000, true, 100);
+    this.path = PathFinding.Water(mg);
     this.lastMoveTick = ticks;
     // Ensure ship is not in a stale 'returning' state from a prior turnaround
     this.ship.setReturning(false);
@@ -1050,18 +1050,18 @@ export class AssignedTradeRouteExecution implements Execution {
       return;
     }
 
-    const res = this.path.nextTile(this.ship.tile(), navTarget);
-    switch (res.type) {
-      case PathFindResultType.Completed:
+    const res = this.path.next(this.ship.tile(), navTarget);
+    switch (res.status) {
+      case PathStatus.COMPLETE:
         this.ship.move(navTarget); // silent per-tick
         break;
-      case PathFindResultType.Pending:
+      case PathStatus.PENDING:
         this.ship.move(this.ship.tile()); // no movement
         break;
-      case PathFindResultType.NextTile:
+      case PathStatus.NEXT:
         this.ship.move(res.node); // silent step
         break;
-      case PathFindResultType.PathNotFound:
+      case PathStatus.NOT_FOUND:
         // Path cannot be found; try another port of the same owner before giving up
         if (!this.ship.returning()) {
           if (this.phase === "toEnd") {

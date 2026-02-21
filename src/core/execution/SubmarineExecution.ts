@@ -7,10 +7,9 @@ import {
   UnitParams,
   UnitType,
 } from "../game/Game";
-import { GameImpl } from "../game/GameImpl";
 import { TileRef } from "../game/GameMap";
-import { PathFindResultType } from "../pathfinding/AStar";
-import { MiniPathFinder } from "../pathfinding/PathFinding";
+import { PathFinding } from "../pathfinding/PathFinder";
+import { PathStatus, SteppingPathFinder } from "../pathfinding/types";
 import { PseudoRandom } from "../PseudoRandom";
 import { ShellExecution } from "./ShellExecution";
 
@@ -18,8 +17,8 @@ export class SubmarineExecution implements Execution {
   executionName = "SubmarineExecution";
   private random: PseudoRandom;
   private submarine: Unit;
-  private mg: GameImpl;
-  private pathfinder: MiniPathFinder;
+  private mg: Game;
+  private pathfinder: SteppingPathFinder<TileRef>;
   private lastShellAttack = 0;
   private alreadySentShell = new Set<Unit>();
 
@@ -39,8 +38,8 @@ export class SubmarineExecution implements Execution {
   ) {}
 
   init(mg: Game, ticks: number): void {
-    this.mg = mg as GameImpl;
-    this.pathfinder = new MiniPathFinder(mg, 10_000, true, 100);
+    this.mg = mg;
+    this.pathfinder = PathFinding.Water(mg);
     this.random = new PseudoRandom(mg.ticks());
     if (isUnit(this.input)) {
       this.submarine = this.input;
@@ -299,22 +298,22 @@ export class SubmarineExecution implements Execution {
       }
     }
 
-    const result = this.pathfinder.nextTile(
+    const result = this.pathfinder.next(
       this.submarine.tile(),
       this.submarine.targetTile()!,
     );
-    switch (result.type) {
-      case PathFindResultType.Completed:
+    switch (result.status) {
+      case PathStatus.COMPLETE:
         this.submarine.setTargetTile(undefined);
         this.submarine.move(result.node);
         break;
-      case PathFindResultType.NextTile:
+      case PathStatus.NEXT:
         this.submarine.move(result.node);
         break;
-      case PathFindResultType.Pending:
+      case PathStatus.PENDING:
         this.submarine.touch();
         return;
-      case PathFindResultType.PathNotFound:
+      case PathStatus.NOT_FOUND:
         console.warn(`path not found to target tile`);
         this.submarine.setTargetTile(undefined);
         break;

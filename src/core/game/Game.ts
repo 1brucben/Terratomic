@@ -1,5 +1,6 @@
 import { Config } from "../configuration/Config";
-import { NavMesh } from "../pathfinding/navmesh/NavMesh";
+import { AbstractGraph } from "../pathfinding/algorithms/AbstractGraph";
+import { PathFinder } from "../pathfinding/types";
 import { AllPlayersStats, ClientID } from "../Schemas";
 import { Category } from "../tech/ResearchTree";
 import { Cell, GameMap, MapPos, TerrainType, TileRef } from "./GameMap";
@@ -284,7 +285,9 @@ export interface UnitParamsMap {
 
   [UnitType.City]: Record<string, never>;
 
-  [UnitType.MIRV]: Record<string, never>;
+  [UnitType.MIRV]: {
+    targetTile?: number;
+  };
 
   [UnitType.Hospital]: Record<string, never>;
 
@@ -882,7 +885,10 @@ export interface Game extends GameMap {
   conquer(newOwner: Player, tile: TileRef): void;
 
   addUpdate(update: GameUpdate): void;
-  navMesh(): NavMesh | null;
+  miniWaterHPA(): PathFinder<number> | null;
+  miniWaterGraph(): AbstractGraph | null;
+  getWaterComponent(tile: TileRef): number | null;
+  hasWaterComponent(tile: TileRef, component: number): boolean;
 }
 
 export interface PlayerActions {
