@@ -1423,7 +1423,7 @@ export class AssignedTradeRouteExecution implements Execution {
  */
 class StrandedTradeShipReturnExecution implements Execution {
   private mg!: Game;
-  private pathfinder!: PathFinder;
+  private pathfinder!: SteppingPathFinder<TileRef>;
   private active = true;
   private lastMoveTick = 0;
   private destPort: Unit | null = null;
@@ -1432,7 +1432,7 @@ class StrandedTradeShipReturnExecution implements Execution {
 
   init(mg: Game, ticks: number): void {
     this.mg = mg;
-    this.pathfinder = PathFinder.Mini(mg, 2500);
+    this.pathfinder = PathFinding.Water(mg);
     this.lastMoveTick = ticks;
     // Mark a transient trade phase so the recovery manager doesn't re-detect this ship
     this.ship.setTradePhase("toStart");
@@ -1523,18 +1523,18 @@ class StrandedTradeShipReturnExecution implements Execution {
       return;
     }
 
-    const res = this.pathfinder.nextTile(this.ship.tile(), navTarget);
-    switch (res.type) {
-      case PathFindResultType.Completed:
+    const res = this.pathfinder.next(this.ship.tile(), navTarget);
+    switch (res.status) {
+      case PathStatus.COMPLETE:
         this.ship.move(navTarget);
         break;
-      case PathFindResultType.NextTile:
+      case PathStatus.NEXT:
         this.ship.move(res.node);
         break;
-      case PathFindResultType.Pending:
+      case PathStatus.PENDING:
         this.ship.touch();
         break;
-      case PathFindResultType.PathNotFound:
+      case PathStatus.NOT_FOUND:
         // Cannot reach port; give up
         this.ship.setTradePhase(null);
         this.ship.setTargetUnit(undefined);
