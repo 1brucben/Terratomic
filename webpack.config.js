@@ -180,6 +180,13 @@ export default async (env, argv) => {
               changeOrigin: true,
               logLevel: "debug",
             },
+            {
+              context: ["/lobbies"],
+              target: "ws://localhost:3000",
+              ws: true,
+              changeOrigin: true,
+              logLevel: "debug",
+            },
             // Worker WebSocket proxies - using direct paths without /socket suffix
             {
               context: ["/w0"],

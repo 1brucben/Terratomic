@@ -4,6 +4,7 @@ import { translateText } from "../client/Utils";
 import { GameMode } from "../core/game/Game";
 import { GameID, GameInfo } from "../core/Schemas";
 import { generateID } from "../core/Util";
+import { PublicLobbySocket } from "./LobbySocket";
 import { JoinLobbyEvent } from "./Main";
 import { getMapsImage } from "./utilities/Maps";
 
@@ -12,10 +13,12 @@ export class PublicLobby extends LitElement {
   @state() private lobbies: GameInfo[] = [];
   @state() public isLobbyHighlighted: boolean = false;
   @state() private isButtonDebounced: boolean = false;
-  private lobbiesInterval: number | null = null;
   private currLobby: GameInfo | null = null;
   private debounceDelay: number = 750;
   private lobbyIDToStart = new Map<GameID, number>();
+  private lobbySocket = new PublicLobbySocket((lobbies) =>
+    this.handleLobbiesUpdate(lobbies),
+  );
 
   createRenderRoot() {
     return this;
@@ -23,56 +26,29 @@ export class PublicLobby extends LitElement {
 
   connectedCallback() {
     super.connectedCallback();
-    this.fetchAndUpdateLobbies();
-    this.lobbiesInterval = window.setInterval(
-      () => this.fetchAndUpdateLobbies(),
-      1000,
-    );
+    this.lobbySocket.start();
   }
 
   disconnectedCallback() {
     super.disconnectedCallback();
-    if (this.lobbiesInterval !== null) {
-      clearInterval(this.lobbiesInterval);
-      this.lobbiesInterval = null;
-    }
+    this.lobbySocket.stop();
   }
 
-  private async fetchAndUpdateLobbies(): Promise<void> {
-    try {
-      this.lobbies = await this.fetchLobbies();
-      this.lobbies.forEach((l) => {
-        // Store the start time on first fetch because endpoint is cached, causing
-        // the time to appear irregular.
-        if (!this.lobbyIDToStart.has(l.gameID)) {
-          const msUntilStart = l.msUntilStart ?? 0;
-          this.lobbyIDToStart.set(l.gameID, msUntilStart + Date.now());
-        }
-      });
-    } catch (error) {
-      console.error("Error fetching lobbies:", error);
-    }
-  }
-
-  async fetchLobbies(): Promise<GameInfo[]> {
-    try {
-      const response = await fetch(`/api/public_lobbies`);
-      if (!response.ok)
-        throw new Error(`HTTP error! status: ${response.status}`);
-      const data = await response.json();
-      return data.lobbies;
-    } catch (error) {
-      console.error("Error fetching lobbies:", error);
-      throw error;
-    }
+  private handleLobbiesUpdate(lobbies: GameInfo[]) {
+    this.lobbies = lobbies;
+    this.lobbies.forEach((l) => {
+      if (!this.lobbyIDToStart.has(l.gameID)) {
+        const msUntilStart = l.msUntilStart ?? 0;
+        this.lobbyIDToStart.set(l.gameID, msUntilStart + Date.now());
+      }
+    });
+    this.requestUpdate();
   }
 
   public stop() {
-    if (this.lobbiesInterval !== null) {
-      this.isLobbyHighlighted = false;
-      clearInterval(this.lobbiesInterval);
-      this.lobbiesInterval = null;
-    }
+    this.lobbySocket.stop();
+    this.isLobbyHighlighted = false;
+    this.currLobby = null;
   }
 
   render() {
