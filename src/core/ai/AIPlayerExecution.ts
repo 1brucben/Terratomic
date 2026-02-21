@@ -104,7 +104,7 @@ export class AIPlayerExecution implements Execution {
   private static readonly NUKE_REDUNDANCY_CHECK_INTERVAL = 10;
 
   /** Internal multiplier applied to nuke scores when comparing against construction scores. */
-  private static readonly NUKE_SCORE_INTERNAL_MULTIPLIER = 8e-1;
+  private static readonly NUKE_SCORE_INTERNAL_MULTIPLIER = 7e-1;
 
   // Wall-clock perf logging (shared across all AI instances)
   private static readonly PERF_LOG_INTERVAL_MS = 10_000;

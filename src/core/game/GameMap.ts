@@ -125,7 +125,7 @@ export class GameMapImpl implements GameMap {
   private static readonly PLAYER_ID_MASK = 0xfff;
   private static readonly FALLOUT_BIT = 13;
   private static readonly DEFENSE_BONUS_BIT = 14;
-  // Bit 15 still reserved
+  private static readonly OCEAN_SHORE_BIT = 15;
 
   constructor(
     width: number,
@@ -153,6 +153,33 @@ export class GameMapImpl implements GameMap {
         this.refToX[ref] = x;
         this.refToY[ref] = y;
         ref++;
+      }
+    }
+    // Pre-bake ocean shore bit: land tile adjacent to at least one ocean tile
+    this.bakeOceanShore();
+  }
+
+  private bakeOceanShore(): void {
+    const w = this.width_;
+    const h = this.height_;
+    const landBit = 1 << GameMapImpl.IS_LAND_BIT;
+    const oceanBit = 1 << GameMapImpl.OCEAN_BIT;
+    const shoreBit = 1 << GameMapImpl.OCEAN_SHORE_BIT;
+    const terrain = this.terrain;
+    const state = this.state;
+    const total = w * h;
+    const lastRow = (h - 1) * w;
+
+    for (let ref = 0; ref < total; ref++) {
+      if (!(terrain[ref] & landBit)) continue;
+      const x = ref % w;
+      if (
+        (ref >= w && terrain[ref - w] & oceanBit) ||
+        (ref < lastRow && terrain[ref + w] & oceanBit) ||
+        (x !== 0 && terrain[ref - 1] & oceanBit) ||
+        (x !== w - 1 && terrain[ref + 1] & oceanBit)
+      ) {
+        state[ref] |= shoreBit;
       }
     }
   }
@@ -203,9 +230,7 @@ export class GameMapImpl implements GameMap {
   }
 
   isOceanShore(ref: TileRef): boolean {
-    return (
-      this.isLand(ref) && this.neighbors(ref).some((tr) => this.isOcean(tr))
-    );
+    return Boolean(this.state[ref] & (1 << GameMapImpl.OCEAN_SHORE_BIT));
   }
 
   isOcean(ref: TileRef): boolean {
