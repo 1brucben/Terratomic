@@ -1,6 +1,6 @@
 # Mobile Feature Matrix
 
-> Last updated: 2026-02-19
+> Last updated: 2026-02-21
 
 Desktop → mobile parity overview. All source under `src/client/mobile/`.
 
@@ -108,6 +108,20 @@ Three fixed buttons appear during gameplay (hidden during spawn phase):
 | Economy  | Top      | Gold   | `MobileEconomyOverlay`  |
 | Research | Middle   | Purple | `MobileResearchSidebar` |
 | Intel    | Bottom   | Blue   | `MobileIntelSidebar`    |
+
+---
+
+## Runtime Visibility Rules
+
+`MobileUI` applies a runtime visibility mode each frame based on game/loading state.
+
+| Runtime State                                 | Behavior                                                                                                                  |
+| --------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------- |
+| Loading modal visible (`game-starting-modal`) | Suppress all in-game mobile UI (top bar, action grid, tabs, sidebars/overlays, zoom buttons). Map gestures remain active. |
+| Spectator (`game.myPlayer() === null`)        | Suppress all in-game mobile UI while spectating. Map gestures remain active.                                              |
+| Alive player (normal gameplay)                | Full mobile UI available, including action grid and overlays.                                                             |
+| Loss while still alive/continuing             | Keep full mobile UI available; `MobileWinModal` may appear without suppressing controls.                                  |
+| Dead player (`!isAlive`, post-spawn)          | Keep top bar/tabs/zoom/sidebars available; action grid is disabled (never shown).                                         |
 
 ---
 

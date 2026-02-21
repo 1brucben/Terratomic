@@ -2,6 +2,9 @@ import { LitElement, css, html } from "lit";
 import { customElement, state } from "lit/decorators.js";
 import { translateText } from "./Utils";
 
+export const GAME_LOADING_VISIBILITY_CHANGE_EVENT =
+  "game-loading-visibility-change";
+
 @customElement("game-starting-modal")
 export class GameStartingModal extends LitElement {
   @state()
@@ -185,11 +188,27 @@ export class GameStartingModal extends LitElement {
 
   show() {
     this.isVisible = true;
+    window.dispatchEvent(
+      new CustomEvent<{ visible: boolean }>(
+        GAME_LOADING_VISIBILITY_CHANGE_EVENT,
+        {
+          detail: { visible: true },
+        },
+      ),
+    );
     this.requestUpdate();
   }
 
   hide() {
     this.isVisible = false;
+    window.dispatchEvent(
+      new CustomEvent<{ visible: boolean }>(
+        GAME_LOADING_VISIBILITY_CHANGE_EVENT,
+        {
+          detail: { visible: false },
+        },
+      ),
+    );
     this.requestUpdate();
   }
 }

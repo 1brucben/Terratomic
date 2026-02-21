@@ -18,6 +18,7 @@ describe("MobileUIStateSync", () => {
       myPlayer: () => ({
         gold: () => 12n,
         population: () => 8,
+        hasSpawned: () => false,
         isAlive: () => true,
         smallID: () => 3,
       }),
@@ -53,6 +54,9 @@ describe("MobileUIStateSync", () => {
       didProcessTick: true,
       lastGameTick: 7,
       gameDurationSeconds: 0,
+      isSpectator: false,
+      isDead: false,
+      inSpawnPhase: true,
     });
     expect(economyTab.style.display).toBe("none");
     expect(intelTab.style.display).toBe("none");
@@ -77,6 +81,7 @@ describe("MobileUIStateSync", () => {
       myPlayer: () => ({
         gold: () => 55n,
         population: () => 9,
+        hasSpawned: () => true,
         isAlive: () => true,
         smallID: () => 8,
       }),
@@ -112,6 +117,9 @@ describe("MobileUIStateSync", () => {
       didProcessTick: true,
       lastGameTick: 20,
       gameDurationSeconds: 12,
+      isSpectator: false,
+      isDead: false,
+      inSpawnPhase: false,
     });
     expect(economyTab.style.display).toBe("");
     expect(intelTab.style.display).toBe("");
@@ -139,6 +147,7 @@ describe("MobileUIStateSync", () => {
       myPlayer: () => ({
         gold: () => 1n,
         population: () => 1,
+        hasSpawned: () => true,
         isAlive: () => true,
         smallID: () => 1,
       }),
@@ -169,6 +178,9 @@ describe("MobileUIStateSync", () => {
       didProcessTick: false,
       lastGameTick: 99,
       gameDurationSeconds: 5,
+      isSpectator: false,
+      isDead: false,
+      inSpawnPhase: false,
     });
     expect(updateStats).not.toHaveBeenCalled();
     expect(clearTradeIncomeIndicator).not.toHaveBeenCalled();

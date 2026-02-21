@@ -7,6 +7,7 @@ import { EventBus } from "../../core/EventBus";
 import { UnitType } from "../../core/game/Game";
 import type { TileRef } from "../../core/game/GameMap";
 import type { GameView, PlayerView } from "../../core/game/GameView";
+import { GAME_LOADING_VISIBILITY_CHANGE_EVENT } from "../GameStartingModal";
 import { CenterCameraEvent, DragEvent, ZoomEvent } from "../InputHandler";
 import {
   BuildUnitIntentEvent,
@@ -61,6 +62,8 @@ import { MobileTechUnlockToast } from "./overlays/MobileTechUnlockToast";
 import { MobileWinModal } from "./overlays/MobileWinModal";
 import { HapticFeedback } from "./utils/HapticFeedback";
 
+type RuntimeMobileUiMode = "full" | "suppressed" | "dead";
+
 export class MobileUI {
   private actionGrid: MobileActionGrid;
   private topBar: MobileTopBar;
@@ -103,6 +106,10 @@ export class MobileUI {
   private currentGameId: string | null = null;
   private stackModeEnabled: boolean = false;
   private stackTargetUnitId: number | null = null;
+  private isLoadingModalVisible: boolean = false;
+  private isSpectator: boolean = false;
+  private isDead: boolean = false;
+  private runtimeUiMode: RuntimeMobileUiMode | null = null;
   private readonly MOBILE_BUTTON_ZOOM_DELTA = 200;
   private readonly MOBILE_PINCH_ZOOM_MULTIPLIER = 50;
   private readonly orientationChangeHandler = (): void => {
@@ -110,6 +117,11 @@ export class MobileUI {
   };
   private readonly viewportResizeHandler = (): void => {
     this.applyResponsiveProfile();
+  };
+  private readonly loadingVisibilityHandler = (event: Event): void => {
+    const customEvent = event as CustomEvent<{ visible?: boolean }>;
+    const isVisible = customEvent.detail?.visible === true;
+    this.setLoadingModalVisible(isVisible);
   };
 
   constructor(private eventBus: EventBus) {
@@ -187,6 +199,11 @@ export class MobileUI {
 
     // Set up event listeners (will be called after first activation)
     // this.setupEventListeners(); // Deferred until activation
+
+    window.addEventListener(
+      GAME_LOADING_VISIBILITY_CHANGE_EVENT,
+      this.loadingVisibilityHandler,
+    );
   }
 
   /**
@@ -264,11 +281,11 @@ export class MobileUI {
         this.setupEventListeners();
         this.componentsAttached = true;
       }
-      this.topBar.style.display = "";
-      this.chatEmojiBar.style.display = "";
       document.body.classList.add("mobile-ui-enabled");
       this.injectMobileStyles();
       this.applyResponsiveProfile();
+      this.syncLoadingVisibilityFromModal();
+      this.applyRuntimeUiMode();
       window.addEventListener("resize", this.viewportResizeHandler);
       this.startStatsLoop();
     } else {
@@ -289,6 +306,7 @@ export class MobileUI {
         this.zoomOutButton.style.display = "none";
         this.closeAllOverlays();
       }
+      this.runtimeUiMode = null;
       document.body.classList.remove("mobile-ui-enabled");
       window.removeEventListener("resize", this.viewportResizeHandler);
       this.clearResponsiveProfile();
@@ -392,6 +410,10 @@ export class MobileUI {
       researchTab: this.researchTab,
       attackBar: this.attackBar,
     });
+    this.isSpectator = syncResult.isSpectator;
+    this.isDead = syncResult.isDead;
+    this.applyRuntimeUiMode(syncResult.inSpawnPhase);
+
     if (!syncResult.didProcessTick) {
       return;
     }
@@ -412,6 +434,70 @@ export class MobileUI {
       winModal: this.winModal,
       allianceNotifications: this.allianceNotifications,
     });
+  }
+
+  private syncLoadingVisibilityFromModal(): void {
+    const startingModal = document.querySelector("game-starting-modal") as {
+      isVisible?: boolean;
+    } | null;
+    this.setLoadingModalVisible(startingModal?.isVisible === true);
+  }
+
+  private setLoadingModalVisible(visible: boolean): void {
+    if (this.isLoadingModalVisible === visible) {
+      return;
+    }
+    this.isLoadingModalVisible = visible;
+    this.applyRuntimeUiMode();
+  }
+
+  private getRuntimeUiMode(): RuntimeMobileUiMode {
+    if (this.isLoadingModalVisible || this.isSpectator) {
+      return "suppressed";
+    }
+    if (this.isDead) {
+      return "dead";
+    }
+    return "full";
+  }
+
+  private applyRuntimeUiMode(inSpawnPhase?: boolean): void {
+    if (!this.active || !this.componentsAttached) {
+      return;
+    }
+
+    const mode = this.getRuntimeUiMode();
+    const isSpawnPhase =
+      inSpawnPhase ?? this.currentGame?.inSpawnPhase() ?? false;
+    this.runtimeUiMode = mode;
+
+    if (mode === "suppressed") {
+      this.topBar.style.display = "none";
+      this.economyTab.style.display = "none";
+      this.intelTab.style.display = "none";
+      this.researchTab.style.display = "none";
+      this.chatEmojiBar.style.display = "none";
+      this.zoomInButton.style.display = "none";
+      this.zoomCenterButton.style.display = "none";
+      this.zoomOutButton.style.display = "none";
+      this.closeAllOverlays();
+      return;
+    }
+
+    this.topBar.style.display = "";
+    this.chatEmojiBar.style.display = "";
+    this.zoomInButton.style.display = "";
+    this.zoomCenterButton.style.display = "";
+    this.zoomOutButton.style.display = "";
+
+    if (mode === "dead") {
+      this.actionGrid.close();
+    }
+
+    const tabDisplay = isSpawnPhase ? "none" : "";
+    this.economyTab.style.display = tabDisplay;
+    this.intelTab.style.display = tabDisplay;
+    this.researchTab.style.display = tabDisplay;
   }
 
   private closeAllOverlays(): void {
@@ -762,6 +848,11 @@ export class MobileUI {
 
     if (!this.currentGame) return;
 
+    if (this.runtimeUiMode === "suppressed") {
+      this.actionGrid.close();
+      return;
+    }
+
     // Handle spawn phase directly - emit spawn event immediately
     if (this.currentGame.inSpawnPhase()) {
       if (this.currentGame.isLand(tile) && !this.currentGame.hasOwner(tile)) {
@@ -772,6 +863,11 @@ export class MobileUI {
 
     if (this.stackModeEnabled) {
       this.tryStackStructureAtTile(tile, position);
+      return;
+    }
+
+    if (this.runtimeUiMode === "dead") {
+      this.actionGrid.close();
       return;
     }
 
@@ -820,6 +916,10 @@ export class MobileUI {
     x: number;
     y: number;
   }): Promise<void> {
+    if (this.runtimeUiMode === "suppressed") {
+      return;
+    }
+
     const tile = screenToTile({
       position,
       game: this.currentGame,
@@ -873,6 +973,9 @@ export class MobileUI {
    * Handle settings button click
    */
   private handleSettingsClick(): void {
+    if (this.runtimeUiMode === "suppressed") {
+      return;
+    }
     this.settingsSidebar.toggle();
   }
 
@@ -915,6 +1018,9 @@ export class MobileUI {
    * Handle opening Intel sidebar
    */
   private handleOpenIntelSidebar(): void {
+    if (this.runtimeUiMode === "suppressed") {
+      return;
+    }
     this.intelSidebar.toggle();
   }
 
@@ -922,6 +1028,9 @@ export class MobileUI {
    * Handle opening Research sidebar
    */
   private handleOpenResearchSidebar(): void {
+    if (this.runtimeUiMode === "suppressed") {
+      return;
+    }
     this.researchSidebar.toggle();
   }
 
@@ -970,6 +1079,10 @@ export class MobileUI {
       this.orientationChangeHandler,
     );
     window.removeEventListener("resize", this.viewportResizeHandler);
+    window.removeEventListener(
+      GAME_LOADING_VISIBILITY_CHANGE_EVENT,
+      this.loadingVisibilityHandler,
+    );
 
     // Clean up gesture detector
     if (this.gestureDetector) {

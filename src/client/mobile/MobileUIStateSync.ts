@@ -36,6 +36,9 @@ export function syncMobileUIStateFromGame(params: {
   didProcessTick: boolean;
   lastGameTick: number;
   gameDurationSeconds: number;
+  isSpectator: boolean;
+  isDead: boolean;
+  inSpawnPhase: boolean;
 } {
   const {
     game,
@@ -54,6 +57,9 @@ export function syncMobileUIStateFromGame(params: {
       didProcessTick: false,
       lastGameTick,
       gameDurationSeconds,
+      isSpectator: false,
+      isDead: false,
+      inSpawnPhase: false,
     };
   }
 
@@ -63,8 +69,14 @@ export function syncMobileUIStateFromGame(params: {
       didProcessTick: false,
       lastGameTick,
       gameDurationSeconds,
+      isSpectator: true,
+      isDead: false,
+      inSpawnPhase: game.inSpawnPhase(),
     };
   }
+
+  const inSpawnPhase = game.inSpawnPhase();
+  const isDead = !inSpawnPhase && myPlayer.hasSpawned() && !myPlayer.isAlive();
 
   const tick = game.ticks();
   if (tick === lastGameTick) {
@@ -72,6 +84,9 @@ export function syncMobileUIStateFromGame(params: {
       didProcessTick: false,
       lastGameTick,
       gameDurationSeconds,
+      isSpectator: false,
+      isDead,
+      inSpawnPhase,
     };
   }
 
@@ -80,8 +95,6 @@ export function syncMobileUIStateFromGame(params: {
   const maxPopulation = game.config().maxPopulation(myPlayer);
   const populationGrowth = game.config().populationIncreaseRate(myPlayer) * 10;
   const goldIncome = Number(game.config().goldAdditionRate(myPlayer) * 10n);
-  const inSpawnPhase = game.inSpawnPhase();
-
   if (inSpawnPhase) {
     attackBar.clearTradeIncomeIndicator();
   }
@@ -123,5 +136,8 @@ export function syncMobileUIStateFromGame(params: {
     didProcessTick: true,
     lastGameTick: tick,
     gameDurationSeconds: nextGameDurationSeconds,
+    isSpectator: false,
+    isDead,
+    inSpawnPhase,
   };
 }
