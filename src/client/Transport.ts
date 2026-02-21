@@ -690,7 +690,7 @@ export class Transport {
       type: "donate_gold",
       clientID: this.lobbyConfig.clientID,
       recipient: event.recipient.id(),
-      gold: event.gold,
+      gold: event.gold !== null ? Number(event.gold) : null,
     });
   }
 

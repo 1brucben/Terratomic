@@ -1,3 +1,4 @@
+import fsSync from "fs";
 import fs from "fs/promises";
 import path from "path";
 import {
@@ -25,14 +26,33 @@ export async function setup(
   // Suppress console.debug for tests.
   console.debug = () => {};
 
-  // Load the specified map
-  const mapPath = path.join(__dirname, "..", "testdata", `${mapName}.png`);
-  const imageBuffer = await fs.readFile(mapPath);
-  const { map, miniMap } = await generateMap(imageBuffer, false);
-  const gameMap = await genTerrainFromBin(String.fromCharCode.apply(null, map));
-  const miniGameMap = await genTerrainFromBin(
-    String.fromCharCode.apply(null, miniMap),
-  );
+  // Try binary map format first (tests/testdata/maps/{mapName}/)
+  const binMapDir = path.join(__dirname, "..", "testdata", "maps", mapName);
+  const mapBinPath = path.join(binMapDir, "map.bin");
+  const miniMapBinPath = path.join(binMapDir, "map4x.bin");
+
+  let gameMap, miniGameMap;
+
+  if (fsSync.existsSync(mapBinPath) && fsSync.existsSync(miniMapBinPath)) {
+    // Binary map format
+    const mapBinBuffer = fsSync.readFileSync(mapBinPath);
+    const miniMapBinBuffer = fsSync.readFileSync(miniMapBinPath);
+    const mapBinString = String.fromCharCode(...new Uint8Array(mapBinBuffer));
+    const miniMapBinString = String.fromCharCode(
+      ...new Uint8Array(miniMapBinBuffer),
+    );
+    gameMap = await genTerrainFromBin(mapBinString);
+    miniGameMap = await genTerrainFromBin(miniMapBinString);
+  } else {
+    // Legacy PNG map format
+    const mapPath = path.join(__dirname, "..", "testdata", `${mapName}.png`);
+    const imageBuffer = await fs.readFile(mapPath);
+    const { map, miniMap } = await generateMap(imageBuffer, false);
+    gameMap = await genTerrainFromBin(String.fromCharCode.apply(null, map));
+    miniGameMap = await genTerrainFromBin(
+      String.fromCharCode.apply(null, miniMap),
+    );
+  }
 
   // Configure the game
   const serverConfig = new TestServerConfig();

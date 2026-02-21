@@ -1,4 +1,5 @@
 import { Config } from "../configuration/Config";
+import { NavMesh } from "../pathfinding/navmesh/NavMesh";
 import { AllPlayersStats, ClientID } from "../Schemas";
 import { Category } from "../tech/ResearchTree";
 import { Cell, GameMap, MapPos, TerrainType, TileRef } from "./GameMap";
@@ -621,7 +622,7 @@ export interface Player {
   // Research: investment ratio (0..1) of per-tick income allocated to research (cost only)
   researchInvestmentRate(): number;
   setResearchInvestmentRate(rate: number): void;
-  addGold(toAdd: Gold): void;
+  addGold(toAdd: Gold, tile?: TileRef): void;
   removeGold(toRemove: Gold): Gold;
   addWorkers(toAdd: number): void;
   removeWorkers(toRemove: number): void;
@@ -879,6 +880,9 @@ export interface Game extends GameMap {
   ): void;
   doomsdayExplosion(tile: TileRef, radius: number, owner: Player): void;
   conquer(newOwner: Player, tile: TileRef): void;
+
+  addUpdate(update: GameUpdate): void;
+  navMesh(): NavMesh | null;
 }
 
 export interface PlayerActions {

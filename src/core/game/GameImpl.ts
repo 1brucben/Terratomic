@@ -1,5 +1,6 @@
 import { Config } from "../configuration/Config";
 import { AttackExecution } from "../execution/AttackExecution";
+import { NavMesh } from "../pathfinding/navmesh/NavMesh";
 import { AllPlayersStats, ClientID, Winner } from "../Schemas";
 import { simpleHash } from "../Util";
 import { AllianceImpl } from "./AllianceImpl";
@@ -90,6 +91,9 @@ export class GameImpl implements Game {
   private playerTeams: Team[];
   private botTeam: Team = ColoredTeams.Bot;
 
+  private _isPaused: boolean = false;
+  private _navMesh: NavMesh | null = null;
+
   constructor(
     private _humans: PlayerInfo[],
     private _nations: Nation[],
@@ -118,6 +122,11 @@ export class GameImpl implements Game {
       this.populateTeams();
     }
     this.addPlayers();
+
+    if (!_config.disableNavMesh()) {
+      this._navMesh = new NavMesh(this, { cachePaths: true });
+      this._navMesh.initialize();
+    }
   }
 
   private populateTeams() {
@@ -1213,6 +1222,9 @@ export class GameImpl implements Game {
   }
   public alliances(): AllianceImpl[] {
     return this.alliances_;
+  }
+  navMesh(): NavMesh | null {
+    return this._navMesh;
   }
 
   public hasRoadOnTile(tile: TileRef): boolean {

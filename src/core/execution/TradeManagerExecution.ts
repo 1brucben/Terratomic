@@ -12,7 +12,7 @@ import {
 } from "../game/Game";
 import { TileRef } from "../game/GameMap";
 import { PathFindResultType } from "../pathfinding/AStar";
-import { PathFinder } from "../pathfinding/PathFinding";
+import { MiniPathFinder } from "../pathfinding/PathFinding";
 import { PseudoRandom } from "../PseudoRandom";
 import { roadEffectModifiers, tradeIncomeModifiers } from "../tech/TechEffects";
 
@@ -693,7 +693,7 @@ export class TradeManagerExecution implements Execution {
 
 export class AssignedTradeRouteExecution implements Execution {
   private mg!: Game;
-  private path!: PathFinder;
+  private path!: MiniPathFinder;
   private active = true;
   private phase: "toStart" | "toEnd" = "toStart";
   private lastMoveTick = 0;
@@ -708,7 +708,7 @@ export class AssignedTradeRouteExecution implements Execution {
 
   init(mg: Game, ticks: number): void {
     this.mg = mg;
-    this.path = PathFinder.Mini(mg, 30000, true, 100);
+    this.path = new MiniPathFinder(mg, 30000, true, 100);
     this.lastMoveTick = ticks;
     // Ensure ship is not in a stale 'returning' state from a prior turnaround
     this.ship.setReturning(false);

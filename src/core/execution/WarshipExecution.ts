@@ -9,10 +9,10 @@ import {
   UnitType,
   UpgradeType,
 } from "../game/Game";
-import { GameImpl } from "../game/GameImpl";
 import { TileRef } from "../game/GameMap";
 import { PathFindResultType } from "../pathfinding/AStar";
-import { PathFinder } from "../pathfinding/PathFinding";
+import { PathFinder, PathFinders, PathStatus } from "../pathfinding/PathFinder";
+import { MiniPathFinder } from "../pathfinding/PathFinding";
 import { PseudoRandom } from "../PseudoRandom";
 import { SAMMissileExecution } from "./SAMMissileExecution";
 import { ShellExecution } from "./ShellExecution";
@@ -21,7 +21,7 @@ export class WarshipExecution implements Execution {
   executionName = "WarshipExecution";
   private random: PseudoRandom;
   private warship: Unit;
-  private mg: GameImpl;
+  private mg: Game;
   private pathfinder: PathFinder;
   private lastShellAttack = 0;
   private alreadySentShell = new Set<Unit>();
@@ -40,8 +40,8 @@ export class WarshipExecution implements Execution {
   ) {}
 
   init(mg: Game, ticks: number): void {
-    this.mg = mg as GameImpl;
-    this.pathfinder = PathFinder.Mini(mg, 10_000, true, 100);
+    this.mg = mg;
+    this.pathfinder = PathFinders.Water(mg);
     this.random = new PseudoRandom(mg.ticks());
     if (isUnit(this.input)) {
       this.warship = this.input;
@@ -363,62 +363,24 @@ export class WarshipExecution implements Execution {
 
     for (let i = 0; i < 2; i++) {
       // target is trade ship so capture it.
-      const result = this.pathfinder.nextTile(
+      const result = this.pathfinder.next(
         this.warship.tile(),
         this.warship.targetUnit()!.tile(),
         5,
       );
-      switch (result.type) {
-        case PathFindResultType.Completed: {
-          const targetShip = this.warship.targetUnit()!;
-          const myOwner = this.warship.owner();
-          const shipOwner = targetShip.owner();
-          if (myOwner.isAtWarWith(shipOwner)) {
-            // Enemy trade ship -> capture
-            this.warship.owner().captureUnit(targetShip);
-            // Clear any trade route metadata on the captured ship
-            targetShip.setTradeRouteOwners(null, null);
-            // Send captured ship back to a home port of the new owner; cargo will be awarded on arrival
-            this.mg.addExecution(
-              new CapturedTradeShipReturnExecution(targetShip),
-            );
-            this.warship.setTargetUnit(undefined);
-            this.warship.move(this.warship.tile());
-            return;
-          }
-          // Neutral trade ship headed to/from my enemy -> turn around upon contact
-          const startOwner = targetShip.tradeRouteStartOwner();
-          const endOwner = targetShip.tradeRouteEndOwner();
-          const atWarWithAnyEndpoint = [startOwner, endOwner]
-            .filter((p): p is Player => !!p)
-            .some((p) => myOwner.isAtWarWith(p));
-          const embargoAgainstAnyEndpoint = [startOwner, endOwner]
-            .filter((p): p is Player => !!p)
-            .some(
-              (p) =>
-                myOwner.hasEmbargoAgainst(p) || p.hasEmbargoAgainst(myOwner),
-            );
-          if (
-            (atWarWithAnyEndpoint || embargoAgainstAnyEndpoint) &&
-            !myOwner.isFriendly(shipOwner)
-          ) {
-            targetShip.setReturning(true);
-            this.warship.setTargetUnit(undefined);
-            this.warship.move(this.warship.tile());
-            return;
-          }
-          // Otherwise, disengage
+      switch (result.status) {
+        case PathStatus.COMPLETE:
+          this.warship.owner().captureUnit(this.warship.targetUnit()!);
           this.warship.setTargetUnit(undefined);
           this.warship.move(this.warship.tile());
           return;
-        }
-        case PathFindResultType.NextTile:
+        case PathStatus.NEXT:
           this.warship.move(result.node);
           break;
-        case PathFindResultType.Pending:
+        case PathStatus.PENDING:
           this.warship.touch();
           break;
-        case PathFindResultType.PathNotFound:
+        case PathStatus.NOT_FOUND:
           console.log(`path not found to target`);
           break;
       }
@@ -433,22 +395,22 @@ export class WarshipExecution implements Execution {
       }
     }
 
-    const result = this.pathfinder.nextTile(
+    const result = this.pathfinder.next(
       this.warship.tile(),
       this.warship.targetTile()!,
     );
-    switch (result.type) {
-      case PathFindResultType.Completed:
+    switch (result.status) {
+      case PathStatus.COMPLETE:
         this.warship.setTargetTile(undefined);
         this.warship.move(result.node);
         break;
-      case PathFindResultType.NextTile:
+      case PathStatus.NEXT:
         this.warship.move(result.node);
         break;
-      case PathFindResultType.Pending:
+      case PathStatus.PENDING:
         this.warship.touch();
         return;
-      case PathFindResultType.PathNotFound:
+      case PathStatus.NOT_FOUND:
         console.warn(`path not found to target tile`);
         this.warship.setTargetTile(undefined);
         break;
@@ -612,7 +574,7 @@ export class WarshipExecution implements Execution {
 class CapturedTradeShipReturnExecution implements Execution {
   executionName = "CapturedTradeShipReturnExecution";
   private mg!: Game;
-  private pathfinder!: PathFinder;
+  private pathfinder!: MiniPathFinder;
   private active = true;
   private lastMoveTick = 0;
   private destPort: Unit | null = null;
@@ -621,7 +583,7 @@ class CapturedTradeShipReturnExecution implements Execution {
 
   init(mg: Game, ticks: number): void {
     this.mg = mg;
-    this.pathfinder = PathFinder.Mini(mg, 2500);
+    this.pathfinder = new MiniPathFinder(mg, 2500, true, 100);
     this.lastMoveTick = ticks;
     // Pick nearest active port owned by the ship's owner
     this.destPort = this.selectNearestPort(this.ship.owner());

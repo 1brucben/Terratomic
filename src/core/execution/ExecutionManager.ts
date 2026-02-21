@@ -141,7 +141,11 @@ export class Executor {
           intent.troops,
         );
       case "donate_gold":
-        return new DonateGoldExecution(player, intent.recipient, intent.gold);
+        return new DonateGoldExecution(
+          player,
+          intent.recipient,
+          intent.gold !== null ? BigInt(intent.gold) : null,
+        );
       case "troop_ratio":
         return new SetTargetTroopRatioExecution(player, intent.ratio);
       case "investment_rate":

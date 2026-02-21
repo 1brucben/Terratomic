@@ -1191,7 +1191,7 @@ export class PlayerImpl implements Player {
     return this._gold;
   }
 
-  addGold(toAdd: Gold): void {
+  addGold(toAdd: Gold, _tile?: TileRef): void {
     this._gold += toAdd;
   }
 

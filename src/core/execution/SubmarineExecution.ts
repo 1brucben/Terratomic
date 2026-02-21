@@ -10,7 +10,7 @@ import {
 import { GameImpl } from "../game/GameImpl";
 import { TileRef } from "../game/GameMap";
 import { PathFindResultType } from "../pathfinding/AStar";
-import { PathFinder } from "../pathfinding/PathFinding";
+import { MiniPathFinder } from "../pathfinding/PathFinding";
 import { PseudoRandom } from "../PseudoRandom";
 import { ShellExecution } from "./ShellExecution";
 
@@ -19,7 +19,7 @@ export class SubmarineExecution implements Execution {
   private random: PseudoRandom;
   private submarine: Unit;
   private mg: GameImpl;
-  private pathfinder: PathFinder;
+  private pathfinder: MiniPathFinder;
   private lastShellAttack = 0;
   private alreadySentShell = new Set<Unit>();
 
@@ -40,7 +40,7 @@ export class SubmarineExecution implements Execution {
 
   init(mg: Game, ticks: number): void {
     this.mg = mg as GameImpl;
-    this.pathfinder = PathFinder.Mini(mg, 10_000, true, 100);
+    this.pathfinder = new MiniPathFinder(mg, 10_000, true, 100);
     this.random = new PseudoRandom(mg.ticks());
     if (isUnit(this.input)) {
       this.submarine = this.input;

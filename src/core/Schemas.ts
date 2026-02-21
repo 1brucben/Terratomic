@@ -243,6 +243,7 @@ export const GameConfigSchema = z.object({
   instantResearchHumanOnly: z.boolean().optional(),
   // If true, all players start with all techs researched
   researchAllTechs: z.boolean().optional(),
+  disableNavMesh: z.boolean().optional(),
   maxPlayers: z.number().optional(),
   disabledUnits: z.enum(UnitType).array().optional(),
   playerTeams: TeamCountConfigSchema.optional(),

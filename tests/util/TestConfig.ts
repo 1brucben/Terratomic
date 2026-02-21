@@ -21,6 +21,10 @@ export class TestConfig extends DefaultConfig {
     return 1;
   }
 
+  disableNavMesh(): boolean {
+    return this.gameConfig().disableNavMesh ?? true;
+  }
+
   radiusPortSpawn(): number {
     return 1;
   }
