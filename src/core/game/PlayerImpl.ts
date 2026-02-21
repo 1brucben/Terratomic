@@ -1503,7 +1503,10 @@ export class PlayerImpl implements Player {
     }
 
     const cost = this.mg.unitInfo(unitType).cost(this);
-    if (!this.isAlive() || this.gold() < cost) {
+    if (
+      unitType !== UnitType.MIRVWarhead &&
+      (!this.isAlive() || this.gold() < cost)
+    ) {
       return false;
     }
     switch (unitType) {
