@@ -545,6 +545,7 @@
     "other_won": "{player} has won!",
     "exit": "Exit Game",
     "keep": "Keep Playing",
+    "spectate": "Spectate",
     "wishlist": "Wishlist on Steam!",
     "save_replay": "Save Replay",
     "encoding_replay": "Encoding replay...",

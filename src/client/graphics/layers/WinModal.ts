@@ -37,6 +37,9 @@ export class WinModal extends LitElement implements Layer {
   private showReplayOptions: boolean = false;
 
   @state()
+  private isWin = false;
+
+  @state()
   private encodeError: string = "";
 
   private _title: string;
@@ -246,7 +249,9 @@ export class WinModal extends LitElement implements Layer {
             ${translateText("win_modal.exit")}
           </button>
           <button @click=${this.hide}>
-            ${translateText("win_modal.keep")}
+            ${this.isWin
+              ? translateText("win_modal.keep")
+              : translateText("win_modal.spectate")}
           </button>
         </div>
 
@@ -343,10 +348,12 @@ export class WinModal extends LitElement implements Layer {
         this.eventBus.emit(new SendWinnerEvent(wu.winner, wu.allPlayersStats));
         if (wu.winner[1] === this.game.myPlayer()?.team()) {
           this._title = translateText("win_modal.your_team");
+          this.isWin = true;
         } else {
           this._title = translateText("win_modal.other_team", {
             team: wu.winner[1],
           });
+          this.isWin = false;
         }
         this.show();
       } else {
@@ -363,10 +370,12 @@ export class WinModal extends LitElement implements Layer {
           winnerClient === this.game.myPlayer()?.clientID()
         ) {
           this._title = translateText("win_modal.you_won");
+          this.isWin = true;
         } else {
           this._title = translateText("win_modal.other_won", {
             player: winner.name(),
           });
+          this.isWin = false;
         }
         this.show();
       }
