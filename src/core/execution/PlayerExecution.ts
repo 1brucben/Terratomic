@@ -18,8 +18,8 @@ import { calculateBoundingBox, getMode, inscribed, simpleHash } from "../Util";
 
 // Traversal state for cluster calculation to avoid repeated allocations
 interface ClusterTraversalState {
-  visited: Uint8Array;
-  currentGen: number;
+  visited: Uint32Array;
+  gen: number;
 }
 
 // Per-game traversal state used by calculateClusters() to avoid per-player buffers.
@@ -519,9 +519,13 @@ export class PlayerExecution implements Execution {
     }
 
     const firstTile = cluster.values().next().value;
-    const filter = (_, t: TileRef): boolean =>
-      this.mg?.ownerID(t) === this.player?.smallID();
-    const tiles = this.mg.bfs(firstTile, filter);
+    const tiles = this.floodFillWithGen(
+      this.bumpGeneration(),
+      this.traversalState().visited,
+      [firstTile],
+      (tile, cb) => this.mg.forEachNeighbor(tile, cb),
+      (tile) => this.mg.ownerID(tile) === this.player.smallID(),
+    );
 
     if (this.player.numTilesOwned() === tiles.size) {
       const gold = this.player.gold();
@@ -586,54 +590,87 @@ export class PlayerExecution implements Execution {
   }
 
   private calculateClusters(): Set<TileRef>[] {
-    const border = this.player.borderTiles();
-    const clusters: Set<TileRef>[] = [];
+    const borderTiles = this.player.borderTiles();
+    if (borderTiles.size === 0) return [];
 
-    // Get or create traversal state for this game instance
-    let state = traversalStates.get(this.mg);
-    if (!state) {
-      state = {
-        visited: new Uint8Array(this.mg.width() * this.mg.height()),
-        currentGen: 1,
-      };
-      traversalStates.set(this.mg, state);
-    }
-
-    // Increment generation instead of clearing the array
-    state.currentGen++;
-    if (state.currentGen === 255) {
-      // Wraparound: reset to 1 and clear array
-      state.currentGen = 1;
-      state.visited.fill(0);
-    }
-
-    const currentGen = state.currentGen;
+    const state = this.traversalState();
+    const currentGen = this.bumpGeneration();
     const visited = state.visited;
 
-    for (const tile of border) {
-      if (visited[tile] === currentGen) {
-        continue;
-      }
+    const clusters: Set<TileRef>[] = [];
 
-      const cluster = new Set<TileRef>();
-      const stack: TileRef[] = [tile];
-      visited[tile] = currentGen;
+    for (const startTile of borderTiles) {
+      if (visited[startTile] === currentGen) continue;
 
-      while (stack.length > 0) {
-        const curr = stack.pop();
-        if (curr === undefined) throw new Error("curr is undefined");
-        cluster.add(curr);
-
-        this.mg.forEachNeighborWithDiag(curr, (neighbor) => {
-          if (border.has(neighbor) && visited[neighbor] !== currentGen) {
-            stack.push(neighbor);
-            visited[neighbor] = currentGen;
-          }
-        });
-      }
+      const cluster = this.floodFillWithGen(
+        currentGen,
+        visited,
+        [startTile],
+        (tile, cb) => this.mg.forEachNeighborWithDiag(tile, cb),
+        (tile) => borderTiles.has(tile),
+      );
       clusters.push(cluster);
     }
     return clusters;
+  }
+
+  private traversalState(): ClusterTraversalState {
+    const totalTiles = this.mg.width() * this.mg.height();
+    let state = traversalStates.get(this.mg);
+    if (!state || state.visited.length < totalTiles) {
+      state = {
+        visited: new Uint32Array(totalTiles),
+        gen: 0,
+      };
+      traversalStates.set(this.mg, state);
+    }
+    return state;
+  }
+
+  private bumpGeneration(): number {
+    const state = this.traversalState();
+    state.gen++;
+    if (state.gen === 0xffffffff) {
+      state.visited.fill(0);
+      state.gen = 1;
+    }
+    return state.gen;
+  }
+
+  private floodFillWithGen(
+    currentGen: number,
+    visited: Uint32Array,
+    startTiles: TileRef[],
+    neighborFn: (tile: TileRef, callback: (neighbor: TileRef) => void) => void,
+    includeFn: (tile: TileRef) => boolean,
+  ): Set<TileRef> {
+    const result = new Set<TileRef>();
+    const stack: TileRef[] = [];
+
+    for (const start of startTiles) {
+      if (visited[start] === currentGen) continue;
+      if (!includeFn(start)) continue;
+      visited[start] = currentGen;
+      result.add(start);
+      stack.push(start);
+    }
+
+    while (stack.length > 0) {
+      const tile = stack.pop()!;
+      neighborFn(tile, (neighbor) => {
+        if (visited[neighbor] === currentGen) {
+          return;
+        }
+        if (!includeFn(neighbor)) {
+          return;
+        }
+        visited[neighbor] = currentGen;
+        result.add(neighbor);
+        stack.push(neighbor);
+      });
+    }
+
+    return result;
   }
 
   owner(): Player {
