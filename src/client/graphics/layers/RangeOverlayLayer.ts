@@ -425,25 +425,13 @@ export class RangeOverlayLayer implements Layer {
     if (type === UnitType.DefensePost)
       return this.game.config().defensePostRange();
     if (type === UnitType.SAMLauncher) {
-      // Get the selected build level from localStorage (same as BuildMenu)
-      let desiredLevel = 1;
-      try {
-        const raw = localStorage.getItem("buildSettings.levels");
-        if (raw) {
-          const obj = JSON.parse(raw);
-          const val = obj?.[String(type)];
-          if (typeof val === "number" && val >= 1) {
-            desiredLevel = Math.min(3, val); // SAM max level is 3
-          }
-        }
-      } catch (_) {
-        // Fall back to level 1
-      }
-
       const base = this.game.config().defaultSamRange();
-      if (desiredLevel <= 1) return base;
+      const myPlayer = this.game.myPlayer();
+      if (!myPlayer) return base;
+      const lvl = playerMaxStructureTechLevel(myPlayer, UnitType.SAMLauncher);
+      if (lvl <= 1) return base;
       const bonus = this.game.config().samRangeUpgradePercent();
-      const factor = Math.pow(1 + bonus, desiredLevel - 1);
+      const factor = Math.pow(1 + bonus, lvl - 1);
       return Math.round(base * factor);
     }
     if (type === UnitType.Airfield) {
