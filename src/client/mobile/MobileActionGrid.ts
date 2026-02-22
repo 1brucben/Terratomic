@@ -135,6 +135,7 @@ export class MobileActionGrid extends LitElement {
         inset 0 -1px 0 rgba(0, 0, 0, 0.55),
         0 -8px 22px rgba(0, 0, 0, 0.5);
       position: relative;
+      isolation: isolate;
       overflow: hidden;
     }
 
@@ -142,8 +143,8 @@ export class MobileActionGrid extends LitElement {
     .grid-container::after {
       content: "";
       position: absolute;
-      top: 10px;
-      bottom: 14px;
+      top: 16px;
+      bottom: 16px;
       width: 14px;
       pointer-events: none;
       background: linear-gradient(
@@ -153,17 +154,18 @@ export class MobileActionGrid extends LitElement {
       );
       border: 1px solid rgba(14, 18, 24, 0.82);
       box-shadow: inset 0 1px 0 rgba(225, 233, 242, 0.1);
+      z-index: 0;
     }
 
     .grid-container::before {
-      left: 0;
-      clip-path: polygon(0 18%, 100% 0, 100% 100%, 0 84%);
+      left: -2px;
+      clip-path: polygon(0 12px, 100% 0, 100% 100%, 0 calc(100% - 12px));
       border-right: none;
     }
 
     .grid-container::after {
-      right: 0;
-      clip-path: polygon(0 0, 100% 18%, 100% 84%, 0 100%);
+      right: -2px;
+      clip-path: polygon(0 0, 100% 12px, 100% calc(100% - 12px), 0 100%);
       border-left: none;
     }
 
@@ -181,6 +183,28 @@ export class MobileActionGrid extends LitElement {
       -webkit-overflow-scrolling: touch;
       opacity: 0;
       transition: opacity 0.15s ease;
+      position: relative;
+      z-index: 1;
+    }
+
+    .grid::before {
+      content: "";
+      position: absolute;
+      inset: 0;
+      pointer-events: none;
+      z-index: 3;
+      background: linear-gradient(
+        112deg,
+        transparent 34%,
+        rgba(255, 255, 255, 0.1) 48%,
+        rgba(255, 255, 255, 0.03) 56%,
+        transparent 72%
+      );
+      background-size: 230% 100%;
+      background-position: 120% 0;
+      opacity: 0.45;
+      mix-blend-mode: screen;
+      animation: m-grid-sheen 5.8s ease-in-out infinite;
     }
 
     :host([ready]) .grid {
@@ -189,22 +213,34 @@ export class MobileActionGrid extends LitElement {
 
     .action-tile {
       --cat-rgb: 59, 130, 246;
+      --metal-base: linear-gradient(
+        180deg,
+        #424b59 0%,
+        #2b323d 48%,
+        #1d232b 100%
+      );
       background:
+        radial-gradient(
+          ellipse at 50% 0%,
+          rgba(var(--cat-rgb), 0.25) 0%,
+          transparent 70%
+        ),
         linear-gradient(
           180deg,
-          rgba(228, 236, 245, 0.05) 0%,
-          rgba(95, 106, 120, 0.04) 18%,
-          rgba(15, 19, 25, 0.86) 30%,
-          rgba(10, 14, 20, 0.92) 100%
+          rgba(var(--cat-rgb), 0.08) 0%,
+          rgba(var(--cat-rgb), 0.02) 100%
         ),
-        radial-gradient(
-          120% 110% at 50% 0%,
-          rgba(var(--cat-rgb), 0.14) 0%,
-          rgba(var(--cat-rgb), 0.05) 38%,
-          rgba(0, 0, 0, 0) 72%
-        );
-      border: 1px solid rgba(var(--cat-rgb), 0.45);
-      border-radius: 10px;
+        repeating-linear-gradient(
+          90deg,
+          transparent,
+          transparent 1px,
+          rgba(0, 0, 0, 0.06) 1px,
+          rgba(0, 0, 0, 0.06) 2px
+        ),
+        linear-gradient(180deg, rgba(255, 255, 255, 0.05) 0%, transparent 100%),
+        var(--metal-base);
+      border: 1px solid #2a313c;
+      border-radius: 8px;
       padding: var(--m-grid-tile-padding, 7px);
       display: flex;
       flex-direction: column;
@@ -214,17 +250,21 @@ export class MobileActionGrid extends LitElement {
       cursor: pointer;
       user-select: none;
       -webkit-tap-highlight-color: transparent;
-      transition: all 0.15s ease;
+      transition: all 0.1s cubic-bezier(0.4, 0, 0.2, 1);
       min-height: var(--m-grid-tile-min-h, 62px);
       flex: 0 0 auto;
       width: var(--item-width);
       min-width: 0;
       box-sizing: border-box;
       position: relative;
+      overflow: hidden;
       box-shadow:
-        inset 0 1px 0 rgba(255, 255, 255, 0.06),
-        inset 0 -2px 6px rgba(0, 0, 0, 0.45),
-        0 1px 2px rgba(0, 0, 0, 0.35);
+        inset 0 1px 0 rgba(255, 255, 255, 0.12),
+        inset 1px 0 0 rgba(255, 255, 255, 0.04),
+        inset -1px 0 0 rgba(255, 255, 255, 0.04),
+        inset 0 -1px 2px rgba(0, 0, 0, 0.6),
+        0 4px 0 #222a35,
+        0 5px 8px rgba(0, 0, 0, 0.5);
     }
 
     /* Category Colors */
@@ -237,7 +277,7 @@ export class MobileActionGrid extends LitElement {
     }
 
     .action-tile.cat-military {
-      --cat-rgb: 139, 92, 246;
+      --cat-rgb: 168, 85, 247;
     }
 
     .action-tile.cat-combat {
@@ -245,7 +285,7 @@ export class MobileActionGrid extends LitElement {
     }
 
     .action-tile.cat-nuclear {
-      --cat-rgb: 245, 158, 11;
+      --cat-rgb: 251, 146, 60;
     }
 
     .action-tile.cat-diplomacy {
@@ -253,11 +293,11 @@ export class MobileActionGrid extends LitElement {
     }
 
     .action-tile.cat-diplomacy-war {
-      --cat-rgb: 245, 158, 11;
+      --cat-rgb: 251, 146, 60;
     }
 
     .action-tile.cat-diplomacy-peace {
-      --cat-rgb: 203, 213, 225;
+      --cat-rgb: 147, 197, 253;
     }
 
     .action-tile.cat-diplomacy-alliance {
@@ -266,137 +306,81 @@ export class MobileActionGrid extends LitElement {
 
     /* Expanded tiles (2+ column span) */
     .action-tile.multi-column {
+      --metal-base: linear-gradient(
+        180deg,
+        #4a4a4a 0%,
+        #333333 48%,
+        #222222 100%
+      );
       min-height: var(--m-grid-tile-min-h-multi, 72px);
-      border-width: 1px;
-      background:
-        linear-gradient(
-          180deg,
-          rgba(233, 239, 247, 0.07) 0%,
-          rgba(105, 115, 128, 0.05) 18%,
-          rgba(17, 21, 28, 0.86) 32%,
-          rgba(11, 15, 21, 0.93) 100%
-        ),
-        radial-gradient(
-          130% 115% at 50% 0%,
-          rgba(var(--cat-rgb), 0.2) 0%,
-          rgba(var(--cat-rgb), 0.08) 40%,
-          rgba(0, 0, 0, 0) 76%
-        );
-    }
-
-    .action-tile.multi-column.cat-spawn {
-      border-color: rgba(34, 197, 94, 0.54);
-    }
-
-    .action-tile.multi-column.cat-infrastructure {
-      border-color: rgba(59, 130, 246, 0.54);
-    }
-
-    .action-tile.multi-column.cat-military {
-      border-color: rgba(139, 92, 246, 0.54);
-    }
-
-    .action-tile.multi-column.cat-combat {
-      border-color: rgba(239, 68, 68, 0.54);
-    }
-
-    .action-tile.multi-column.cat-nuclear {
-      border-color: rgba(245, 158, 11, 0.54);
-    }
-
-    .action-tile.multi-column.cat-diplomacy {
-      border-color: rgba(20, 184, 166, 0.54);
-    }
-
-    .action-tile.multi-column.cat-diplomacy-war {
-      border-color: rgba(245, 158, 11, 0.54);
-    }
-
-    .action-tile.multi-column.cat-diplomacy-peace {
-      border-color: rgba(203, 213, 225, 0.5);
-    }
-
-    .action-tile.multi-column.cat-diplomacy-alliance {
-      border-color: rgba(34, 197, 94, 0.54);
     }
 
     .action-tile:active {
-      transform: scale(0.95);
+      transform: translateY(3px);
+      box-shadow:
+        inset 0 1px 3px rgba(0, 0, 0, 0.6),
+        inset 0 -1px 1px rgba(255, 255, 255, 0.05),
+        0 1px 0 #222a35,
+        0 1px 2px rgba(0, 0, 0, 0.4);
       background:
+        radial-gradient(
+          ellipse at 50% 0%,
+          rgba(var(--cat-rgb), 0.35) 0%,
+          transparent 75%
+        ),
         linear-gradient(
           180deg,
-          rgba(18, 24, 32, 0.95) 0%,
-          rgba(8, 11, 17, 0.95) 100%
+          rgba(var(--cat-rgb), 0.12) 0%,
+          rgba(var(--cat-rgb), 0.04) 100%
         ),
-        radial-gradient(
-          120% 115% at 50% 0%,
-          rgba(var(--cat-rgb), 0.25) 0%,
-          rgba(var(--cat-rgb), 0.1) 45%,
-          rgba(0, 0, 0, 0) 78%
-        );
-      border-color: rgba(var(--cat-rgb), 0.6);
-    }
-
-    .action-tile.cat-spawn:active {
-      border-color: rgba(34, 197, 94, 0.62);
-    }
-
-    .action-tile.cat-infrastructure:active {
-      border-color: rgba(59, 130, 246, 0.62);
-    }
-
-    .action-tile.cat-military:active {
-      border-color: rgba(139, 92, 246, 0.62);
-    }
-
-    .action-tile.cat-combat:active {
-      border-color: rgba(239, 68, 68, 0.62);
-    }
-
-    .action-tile.cat-nuclear:active {
-      border-color: rgba(245, 158, 11, 0.62);
-    }
-
-    .action-tile.cat-diplomacy:active {
-      border-color: rgba(20, 184, 166, 0.62);
-    }
-
-    .action-tile.cat-diplomacy-war:active {
-      border-color: rgba(245, 158, 11, 0.62);
-    }
-
-    .action-tile.cat-diplomacy-peace:active {
-      border-color: rgba(203, 213, 225, 0.58);
-    }
-
-    .action-tile.cat-diplomacy-alliance:active {
-      border-color: rgba(34, 197, 94, 0.62);
+        repeating-linear-gradient(
+          90deg,
+          transparent,
+          transparent 1px,
+          rgba(0, 0, 0, 0.06) 1px,
+          rgba(0, 0, 0, 0.06) 2px
+        ),
+        linear-gradient(180deg, #2b323d 0%, #1d232b 48%, #151920 100%);
     }
 
     .action-tile.disabled {
       opacity: 0.55;
       cursor: not-allowed;
-      background: linear-gradient(
+      --metal-base: linear-gradient(
         180deg,
-        rgba(95, 103, 114, 0.13) 0%,
-        rgba(45, 52, 61, 0.25) 100%
+        #323842 0%,
+        #22272e 48%,
+        #181c21 100%
       );
-      border-color: rgba(120, 129, 141, 0.32);
+      border-color: #2a313c;
     }
 
     .action-tile.locked {
       opacity: 0.6;
-      background: linear-gradient(
+      --metal-base: linear-gradient(
         180deg,
-        rgba(239, 68, 68, 0.18) 0%,
-        rgba(36, 14, 18, 0.3) 100%
+        #3d3234 0%,
+        #2b2224 48%,
+        #1f181a 100%
       );
-      border-color: rgba(239, 68, 68, 0.44);
+      border-color: #2a313c;
     }
 
     .action-tile.disabled:active,
     .action-tile.locked:active {
       transform: none;
+    }
+
+    @keyframes m-grid-sheen {
+      0% {
+        background-position: 120% 0;
+      }
+      55% {
+        background-position: -35% 0;
+      }
+      100% {
+        background-position: -35% 0;
+      }
     }
 
     .action-icon {
@@ -408,6 +392,8 @@ export class MobileActionGrid extends LitElement {
       width: var(--m-grid-icon-size, 28px);
       height: var(--m-grid-icon-size, 28px);
       z-index: 1;
+      filter: drop-shadow(0px 2px 2px rgba(0, 0, 0, 0.5))
+        drop-shadow(0px 0px 6px rgba(var(--cat-rgb), 0.15));
     }
 
     .action-icon img {
@@ -427,15 +413,17 @@ export class MobileActionGrid extends LitElement {
       color: rgba(236, 241, 247, 0.96);
       font-size: var(--m-grid-font-size, 11px);
       text-align: center;
-      font-weight: 600;
+      font-weight: 700;
       line-height: 1.2;
-      text-shadow: 0 1px 0 rgba(0, 0, 0, 0.45);
+      text-shadow:
+        0px -1px 0px rgba(0, 0, 0, 0.8),
+        0px 0px 4px rgba(var(--cat-rgb), 0.2);
       z-index: 1;
     }
 
     .action-tile.multi-column .action-label {
       font-size: var(--m-grid-font-size-multi, 13px);
-      font-weight: 600;
+      font-weight: 700;
     }
 
     .action-cost {
@@ -450,16 +438,27 @@ export class MobileActionGrid extends LitElement {
       min-height: var(--m-grid-cost-min-h, 16px);
       padding: 0 var(--m-grid-cost-padding-x, 5px);
       border-radius: 999px;
-      border: 1px solid rgba(234, 179, 8, 0.52);
-      background: rgba(36, 23, 4, 0.82);
-      color: rgba(251, 191, 36, 0.98);
+      border: 1px solid rgba(251, 146, 60, 0.65);
+      background:
+        linear-gradient(
+          135deg,
+          rgba(251, 146, 60, 0.22) 0%,
+          rgba(234, 88, 12, 0.18) 100%
+        ),
+        linear-gradient(
+          180deg,
+          rgba(60, 35, 10, 0.75) 0%,
+          rgba(35, 20, 5, 0.8) 100%
+        );
+      color: rgba(254, 215, 170, 0.98);
       font-size: var(--m-grid-cost-font-size, 9px);
       font-weight: 700;
       line-height: 1;
       white-space: nowrap;
-      text-shadow: 0 1px 0 rgba(0, 0, 0, 0.45);
+      text-shadow: 0 1px 2px rgba(0, 0, 0, 0.6);
       pointer-events: none;
       z-index: 3;
+      box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
     }
 
     .action-tile.multi-column .action-cost {
