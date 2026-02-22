@@ -35,6 +35,7 @@ import { DifficultyDescription } from "./components/Difficulties";
 import "./components/LobbyChatPanel";
 import "./components/Maps";
 import type { JoinLobbyEvent } from "./Main";
+import { MobileDetector } from "./mobile/MobileDetector";
 import {
   getMobileViewportProfile,
   type MobileViewportProfile,
@@ -99,6 +100,8 @@ export class HostLobbyModal extends LitElement {
   render() {
     // Calculate percentage for the CSS variable
     const sliderPercent = (this.bots / 400) * 100;
+    const useMobileMapCarousel =
+      typeof window !== "undefined" && MobileDetector.isMobile();
 
     return html`
       <style>
@@ -634,6 +637,70 @@ export class HostLobbyModal extends LitElement {
           transform-origin: center top;
           margin-bottom: -10px;
         }
+        .desktop-map-item-wrapper {
+          transform: scale(0.9);
+        }
+
+        .sp-map-random {
+          background:
+            linear-gradient(
+              124deg,
+              rgba(182, 193, 208, 0.08) 0 14%,
+              rgba(0, 0, 0, 0) 42%
+            ),
+            linear-gradient(
+              180deg,
+              var(--map-card-bg, rgba(55, 63, 75, 0.99)),
+              var(--map-card-bg-bottom, rgba(36, 42, 52, 0.995))
+            );
+          border: 2px solid var(--map-card-border, rgba(133, 147, 169, 0.62));
+          border-radius: 7px 10px 8px 6px;
+          box-shadow:
+            inset 0 1px 0 rgba(214, 224, 238, 0.12),
+            inset 0 -10px 14px rgba(0, 0, 0, 0.22),
+            0 2px 8px rgba(0, 0, 0, 0.3);
+        }
+        .sp-map-random:hover {
+          border-color: var(--map-card-hover-border, rgba(215, 155, 118, 0.72));
+          background:
+            linear-gradient(
+              124deg,
+              rgba(209, 218, 231, 0.16) 0 16%,
+              rgba(0, 0, 0, 0) 41%
+            ),
+            linear-gradient(
+              180deg,
+              var(--map-card-hover-top, rgba(80, 92, 108, 0.988)),
+              var(--map-card-hover-bottom, rgba(43, 51, 62, 0.996))
+            );
+        }
+        .sp-map-random.selected {
+          border-color: var(--ui-primary);
+          background:
+            linear-gradient(
+              124deg,
+              rgba(214, 223, 236, 0.18) 0 16%,
+              rgba(0, 0, 0, 0) 41%
+            ),
+            linear-gradient(
+              180deg,
+              var(--map-card-selected-top, rgba(85, 97, 114, 0.99)),
+              var(--map-card-selected-bottom, rgba(48, 56, 68, 0.997))
+            );
+          box-shadow:
+            0 0 0 2px var(--map-card-selected-ring, rgba(224, 166, 129, 0.86)),
+            0 0 12px var(--map-card-selected-glow, rgba(224, 166, 129, 0.52)),
+            inset 0 1px 0 rgba(232, 239, 248, 0.2);
+        }
+        .sp-map-random .option-card-title {
+          color: var(--map-card-title, var(--ui-text-muted));
+        }
+        .sp-map-random .option-image {
+          background-color: var(--map-card-image-bg, rgba(17, 21, 28, 0.82));
+          border: 1px solid
+            var(--map-card-image-border, rgba(168, 181, 198, 0.38));
+          box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.26);
+        }
 
         /* Slider Styling */
         input[type="range"] {
@@ -911,66 +978,133 @@ export class HostLobbyModal extends LitElement {
               </div>
             </div>
 
-            <!-- Category Tabs -->
-            <div class="sp-category-tabs">
-              ${Object.keys(mapCategories).map(
-                (categoryKey) => html`
-                  <div
-                    class="sp-category-tab ${this.activeMapCategory ===
-                    categoryKey
-                      ? "active"
-                      : ""}"
-                    @click=${() => (this.activeMapCategory = categoryKey)}
-                  >
-                    ${translateText(`map_categories.${categoryKey}`)}
+            ${useMobileMapCarousel
+              ? html`
+                  <!-- Category Tabs -->
+                  <div class="sp-category-tabs">
+                    ${Object.keys(mapCategories).map(
+                      (categoryKey) => html`
+                        <div
+                          class="sp-category-tab ${this.activeMapCategory ===
+                          categoryKey
+                            ? "active"
+                            : ""}"
+                          @click=${() => (this.activeMapCategory = categoryKey)}
+                        >
+                          ${translateText(`map_categories.${categoryKey}`)}
+                        </div>
+                      `,
+                    )}
                   </div>
-                `,
-              )}
-            </div>
 
-            <!-- Horizontal Map Carousel -->
-            <div class="sp-map-carousel">
-              ${mapCategories[this.activeMapCategory]?.map((mapValue) => {
-                const mapKey = Object.keys(GameMapType).find(
-                  (key) =>
-                    GameMapType[key as keyof typeof GameMapType] === mapValue,
-                );
-                return html`
-                  <div
-                    class="map-item-wrapper"
-                    @click=${() => this.handleMapSelection(mapValue)}
-                  >
-                    <map-display
-                      .mapKey=${mapKey}
-                      .selected=${!this.useRandomMap &&
-                      this.selectedMap === mapValue}
-                      .translation=${translateText(
-                        `map.${mapKey?.toLowerCase()}`,
-                      )}
-                    ></map-display>
+                  <!-- Horizontal Map Carousel (mobile only) -->
+                  <div class="sp-map-carousel">
+                    ${mapCategories[this.activeMapCategory]?.map((mapValue) => {
+                      const mapKey = Object.keys(GameMapType).find(
+                        (key) =>
+                          GameMapType[key as keyof typeof GameMapType] ===
+                          mapValue,
+                      );
+                      return html`
+                        <div
+                          class="map-item-wrapper"
+                          @click=${() => this.handleMapSelection(mapValue)}
+                        >
+                          <map-display
+                            .mapKey=${mapKey}
+                            .selected=${!this.useRandomMap &&
+                            this.selectedMap === mapValue}
+                            .translation=${translateText(
+                              `map.${mapKey?.toLowerCase()}`,
+                            )}
+                          ></map-display>
+                        </div>
+                      `;
+                    })}
+
+                    <!-- Random Map (always visible in all categories) -->
+                    <div
+                      class="option-card random-map sp-map-random ${this
+                        .useRandomMap
+                        ? "selected"
+                        : ""} map-item-wrapper"
+                      @click=${this.handleRandomMapToggle}
+                      style="width: 100px; flex: 0 0 auto;"
+                    >
+                      <div class="option-image">
+                        <img
+                          src=${randomMap}
+                          style="width:100%; aspect-ratio:4/2; object-fit:cover; border-radius:8px;"
+                        />
+                      </div>
+                      <div class="option-card-title">
+                        ${translateText("map.random")}
+                      </div>
+                    </div>
                   </div>
-                `;
-              })}
+                `
+              : html`
+                  <div class="sp-scroll-area">
+                    ${Object.entries(mapCategories).map(
+                      ([categoryKey, maps]) => html`
+                        <div class="w-full mb-4">
+                          <h3
+                            class="text-xs font-bold uppercase tracking-wider mb-2 text-center text-gray-400 border-b border-gray-700 pb-1 mx-10"
+                          >
+                            ${translateText(`map_categories.${categoryKey}`)}
+                          </h3>
+                          <div class="map-grid">
+                            ${maps.map((mapValue) => {
+                              const mapKey = Object.keys(GameMapType).find(
+                                (key) =>
+                                  GameMapType[
+                                    key as keyof typeof GameMapType
+                                  ] === mapValue,
+                              );
+                              return html`
+                                <div
+                                  class="map-item-wrapper desktop-map-item-wrapper"
+                                  @click=${() =>
+                                    this.handleMapSelection(mapValue)}
+                                >
+                                  <map-display
+                                    .mapKey=${mapKey}
+                                    .selected=${!this.useRandomMap &&
+                                    this.selectedMap === mapValue}
+                                    .translation=${translateText(
+                                      `map.${mapKey?.toLowerCase()}`,
+                                    )}
+                                  ></map-display>
+                                </div>
+                              `;
+                            })}
+                          </div>
+                        </div>
+                      `,
+                    )}
 
-              <!-- Random Map (always visible in all categories) -->
-              <div
-                class="option-card random-map ${this.useRandomMap
-                  ? "selected"
-                  : ""} map-item-wrapper"
-                @click=${this.handleRandomMapToggle}
-                style="width: 100px; flex: 0 0 auto;"
-              >
-                <div class="option-image">
-                  <img
-                    src=${randomMap}
-                    style="width:100%; aspect-ratio:4/2; object-fit:cover; border-radius:8px;"
-                  />
-                </div>
-                <div class="option-card-title">
-                  ${translateText("map.random")}
-                </div>
-              </div>
-            </div>
+                    <div class="w-full flex justify-center mb-4 pt-2">
+                      <div
+                        class="option-card random-map sp-map-random ${this
+                          .useRandomMap
+                          ? "selected"
+                          : ""} map-item-wrapper desktop-map-item-wrapper"
+                        @click=${this.handleRandomMapToggle}
+                        style="width: 100px;"
+                      >
+                        <div class="option-image">
+                          <img
+                            src=${randomMap}
+                            style="width:100%; aspect-ratio:4/2; object-fit:cover; border-radius:8px;"
+                          />
+                        </div>
+                        <div class="option-card-title">
+                          ${translateText("map.random")}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                `}
           </div>
 
           <!-- RIGHT COLUMN: Settings + Player List -->
@@ -1370,7 +1504,13 @@ export class HostLobbyModal extends LitElement {
   }
 
   private applyResponsiveStyles() {
-    if (!this.viewportProfile) return;
+    const isMobile = typeof window !== "undefined" && MobileDetector.isMobile();
+
+    if (!isMobile || !this.viewportProfile) {
+      delete document.body.dataset.lobbySizeClass;
+      delete document.body.dataset.lobbyOrientation;
+      return;
+    }
 
     const { sizeClass, orientation } = this.viewportProfile;
 

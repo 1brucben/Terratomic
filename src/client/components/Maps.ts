@@ -42,10 +42,17 @@ export class MapDisplay extends LitElement {
         ),
         linear-gradient(
           180deg,
-          var(--map-card-bg, rgba(55, 63, 75, 0.99)),
-          var(--map-card-bg-bottom, rgba(36, 42, 52, 0.995))
+          var(--map-card-bg, var(--ui-panel-shell-top, rgba(55, 63, 75, 0.99))),
+          var(
+            --map-card-bg-bottom,
+            var(--ui-panel-shell-bottom, rgba(36, 42, 52, 0.995))
+          )
         );
-      border: 2px solid var(--map-card-border, rgba(133, 147, 169, 0.62));
+      border: 2px solid
+        var(
+          --map-card-border,
+          var(--ui-panel-border, rgba(133, 147, 169, 0.62))
+        );
       border-radius: 7px 10px 8px 6px;
       cursor: pointer;
       transition: all 0.2s ease-in-out;
@@ -57,7 +64,10 @@ export class MapDisplay extends LitElement {
 
     .option-card:hover {
       transform: translateY(-2px);
-      border-color: var(--map-card-hover-border, rgba(215, 155, 118, 0.72));
+      border-color: var(
+        --map-card-hover-border,
+        var(--ui-secondary, rgba(215, 155, 118, 0.72))
+      );
       background:
         linear-gradient(
           124deg,
@@ -66,8 +76,14 @@ export class MapDisplay extends LitElement {
         ),
         linear-gradient(
           180deg,
-          var(--map-card-hover-top, rgba(80, 92, 108, 0.988)),
-          var(--map-card-hover-bottom, rgba(43, 51, 62, 0.996))
+          var(
+            --map-card-hover-top,
+            var(--ui-panel-shell-top, rgba(80, 92, 108, 0.988))
+          ),
+          var(
+            --map-card-hover-bottom,
+            var(--ui-panel-shell-bottom, rgba(43, 51, 62, 0.996))
+          )
         );
     }
 
@@ -81,12 +97,26 @@ export class MapDisplay extends LitElement {
         ),
         linear-gradient(
           180deg,
-          var(--map-card-selected-top, rgba(85, 97, 114, 0.99)),
-          var(--map-card-selected-bottom, rgba(48, 56, 68, 0.997))
+          var(
+            --map-card-selected-top,
+            var(--ui-panel-shell-top, rgba(85, 97, 114, 0.99))
+          ),
+          var(
+            --map-card-selected-bottom,
+            var(--ui-panel-shell-bottom, rgba(48, 56, 68, 0.997))
+          )
         );
       box-shadow:
-        0 0 0 2px var(--map-card-selected-ring, rgba(224, 166, 129, 0.86)),
-        0 0 12px var(--map-card-selected-glow, rgba(224, 166, 129, 0.52)),
+        0 0 0 2px
+          var(
+            --map-card-selected-ring,
+            var(--ui-primary, rgba(224, 166, 129, 0.86))
+          ),
+        0 0 12px
+          var(
+            --map-card-selected-glow,
+            var(--ui-primary, rgba(224, 166, 129, 0.52))
+          ),
         inset 0 1px 0 rgba(232, 239, 248, 0.2);
     }
 
@@ -103,8 +133,15 @@ export class MapDisplay extends LitElement {
       color: var(--ui-text-muted);
       transition: transform 0.2s ease-in-out;
       border-radius: 8px;
-      background-color: var(--map-card-image-bg, rgba(17, 21, 28, 0.82));
-      border: 1px solid var(--map-card-image-border, rgba(168, 181, 198, 0.38));
+      background-color: var(
+        --map-card-image-bg,
+        var(--ui-panel-shell-bottom, rgba(17, 21, 28, 0.82))
+      );
+      border: 1px solid
+        var(
+          --map-card-image-border,
+          var(--ui-border-muted, rgba(168, 181, 198, 0.38))
+        );
       box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.26);
       font-size: 14px;
       display: flex;
