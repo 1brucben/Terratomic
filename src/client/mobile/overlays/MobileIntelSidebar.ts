@@ -48,11 +48,13 @@ export class MobileIntelSidebar extends LitElement {
       display: none;
       position: fixed;
       top: var(--m-panel-top-offset, 0px);
-      left: 0;
       right: 0;
+      left: auto;
       bottom: 0;
       z-index: 3000;
       pointer-events: none;
+      width: 70%;
+      max-width: 400px;
     }
 
     :host([visible]) {
@@ -80,8 +82,7 @@ export class MobileIntelSidebar extends LitElement {
       top: 0;
       right: 0;
       bottom: 0;
-      width: 70%;
-      max-width: 400px;
+      left: 0;
       background:
         linear-gradient(
           180deg,
@@ -412,6 +413,83 @@ export class MobileIntelSidebar extends LitElement {
     .content::-webkit-scrollbar-thumb:hover {
       background: rgba(150, 161, 174, 0.56);
     }
+
+    /* Stacked layout for larger tablets - portrait mode */
+    @media (min-height: 600px) and (max-aspect-ratio: 1 / 1) {
+      .tabs {
+        display: none;
+      }
+
+      .content {
+        overflow-y: auto;
+        display: flex;
+        flex-direction: column;
+        gap: 16px;
+      }
+
+      .section-container {
+        flex: 0 0 auto;
+        min-height: 0;
+      }
+
+      .section-title {
+        font-size: 14px;
+        font-weight: 600;
+        color: rgba(235, 241, 248, 0.95);
+        padding: 12px 8px 8px;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        border-bottom: 1px solid rgba(146, 156, 169, 0.2);
+        margin-bottom: 8px;
+      }
+
+      .section-content {
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+      }
+    }
+
+    /* Stacked layout for larger tablets - landscape mode */
+    @media (min-height: 500px) and (min-aspect-ratio: 1 / 1) and (min-width: 1000px) {
+      .tabs {
+        display: none;
+      }
+
+      .content {
+        overflow-y: auto;
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 16px;
+        padding: 16px;
+      }
+
+      .section-container {
+        display: flex;
+        flex-direction: column;
+        min-height: 0;
+      }
+
+      .section-title {
+        font-size: 13px;
+        font-weight: 600;
+        color: rgba(235, 241, 248, 0.95);
+        padding: 8px 0 6px;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        border-bottom: 1px solid rgba(146, 156, 169, 0.2);
+        margin-bottom: 8px;
+      }
+
+      .section-content {
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+        flex: 1;
+        min-height: 0;
+        overflow-y: auto;
+      }
+    }
   `;
 
   render() {
@@ -421,6 +499,8 @@ export class MobileIntelSidebar extends LitElement {
     if (this.activeTab === "teams" && !isTeamMode) {
       this.activeTab = "players";
     }
+
+    const isStackedMode = this.shouldUseStackedLayout();
 
     return html`
       <div class="backdrop" @click="${this.handleBackdropClick}"></div>
@@ -454,14 +534,47 @@ export class MobileIntelSidebar extends LitElement {
           </button>
         </div>
         <div class="content">
-          ${this.activeTab === "players"
-            ? this.renderPlayersTab()
-            : this.activeTab === "teams"
-              ? this.renderTeamsTab()
-              : this.renderEventsTab()}
+          ${isStackedMode
+            ? this.renderStackedContent(isTeamMode)
+            : this.activeTab === "players"
+              ? this.renderPlayersTab()
+              : this.activeTab === "teams"
+                ? this.renderTeamsTab()
+                : this.renderEventsTab()}
         </div>
       </div>
     `;
+  }
+
+  private renderStackedContent(isTeamMode: boolean) {
+    return html`
+      <div class="section-container">
+        <div class="section-title">Players</div>
+        <div class="section-content">${this.renderPlayersTab()}</div>
+      </div>
+      ${isTeamMode
+        ? html`
+            <div class="section-container">
+              <div class="section-title">Teams</div>
+              <div class="section-content">${this.renderTeamsTab()}</div>
+            </div>
+          `
+        : null}
+      <div class="section-container">
+        <div class="section-title">Events</div>
+        <div class="section-content">${this.renderEventsTab()}</div>
+      </div>
+    `;
+  }
+
+  private shouldUseStackedLayout(): boolean {
+    // Portrait: min-height 600px
+    // Landscape: min-width 1000px
+    const minHeightPortrait =
+      window.innerHeight >= 600 && window.innerWidth <= window.innerHeight;
+    const minWidthLandscape =
+      window.innerWidth >= 1000 && window.innerWidth > window.innerHeight;
+    return minHeightPortrait || minWidthLandscape;
   }
 
   private renderPlayersTab() {
