@@ -32,9 +32,11 @@ export type ActionCategory =
   | "own-shore"
   | "own-water"
   | "enemy-can-attack"
+  | "enemy-can-attack-and-boat"
   | "enemy-can-boat-attack"
   | "enemy-no-attack"
   | "neutral-can-attack"
+  | "neutral-can-attack-and-boat"
   | "neutral-can-boat-attack"
   | "spawn-phase";
 
@@ -677,35 +679,40 @@ export class MobileActionGrid extends LitElement {
           return "neutral-can-attack";
         }
 
+        const transportShipBuildable = actions.buildableUnits.find(
+          (bu) => bu.type === UnitType.TransportShip,
+        );
+        const canBoatAttack =
+          transportShipBuildable && transportShipBuildable.canBuild !== false;
+
         if (actions.canAttack) {
-          return "neutral-can-attack";
+          return canBoatAttack
+            ? "neutral-can-attack-and-boat"
+            : "neutral-can-attack";
         } else {
           // Check if boat attack is possible (for land tiles only)
-          const transportShipBuildable = actions.buildableUnits.find(
-            (bu) => bu.type === UnitType.TransportShip,
-          );
-          if (
-            transportShipBuildable &&
-            transportShipBuildable.canBuild !== false
-          ) {
+          if (canBoatAttack) {
             return "neutral-can-boat-attack";
           }
           return "neutral-can-attack";
         }
       } else {
         // Enemy player territory
+        const transportShipBuildable = actions.buildableUnits.find(
+          (bu) => bu.type === UnitType.TransportShip,
+        );
+        const canBoatAttack =
+          transportShipBuildable &&
+          transportShipBuildable.canBuild !== false &&
+          game.isLand(tile);
+
         if (actions.canAttack) {
-          return "enemy-can-attack";
+          return canBoatAttack
+            ? "enemy-can-attack-and-boat"
+            : "enemy-can-attack";
         } else {
           // Check if boat attack is possible
-          const transportShipBuildable = actions.buildableUnits.find(
-            (bu) => bu.type === UnitType.TransportShip,
-          );
-          if (
-            transportShipBuildable &&
-            transportShipBuildable.canBuild !== false &&
-            game.isLand(tile)
-          ) {
+          if (canBoatAttack) {
             return "enemy-can-boat-attack";
           }
           return "enemy-no-attack";
@@ -751,6 +758,14 @@ export class MobileActionGrid extends LitElement {
           ...unitActions,
           ...this.getEnemyCanAttackActions(tile, game, myPlayer),
         ];
+      case "enemy-can-attack-and-boat":
+        return [
+          ...unitActions,
+          ...this.getEnemyCanAttackActions(tile, game, myPlayer),
+          ...this.getEnemyCanBoatAttackActions(tile, game, myPlayer).filter(
+            (item) => item.id === "attack:naval",
+          ),
+        ];
       case "enemy-can-boat-attack":
         return [
           ...unitActions,
@@ -765,6 +780,12 @@ export class MobileActionGrid extends LitElement {
         return [
           ...unitActions,
           ...this.getNeutralCanAttackActions(tile, game, myPlayer),
+        ];
+      case "neutral-can-attack-and-boat":
+        return [
+          ...unitActions,
+          ...this.getNeutralCanAttackActions(tile, game, myPlayer),
+          ...this.getNeutralCanBoatAttackActions(tile, game, myPlayer),
         ];
       case "neutral-can-boat-attack":
         return [
