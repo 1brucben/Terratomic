@@ -6,11 +6,22 @@
 import { EventBus } from "../../core/EventBus";
 import { UnitType } from "../../core/game/Game";
 import type { TileRef } from "../../core/game/GameMap";
-import type { GameView, PlayerView } from "../../core/game/GameView";
+import type { GameView, PlayerView, UnitView } from "../../core/game/GameView";
+import { getArtilleryMaxDistance } from "../../core/game/UnitUpgrades";
 import { GAME_LOADING_VISIBILITY_CHANGE_EVENT } from "../GameStartingModal";
-import { CenterCameraEvent, DragEvent, ZoomEvent } from "../InputHandler";
 import {
+  CenterCameraEvent,
+  DragEvent,
+  UnitSelectionEvent,
+  ZoomEvent,
+} from "../InputHandler";
+import {
+  ArtilleryOutOfRangeEvent,
   BuildUnitIntentEvent,
+  MoveArtilleryIntentEvent,
+  MoveFighterJetIntentEvent,
+  MoveSubmarineIntentEvent,
+  MoveWarshipIntentEvent,
   SendSpawnIntentEvent,
   SendUpgradeStructureIntentEvent,
 } from "../Transport";
@@ -44,6 +55,7 @@ import {
 } from "./MobileUIOverlayCoordinator";
 import { syncMobileUIStateFromGame } from "./MobileUIStateSync";
 import { MOBILE_UI_STYLE_ID, MOBILE_UI_STYLES } from "./MobileUIStyles";
+import { isValidRedirectTarget, UNIT_LABELS } from "./MobileUnitSelection";
 import {
   getMobileResponsiveTokens,
   getMobileViewportProfile,
@@ -110,6 +122,11 @@ export class MobileUI {
   private isSpectator: boolean = false;
   private isDead: boolean = false;
   private runtimeUiMode: RuntimeMobileUiMode | null = null;
+
+  // Unit selection state
+  private selectedUnit: UnitView | null = null;
+  private selectedUnitType: UnitType | null = null;
+  private selectionBanner: HTMLElement | null = null;
   private readonly MOBILE_BUTTON_ZOOM_DELTA = 200;
   private readonly MOBILE_PINCH_ZOOM_MULTIPLIER = 50;
   private readonly orientationChangeHandler = (): void => {
@@ -775,6 +792,13 @@ export class MobileUI {
       return;
     }
 
+    // Unit selection actions — handle before closing the grid
+    if (action.startsWith("unit:select:")) {
+      this.actionGrid.close();
+      this.handleUnitSelectAction(action);
+      return;
+    }
+
     // Close the action grid
     this.actionGrid.close();
 
@@ -814,6 +838,24 @@ export class MobileUI {
       this.handleDiplomacyItemSelected(action);
       return;
     }
+  }
+
+  /**
+   * Handle unit:select:<unitType>:<unitId> action from the action grid
+   */
+  private handleUnitSelectAction(action: string): void {
+    // Format: "unit:select:<unitType>:<unitId>"
+    const parts = action.split(":");
+    if (parts.length < 4) return;
+
+    const unitType = parts[2] as UnitType;
+    const unitId = parseInt(parts[3], 10);
+    if (isNaN(unitId) || !this.currentGame) return;
+
+    const unit = this.currentGame.unit(unitId);
+    if (!unit || !unit.isActive()) return;
+
+    this.selectUnit(unit, unitType);
   }
 
   private handleStackModeToggle(): void {
@@ -871,8 +913,189 @@ export class MobileUI {
       return;
     }
 
-    // For all tiles, show action grid
-    this.actionGrid.showForTile(tile, this.currentGame, this.attackRatio);
+    // ── Unit redirect mode: if a unit is selected, redirect on tap ──
+    if (this.selectedUnit && this.selectedUnitType) {
+      this.handleUnitRedirectTap(tile);
+      return;
+    }
+
+    // For all tiles, show action grid (with unit selection if applicable)
+    this.actionGrid.showForTile(
+      tile,
+      this.currentGame,
+      this.attackRatio,
+      position,
+      this.transformHandler,
+    );
+  }
+
+  /**
+   * Handle a tap while in unit redirect mode
+   */
+  private handleUnitRedirectTap(tile: TileRef): void {
+    if (!this.selectedUnit || !this.selectedUnitType || !this.currentGame) {
+      this.cancelUnitSelection();
+      return;
+    }
+
+    // Check if the unit is still alive
+    if (!this.selectedUnit.isActive()) {
+      this.cancelUnitSelection();
+      return;
+    }
+
+    // Validate redirect target
+    if (!isValidRedirectTarget(this.selectedUnitType, tile, this.currentGame)) {
+      HapticFeedback.tap();
+      return;
+    }
+
+    // Artillery range check
+    if (this.selectedUnitType === UnitType.Artillery) {
+      const lvl = this.selectedUnit.level ? this.selectedUnit.level() : 1;
+      const maxDist = getArtilleryMaxDistance(lvl);
+      const distSq = this.currentGame.euclideanDistSquared(
+        this.selectedUnit.tile(),
+        tile,
+      );
+      if (distSq > maxDist * maxDist) {
+        this.eventBus.emit(new ArtilleryOutOfRangeEvent(lvl, maxDist));
+        return;
+      }
+    }
+
+    // Emit the appropriate move intent
+    const unitId = this.selectedUnit.id();
+    switch (this.selectedUnitType) {
+      case UnitType.Warship:
+        this.eventBus.emit(new MoveWarshipIntentEvent(unitId, tile));
+        break;
+      case UnitType.Submarine:
+        this.eventBus.emit(new MoveSubmarineIntentEvent(unitId, tile));
+        break;
+      case UnitType.FighterJet:
+        this.eventBus.emit(new MoveFighterJetIntentEvent(unitId, tile));
+        break;
+      case UnitType.Artillery:
+        this.eventBus.emit(new MoveArtilleryIntentEvent(unitId, tile));
+        break;
+    }
+
+    HapticFeedback.success();
+    this.cancelUnitSelection();
+  }
+
+  /**
+   * Select a unit and enter redirect mode
+   */
+  private selectUnit(unit: UnitView, unitType: UnitType): void {
+    this.selectedUnit = unit;
+    this.selectedUnitType = unitType;
+    this.eventBus.emit(new UnitSelectionEvent(unit, true));
+    this.showSelectionBanner(unitType);
+    HapticFeedback.tap();
+  }
+
+  /**
+   * Cancel unit selection and exit redirect mode
+   */
+  private cancelUnitSelection(): void {
+    if (this.selectedUnit) {
+      this.eventBus.emit(new UnitSelectionEvent(this.selectedUnit, false));
+    }
+    this.selectedUnit = null;
+    this.selectedUnitType = null;
+    this.hideSelectionBanner();
+  }
+
+  /**
+   * Show the floating selection banner
+   */
+  private showSelectionBanner(unitType: UnitType): void {
+    this.hideSelectionBanner();
+
+    const label = UNIT_LABELS[unitType] ?? "Unit";
+    const banner = document.createElement("div");
+    banner.id = "mobile-unit-selection-banner";
+    banner.style.cssText = [
+      "position: fixed",
+      "bottom: 12px",
+      "left: 50%",
+      "transform: translateX(-50%)",
+      "z-index: 2100",
+      "display: flex",
+      "align-items: center",
+      "gap: 10px",
+      "padding: 10px 18px",
+      "border-radius: 28px",
+      "background: rgba(20, 30, 60, 0.92)",
+      "backdrop-filter: blur(12px)",
+      "-webkit-backdrop-filter: blur(12px)",
+      "border: 1px solid rgba(100, 180, 255, 0.35)",
+      "box-shadow: 0 4px 20px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.08)",
+      "color: #e0eaff",
+      "font-family: 'Inter', 'Segoe UI', sans-serif",
+      "font-size: 14px",
+      "font-weight: 500",
+      "pointer-events: auto",
+      "animation: mobileSelectionBannerIn 0.25s ease-out",
+    ].join(";");
+
+    banner.innerHTML = `
+      <span style="color: rgba(100, 180, 255, 0.9);">📍</span>
+      <span>${label} selected — tap to redirect</span>
+      <button id="mobile-unit-cancel-btn" style="
+        background: rgba(255, 80, 80, 0.2);
+        border: 1px solid rgba(255, 80, 80, 0.4);
+        border-radius: 50%;
+        width: 28px;
+        height: 28px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        cursor: pointer;
+        color: #ff8888;
+        font-size: 16px;
+        font-weight: bold;
+        padding: 0;
+        line-height: 1;
+        flex-shrink: 0;
+      ">✕</button>
+    `;
+
+    // Inject animation keyframes if not already present
+    if (!document.getElementById("mobile-selection-banner-anim")) {
+      const style = document.createElement("style");
+      style.id = "mobile-selection-banner-anim";
+      style.textContent = `
+        @keyframes mobileSelectionBannerIn {
+          from { opacity: 0; transform: translateX(-50%) translateY(10px); }
+          to { opacity: 1; transform: translateX(-50%) translateY(0); }
+        }
+      `;
+      document.head.appendChild(style);
+    }
+
+    document.body.appendChild(banner);
+    this.selectionBanner = banner;
+
+    // Cancel button handler
+    const cancelBtn = banner.querySelector("#mobile-unit-cancel-btn");
+    cancelBtn?.addEventListener("click", (e) => {
+      e.stopPropagation();
+      this.cancelUnitSelection();
+      HapticFeedback.tap();
+    });
+  }
+
+  /**
+   * Hide the selection banner
+   */
+  private hideSelectionBanner(): void {
+    if (this.selectionBanner) {
+      this.selectionBanner.remove();
+      this.selectionBanner = null;
+    }
   }
 
   private tryStackStructureAtTile(
@@ -1053,6 +1276,7 @@ export class MobileUI {
    */
   destroy(): void {
     this.stopStatsLoop();
+    this.cancelUnitSelection();
 
     // Remove components from DOM
     this.topBar.remove();
@@ -1095,6 +1319,7 @@ export class MobileUI {
 
     // Remove injected styles
     document.getElementById("mobile-ui-styles")?.remove();
+    document.getElementById("mobile-selection-banner-anim")?.remove();
 
     if (typeof window !== "undefined") {
       const win = window as Window & { __MOBILE_UI__?: MobileUI };

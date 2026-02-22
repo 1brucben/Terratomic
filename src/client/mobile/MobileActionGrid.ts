@@ -3,12 +3,14 @@
  * Replaces FAB + popup pattern with direct action selection
  */
 
-import { LitElement, css, html } from "lit";
+import { css, html, LitElement } from "lit";
 import { customElement, property } from "lit/decorators.js";
 import { UnitType, UpgradeType } from "../../core/game/Game";
 import type { TileRef } from "../../core/game/GameMap";
 import type { GameView, PlayerView } from "../../core/game/GameView";
+import type { TransformHandler } from "../graphics/TransformHandler";
 import { renderNumber } from "../Utils";
+import { findSelectableUnitsNearTap, UNIT_LABELS } from "./MobileUnitSelection";
 import { HapticFeedback, HapticPattern } from "./utils/HapticFeedback";
 import { getActionIcon, getUnitIcon } from "./utils/Icons";
 
@@ -46,6 +48,8 @@ export class MobileActionGrid extends LitElement {
   @property({ type: Array }) items: ActionGridItem[] = [];
   @property({ type: Number }) attackRatio: number = 0.3;
   private lastOpenedTime: number = 0;
+  private tapPosition: { x: number; y: number } | null = null;
+  private tapTransformHandler: TransformHandler | null = null;
 
   static styles = css`
     :host {
@@ -559,10 +563,14 @@ export class MobileActionGrid extends LitElement {
     tile: TileRef,
     game: GameView,
     attackRatio: number,
+    position?: { x: number; y: number },
+    transformHandler?: TransformHandler | null,
   ): Promise<void> {
     this.tile = tile;
     this.game = game;
     this.attackRatio = attackRatio;
+    this.tapPosition = position ?? null;
+    this.tapTransformHandler = transformHandler ?? null;
 
     // Clear old items immediately to prevent flicker
     this.items = [];
@@ -717,34 +725,79 @@ export class MobileActionGrid extends LitElement {
     const myPlayer = game.myPlayer();
     if (!myPlayer) return [];
 
+    // Detect nearby selectable units for own-tile categories
+    const unitActions = this.getUnitSelectionActions(game);
+
     switch (category) {
       case "spawn-phase":
         return this.getSpawnActions(tile, game, myPlayer);
       case "own-land":
-        return this.appendStackModeToggle(
-          this.getOwnLandActions(tile, game, myPlayer),
-        );
+        return this.appendStackModeToggle([
+          ...unitActions,
+          ...this.getOwnLandActions(tile, game, myPlayer),
+        ]);
       case "own-shore":
-        return this.appendStackModeToggle(
-          this.getOwnLandActions(tile, game, myPlayer),
-        );
+        return this.appendStackModeToggle([
+          ...unitActions,
+          ...this.getOwnLandActions(tile, game, myPlayer),
+        ]);
       case "own-water":
-        return this.appendStackModeToggle(
-          this.getOwnWaterActions(tile, game, myPlayer),
-        );
+        return this.appendStackModeToggle([
+          ...unitActions,
+          ...this.getOwnWaterActions(tile, game, myPlayer),
+        ]);
       case "enemy-can-attack":
-        return this.getEnemyCanAttackActions(tile, game, myPlayer);
+        return [
+          ...unitActions,
+          ...this.getEnemyCanAttackActions(tile, game, myPlayer),
+        ];
       case "enemy-can-boat-attack":
-        return this.getEnemyCanBoatAttackActions(tile, game, myPlayer);
+        return [
+          ...unitActions,
+          ...this.getEnemyCanBoatAttackActions(tile, game, myPlayer),
+        ];
       case "enemy-no-attack":
-        return this.getEnemyNoAttackActions(tile, game, myPlayer);
+        return [
+          ...unitActions,
+          ...this.getEnemyNoAttackActions(tile, game, myPlayer),
+        ];
       case "neutral-can-attack":
-        return this.getNeutralCanAttackActions(tile, game, myPlayer);
+        return [
+          ...unitActions,
+          ...this.getNeutralCanAttackActions(tile, game, myPlayer),
+        ];
       case "neutral-can-boat-attack":
-        return this.getNeutralCanBoatAttackActions(tile, game, myPlayer);
+        return [
+          ...unitActions,
+          ...this.getNeutralCanBoatAttackActions(tile, game, myPlayer),
+        ];
       default:
-        return [];
+        return unitActions.length > 0 ? unitActions : [];
     }
+  }
+
+  /**
+   * Find selectable units near the tap and return "Select [Unit]" action items
+   */
+  private getUnitSelectionActions(game: GameView): ActionGridItem[] {
+    if (!this.tapPosition || !this.tapTransformHandler) return [];
+
+    const nearby = findSelectableUnitsNearTap({
+      position: this.tapPosition,
+      game,
+      transformHandler: this.tapTransformHandler,
+    });
+
+    return nearby.map((entry) => {
+      const unitType = entry.unit.type();
+      const label = UNIT_LABELS[unitType] ?? "Unit";
+      return {
+        id: `unit:select:${unitType}:${entry.unit.id()}`,
+        icon: getUnitIcon(unitType) ?? "📍",
+        label: `Select ${label}`,
+        priority: "high" as const,
+      };
+    });
   }
 
   private appendStackModeToggle(actions: ActionGridItem[]): ActionGridItem[] {
