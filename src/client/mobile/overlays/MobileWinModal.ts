@@ -358,7 +358,7 @@ export class MobileWinModal extends LitElement {
           </button>
         </div>
 
-        ${this.gameRecord
+        ${this.gameRecord && !this.showReplayOptions
           ? html`
               <div class="button-container">
                 <button class="secondary" @click=${this.handleSaveReplay}>

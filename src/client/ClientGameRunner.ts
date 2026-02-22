@@ -288,6 +288,13 @@ export class ClientGameRunner {
     if (winModal) {
       winModal.setGameRecord(record);
     }
+
+    const mobileWinModal = document.querySelector("mobile-win-modal") as
+      | (HTMLElement & {
+          setGameRecord?: (gameRecord: GameRecord) => void;
+        })
+      | null;
+    mobileWinModal?.setGameRecord?.(record);
   }
 
   private handleSaveReplayRequest() {
@@ -319,6 +326,22 @@ export class ClientGameRunner {
       Date.now(),
       undefined, // No winner yet
     );
+
+    const isMobileUiActive =
+      typeof document !== "undefined" &&
+      document.body.classList.contains("mobile-ui-enabled");
+
+    if (isMobileUiActive) {
+      const mobileWinModal = document.querySelector("mobile-win-modal") as
+        | (HTMLElement & {
+            showSaveReplay?: (gameRecord: GameRecord) => void;
+          })
+        | null;
+      if (mobileWinModal?.showSaveReplay) {
+        mobileWinModal.showSaveReplay(record);
+        return;
+      }
+    }
 
     const winModal = document.querySelector("win-modal") as WinModal;
     if (winModal) {
