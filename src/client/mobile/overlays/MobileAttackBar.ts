@@ -1,6 +1,6 @@
 /**
  * MobileAttackBar - Shows active attacks/boats/paratroopers as small bubbles
- * Positioned directly beneath the topbar, max 2 rows
+ * Positioned near bottom on mobile, and lifted above action grid when open
  */
 
 import { css, html, LitElement, TemplateResult } from "lit";
@@ -58,11 +58,13 @@ export class MobileAttackBar extends LitElement {
     :host {
       display: block;
       position: fixed;
-      top: calc(44px + env(safe-area-inset-top, 0px));
+      top: auto;
+      bottom: calc(env(safe-area-inset-bottom, 0px) + 8px);
       left: 0;
       right: 0;
       z-index: 1760;
       pointer-events: none;
+      transition: bottom 0.2s ease;
     }
 
     .container {
@@ -75,11 +77,7 @@ export class MobileAttackBar extends LitElement {
       pointer-events: none;
       position: relative;
       z-index: 1;
-      background: linear-gradient(
-        180deg,
-        rgba(12, 16, 22, 0.28) 0%,
-        rgba(9, 13, 18, 0) 100%
-      );
+      background: transparent;
     }
 
     .container:empty {

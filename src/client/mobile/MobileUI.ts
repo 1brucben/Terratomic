@@ -436,18 +436,19 @@ export class MobileUI {
     this.isDead = syncResult.isDead;
     this.applyRuntimeUiMode(syncResult.inSpawnPhase);
 
-    if (!syncResult.didProcessTick) {
-      return;
-    }
-    this.lastGameTick = syncResult.lastGameTick;
-    this.gameDurationSeconds = syncResult.gameDurationSeconds;
-
     syncTopOverlayPositions({
       componentsAttached: this.componentsAttached,
       topBar: this.topBar,
       attackBar: this.attackBar,
       chatEmojiBar: this.chatEmojiBar,
+      actionGrid: this.actionGrid,
     });
+
+    if (!syncResult.didProcessTick) {
+      return;
+    }
+    this.lastGameTick = syncResult.lastGameTick;
+    this.gameDurationSeconds = syncResult.gameDurationSeconds;
 
     tickOverlayComponents({
       eventsDisplay: this.eventsDisplay,
@@ -1324,6 +1325,7 @@ export class MobileUI {
       topBar: this.topBar,
       attackBar: this.attackBar,
       chatEmojiBar: this.chatEmojiBar,
+      actionGrid: this.actionGrid,
     });
   }
 

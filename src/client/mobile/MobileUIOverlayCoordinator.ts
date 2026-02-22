@@ -7,16 +7,35 @@ export function syncTopOverlayPositions(params: {
   topBar: HTMLElement;
   attackBar: HTMLElement & { currentHeight: number };
   chatEmojiBar: HTMLElement;
+  actionGrid: HTMLElement;
 }): void {
-  const { componentsAttached, topBar, attackBar, chatEmojiBar } = params;
+  const { componentsAttached, topBar, attackBar, chatEmojiBar, actionGrid } =
+    params;
 
   if (!componentsAttached) {
     return;
   }
 
   const topBarBottom = Math.ceil(topBar.getBoundingClientRect().bottom);
-  attackBar.style.top = `${topBarBottom + 2}px`;
-  chatEmojiBar.style.top = `${topBarBottom + attackBar.currentHeight + 8}px`;
+
+  const actionGridRect = actionGrid.getBoundingClientRect();
+  const actionGridVisible =
+    actionGrid.hasAttribute("visible") &&
+    actionGridRect.top < window.innerHeight;
+  const actionGridHeight = actionGridVisible
+    ? Math.max(0, window.innerHeight - actionGridRect.top)
+    : 0;
+
+  const baseBottomPx = 8;
+  const gapAboveGridPx = 0;
+  const attackBarBottomPx =
+    baseBottomPx +
+    (actionGridHeight > 0 ? Math.ceil(actionGridHeight + gapAboveGridPx) : 0);
+
+  attackBar.style.top = "auto";
+  attackBar.style.bottom = `calc(env(safe-area-inset-bottom, 0px) + ${attackBarBottomPx}px)`;
+
+  chatEmojiBar.style.top = `${topBarBottom + 8}px`;
 }
 
 function safeTick(component: Tickable | null | undefined): void {
