@@ -9,7 +9,7 @@ import { UnitType, UpgradeType } from "../../core/game/Game";
 import type { TileRef } from "../../core/game/GameMap";
 import type { GameView, PlayerView } from "../../core/game/GameView";
 import type { TransformHandler } from "../graphics/TransformHandler";
-import { renderNumber } from "../Utils";
+import { renderNumber, renderTroops } from "../Utils";
 import { findSelectableUnitsNearTap, UNIT_LABELS } from "./MobileUnitSelection";
 import { HapticFeedback, HapticPattern } from "./utils/HapticFeedback";
 import { getActionIcon, getUnitIcon } from "./utils/Icons";
@@ -19,6 +19,7 @@ export interface ActionGridItem {
   icon: string;
   label: string;
   cost?: number;
+  troopCount?: number;
   disabled?: boolean;
   disabledReason?: string;
   locked?: boolean;
@@ -472,6 +473,55 @@ export class MobileActionGrid extends LitElement {
       min-height: var(--m-grid-cost-multi-min-h, 18px);
       padding: 0 var(--m-grid-cost-multi-padding-x, 6px);
     }
+
+    .action-troop-count {
+      position: absolute;
+      top: var(--m-grid-troop-top, 5px);
+      left: var(--m-grid-troop-left, 5px);
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: var(--m-grid-troop-gap, 2px);
+      max-width: calc(100% - var(--m-grid-troop-max-width-inset, 10px));
+      min-height: var(--m-grid-troop-min-h, 16px);
+      padding: 0 var(--m-grid-troop-padding-x, 5px);
+      border-radius: 999px;
+      border: 1px solid rgba(239, 68, 68, 0.62);
+      background:
+        linear-gradient(
+          135deg,
+          rgba(239, 68, 68, 0.2) 0%,
+          rgba(153, 27, 27, 0.18) 100%
+        ),
+        linear-gradient(
+          180deg,
+          rgba(43, 18, 21, 0.82) 0%,
+          rgba(26, 12, 14, 0.86) 100%
+        );
+      color: rgba(254, 226, 226, 0.98);
+      font-size: var(--m-grid-troop-font-size, 9px);
+      font-weight: 700;
+      line-height: 1;
+      white-space: nowrap;
+      text-shadow: 0 1px 2px rgba(0, 0, 0, 0.6);
+      pointer-events: none;
+      z-index: 3;
+      box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+    }
+
+    .action-troop-count::before {
+      content: "⚔";
+      font-size: 8px;
+      line-height: 1;
+      margin-right: 2px;
+      opacity: 0.9;
+    }
+
+    .action-tile.multi-column .action-troop-count {
+      font-size: var(--m-grid-troop-multi-font-size, 10px);
+      min-height: var(--m-grid-troop-multi-min-h, 18px);
+      padding: 0 var(--m-grid-troop-multi-padding-x, 6px);
+    }
   `;
 
   render() {
@@ -514,6 +564,11 @@ export class MobileActionGrid extends LitElement {
       >
         ${item.cost
           ? html`<div class="action-cost">${this.formatNumber(item.cost)}</div>`
+          : ""}
+        ${item.troopCount !== undefined
+          ? html`<div class="action-troop-count" aria-label="Attack troops">
+              ${renderTroops(item.troopCount)}
+            </div>`
           : ""}
         <div class="action-icon">${iconHtml}</div>
         <div class="action-label">${item.label}</div>
@@ -1085,7 +1140,8 @@ export class MobileActionGrid extends LitElement {
     myPlayer: PlayerView,
   ): ActionGridItem[] {
     const actions: ActionGridItem[] = [];
-    const troops = Number(myPlayer.troops());
+    const totalTroops = Number(myPlayer.troops());
+    const attackTroops = Math.floor(totalTroops * this.attackRatio);
     const owner = game.owner(tile);
     const targetPlayer = owner.isPlayer() ? (owner as PlayerView) : null;
 
@@ -1094,8 +1150,9 @@ export class MobileActionGrid extends LitElement {
       id: "attack:ground",
       icon: getActionIcon("attack"),
       label: "Ground Attack",
-      disabled: troops === 0,
-      disabledReason: troops === 0 ? "No troops" : undefined,
+      troopCount: attackTroops,
+      disabled: totalTroops === 0,
+      disabledReason: totalTroops === 0 ? "No troops" : undefined,
       priority: "high",
     });
 
@@ -1110,8 +1167,9 @@ export class MobileActionGrid extends LitElement {
         id: "attack:airstrike",
         icon: getActionIcon("paratrooper"),
         label: "Paratroopers",
-        disabled: troops === 0,
-        disabledReason: troops === 0 ? "No troops" : undefined,
+        troopCount: attackTroops,
+        disabled: totalTroops === 0,
+        disabledReason: totalTroops === 0 ? "No troops" : undefined,
       });
     }
 
@@ -1153,7 +1211,8 @@ export class MobileActionGrid extends LitElement {
     myPlayer: PlayerView,
   ): ActionGridItem[] {
     const actions: ActionGridItem[] = [];
-    const troops = Number(myPlayer.troops());
+    const totalTroops = Number(myPlayer.troops());
+    const attackTroops = Math.floor(totalTroops * this.attackRatio);
     const owner = game.owner(tile);
     const targetPlayer = owner.isPlayer() ? (owner as PlayerView) : null;
 
@@ -1162,8 +1221,9 @@ export class MobileActionGrid extends LitElement {
       id: "attack:naval",
       icon: getActionIcon("navyAssault"),
       label: "Naval Assault",
-      disabled: troops === 0,
-      disabledReason: troops === 0 ? "No troops" : undefined,
+      troopCount: attackTroops,
+      disabled: totalTroops === 0,
+      disabledReason: totalTroops === 0 ? "No troops" : undefined,
       priority: "high",
     });
 
@@ -1178,8 +1238,9 @@ export class MobileActionGrid extends LitElement {
         id: "attack:airstrike",
         icon: getActionIcon("paratrooper"),
         label: "Paratroopers",
-        disabled: troops === 0,
-        disabledReason: troops === 0 ? "No troops" : undefined,
+        troopCount: attackTroops,
+        disabled: totalTroops === 0,
+        disabledReason: totalTroops === 0 ? "No troops" : undefined,
       });
     }
 
@@ -1255,7 +1316,8 @@ export class MobileActionGrid extends LitElement {
     myPlayer: PlayerView,
   ): ActionGridItem[] {
     const actions: ActionGridItem[] = [];
-    const troops = Number(myPlayer.troops());
+    const totalTroops = Number(myPlayer.troops());
+    const attackTroops = Math.floor(totalTroops * this.attackRatio);
     const gold = Number(myPlayer.gold());
     const isOcean = !game.isLand(tile);
 
@@ -1265,8 +1327,9 @@ export class MobileActionGrid extends LitElement {
         id: "attack:ground",
         icon: getActionIcon("attack"),
         label: "Attack",
-        disabled: troops === 0,
-        disabledReason: troops === 0 ? "No troops" : undefined,
+        troopCount: attackTroops,
+        disabled: totalTroops === 0,
+        disabledReason: totalTroops === 0 ? "No troops" : undefined,
         priority: "high",
       });
     }
@@ -1352,15 +1415,17 @@ export class MobileActionGrid extends LitElement {
     game: GameView,
     myPlayer: PlayerView,
   ): ActionGridItem[] {
-    const troops = Number(myPlayer.troops());
+    const totalTroops = Number(myPlayer.troops());
+    const attackTroops = Math.floor(totalTroops * this.attackRatio);
 
     return [
       {
         id: "attack:naval",
         icon: getActionIcon("navyAssault"),
         label: "Naval Assault",
-        disabled: troops === 0,
-        disabledReason: troops === 0 ? "No troops" : undefined,
+        troopCount: attackTroops,
+        disabled: totalTroops === 0,
+        disabledReason: totalTroops === 0 ? "No troops" : undefined,
         priority: "high",
       },
     ];
