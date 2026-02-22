@@ -20,7 +20,7 @@ export class MobileSettingsSidebar extends LitElement {
     :host {
       display: none;
       position: fixed;
-      top: 0;
+      top: var(--m-panel-top-offset, 0px);
       left: 0;
       right: 0;
       bottom: 0;
