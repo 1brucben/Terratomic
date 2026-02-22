@@ -184,6 +184,27 @@ export class MobileTopBar extends LitElement {
       transition: background 0.2s;
     }
 
+    @media (min-width: 430px) {
+      .top-bar {
+        justify-content: center;
+      }
+
+      .clock-recess {
+        position: absolute;
+        left: max(10px, env(safe-area-inset-left, 0));
+      }
+
+      .buttons-right {
+        position: absolute;
+        right: max(10px, env(safe-area-inset-right, 0));
+      }
+
+      .stats {
+        flex: 0 1 auto;
+        max-width: 420px;
+      }
+    }
+
     .stats:active {
       background: linear-gradient(
         180deg,
