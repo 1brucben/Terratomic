@@ -17,6 +17,7 @@ import {
   type InvestmentSyncDetail,
 } from "../../events/InvestmentEvents";
 import { SendSetTargetTroopRatioEvent } from "../../Transport";
+import { renderTroops } from "../../Utils";
 import { HapticFeedback } from "../utils/HapticFeedback";
 
 export interface EconomyStats {
@@ -356,6 +357,7 @@ export class MobileEconomyOverlay extends LitElement {
     const productionMax = this.productionMaxPercent();
     const roadEnabled = this.isRoadsUnlocked();
     const me = this.game?.myPlayer?.();
+    const attackTroops = Math.floor((me?.troops?.() ?? 0) * this.attackRatio);
     const productivityPct = Math.round((me?.productivity?.() ?? 1) * 100);
     const productivityGrowthPerMinute =
       (me?.productivityGrowthPerMinute?.() ?? 0) * 100;
@@ -413,6 +415,9 @@ export class MobileEconomyOverlay extends LitElement {
                 .value="${attackPercent.toString()}"
                 @input="${this.handleAttackRatioChange}"
               />
+            </div>
+            <div class="subtitle">
+              Sends ${renderTroops(attackTroops)} troops per attack
             </div>
           </div>
 
