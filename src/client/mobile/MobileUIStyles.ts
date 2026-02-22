@@ -236,6 +236,7 @@ export const MOBILE_UI_STYLES = `
           filter 0.12s ease,
           border-color 0.15s ease,
           box-shadow 0.15s ease;
+        overflow: visible;
       }
 
       body.mobile-ui-enabled .mobile-economy-tab {
@@ -251,6 +252,35 @@ export const MOBILE_UI_STYLES = `
       body.mobile-ui-enabled .mobile-research-tab {
         top: calc(env(safe-area-inset-top, 0px) + 120px); /* 60 + 48 + 12 = 120 */
         color: rgba(185, 152, 255, 0.95);
+      }
+
+      body.mobile-ui-enabled .mobile-research-tab::before {
+        content: attr(data-progress);
+        position: absolute;
+        top: -7px;
+        right: -7px;
+        min-width: 30px;
+        height: 16px;
+        padding: 0 5px;
+        border-radius: 999px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 9px;
+        font-weight: 700;
+        line-height: 1;
+        letter-spacing: 0.1px;
+        color: rgba(248, 238, 255, 0.96);
+        background: linear-gradient(
+          180deg,
+          rgba(127, 92, 188, 0.94) 0%,
+          rgba(73, 43, 121, 0.96) 100%
+        );
+        border: 1px solid rgba(215, 190, 255, 0.54);
+        box-shadow:
+          0 2px 7px rgba(0, 0, 0, 0.46),
+          inset 0 1px 0 rgba(255, 255, 255, 0.16);
+        pointer-events: none;
       }
 
       body.mobile-ui-enabled .mobile-economy-tab svg,

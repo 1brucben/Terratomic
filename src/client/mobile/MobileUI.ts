@@ -8,6 +8,7 @@ import { UnitType } from "../../core/game/Game";
 import type { TileRef } from "../../core/game/GameMap";
 import type { GameView, PlayerView, UnitView } from "../../core/game/GameView";
 import { getArtilleryMaxDistance } from "../../core/game/UnitUpgrades";
+import { getTechNodes } from "../../core/tech/ResearchTree";
 import { GAME_LOADING_VISIBILITY_CHANGE_EVENT } from "../GameStartingModal";
 import {
   CenterCameraEvent,
@@ -115,6 +116,8 @@ export class MobileUI {
   private zoomOutButton: HTMLButtonElement;
   private lastGameTick: number = -1; // Track last processed game tick
   private gameDurationSeconds: number = 0; // Track game time in seconds (only after spawn phase)
+  private lastResearchTabStampUpdateAt: number = 0;
+  private readonly RESEARCH_TAB_STAMP_REFRESH_MS: number = 5000;
   private currentGameId: string | null = null;
   private stackModeEnabled: boolean = false;
   private stackTargetUnitId: number | null = null;
@@ -417,6 +420,8 @@ export class MobileUI {
    * Update stats from current game state
    */
   private updateStatsFromGame(): void {
+    this.updateResearchTabProgressStamp();
+
     const syncResult = syncMobileUIStateFromGame({
       game: this.currentGame,
       lastGameTick: this.lastGameTick,
@@ -684,9 +689,60 @@ export class MobileUI {
     if (isNewGame) {
       this.lastGameTick = -1;
       this.gameDurationSeconds = 0;
+      this.lastResearchTabStampUpdateAt = 0;
       this.economyOverlay.resetInvestmentDefaults();
       this.economyOverlay.applyPreferredCombatRatios();
     }
+
+    this.updateResearchTabProgressStamp(true);
+  }
+
+  private updateResearchTabProgressStamp(force: boolean = false): void {
+    const now = Date.now();
+    if (
+      !force &&
+      now - this.lastResearchTabStampUpdateAt <
+        this.RESEARCH_TAB_STAMP_REFRESH_MS
+    ) {
+      return;
+    }
+    this.lastResearchTabStampUpdateAt = now;
+
+    const game = this.currentGame;
+    const me = game?.myPlayer?.();
+    if (!game || !me) {
+      this.researchTab.dataset.progress = "0%";
+      this.researchTab.setAttribute("aria-label", "Open research panel");
+      return;
+    }
+
+    const techs = getTechNodes();
+    if (techs.length === 0) {
+      this.researchTab.dataset.progress = "0%";
+      this.researchTab.setAttribute("aria-label", "Open research panel");
+      return;
+    }
+
+    let totalPct = 0;
+    for (const tech of techs) {
+      const cost = Math.max(1, tech.cost || 1);
+      const beakers = me.researchBeakers?.(tech.id) ?? 0;
+      let pct = Math.floor((beakers / cost) * 100);
+      if (!Number.isFinite(pct)) pct = 0;
+      pct = Math.max(0, Math.min(100, pct));
+      if (me.hasResearchedTech(tech.id)) pct = 100;
+      totalPct += pct;
+    }
+
+    const overall = Math.max(
+      0,
+      Math.min(100, Math.floor(totalPct / techs.length)),
+    );
+    this.researchTab.dataset.progress = `${overall}%`;
+    this.researchTab.setAttribute(
+      "aria-label",
+      `Open research panel (${overall}% complete)`,
+    );
   }
 
   /**

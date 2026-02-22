@@ -8,6 +8,7 @@ import { LitElement, css, html } from "lit";
 import { customElement, property } from "lit/decorators.js";
 import type { EventBus } from "../../../core/EventBus";
 import type { GameView, PlayerView } from "../../../core/game/GameView";
+import { getTechNodes, type Category } from "../../../core/tech/ResearchTree";
 import {
   SendDeclareWarIntentEvent,
   SendPeaceRequestIntentEvent,
@@ -151,6 +152,56 @@ export class MobilePlayerToast extends LitElement {
       color: rgba(249, 133, 133, 0.95);
     }
 
+    .research-summary {
+      margin-top: 7px;
+      padding: 7px;
+      border-radius: 7px;
+      border: 1px solid rgba(118, 130, 145, 0.24);
+      background: linear-gradient(
+        180deg,
+        rgba(20, 28, 38, 0.78) 0%,
+        rgba(12, 18, 25, 0.88) 100%
+      );
+    }
+
+    .research-title {
+      color: rgba(194, 205, 218, 0.86);
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.3px;
+      margin-bottom: 5px;
+    }
+
+    .research-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      color: rgba(225, 233, 243, 0.9);
+      font-size: 11px;
+      line-height: 1.35;
+    }
+
+    .research-row + .research-row {
+      margin-top: 2px;
+    }
+
+    .research-row.overall {
+      font-weight: 700;
+      margin-bottom: 3px;
+      padding-bottom: 3px;
+      border-bottom: 1px solid rgba(148, 160, 174, 0.22);
+    }
+
+    .research-row-label {
+      color: rgba(206, 216, 228, 0.82);
+    }
+
+    .research-row-value {
+      color: rgba(238, 244, 251, 0.95);
+      font-variant-numeric: tabular-nums;
+      font-feature-settings: "tnum";
+    }
+
     .actions {
       display: flex;
       flex-wrap: wrap;
@@ -287,6 +338,7 @@ export class MobilePlayerToast extends LitElement {
     const relation = isAllied ? "allied" : isEnemy ? "enemy" : "neutral";
     const relationText = isAllied ? "Allied" : isEnemy ? "At War" : "Neutral";
     const relationIcon = isAllied ? "🤝" : isEnemy ? "⚔️" : "";
+    const research = this.computeResearchCompletion(this.player);
 
     const population = this.player.numTilesOwned();
     const gold = Number(this.player.gold());
@@ -304,7 +356,89 @@ export class MobilePlayerToast extends LitElement {
           <div class="stat">💰 ${gold}</div>
         </div>
         <div class="relation-text ${relation}">${relationText}</div>
-        ${this.renderActions()}
+        ${this.renderResearchSummary(research)} ${this.renderActions()}
+      </div>
+    `;
+  }
+
+  private computeResearchCompletion(player: PlayerView): {
+    overall: number;
+    byCategory: Record<Category, number>;
+  } {
+    const techs = getTechNodes();
+    const categories: Category[] = ["Land", "Sea", "Air", "Nuclear"];
+
+    const byCategory: Record<Category, number> = {
+      Land: 0,
+      Sea: 0,
+      Air: 0,
+      Nuclear: 0,
+    };
+
+    if (techs.length === 0) {
+      return { overall: 0, byCategory };
+    }
+
+    let totalPct = 0;
+    for (const category of categories) {
+      const categoryTechs = techs.filter((tech) => tech.category === category);
+      if (categoryTechs.length === 0) {
+        byCategory[category] = 0;
+        continue;
+      }
+
+      let categoryPctSum = 0;
+      for (const tech of categoryTechs) {
+        const cost = Math.max(1, tech.cost || 1);
+        const beakers = player.researchBeakers(tech.id);
+        let pct = Math.floor((beakers / cost) * 100);
+        if (!Number.isFinite(pct)) pct = 0;
+        pct = Math.max(0, Math.min(100, pct));
+        if (player.hasResearchedTech(tech.id)) pct = 100;
+        categoryPctSum += pct;
+      }
+
+      const categoryPct = Math.floor(categoryPctSum / categoryTechs.length);
+      byCategory[category] = Math.max(0, Math.min(100, categoryPct));
+      totalPct += categoryPctSum;
+    }
+
+    const overall = Math.floor(totalPct / techs.length);
+    return {
+      overall: Math.max(0, Math.min(100, overall)),
+      byCategory,
+    };
+  }
+
+  private renderResearchSummary(research: {
+    overall: number;
+    byCategory: Record<Category, number>;
+  }) {
+    return html`
+      <div class="research-summary">
+        <div class="research-title">Research Completion</div>
+        <div class="research-row overall">
+          <span class="research-row-label">Overall</span>
+          <span class="research-row-value">${research.overall}%</span>
+        </div>
+        <div class="research-row">
+          <span class="research-row-label">Land</span>
+          <span class="research-row-value">${research.byCategory.Land}%</span>
+        </div>
+        <div class="research-row">
+          <span class="research-row-label">Sea</span>
+          <span class="research-row-value">${research.byCategory.Sea}%</span>
+        </div>
+        <div class="research-row">
+          <span class="research-row-label">Air</span>
+          <span class="research-row-value">${research.byCategory.Air}%</span>
+        </div>
+        <div class="research-row">
+          <span class="research-row-label">Nuclear</span>
+          <span class="research-row-value"
+            >${research.byCategory.Nuclear}%</span
+          >
+        </div>
       </div>
     `;
   }

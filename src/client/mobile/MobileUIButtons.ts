@@ -57,6 +57,7 @@ export function createMobileUIButtons(): MobileUIButtons {
     `,
     "Open research panel",
   );
+  researchTab.dataset.progress = "0%";
 
   const zoomInButton = createButton(
     "mobile-zoom-in",
