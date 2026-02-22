@@ -34,6 +34,11 @@ export class HeadsUpMessage extends LitElement implements Layer {
     /* Mobile positioning - below spawn timer */
     body.mobile-ui-enabled .heads-up-container {
       top: calc(env(safe-area-inset-top, 0px) + 54px);
+      pointer-events: none;
+    }
+
+    body.mobile-ui-enabled .heads-up-message {
+      pointer-events: none;
     }
 
     .heads-up-message {
