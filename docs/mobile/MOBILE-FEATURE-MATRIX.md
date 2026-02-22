@@ -1,6 +1,6 @@
 # Mobile Feature Matrix
 
-> Last updated: 2026-02-21
+> Last updated: 2026-02-22
 
 Desktop → mobile parity overview. All source under `src/client/mobile/`.
 
@@ -76,6 +76,7 @@ Note: `MobileUI` now acts primarily as an orchestrator; most action routing, eve
 | Pan / Zoom (touch)          | `GestureDetector` drag + pinch · sensitivity: `MOBILE_PINCH_ZOOM_MULTIPLIER = 50` | Touch drag / pinch                             | ✅ Working    |
 | Replay Panel                | `MobileSettingsPanel` (replay controls)                                           | Settings sidebar                               | ✅ Working    |
 | Win / Game Over Modal       | `MobileWinModal`                                                                  | Auto-shown on death/win updates                | ✅ Working    |
+| Unit Selection & Redirect   | ActionGrid `unit:select:*` + banner redirect                                      | Tap near own unit → select → tap destination   | ✅ Working    |
 | Alternate View (Space)      | —                                                                                 | —                                              | ❌ Not ported |
 | Multi-Build Mode            | —                                                                                 | —                                              | ❌ Not ported |
 

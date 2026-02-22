@@ -1,6 +1,6 @@
 # Mobile Action Grid Catalog
 
-> Last updated: 2026-02-15
+> Last updated: 2026-02-22
 
 Complete action inventory for `MobileActionGrid`, sourced directly from code.
 
@@ -26,6 +26,8 @@ Related docs: [Architecture](MOBILE-ARCHITECTURE.md) · [Feature Matrix](MOBILE-
 
 Own-land/own-shore/own-water also append a **Stack Mode toggle** at the end of the actions list.
 
+All categories (except spawn-phase) also prepend **Unit Selection actions** when a selectable unit (Warship, Submarine, Fighter Jet, Artillery) is within 40px screen distance of the tap position.
+
 ---
 
 ## Actions by Category
@@ -35,6 +37,21 @@ Own-land/own-shore/own-water also append a **Stack Mode toggle** at the end of t
 | Action     | ID      | Priority | Condition         |
 | ---------- | ------- | -------- | ----------------- |
 | Spawn Here | `spawn` | high     | Unowned land tile |
+
+---
+
+### Unit Selection (All Categories)
+
+When tapping near a player-owned selectable unit (within 40px screen distance), a "Select [Unit]" action is prepended to the grid. This works on **all** tile categories — own, enemy, or neutral — because units can be on any tile (e.g. ships on unowned ocean, jets over enemy land).
+
+| Action             | ID                            | Priority | Condition                          |
+| ------------------ | ----------------------------- | -------- | ---------------------------------- |
+| Select Warship     | `unit:select:Warship:<id>`    | high     | Own Warship within 40px of tap     |
+| Select Submarine   | `unit:select:Submarine:<id>`  | high     | Own Submarine within 40px of tap   |
+| Select Fighter Jet | `unit:select:FighterJet:<id>` | high     | Own Fighter Jet within 40px of tap |
+| Select Artillery   | `unit:select:Artillery:<id>`  | high     | Own Artillery within 40px of tap   |
+
+After selecting a unit, the action grid closes and a **floating banner** appears ("📍 [Unit] selected — tap to redirect ✕"). Tapping any valid tile immediately emits the corresponding `Move*IntentEvent`. Artillery has an additional range check. Tapping ✕ cancels selection.
 
 ---
 

@@ -1,6 +1,6 @@
 # Mobile UI Architecture
 
-> Last updated: 2026-02-19
+> Last updated: 2026-02-22
 
 Quick-reference architecture map for the mobile UI layer. All source lives under `src/client/mobile/`.
 
@@ -25,6 +25,7 @@ MobileUI (orchestrator, 873 lines)
 ├── MobileUIStats               — trade-income parsing from tick updates
 ├── MobileUIActionUtils         — build-action parsing + bomber target utility
 ├── MobileUIEventBindings       — small shared event-binding helper wrappers
+├── MobileUnitSelection         — screen-distance unit detection for tap-to-select (40px hit radius)
 ├── MobileViewportProfile       — viewport class/orientation profiling + responsive token generation
 │
 ├── gestures/
@@ -80,26 +81,32 @@ Winner/game-over flow on mobile is handled by `MobileWinModal`; desktop `WinModa
 
 ## EventBus Events (mobile → server)
 
-| Event                              | Source                         |
-| ---------------------------------- | ------------------------------ |
-| `SendSpawnIntentEvent`             | Tap unowned land (spawn phase) |
-| `BuildUnitIntentEvent`             | Action grid build tile         |
-| `SendUpgradeStructureIntentEvent`  | Stack mode tap                 |
-| `SendAttackIntentEvent`            | Ground attack action           |
-| `SendBoatAttackIntentEvent`        | Naval assault action           |
-| `SendParatrooperAttackIntentEvent` | Paratrooper action             |
-| `SendBomberIntentEvent`            | Bomber run action              |
-| `SendAllianceRequestIntentEvent`   | Propose alliance action        |
-| `SendBreakAllianceIntentEvent`     | Break alliance action          |
-| `SendPeaceRequestIntentEvent`      | Request peace action           |
-| `SendDeclareWarIntentEvent`        | Declare war action             |
-| `SendEmojiIntentEvent`             | Player toast → emoji table     |
-| `SendDonateTroopsIntentEvent`      | Player toast donate troops     |
-| `SendDonateGoldIntentEvent`        | Player toast donate gold       |
-| `ToggleUpgradeModeEvent`           | Stack mode toggle              |
-| `ZoomEvent`                        | Pinch gesture / zoom buttons   |
-| `DragEvent`                        | Drag gesture (map pan)         |
-| `CenterCameraEvent`                | Center zoom button             |
+| Event                              | Source                          |
+| ---------------------------------- | ------------------------------- |
+| `SendSpawnIntentEvent`             | Tap unowned land (spawn phase)  |
+| `BuildUnitIntentEvent`             | Action grid build tile          |
+| `SendUpgradeStructureIntentEvent`  | Stack mode tap                  |
+| `SendAttackIntentEvent`            | Ground attack action            |
+| `SendBoatAttackIntentEvent`        | Naval assault action            |
+| `SendParatrooperAttackIntentEvent` | Paratrooper action              |
+| `SendBomberIntentEvent`            | Bomber run action               |
+| `SendAllianceRequestIntentEvent`   | Propose alliance action         |
+| `SendBreakAllianceIntentEvent`     | Break alliance action           |
+| `SendPeaceRequestIntentEvent`      | Request peace action            |
+| `SendDeclareWarIntentEvent`        | Declare war action              |
+| `SendEmojiIntentEvent`             | Player toast → emoji table      |
+| `SendDonateTroopsIntentEvent`      | Player toast donate troops      |
+| `SendDonateGoldIntentEvent`        | Player toast donate gold        |
+| `ToggleUpgradeModeEvent`           | Stack mode toggle               |
+| `ZoomEvent`                        | Pinch gesture / zoom buttons    |
+| `DragEvent`                        | Drag gesture (map pan)          |
+| `CenterCameraEvent`                | Center zoom button              |
+| `MoveWarshipIntentEvent`           | Unit redirect (warship)         |
+| `MoveSubmarineIntentEvent`         | Unit redirect (submarine)       |
+| `MoveFighterJetIntentEvent`        | Unit redirect (fighter jet)     |
+| `MoveArtilleryIntentEvent`         | Unit redirect (artillery)       |
+| `UnitSelectionEvent`               | Unit select / deselect visual   |
+| `ArtilleryOutOfRangeEvent`         | Artillery redirect out of range |
 
 ---
 
@@ -128,6 +135,15 @@ Winner/game-over flow on mobile is handled by `MobileWinModal`; desktop `WinModa
 ### Stack Mode
 
 Toggle in action grid enables upgrade-mode: subsequent taps upgrade the nearest stackable structure (City, Port, Factory, etc.) using sticky targeting.
+
+### Unit Selection & Redirect
+
+1. `GestureDetector` fires `tap` → `MobileUI.handleMapTap()` converts screen→tile
+2. `MobileActionGrid.showForTile()` receives screen position + `TransformHandler`; `getUnitSelectionActions()` uses `MobileUnitSelection.findSelectableUnitsNearTap()` to find own units within 40px
+3. Grid shows "Select [Unit]" tiles at the top of any category
+4. User taps → `MobileUI.handleUnitSelectAction()` enters redirect mode, shows floating banner, emits `UnitSelectionEvent`
+5. Next tap → `handleUnitRedirectTap()` validates target terrain + artillery range, emits `Move*IntentEvent`, clears selection
+6. Cancel via banner ✕ button or upon successful redirect
 
 ---
 
