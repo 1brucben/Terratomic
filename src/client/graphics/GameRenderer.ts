@@ -19,7 +19,7 @@ import { ControlPanel2 } from "./layers/ControlPanel2";
 import { DevHud } from "./layers/DevHud";
 import { EmojiTable } from "./layers/EmojiTable";
 import { EventsDisplay } from "./layers/EventsDisplay";
-import { FxLayer } from "./layers/FxLayer";
+import { FxLayerV2 as FxLayer } from "./layers/FxLayerV2";
 import { GameLeftSidebar } from "./layers/GameLeftSidebar";
 import { HeadsUpMessage } from "./layers/HeadsUpMessage";
 import { Layer } from "./layers/Layer";
