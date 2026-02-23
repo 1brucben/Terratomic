@@ -46,7 +46,7 @@ import { TradeDebugOverlay } from "./layers/TradeDebugOverlay";
 import { TutorialToast } from "./layers/TutorialToast";
 import { TutorialTriggers } from "./layers/TutorialTriggers";
 import { UILayer } from "./layers/UILayer";
-import { UnitLayer } from "./layers/UnitLayer";
+import { UnitLayerV2 as UnitLayer } from "./layers/UnitLayerV2";
 import { WarScoreOverlay } from "./layers/WarScoreOverlay";
 import { WinModal } from "./layers/WinModal";
 
@@ -285,7 +285,7 @@ export function createRenderer(
     structureLayer,
     new ArtilleryLayer(game, eventBus, transformHandler),
     new UnitLayer(game, eventBus, transformHandler, uiState),
-    // UILayer placed right after UnitLayer: both use shouldTransform=true,
+    // UILayer placed right after UnitLayerV2: both use shouldTransform=true,
     // keeping them adjacent avoids extra context.save/restore transitions.
     new UILayer(game, eventBus, transformHandler),
     new AABulletLayer(game, transformHandler),
