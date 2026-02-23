@@ -25,6 +25,7 @@ import {
   playerMaxStructureTechLevel,
   playerMaxUnitLevel,
 } from "../../../core/game/Upgradeables";
+import { RefreshMobileStackLabelsEvent } from "../../events/RefreshMobileStackLabelsEvent";
 import { ToggleBomberUpgradeModeEvent } from "../../events/ToggleBomberUpgradeModeEvent";
 import { ToggleUpgradeModeEvent } from "../../events/ToggleUpgradeModeEvent";
 import { UnitCooldownEndedEvent } from "../../events/UnitCooldownEndedEvent";
@@ -220,6 +221,12 @@ export class StructureLayer implements Layer {
       // Rebuild price labels when toggling bomber upgrade mode
       this.updateLabels();
       if (this.renderer) this.renderer.render(this.stage);
+    });
+    this.eventBus.on(RefreshMobileStackLabelsEvent, () => {
+      if (!this.isMobileUIEnabled() || !this.upgradeMode) {
+        return;
+      }
+      this.updateLabels();
     });
   }
 

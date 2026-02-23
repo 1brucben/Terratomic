@@ -26,6 +26,7 @@ import {
   SendSpawnIntentEvent,
   SendUpgradeStructureIntentEvent,
 } from "../Transport";
+import { RefreshMobileStackLabelsEvent } from "../events/RefreshMobileStackLabelsEvent";
 import { ToggleUpgradeModeEvent } from "../events/ToggleUpgradeModeEvent";
 import type { TransformHandler } from "../graphics/TransformHandler";
 import { MobileActionGrid } from "./MobileActionGrid";
@@ -125,6 +126,8 @@ export class MobileUI {
   private isSpectator: boolean = false;
   private isDead: boolean = false;
   private runtimeUiMode: RuntimeMobileUiMode | null = null;
+  private pendingStackLabelRefreshRafId: number | null = null;
+  private pendingStackLabelRefreshTimeoutIds: number[] = [];
 
   // Unit selection state
   private selectedUnit: UnitView | null = null;
@@ -919,6 +922,7 @@ export class MobileUI {
     this.stackModeEnabled = !this.stackModeEnabled;
     if (!this.stackModeEnabled) {
       this.stackTargetUnitId = null;
+      this.clearPendingStackLabelRefreshes();
     }
     this.eventBus.emit(new ToggleUpgradeModeEvent(this.stackModeEnabled));
     this.actionGrid.setStackModeEnabled(this.stackModeEnabled);
@@ -1185,7 +1189,41 @@ export class MobileUI {
     this.eventBus.emit(
       new SendUpgradeStructureIntentEvent(structure.id(), structure.type()),
     );
+    this.requestStackLabelRefreshBurst();
     HapticFeedback.success();
+  }
+
+  private requestStackLabelRefreshBurst(): void {
+    if (!this.stackModeEnabled) {
+      return;
+    }
+
+    this.clearPendingStackLabelRefreshes();
+    this.eventBus.emit(new RefreshMobileStackLabelsEvent());
+
+    this.pendingStackLabelRefreshRafId = requestAnimationFrame(() => {
+      this.pendingStackLabelRefreshRafId = null;
+      this.eventBus.emit(new RefreshMobileStackLabelsEvent());
+    });
+
+    for (const delayMs of [80, 180, 320]) {
+      const timeoutId = window.setTimeout(() => {
+        this.eventBus.emit(new RefreshMobileStackLabelsEvent());
+      }, delayMs);
+      this.pendingStackLabelRefreshTimeoutIds.push(timeoutId);
+    }
+  }
+
+  private clearPendingStackLabelRefreshes(): void {
+    if (this.pendingStackLabelRefreshRafId !== null) {
+      cancelAnimationFrame(this.pendingStackLabelRefreshRafId);
+      this.pendingStackLabelRefreshRafId = null;
+    }
+
+    for (const timeoutId of this.pendingStackLabelRefreshTimeoutIds) {
+      clearTimeout(timeoutId);
+    }
+    this.pendingStackLabelRefreshTimeoutIds = [];
   }
 
   /**
@@ -1335,6 +1373,7 @@ export class MobileUI {
   destroy(): void {
     this.stopStatsLoop();
     this.cancelUnitSelection();
+    this.clearPendingStackLabelRefreshes();
 
     // Remove components from DOM
     this.topBar.remove();
