@@ -7,7 +7,6 @@ import {
   Player,
   PlayerID,
   PlayerType,
-  TerrainType,
   TerraNullius,
   UnitType,
 } from "../game/Game";
@@ -178,38 +177,28 @@ export class AttackExecution implements Execution {
   }
 
   private initializeConquestFromLandingTile(tile: TileRef) {
-    if (this.attack === null) {
-      throw new Error("Attack not initialized");
-    }
+    const attack = this.attack!;
     this.toConquer.clear();
-    this.attack.clearBorder();
-
-    // Add the source tile itself to be conquered first
-    this.toConquer.enqueue(tile, 0); // High priority for the landing tile
-    this.attack.addBorderTile(tile);
-
-    // Then add its neighbors that are owned by the target
-    this.addNeighbors(tile);
+    attack.clearBorder();
+    this.toConquer.enqueue(tile, 0);
+    attack.addBorderTile(tile);
+    this.addNeighbors(tile, this._owner.smallID(), this.target.smallID());
   }
 
   private refreshToConquer() {
-    if (this.attack === null) {
-      throw new Error("Attack not initialized");
-    }
-
+    const attack = this.attack!;
+    const ownerSmallID = this._owner.smallID();
+    const targetSmallID = this.target.smallID();
     this.toConquer.clear();
-    this.attack.clearBorder();
+    attack.clearBorder();
     for (const tile of this._owner.borderTiles()) {
-      this.addNeighbors(tile);
+      this.addNeighbors(tile, ownerSmallID, targetSmallID);
     }
   }
 
   private retreat(malusPercent = 0) {
-    if (this.attack === null) {
-      throw new Error("Attack not initialized");
-    }
-
-    const deaths = this.attack.troops() * (malusPercent / 100);
+    const attack = this.attack!;
+    const deaths = attack.troops() * (malusPercent / 100);
     if (deaths) {
       this.mg.displayMessage(
         `Attack cancelled, ${renderTroops(deaths)} soldiers killed during retreat.`,
@@ -217,27 +206,23 @@ export class AttackExecution implements Execution {
         this._owner.id(),
       );
     }
-    const survivors = this.attack.troops() - deaths;
+    const survivors = attack.troops() - deaths;
     this._owner.addTroops(survivors);
-    this.attack.delete();
+    attack.delete();
     this.active = false;
 
-    // Not all retreats are canceled attacks
-    if (this.attack.retreated()) {
-      // Record stats
+    if (attack.retreated()) {
       this.mg.stats().attackCancel(this._owner, this.target, survivors);
     }
   }
 
   tick(ticks: number) {
-    if (this.attack === null) {
-      throw new Error("Attack not initialized");
-    }
-    let troopCount = this.attack.troops(); // cache troop count
-    const targetIsPlayer = this.target.isPlayer(); // cache target type
-    const targetPlayer = targetIsPlayer ? (this.target as Player) : null; // cache target player
+    const attack = this.attack!;
+    let troopCount = attack.troops();
+    const targetIsPlayer = this.target.isPlayer();
+    const targetPlayer = targetIsPlayer ? (this.target as Player) : null;
 
-    if (this.attack.retreated()) {
+    if (attack.retreated()) {
       if (targetIsPlayer) {
         this.retreat(malusForRetreat);
       } else {
@@ -247,11 +232,11 @@ export class AttackExecution implements Execution {
       return;
     }
 
-    if (this.attack.retreating()) {
+    if (attack.retreating()) {
       return;
     }
 
-    if (!this.attack.isActive()) {
+    if (!attack.isActive()) {
       this.active = false;
       return;
     }
@@ -263,8 +248,6 @@ export class AttackExecution implements Execution {
       this.breakAlliance = false;
       this._owner.breakAlliance(alliance);
     }
-    // Consolidated: retreats on alliance/peace are now handled centrally via
-    // PlayerImpl.setNeutralWith, which orders retreats on hostile actions.
 
     // Calculate tiles to process
     this.tilesToProcessAccumulator += this.mg
@@ -273,26 +256,39 @@ export class AttackExecution implements Execution {
         troopCount,
         this._owner,
         this.target,
-        this.attack.borderSize() + this.random.nextInt(0, 5),
+        attack.borderSize() + this.random.nextInt(0, 5),
       );
 
     let numTilesPerTick = Math.floor(this.tilesToProcessAccumulator + 1e-9);
     this.tilesToProcessAccumulator -= numTilesPerTick;
 
+    // ── Hoist per-tick invariants out of the tile loop ────────────────────
     const ownerSmallID = this._owner.smallID();
     const targetSmallID = this.target.smallID();
+    const mg = this.mg;
+    const config = mg.config();
 
-    this.mg.beginBorderBatch();
+    // Hospital multiplier is constant within a tick (unit counts don't change)
+    const hospitalExp = this._owner.effectiveUnits(UnitType.Hospital);
+    const attackerMultiplier = 0.6 + 0.4 * Math.pow(0.75, hospitalExp);
+    const defenderMultiplier = targetPlayer
+      ? 0.6 + 0.4 * Math.pow(0.75, hospitalExp)
+      : 1;
+
+    const isDeepStrike = this.isDeepStrike;
+    const sourceTile = this.sourceTile;
+
+    mg.beginBorderBatch();
     try {
       while (numTilesPerTick > 0) {
         if (troopCount < 1) {
-          this.attack.delete();
+          attack.delete();
           this.active = false;
           return;
         }
 
         if (this.toConquer.size() === 0) {
-          if (!this.isDeepStrike) {
+          if (!isDeepStrike) {
             this.refreshToConquer();
           }
           this.retreat();
@@ -300,47 +296,41 @@ export class AttackExecution implements Execution {
         }
 
         const [tileToConquer] = this.toConquer.dequeue();
-        this.attack.removeBorderTile(tileToConquer);
+        attack.removeBorderTile(tileToConquer);
 
+        // Border check via forEachNeighbor (zero-alloc callback)
         let onBorder = false;
-        if (this.isDeepStrike && tileToConquer === this.sourceTile) {
-          onBorder = true; // The landing tile is always considered "on border" for a deep strike
+        if (isDeepStrike && tileToConquer === sourceTile) {
+          onBorder = true;
         } else {
-          for (const n of this.mg.neighbors(tileToConquer)) {
-            if (this.mg.ownerID(n) === ownerSmallID) {
+          mg.forEachNeighbor(tileToConquer, (n: TileRef) => {
+            if (!onBorder && mg.ownerID(n) === ownerSmallID) {
               onBorder = true;
-              break;
             }
-          }
+          });
         }
-        if (this.mg.ownerID(tileToConquer) !== targetSmallID || !onBorder) {
+        if (mg.ownerID(tileToConquer) !== targetSmallID || !onBorder) {
           continue;
         }
-        this.addNeighbors(tileToConquer);
+
+        this.addNeighbors(tileToConquer, ownerSmallID, targetSmallID);
+
         const { attackerTroopLoss, defenderTroopLoss, tilesPerTickUsed } =
-          this.mg
-            .config()
-            .attackLogic(
-              this.mg,
-              troopCount,
-              this._owner,
-              this.target,
-              tileToConquer,
-            );
+          config.attackLogic(
+            mg,
+            troopCount,
+            this._owner,
+            this.target,
+            tileToConquer,
+          );
         numTilesPerTick -= tilesPerTickUsed;
         troopCount -= attackerTroopLoss;
-        this.attack.setTroops(troopCount);
+        attack.setTroops(troopCount);
         if (targetPlayer) {
           targetPlayer.removeTroops(defenderTroopLoss);
         }
-        const attackerMultiplier =
-          0.6 +
-          0.4 * Math.pow(0.75, this._owner.effectiveUnits(UnitType.Hospital));
-        const defenderMultiplier = targetPlayer
-          ? 0.6 +
-            0.4 * Math.pow(0.75, this._owner.effectiveUnits(UnitType.Hospital))
-          : 1;
 
+        // Hospital returns using hoisted multipliers
         const attackerReturns = attackerTroopLoss * (1 - attackerMultiplier);
         const defenderReturns = defenderTroopLoss * (1 - defenderMultiplier);
 
@@ -348,11 +338,15 @@ export class AttackExecution implements Execution {
         if (targetPlayer) {
           targetPlayer.addHospitalReturns(defenderReturns);
         }
-        this.mg.conquer(this._owner, tileToConquer);
-        this.handleDeadDefender();
+        mg.conquer(this._owner, tileToConquer);
+
+        // Dead-defender check only for PvP (skipped for TN attacks)
+        if (targetIsPlayer) {
+          this.handleDeadDefender();
+        }
       }
     } finally {
-      this.mg.endBorderBatch();
+      mg.endBorderBatch();
     }
   }
 
@@ -365,52 +359,48 @@ export class AttackExecution implements Execution {
     }
   }
 
-  private addNeighbors(tile: TileRef) {
-    if (this.attack === null) {
-      throw new Error("Attack not initialized");
-    }
+  private addNeighbors(
+    tile: TileRef,
+    ownerSmallID: number,
+    targetSmallID: number,
+  ): void {
+    const attack = this.attack!;
+    const mg = this.mg;
+    const tickNow = mg.ticks();
+    const random = this.random;
+    const toConquer = this.toConquer;
 
-    const tickNow = this.mg.ticks(); // cache tick
-    const targetSmallID = this.target.smallID();
-    const ownerSmallID = this._owner.smallID();
-
-    for (const neighbor of this.mg.neighbors(tile)) {
-      if (
-        this.mg.isWater(neighbor) ||
-        this.mg.ownerID(neighbor) !== targetSmallID
-      ) {
-        continue;
+    // forEachNeighbor uses direct callbacks — no Uint32Array subarray alloc
+    mg.forEachNeighbor(tile, (neighbor: TileRef) => {
+      if (mg.isWater(neighbor) || mg.ownerID(neighbor) !== targetSmallID) {
+        return;
       }
-      this.attack.addBorderTile(neighbor);
+      attack.addBorderTile(neighbor);
+
       let numOwnedByMe = 0;
-      for (const n of this.mg.neighbors(neighbor)) {
-        if (this.mg.ownerID(n) === ownerSmallID) {
+      mg.forEachNeighbor(neighbor, (n: TileRef) => {
+        if (mg.ownerID(n) === ownerSmallID) {
           numOwnedByMe++;
         }
-      }
+      });
 
-      let mag = 0;
-      switch (this.mg.terrainType(neighbor)) {
-        case TerrainType.Plains:
-          mag = 1;
-          break;
-        case TerrainType.Highland:
-          mag = 1.5;
-          break;
-        case TerrainType.Mountain:
-          mag = 2;
-          break;
-        case TerrainType.Barrier:
-          return; // Impassable
-      }
+      // magnitude() directly instead of terrainType() enum + switch
+      const magnitude = mg.magnitude(neighbor);
+      let mag: number;
+      if (magnitude >= 31) return; // Barrier — impassable
+      if (magnitude < 10)
+        mag = 1; // Plains
+      else if (magnitude < 20)
+        mag = 1.5; // Highland
+      else mag = 2; // Mountain
 
       const priority =
-        (this.random.nextInt(0, 7) + 10) * (1 - numOwnedByMe * 0.5 + mag / 2) +
+        (random.nextInt(0, 7) + 10) * (1 - numOwnedByMe * 0.5 + mag / 2) +
         tickNow -
-        (this.mg.hasRoadOnTile(neighbor) ? 10 : 0); // Lower priority is better, so subtract for roads
+        (mg.hasRoadOnTile(neighbor) ? 10 : 0);
 
-      this.toConquer.enqueue(neighbor, priority);
-    }
+      toConquer.enqueue(neighbor, priority);
+    });
   }
 
   private handleDeadDefender() {

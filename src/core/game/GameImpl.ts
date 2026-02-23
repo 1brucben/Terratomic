@@ -872,37 +872,50 @@ export class GameImpl implements Game {
     if (!this.isLand(tile)) {
       throw Error(`cannot conquer water`);
     }
-    const currentOwner = this.owner(tile);
+    const map = this._map;
 
-    if (currentOwner.isPlayer()) {
-      (currentOwner as PlayerImpl)._lastTileChange = this._ticks;
-      (currentOwner as PlayerImpl)._tiles.delete(tile);
-      (currentOwner as PlayerImpl)._borderTiles.delete(tile);
-      (currentOwner as PlayerImpl).invalidateNeighborCache();
+    // Direct ownerID check — avoids owner() lookup + isPlayer() virtual dispatch
+    const oid = map.ownerID(tile);
+    if (oid !== 0) {
+      const oldOwner = this._playersBySmallID[oid - 1] as PlayerImpl;
+      oldOwner._lastTileChange = this._ticks;
+      oldOwner._tiles.delete(tile);
+      oldOwner._borderTiles.delete(tile);
+      // In batch mode, endBorderBatch() invalidates caches once per player;
+      // in unbatched mode, invalidate immediately.
+      if (this._dirtyBorderTiles === null) {
+        oldOwner.invalidateNeighborCache();
+      }
     }
-    this._map.setOwnerID(tile, newOwner.smallID());
-    (newOwner as PlayerImpl)._tiles.add(tile);
-    const numTiles = (newOwner as PlayerImpl).numTilesOwned();
-    (newOwner as PlayerImpl).setProductivity(
-      ((newOwner as PlayerImpl).productivity() * (numTiles - 1)) / numTiles +
-        1 / numTiles,
+
+    const np = newOwner as PlayerImpl;
+    map.setOwnerID(tile, np.smallID());
+    np._tiles.add(tile);
+    const numTiles = np.numTilesOwned();
+    np.setProductivity(
+      (np.productivity() * (numTiles - 1)) / numTiles + 1 / numTiles,
     );
-    (newOwner as PlayerImpl)._lastTileChange = this._ticks;
+    np._lastTileChange = this._ticks;
+
     if (this._dirtyBorderTiles !== null) {
       this._dirtyBorderTiles.add(tile);
     } else {
       this.updateBorders(tile);
     }
-    this._map.setFallout(tile, false);
+
+    // Conditional fallout clear — common case has no fallout (branch-predicted skip)
+    if (map.hasFallout(tile)) {
+      map.setFallout(tile, false);
+    }
 
     this.addUpdate({
       type: GameUpdateType.TileOwnerChanged,
       tile: tile,
-      newOwnerID: newOwner.id(),
+      newOwnerID: np.id(),
     });
     this.addUpdate({
       type: GameUpdateType.Tile,
-      update: this.toTileUpdate(tile),
+      update: map.toTileUpdate(tile),
     });
   }
 
