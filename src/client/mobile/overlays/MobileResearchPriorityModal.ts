@@ -12,17 +12,10 @@ import {
   type TechNode,
 } from "../../../core/tech/ResearchTree";
 import { SendResearchTreeSelectIntentEvent } from "../../Transport";
-import {
-  computeAnchoredTop,
-  getMobileAttackBarBottom,
-  startRepositionInterval,
-  stopRepositionInterval,
-} from "../utils/OverlayPositioning";
 import "./MobileResearchPriorityToast";
 import type { MobileResearchPriorityToast } from "./MobileResearchPriorityToast";
 
 const BASE_TOP_PX = 48;
-const STACK_GAP_PX = 8;
 
 @customElement("mobile-research-priority-modal")
 export class MobileResearchPriorityModal extends LitElement {
@@ -32,7 +25,6 @@ export class MobileResearchPriorityModal extends LitElement {
 
   private techs: TechNode[] = [...getTechNodes()];
   private categories: Category[] = ["Land", "Sea", "Air", "Nuclear"];
-  private repositionTimer: number | null = null;
   private ownedToast: MobileResearchPriorityToast | null = null;
 
   static styles = css`
@@ -64,8 +56,12 @@ export class MobileResearchPriorityModal extends LitElement {
       top: calc(
         env(safe-area-inset-top, 0px) + var(--research-panel-top, 48px)
       );
-      left: max(14px, calc(env(safe-area-inset-left, 0px) + 10px));
-      transform: translateY(-6px);
+      left: var(
+        --research-panel-left,
+        max(14px, calc(env(safe-area-inset-left, 0px) + 10px))
+      );
+      right: auto;
+      transform: translate(var(--research-panel-shift-x, 0), -6px);
       width: min(90vw, 336px);
       border-radius: 9px;
       border: 1px solid rgba(160, 171, 184, 0.24);
@@ -94,7 +90,21 @@ export class MobileResearchPriorityModal extends LitElement {
 
     :host([visible]) .panel {
       opacity: 1;
-      transform: translateY(0);
+      transform: translate(var(--research-panel-shift-x, 0), 0);
+    }
+
+    @media (orientation: landscape) {
+      .panel {
+        --research-panel-left: 50%;
+        --research-panel-shift-x: -50%;
+      }
+    }
+
+    @media (orientation: portrait) and (min-width: 431px) {
+      .panel {
+        --research-panel-left: 50%;
+        --research-panel-shift-x: -50%;
+      }
     }
 
     .close {
@@ -211,18 +221,15 @@ export class MobileResearchPriorityModal extends LitElement {
 
   open(): void {
     this.updateTopOffset();
-    this.startRepositionLoop();
     this.visible = true;
   }
 
   close = (): void => {
     this.visible = false;
-    this.stopRepositionLoop();
   };
 
   disconnectedCallback(): void {
     super.disconnectedCallback();
-    this.stopRepositionLoop();
 
     if (this.ownedToast) {
       this.ownedToast.remove();
@@ -346,24 +353,7 @@ export class MobileResearchPriorityModal extends LitElement {
   }
 
   private updateTopOffset(): void {
-    const attackBottom = getMobileAttackBarBottom();
-    const topPx = computeAnchoredTop(BASE_TOP_PX, attackBottom, STACK_GAP_PX);
-
-    this.style.setProperty("--research-panel-top", `${topPx}px`);
-  }
-
-  private startRepositionLoop(): void {
-    this.repositionTimer = startRepositionInterval(
-      this.repositionTimer,
-      () => {
-        this.updateTopOffset();
-      },
-      180,
-    );
-  }
-
-  private stopRepositionLoop(): void {
-    this.repositionTimer = stopRepositionInterval(this.repositionTimer);
+    this.style.setProperty("--research-panel-top", `${BASE_TOP_PX}px`);
   }
 }
 

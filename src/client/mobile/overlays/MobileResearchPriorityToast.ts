@@ -1,16 +1,9 @@
 import { LitElement, css, html } from "lit";
 import { customElement, property } from "lit/decorators.js";
 import { translateText } from "../../Utils";
-import {
-  computeAnchoredTop,
-  getMobileAttackBarBottom,
-  startRepositionInterval,
-  stopRepositionInterval,
-} from "../utils/OverlayPositioning";
 
 const TOAST_AUTO_HIDE_MS = 4600;
 const BASE_TOP_PX = 56;
-const STACK_GAP_PX = 8;
 
 @customElement("mobile-research-priority-toast")
 export class MobileResearchPriorityToast extends LitElement {
@@ -19,7 +12,6 @@ export class MobileResearchPriorityToast extends LitElement {
   @property({ type: String }) message = "";
 
   private hideTimer: number | null = null;
-  private repositionTimer: number | null = null;
 
   static styles = css`
     :host {
@@ -27,8 +19,12 @@ export class MobileResearchPriorityToast extends LitElement {
       top: calc(
         env(safe-area-inset-top, 0px) + var(--research-toast-top, 56px)
       );
-      left: max(14px, calc(env(safe-area-inset-left, 0px) + 10px));
-      transform: translateY(-8px);
+      left: var(
+        --research-toast-left,
+        max(14px, calc(env(safe-area-inset-left, 0px) + 10px))
+      );
+      right: auto;
+      transform: translate(var(--research-toast-shift-x, 0), -8px);
       width: min(92vw, 320px);
       z-index: 4300;
       pointer-events: none;
@@ -40,8 +36,22 @@ export class MobileResearchPriorityToast extends LitElement {
 
     :host([visible]) {
       opacity: 1;
-      transform: translateY(0);
+      transform: translate(var(--research-toast-shift-x, 0), 0);
       pointer-events: auto;
+    }
+
+    @media (orientation: landscape) {
+      :host {
+        --research-toast-left: 50%;
+        --research-toast-shift-x: -50%;
+      }
+    }
+
+    @media (orientation: portrait) and (min-width: 431px) {
+      :host {
+        --research-toast-left: 50%;
+        --research-toast-shift-x: -50%;
+      }
     }
 
     .toast {
@@ -144,7 +154,6 @@ export class MobileResearchPriorityToast extends LitElement {
   disconnectedCallback(): void {
     super.disconnectedCallback();
     this.clearTimer();
-    this.stopRepositionLoop();
   }
 
   show(category: string): void {
@@ -154,7 +163,6 @@ export class MobileResearchPriorityToast extends LitElement {
     });
 
     this.updateTopOffset();
-    this.startRepositionLoop();
     this.visible = true;
     this.clearTimer();
     this.hideTimer = window.setTimeout(() => {
@@ -165,7 +173,6 @@ export class MobileResearchPriorityToast extends LitElement {
   private dismiss = (): void => {
     this.visible = false;
     this.clearTimer();
-    this.stopRepositionLoop();
   };
 
   private handleCloseClick = (event: Event): void => {
@@ -205,24 +212,7 @@ export class MobileResearchPriorityToast extends LitElement {
   }
 
   private updateTopOffset(): void {
-    const attackBottom = getMobileAttackBarBottom();
-    const topPx = computeAnchoredTop(BASE_TOP_PX, attackBottom, STACK_GAP_PX);
-
-    this.style.setProperty("--research-toast-top", `${topPx}px`);
-  }
-
-  private startRepositionLoop(): void {
-    this.repositionTimer = startRepositionInterval(
-      this.repositionTimer,
-      () => {
-        this.updateTopOffset();
-      },
-      180,
-    );
-  }
-
-  private stopRepositionLoop(): void {
-    this.repositionTimer = stopRepositionInterval(this.repositionTimer);
+    this.style.setProperty("--research-toast-top", `${BASE_TOP_PX}px`);
   }
 }
 
