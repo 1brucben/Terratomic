@@ -20,7 +20,6 @@ import { AIBehaviorParams } from "./AIBehaviorParams";
 import { AIBotAttackHandler } from "./AIBotAttackHandler";
 import { AIConstructionHandler } from "./AIConstructionHandler";
 import { AIDiplomacyHandler } from "./AIDiplomacyHandler";
-import { AINukeEvaluator } from "./AINukeEvaluator";
 import { AINukeHandler } from "./AINukeHandler";
 import { AISpawnHandler } from "./AISpawnHandler";
 import { AITerraNulliusHandler } from "./AITerraNulliusHandler";
@@ -91,7 +90,7 @@ export class AIPlayerExecution implements Execution {
   private attackHandler: AIAttackHandler | null = null;
   private constructionHandler: AIConstructionHandler | null = null;
   private diplomacyHandler: AIDiplomacyHandler | null = null;
-  private nukeEvaluator: AINukeEvaluator | null = null;
+
   private nukeHandler: AINukeHandler | null = null;
   private unitHandler: AIUnitHandler | null = null;
   private initialInvestmentSet = false;
@@ -171,7 +170,6 @@ export class AIPlayerExecution implements Execution {
       this.nation.playerInfo.id,
       this.random,
       this.params,
-      AINukeEvaluator.getInstance(this.gameID, mg),
     );
     this.diplomacyHandler = new AIDiplomacyHandler(
       mg,
@@ -179,7 +177,6 @@ export class AIPlayerExecution implements Execution {
       this.random,
       this.params,
     );
-    this.nukeEvaluator = AINukeEvaluator.getInstance(this.gameID, mg);
     this.nukeHandler = new AINukeHandler(
       mg,
       this.nation.playerInfo.id,
@@ -236,11 +233,6 @@ export class AIPlayerExecution implements Execution {
 
     const sliderPeriod = 100;
     const constructionRescorePeriod = 100;
-
-    // Update shared nuke target evaluation
-    performance.mark("ai-nukeEval");
-    this.nukeEvaluator?.tick(this.random, ticks);
-    performance.measure("nukeEval", "ai-nukeEval");
 
     // Update per-player nuke target evaluation (must run before tickNukeSequence
     // so scores are fresh when the nuke sequence reads them)
@@ -417,17 +409,18 @@ export class AIPlayerExecution implements Execution {
 
     // Periodically re-evaluate the entire nuke plan: score, SAMs,
     // redundancy, construction comparison, and retargeting.
-    // Only run during pre-launch phases so we don't detect our own
-    // in-flight SAM-suppression nukes once launching has started.
+    // Only run during pre-launch phases so we don't reset SAM progress
+    // or detect our own in-flight SAM-suppression nukes.
     const isPreLaunch =
       state.phase === "waitForFunds" || state.phase === "buildSilo";
     if (
+      isPreLaunch &&
       this.shouldRunPeriodic(
         ticks,
         AIPlayerExecution.NUKE_REDUNDANCY_CHECK_INTERVAL,
       )
     ) {
-      if (isPreLaunch && this.isNukeAlreadyInbound(state)) {
+      if (this.isNukeAlreadyInbound(state)) {
         this.resetNukeSequence();
         return;
       }
@@ -443,61 +436,27 @@ export class AIPlayerExecution implements Execution {
       // Fully refresh SAM list from scratch: picks up new SAMs, removes
       // destroyed ones, and updates stack counts on surviving ones.
       const freshSAMs = this.nukeHandler.getSAMsInRange(state.targetTile);
-      const oldTotalLevels = state.samTargets.reduce(
-        (sum, s) => sum + s.levelsRemaining,
-        0,
-      );
       state.samTargets = freshSAMs.map((s) => ({
         sam: s,
         levelsRemaining: s.stackCount(),
       }));
-      const newTotalLevels = state.samTargets.reduce(
-        (sum, s) => sum + s.levelsRemaining,
-        0,
-      );
-      if (newTotalLevels > 5 || oldTotalLevels > 5) {
-        const tileX = this.mg.x(state.targetTile);
-        const tileY = this.mg.y(state.targetTile);
-        console.warn(
-          `[NUKE-DIAG] REFRESH SAMs: player=${this.player.id()} ` +
-            `phase=${state.phase} target=(${tileX},${tileY}) ` +
-            `oldTotalLevels=${oldTotalLevels} newSAMs=${freshSAMs.length} ` +
-            `newTotalLevels=${newTotalLevels} ` +
-            `SAM details=[${freshSAMs
-              .map((s) => {
-                const ox = this.mg.x(s.tile());
-                const oy = this.mg.y(s.tile());
-                const dist = Math.sqrt(
-                  this.mg.euclideanDistSquared(state.targetTile, s.tile()),
-                );
-                const ownerRange = this.nukeHandler!.getEffectiveSAMRange(
-                  s.owner(),
-                );
-                return `{id=${s.id()} pos=(${ox},${oy}) owner=${s.owner().id()} stack=${s.stackCount()} dist=${dist.toFixed(1)} ownerRange=${ownerRange.toFixed(1)} isActive=${s.isActive()}}`;
-              })
-              .join(", ")}]`,
-        );
+
+      // Abort if construction is now more valuable than this nuke
+      const profileMultiplier = this.params.nukeScoreMultiplier ?? 1;
+      const adjustedScore =
+        currentScore *
+        profileMultiplier *
+        AIPlayerExecution.NUKE_SCORE_INTERNAL_MULTIPLIER;
+      const constructionScore =
+        this.constructionHandler?.bestConstructionScore() ?? 0;
+      const unitScore = this.unitHandler?.bestUnitScore() ?? 0;
+      if (adjustedScore <= constructionScore || adjustedScore <= unitScore) {
+        this.resetNukeSequence();
+        return;
       }
 
-      // During pre-launch phases, perform additional checks
-      if (state.phase === "waitForFunds" || state.phase === "buildSilo") {
-        // Abort if construction is now more valuable than this nuke
-        const profileMultiplier = this.params.nukeScoreMultiplier ?? 1;
-        const adjustedScore =
-          currentScore *
-          profileMultiplier *
-          AIPlayerExecution.NUKE_SCORE_INTERNAL_MULTIPLIER;
-        const constructionScore =
-          this.constructionHandler?.bestConstructionScore() ?? 0;
-        const unitScore = this.unitHandler?.bestUnitScore() ?? 0;
-        if (adjustedScore <= constructionScore || adjustedScore <= unitScore) {
-          this.resetNukeSequence();
-          return;
-        }
-
-        // Check if a better target has appeared
-        this.maybeRetargetNukeSequence(state, currentScore);
-      }
+      // Check if a better target has appeared
+      this.maybeRetargetNukeSequence(state, currentScore);
     }
 
     switch (state.phase) {
@@ -780,6 +739,13 @@ export class AIPlayerExecution implements Execution {
       (s) => s.levelsRemaining === s.sam.stackCount(),
     );
     if (isFirstLaunch) {
+      // Refresh SAM list one final time so we launch with up-to-date data
+      const freshSAMs = this.nukeHandler.getSAMsInRange(state.targetTile);
+      state.samTargets = freshSAMs.map((s) => ({
+        sam: s,
+        levelsRemaining: s.stackCount(),
+      }));
+
       // Abort if another player's nuke is already heading to this target
       if (this.isNukeAlreadyInbound(state)) {
         this.resetNukeSequence();
@@ -859,25 +825,6 @@ export class AIPlayerExecution implements Execution {
     }
 
     // Launch atom bomb at this SAM's tile
-    const totalLevelsBeforeLaunch = state.samTargets.reduce(
-      (sum, s) => sum + s.levelsRemaining,
-      0,
-    );
-    if (totalLevelsBeforeLaunch > 5) {
-      const tileX = this.mg.x(state.targetTile);
-      const tileY = this.mg.y(state.targetTile);
-      const samX = this.mg.x(nextSam.sam.tile());
-      const samY = this.mg.y(nextSam.sam.tile());
-      console.warn(
-        `[NUKE-DIAG] LAUNCH SAM-bomb: player=${this.player.id()} ` +
-          `target=(${tileX},${tileY}) samTarget=(${samX},${samY}) ` +
-          `samId=${nextSam.sam.id()} samOwner=${nextSam.sam.owner().id()} ` +
-          `samStack=${nextSam.sam.stackCount()} samActive=${nextSam.sam.isActive()} ` +
-          `levelsRemaining=${nextSam.levelsRemaining} ` +
-          `totalLevelsRemaining=${totalLevelsBeforeLaunch} ` +
-          `allSamTargets=[${state.samTargets.map((s) => `{id=${s.sam.id()} stack=${s.sam.stackCount()} remaining=${s.levelsRemaining} active=${s.sam.isActive()}}`).join(", ")}]`,
-      );
-    }
     this.mg.addExecution(
       new ConstructionExecution(
         this.player,
@@ -1206,6 +1153,8 @@ export class AIPlayerExecution implements Execution {
       bestHydrogenScore: hydrogenTarget?.score ?? 0,
       bestHydrogenTargetPlayerName: hydrogenTargetPlayer?.displayName() ?? "—",
       adjustedBestNukeScore,
+      atomBreakdown: this.nukeHandler.bestAtomBreakdown(),
+      hydrogenBreakdown: this.nukeHandler.bestHydrogenBreakdown(),
     };
 
     // Spending winner

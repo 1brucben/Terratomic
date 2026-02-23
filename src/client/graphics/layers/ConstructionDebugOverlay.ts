@@ -1,3 +1,4 @@
+import { NukeScoreBreakdown } from "../../../core/ai/AINukeHandler";
 import {
   ConstructionDebugData,
   ConstructionScoreEntry,
@@ -272,8 +273,48 @@ export class ConstructionDebugOverlay implements Layer {
           </tr>
         </table>
         <div style="margin-top: 2px; color: #aaa;">
-          Adjusted best nuke score (×multiplier×7): <b style="color: ${n.adjustedBestNukeScore > 0 ? "#ff8888" : "#888"};">${this.formatScore(n.adjustedBestNukeScore)}</b>
+          Adjusted best nuke score (×multiplier×0.7): <b style="color: ${n.adjustedBestNukeScore > 0 ? "#ff8888" : "#888"};">${this.formatScore(n.adjustedBestNukeScore)}</b>
         </div>
+        ${this.renderNukeBreakdown("Atom", n.atomBreakdown)}
+        ${this.renderNukeBreakdown("Hydrogen", n.hydrogenBreakdown)}
+      </div>
+    `;
+  }
+
+  private renderNukeBreakdown(
+    label: string,
+    b: NukeScoreBreakdown | null,
+  ): string {
+    if (!b) return "";
+    const fmt = (v: number) => this.formatScore(v);
+    const fmtK = (v: number) =>
+      v >= 1_000_000
+        ? (v / 1_000_000).toFixed(2) + "M"
+        : v >= 1000
+          ? (v / 1000).toFixed(1) + "k"
+          : v.toFixed(0);
+    return `
+      <div style="margin-top: 4px; padding: 4px; background: rgba(255,255,255,0.03); border-radius: 3px;">
+        <b style="font-size: 10px; color: #ff8888;">${label} Breakdown</b>
+        <table style="width: 100%; border-collapse: collapse; font-size: 10px; margin-top: 2px;">
+          <tr><td style="color:#aaa;padding:1px 4px;">Enemy structs</td><td style="text-align:right;padding:1px 4px;">${b.enemyStructureCount}</td></tr>
+          <tr><td style="color:#aaa;padding:1px 4px;">Raw enemy value</td><td style="text-align:right;padding:1px 4px;">${fmtK(b.rawEnemyValue)}</td></tr>
+          <tr><td style="color:#aaa;padding:1px 4px;">Strongest enemy?</td><td style="text-align:right;padding:1px 4px;">${b.isStrongestEnemy ? "Yes (+1000/struct)" : "No"}</td></tr>
+          <tr><td style="color:#aaa;padding:1px 4px;">War score (raw)</td><td style="text-align:right;padding:1px 4px;">${b.rawWarScore.toFixed(1)}</td></tr>
+          <tr><td style="color:#aaa;padding:1px 4px;">War score sigmoid</td><td style="text-align:right;padding:1px 4px;">${b.warScoreSigmoid.toFixed(4)}</td></tr>
+          <tr><td style="color:#aaa;padding:1px 4px;">Friendly structs</td><td style="text-align:right;padding:1px 4px;">${b.friendlyStructureCount}</td></tr>
+          <tr><td style="color:#aaa;padding:1px 4px;">Friendly value</td><td style="text-align:right;padding:1px 4px;">${fmtK(b.friendlyValue)}</td></tr>
+          <tr style="border-top:1px solid rgba(255,255,255,0.1);"><td style="color:#ccc;padding:1px 4px;"><b>Numerator</b></td><td style="text-align:right;padding:1px 4px;"><b>${fmt(b.numerator)}</b></td></tr>
+          <tr><td colspan="2" style="padding:2px 4px;color:#666;">───── Cost / Discount ─────</td></tr>
+          <tr><td style="color:#aaa;padding:1px 4px;">Bomb cost</td><td style="text-align:right;padding:1px 4px;">${fmtK(b.bombCost)}</td></tr>
+          <tr><td style="color:#aaa;padding:1px 4px;">SAM levels</td><td style="text-align:right;padding:1px 4px;">${b.samLevels}</td></tr>
+          <tr><td style="color:#aaa;padding:1px 4px;">Silo cost (amort.)</td><td style="text-align:right;padding:1px 4px;">${fmtK(b.siloCost)}</td></tr>
+          <tr><td style="color:#aaa;padding:1px 4px;">Total cost</td><td style="text-align:right;padding:1px 4px;">${fmtK(b.totalCost)}</td></tr>
+          <tr><td style="color:#aaa;padding:1px 4px;">Gold/min</td><td style="text-align:right;padding:1px 4px;">${fmtK(b.goldPerMinute)}</td></tr>
+          <tr><td style="color:#aaa;padding:1px 4px;">T (minutes)</td><td style="text-align:right;padding:1px 4px;">${b.T === Infinity ? "∞" : b.T.toFixed(2)}</td></tr>
+          <tr><td style="color:#aaa;padding:1px 4px;">(1+r)^T</td><td style="text-align:right;padding:1px 4px;">${b.discountFactor >= 1e6 ? b.discountFactor.toExponential(2) : b.discountFactor.toFixed(4)}</td></tr>
+          <tr style="border-top:1px solid rgba(255,255,255,0.1);"><td style="color:#ff8888;padding:1px 4px;"><b>Final Score</b></td><td style="text-align:right;padding:1px 4px;color:#ff8888;"><b>${fmt(b.finalScore)}</b></td></tr>
+        </table>
       </div>
     `;
   }

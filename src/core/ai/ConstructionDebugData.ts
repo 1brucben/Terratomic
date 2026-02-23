@@ -30,6 +30,8 @@ export interface NukeSequenceDebugInfo {
   currentScore: number;
 }
 
+import { NukeScoreBreakdown } from "./AINukeHandler";
+
 /**
  * Nuke scoring snapshot (best atom / hydrogen targets).
  */
@@ -40,6 +42,10 @@ export interface NukeScoreDebugInfo {
   bestHydrogenTargetPlayerName: string;
   /** The adjusted nuke score used for comparison against construction/unit scores. */
   adjustedBestNukeScore: number;
+  /** Detailed breakdown for the best atom target (null if none). */
+  atomBreakdown: NukeScoreBreakdown | null;
+  /** Detailed breakdown for the best hydrogen target (null if none). */
+  hydrogenBreakdown: NukeScoreBreakdown | null;
 }
 
 /**

@@ -22,6 +22,49 @@ export interface NukeHandlerBestTarget {
 }
 
 /**
+ * Detailed breakdown of all inputs to a nuke score calculation.
+ * Used for the construction debug overlay.
+ */
+export interface NukeScoreBreakdown {
+  /** Total raw enemy structure value (before sigmoid). */
+  rawEnemyValue: number;
+  /** Total friendly structure value in blast zone. */
+  friendlyValue: number;
+  /** Number of enemy structures in blast zone. */
+  enemyStructureCount: number;
+  /** Number of friendly structures in blast zone. */
+  friendlyStructureCount: number;
+  /** War score sigmoid applied to target owner. */
+  warScoreSigmoid: number;
+  /** Raw war score value before sigmoid. */
+  rawWarScore: number;
+  /** Strongest enemy bonus per structure (flat). */
+  strongestEnemyBonus: number;
+  /** Whether target owner is the strongest enemy. */
+  isStrongestEnemy: boolean;
+  /** Numerator: enemyValue - friendlyDamageWeight * friendlyValue. */
+  numerator: number;
+  /** Cost of the main bomb. */
+  bombCost: number;
+  /** Total SAM levels in range. */
+  samLevels: number;
+  /** Extra silo cost (amortised). */
+  siloCost: number;
+  /** Total cost used in discount calculation. */
+  totalCost: number;
+  /** Gross gold income per minute. */
+  goldPerMinute: number;
+  /** T = totalCost / goldPerMinute (minutes to afford). */
+  T: number;
+  /** Discount rate used. */
+  discountRate: number;
+  /** Discount factor: (1 + r)^T. */
+  discountFactor: number;
+  /** Final score: numerator / discountFactor. */
+  finalScore: number;
+}
+
+/**
  * Per-AI-player handler that evaluates potential nuclear strike targets
  * against players the AI is currently at war with.
  *
@@ -30,8 +73,8 @@ export interface NukeHandlerBestTarget {
  * inner blast range, minus the bomb cost, SAM penalties, and a penalty for
  * collateral damage to non-enemy player structures.
  *
- * Unlike the shared AINukeEvaluator, each AI player has its own instance
- * so scores reflect that player's specific war relationships.
+ * Each AI player has its own instance so scores reflect that player's
+ * specific war relationships.
  */
 export class AINukeHandler {
   private static readonly REEVALUATE_INTERVAL = 100;
@@ -46,10 +89,12 @@ export class AINukeHandler {
   // Best atom bomb target for this AI player
   private _bestAtomScore: number = 0;
   private _bestAtomTile: TileRef | null = null;
+  private _bestAtomBreakdown: NukeScoreBreakdown | null = null;
 
   // Best hydrogen bomb target for this AI player
   private _bestHydrogenScore: number = 0;
   private _bestHydrogenTile: TileRef | null = null;
+  private _bestHydrogenBreakdown: NukeScoreBreakdown | null = null;
 
   // Tick tracking for reevaluation
   private _lastReevalTick: number = -1;
@@ -139,15 +184,17 @@ export class AINukeHandler {
     if (tile === null) return;
 
     // Score both bomb types in a single pass (one spatial query)
-    const { atomScore, hydrogenScore } = this.scoreTileBothBombs(tile);
+    const result = this.scoreTileBothBombs(tile);
 
-    if (atomScore > this._bestAtomScore) {
-      this._bestAtomScore = atomScore;
+    if (result.atomScore > this._bestAtomScore) {
+      this._bestAtomScore = result.atomScore;
       this._bestAtomTile = tile;
+      this._bestAtomBreakdown = result.atomBreakdown;
     }
-    if (hydrogenScore > this._bestHydrogenScore) {
-      this._bestHydrogenScore = hydrogenScore;
+    if (result.hydrogenScore > this._bestHydrogenScore) {
+      this._bestHydrogenScore = result.hydrogenScore;
       this._bestHydrogenTile = tile;
+      this._bestHydrogenBreakdown = result.hydrogenBreakdown;
     }
   }
 
@@ -160,11 +207,27 @@ export class AINukeHandler {
   }
 
   /**
+   * Returns the stored breakdown for the best atom target (captured at the
+   * moment the score was recorded), or null.
+   */
+  bestAtomBreakdown(): NukeScoreBreakdown | null {
+    return this._bestAtomBreakdown;
+  }
+
+  /**
    * Returns the best hydrogen bomb target found so far (or null if none).
    */
   bestHydrogenTarget(): NukeHandlerBestTarget | null {
     if (this._bestHydrogenTile === null) return null;
     return { tile: this._bestHydrogenTile, score: this._bestHydrogenScore };
+  }
+
+  /**
+   * Returns the stored breakdown for the best hydrogen target (captured at
+   * the moment the score was recorded), or null.
+   */
+  bestHydrogenBreakdown(): NukeScoreBreakdown | null {
+    return this._bestHydrogenBreakdown;
   }
 
   // ---------------------------------------------------------------------------
@@ -242,28 +305,32 @@ export class AINukeHandler {
    */
   private reevaluateBest(): void {
     if (this._bestAtomTile !== null) {
-      const newScore = this.calculateNukeScore(
+      const bd = this.calculateNukeScoreBreakdown(
         this._bestAtomTile,
         UnitType.AtomBomb,
       );
-      if (newScore <= 0) {
+      if (bd.finalScore <= 0) {
         this._bestAtomScore = 0;
         this._bestAtomTile = null;
+        this._bestAtomBreakdown = null;
       } else {
-        this._bestAtomScore = newScore;
+        this._bestAtomScore = bd.finalScore;
+        this._bestAtomBreakdown = bd;
       }
     }
 
     if (this._bestHydrogenTile !== null) {
-      const newScore = this.calculateNukeScore(
+      const bd = this.calculateNukeScoreBreakdown(
         this._bestHydrogenTile,
         UnitType.HydrogenBomb,
       );
-      if (newScore <= 0) {
+      if (bd.finalScore <= 0) {
         this._bestHydrogenScore = 0;
         this._bestHydrogenTile = null;
+        this._bestHydrogenBreakdown = null;
       } else {
-        this._bestHydrogenScore = newScore;
+        this._bestHydrogenScore = bd.finalScore;
+        this._bestHydrogenBreakdown = bd;
       }
     }
   }
@@ -279,6 +346,8 @@ export class AINukeHandler {
   private scoreTileBothBombs(tile: TileRef): {
     atomScore: number;
     hydrogenScore: number;
+    atomBreakdown: NukeScoreBreakdown;
+    hydrogenBreakdown: NukeScoreBreakdown;
   } {
     const atomMagnitude = this.mg.config().nukeMagnitudes(UnitType.AtomBomb);
     const hydrogenMagnitude = this.mg
@@ -291,11 +360,29 @@ export class AINukeHandler {
     const friendlyDamageWeight = this.params.nukeFriendlyDamageWeight ?? 1.0;
 
     const strongestEnemyId = this._cachedStrongestEnemyId;
+    const strongestEnemyBonus = 1000;
 
+    // Weighted (post-sigmoid) values
     let atomEnemyValue = 0;
     let atomFriendlyValue = 0;
     let hydrogenEnemyValue = 0;
     let hydrogenFriendlyValue = 0;
+
+    // Raw (pre-sigmoid) values for breakdown
+    let atomRawEnemyValue = 0;
+    let hydrogenRawEnemyValue = 0;
+
+    // Structure counts
+    let atomEnemyCount = 0;
+    let atomFriendlyCount = 0;
+    let hydrogenEnemyCount = 0;
+    let hydrogenFriendlyCount = 0;
+
+    // Track primary target for war-score display
+    let primaryTargetId: PlayerID | null = null;
+    let primarySigmoid = 1;
+    let primaryWarScore = 0;
+    let primaryIsStrongest = false;
 
     // Single spatial query using the larger hydrogen radius
     const nearby = this.mg.nearbyUnits(
@@ -315,14 +402,34 @@ export class AINukeHandler {
         owner.id() !== this.playerId && this.player!.isAtWarWith(owner);
 
       if (isEnemy) {
-        const bonus = owner.id() === strongestEnemyId ? 1000 : 0;
+        const bonus = owner.id() === strongestEnemyId ? strongestEnemyBonus : 0;
         const sig = this.getCachedSigmoid(owner.id());
-        hydrogenEnemyValue += (value + bonus) * sig;
-        if (distSquared <= atomInnerRangeSq)
-          atomEnemyValue += (value + bonus) * sig;
+        const raw = value + bonus;
+        hydrogenEnemyValue += raw * sig;
+        hydrogenRawEnemyValue += raw;
+        hydrogenEnemyCount++;
+        if (distSquared <= atomInnerRangeSq) {
+          atomEnemyValue += raw * sig;
+          atomRawEnemyValue += raw;
+          atomEnemyCount++;
+        }
+        // Track first enemy as primary target
+        if (primaryTargetId === null) {
+          primaryTargetId = owner.id();
+          primarySigmoid = sig;
+          primaryIsStrongest = owner.id() === strongestEnemyId;
+          const scale = this.params.nukeWarScoreSigmoidScale ?? 1 / 50;
+          if (scale !== 0 && this._warScoreProvider) {
+            primaryWarScore = this._warScoreProvider(owner.id());
+          }
+        }
       } else {
         hydrogenFriendlyValue += value;
-        if (distSquared <= atomInnerRangeSq) atomFriendlyValue += value;
+        hydrogenFriendlyCount++;
+        if (distSquared <= atomInnerRangeSq) {
+          atomFriendlyValue += value;
+          atomFriendlyCount++;
+        }
       }
     }
 
@@ -344,7 +451,8 @@ export class AINukeHandler {
     const atomTotalCost = atomBombCost + samLevels * atomBombCost;
     const atomT =
       grossGoldPerMinute > 0 ? atomTotalCost / grossGoldPerMinute : Infinity;
-    const atomScore = atomNumerator / Math.pow(1 + discountRate, atomT);
+    const atomDiscountFactor = Math.pow(1 + discountRate, atomT);
+    const atomScore = atomNumerator / atomDiscountFactor;
 
     // Hydrogen score
     const hydrogenNumerator =
@@ -358,10 +466,52 @@ export class AINukeHandler {
       grossGoldPerMinute > 0
         ? hydrogenTotalCost / grossGoldPerMinute
         : Infinity;
-    const hydrogenScore =
-      hydrogenNumerator / Math.pow(1 + discountRate, hydrogenT);
+    const hydrogenDiscountFactor = Math.pow(1 + discountRate, hydrogenT);
+    const hydrogenScore = hydrogenNumerator / hydrogenDiscountFactor;
 
-    return { atomScore, hydrogenScore };
+    const atomBreakdown: NukeScoreBreakdown = {
+      rawEnemyValue: atomRawEnemyValue,
+      friendlyValue: atomFriendlyValue,
+      enemyStructureCount: atomEnemyCount,
+      friendlyStructureCount: atomFriendlyCount,
+      warScoreSigmoid: primarySigmoid,
+      rawWarScore: primaryWarScore,
+      strongestEnemyBonus,
+      isStrongestEnemy: primaryIsStrongest,
+      numerator: atomNumerator,
+      bombCost: atomBombCost,
+      samLevels,
+      siloCost: 0,
+      totalCost: atomTotalCost,
+      goldPerMinute: grossGoldPerMinute,
+      T: atomT,
+      discountRate,
+      discountFactor: atomDiscountFactor,
+      finalScore: atomScore,
+    };
+
+    const hydrogenBreakdown: NukeScoreBreakdown = {
+      rawEnemyValue: hydrogenRawEnemyValue,
+      friendlyValue: hydrogenFriendlyValue,
+      enemyStructureCount: hydrogenEnemyCount,
+      friendlyStructureCount: hydrogenFriendlyCount,
+      warScoreSigmoid: primarySigmoid,
+      rawWarScore: primaryWarScore,
+      strongestEnemyBonus,
+      isStrongestEnemy: primaryIsStrongest,
+      numerator: hydrogenNumerator,
+      bombCost: hydrogenBombCost,
+      samLevels,
+      siloCost: 0,
+      totalCost: hydrogenTotalCost,
+      goldPerMinute: grossGoldPerMinute,
+      T: hydrogenT,
+      discountRate,
+      discountFactor: hydrogenDiscountFactor,
+      finalScore: hydrogenScore,
+    };
+
+    return { atomScore, hydrogenScore, atomBreakdown, hydrogenBreakdown };
   }
 
   /**
@@ -384,7 +534,7 @@ export class AINukeHandler {
     const scale = this.params.nukeWarScoreSigmoidScale ?? 1 / 50;
     if (scale === 0 || !this._warScoreProvider) return 1;
     const ws = this._warScoreProvider(targetId);
-    return AINukeHandler.sigmoid(scale * (ws - 4));
+    return AINukeHandler.sigmoid(4 - ws * scale);
   }
 
   /**
@@ -634,8 +784,10 @@ export class AINukeHandler {
   resetScores(): void {
     this._bestAtomScore = 0;
     this._bestAtomTile = null;
+    this._bestAtomBreakdown = null;
     this._bestHydrogenScore = 0;
     this._bestHydrogenTile = null;
+    this._bestHydrogenBreakdown = null;
   }
 
   /**
@@ -646,6 +798,127 @@ export class AINukeHandler {
     this.player = this.mg.player(this.playerId);
     if (!this.player || !this.player.isAlive()) return 0;
     return this.calculateNukeScore(tile, bombType);
+  }
+
+  /**
+   * Compute a detailed score breakdown for a tile and bomb type.
+   * Used for the construction debug overlay.
+   */
+  scoreBreakdownForTile(
+    tile: TileRef,
+    bombType: UnitType,
+  ): NukeScoreBreakdown | null {
+    this.player = this.mg.player(this.playerId);
+    if (!this.player || !this.player.isAlive()) return null;
+    return this.calculateNukeScoreBreakdown(tile, bombType);
+  }
+
+  /**
+   * Internal: compute nuke score with full breakdown of all components.
+   */
+  private calculateNukeScoreBreakdown(
+    tile: TileRef,
+    bombType: UnitType,
+  ): NukeScoreBreakdown {
+    const magnitude: NukeMagnitude = this.mg.config().nukeMagnitudes(bombType);
+    const innerRange = magnitude.inner;
+
+    const friendlyDamageWeight = this.params.nukeFriendlyDamageWeight ?? 1.0;
+    const strongestEnemyId = this._cachedStrongestEnemyId;
+
+    let rawEnemyValue = 0;
+    let enemyValue = 0;
+    let friendlyValue = 0;
+    let enemyStructureCount = 0;
+    let friendlyStructureCount = 0;
+    let primaryTargetId: PlayerID | null = null;
+    let primaryTargetSigmoid = 1;
+    let primaryTargetWarScore = 0;
+    let isStrongestEnemy = false;
+    const strongestEnemyBonus = 1000;
+
+    const nearby = this.mg.nearbyUnits(
+      tile,
+      innerRange,
+      AINukeHandler.ALL_STRUCTURE_TYPES,
+    );
+
+    for (const { unit: structure } of nearby) {
+      const owner = structure.owner();
+      if (owner.type() !== PlayerType.Human && owner.type() !== PlayerType.AI) {
+        continue;
+      }
+
+      if (owner.id() === this.playerId) {
+        friendlyValue += this.getStructureValue(structure);
+        friendlyStructureCount++;
+        continue;
+      }
+
+      if (this.player!.isAtWarWith(owner)) {
+        const bonus = owner.id() === strongestEnemyId ? strongestEnemyBonus : 0;
+        const sig = this.getCachedSigmoid(owner.id());
+        const val = this.getStructureValue(structure);
+        rawEnemyValue += val + bonus;
+        enemyValue += (val + bonus) * sig;
+        enemyStructureCount++;
+        // Track the first/dominant enemy target
+        if (primaryTargetId === null) {
+          primaryTargetId = owner.id();
+          primaryTargetSigmoid = sig;
+          isStrongestEnemy = owner.id() === strongestEnemyId;
+          // Recover raw war score
+          const scale = this.params.nukeWarScoreSigmoidScale ?? 1 / 50;
+          if (scale !== 0 && this._warScoreProvider) {
+            primaryTargetWarScore = this._warScoreProvider(owner.id());
+          }
+        }
+      } else {
+        friendlyValue += this.getStructureValue(structure);
+        friendlyStructureCount++;
+      }
+    }
+
+    const numerator = enemyValue - friendlyDamageWeight * friendlyValue;
+
+    const bombCost = this.getCachedUnitCost(bombType, this.player!);
+    const atomBombCost = this.getCachedUnitCost(
+      UnitType.AtomBomb,
+      this.player!,
+    );
+    const samLevels = this.calculateSAMPenalty(tile);
+    const siloCapacity = this._cachedSiloCapacity;
+    const siloCost =
+      this.computeSiloCost(samLevels, siloCapacity) /
+      AINukeHandler.EXPECTED_NUKES_PER_SILO;
+    const totalCost = bombCost + samLevels * atomBombCost + siloCost;
+
+    const goldPerMinute = this.player!.estimatedGoldIncomePerMinute();
+    const discountRate = this.params.discountFactor ?? 0.1;
+    const T = goldPerMinute > 0 ? totalCost / goldPerMinute : Infinity;
+    const discountFactor = Math.pow(1 + discountRate, T);
+    const finalScore = numerator / discountFactor;
+
+    return {
+      rawEnemyValue,
+      friendlyValue,
+      enemyStructureCount,
+      friendlyStructureCount,
+      warScoreSigmoid: primaryTargetSigmoid,
+      rawWarScore: primaryTargetWarScore,
+      strongestEnemyBonus,
+      isStrongestEnemy,
+      numerator,
+      bombCost,
+      samLevels,
+      siloCost,
+      totalCost,
+      goldPerMinute,
+      T,
+      discountRate,
+      discountFactor,
+      finalScore,
+    };
   }
 
   /**
