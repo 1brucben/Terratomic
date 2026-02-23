@@ -31,6 +31,7 @@ import tp from "../../resources/lang/tp.json";
 import tr from "../../resources/lang/tr.json";
 import uk from "../../resources/lang/uk.json";
 import zh_CN from "../../resources/lang/zh-CN.json";
+import { MobileDetector } from "./mobile/MobileDetector";
 
 @customElement("lang-selector")
 export class LangSelector extends LitElement {
@@ -112,7 +113,14 @@ export class LangSelector extends LitElement {
   private async initializeLanguage() {
     const browserLocale = navigator.language;
     const savedLang = localStorage.getItem("lang");
-    const userLang = this.getClosestSupportedLang(savedLang ?? browserLocale);
+    const isMobile = MobileDetector.isMobile();
+    const userLang = isMobile
+      ? "en"
+      : this.getClosestSupportedLang(savedLang ?? browserLocale);
+
+    if (isMobile && savedLang !== "en") {
+      localStorage.setItem("lang", "en");
+    }
 
     this.defaultTranslations = this.loadLanguage("en");
     this.translations = this.loadLanguage(userLang);

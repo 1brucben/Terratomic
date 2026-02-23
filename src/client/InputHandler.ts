@@ -534,7 +534,10 @@ export class InputHandler {
 
     // Touch parity with the old behavior: short tap opens context menu.
     if (event.pointerType === "touch") {
-      this.eventBus.emit(new ContextMenuEvent(upX, upY));
+      // Don't open context menu when mobile UI is active
+      if (!document.body.classList.contains("mobile-ui-enabled")) {
+        this.eventBus.emit(new ContextMenuEvent(upX, upY));
+      }
       event.preventDefault();
       return;
     }
@@ -543,7 +546,10 @@ export class InputHandler {
     if (!this.userSettings.leftClickOpensMenu() || event.shiftKey) {
       this.eventBus.emit(new MouseUpEvent(upX, upY));
     } else {
-      this.eventBus.emit(new ContextMenuEvent(upX, upY));
+      // Don't open context menu when mobile UI is active
+      if (!document.body.classList.contains("mobile-ui-enabled")) {
+        this.eventBus.emit(new ContextMenuEvent(upX, upY));
+      }
     }
   }
 
@@ -630,7 +636,10 @@ export class InputHandler {
 
     // Not in build state → open radial menu
     event.preventDefault();
-    this.eventBus.emit(new ContextMenuEvent(event.clientX, event.clientY));
+    // Don't open context menu when mobile UI is active
+    if (!document.body.classList.contains("mobile-ui-enabled")) {
+      this.eventBus.emit(new ContextMenuEvent(event.clientX, event.clientY));
+    }
   }
 
   private getPinchDistance(): number {

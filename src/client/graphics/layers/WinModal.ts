@@ -5,6 +5,7 @@ import { EventBus } from "../../../core/EventBus";
 import { GameUpdateType } from "../../../core/game/GameUpdates";
 import { GameView } from "../../../core/game/GameView";
 import { GameRecord } from "../../../core/Schemas";
+import { HapticFeedback } from "../../mobile/utils/HapticFeedback";
 import { encodeReplay, isCompressionSupported } from "../../ReplayCodec";
 import { SendWinnerEvent } from "../../Transport";
 import { Layer } from "./Layer";
@@ -64,9 +65,22 @@ export class WinModal extends LitElement implements Layer {
       backdrop-filter: blur(5px);
       color: var(--ui-text-default);
       width: 350px;
+      max-width: calc(100vw - 24px);
       transition:
         opacity 0.3s ease-in-out,
         visibility 0.3s ease-in-out;
+    }
+
+    .win-modal.mobile {
+      left: 12px;
+      right: 12px;
+      top: auto;
+      bottom: calc(env(safe-area-inset-bottom, 0px) + 12px);
+      width: auto;
+      max-width: none;
+      transform: none;
+      border-radius: 12px;
+      padding: 18px;
     }
 
     .win-modal.visible {
@@ -106,6 +120,10 @@ export class WinModal extends LitElement implements Layer {
       gap: 10px;
     }
 
+    .win-modal.mobile .button-container {
+      flex-direction: column;
+    }
+
     .win-modal button {
       flex: 1;
       padding: 12px;
@@ -118,6 +136,11 @@ export class WinModal extends LitElement implements Layer {
       transition:
         background-color 0.2s ease,
         transform 0.1s ease;
+    }
+
+    .win-modal.mobile button {
+      min-height: 44px;
+      font-size: 15px;
     }
 
     .win-modal button:hover {
@@ -148,18 +171,28 @@ export class WinModal extends LitElement implements Layer {
 
     @media (max-width: 768px) {
       .win-modal {
-        width: 90%;
-        max-width: 300px;
+        width: calc(100vw - 24px);
+        max-width: none;
         padding: 20px;
+        left: 12px;
+        right: 12px;
+        top: auto;
+        bottom: calc(env(safe-area-inset-bottom, 0px) + 12px);
+        transform: none;
+        border-radius: 12px;
       }
 
       .win-modal h2 {
-        font-size: 26px;
+        font-size: 22px;
       }
 
       .win-modal button {
-        padding: 10px;
-        font-size: 14px;
+        min-height: 44px;
+        font-size: 15px;
+      }
+
+      .button-container {
+        flex-direction: column;
       }
     }
 
@@ -241,24 +274,30 @@ export class WinModal extends LitElement implements Layer {
   }
 
   render() {
+    const isMobileLayout =
+      typeof document !== "undefined" &&
+      document.body.classList.contains("mobile-ui-enabled");
+
     return html`
-      <div class="win-modal ${this.isVisible ? "visible" : ""}">
+      <div
+        class="win-modal ${this.isVisible ? "visible" : ""} ${isMobileLayout
+          ? "mobile"
+          : ""}"
+      >
         <h2>${this._title || ""}</h2>
         <div class="button-container">
           <button @click=${this._handleExit}>
             ${translateText("win_modal.exit")}
           </button>
-          <button @click=${this.hide}>
-            ${this.isWin
-              ? translateText("win_modal.keep")
-              : translateText("win_modal.spectate")}
+          <button @click=${this._handleKeep}>
+            ${translateText("win_modal.keep")}
           </button>
         </div>
 
         ${this.gameRecord
           ? html`
               <div class="button-container" style="margin-top: 10px;">
-                <button class="secondary" @click=${this.prepareReplay}>
+                <button class="secondary" @click=${this._handleSaveReplay}>
                   ${translateText("win_modal.save_replay")}
                 </button>
               </div>
@@ -273,12 +312,12 @@ export class WinModal extends LitElement implements Layer {
                     ? html`<p>${translateText("win_modal.encoding_replay")}</p>`
                     : html`
                         <div class="button-container">
-                          <button @click=${this.copyToClipboard}>
+                          <button @click=${this._handleCopyReplay}>
                             ${this.copied
                               ? translateText("win_modal.copied")
                               : translateText("win_modal.copy_to_clipboard")}
                           </button>
-                          <button @click=${this.downloadAsFile}>
+                          <button @click=${this._handleDownloadReplay}>
                             ${translateText("win_modal.download_file")}
                           </button>
                         </div>
@@ -289,8 +328,7 @@ export class WinModal extends LitElement implements Layer {
 
         <div class="button-container" style="margin-top: 10px;">
           <button
-            @click=${() =>
-              window.open("https://discord.gg/w8HXjhaBkU", "_blank")}
+            @click=${this._handleOpenDiscord}
             style="background-color: #5865F2;"
           >
             ${translateText("main.join_discord")}
@@ -320,13 +358,49 @@ export class WinModal extends LitElement implements Layer {
   }
 
   private _handleExit() {
+    HapticFeedback.success();
     this.hide();
     window.location.href = "/";
   }
 
+  private _handleKeep = (): void => {
+    HapticFeedback.tap();
+    this.hide();
+  };
+
+  private _handleSaveReplay = (): void => {
+    HapticFeedback.tap();
+    void this.prepareReplay();
+  };
+
+  private _handleCopyReplay = (): void => {
+    HapticFeedback.success();
+    void this.copyToClipboard();
+  };
+
+  private _handleDownloadReplay = (): void => {
+    HapticFeedback.tap();
+    this.downloadAsFile();
+  };
+
+  private _handleOpenDiscord = (): void => {
+    HapticFeedback.tap();
+    window.open("https://discord.gg/w8HXjhaBkU", "_blank");
+  };
+
   init() {}
 
   tick() {
+    if (
+      typeof document !== "undefined" &&
+      document.body.classList.contains("mobile-ui-enabled")
+    ) {
+      if (this.isVisible) {
+        this.hide();
+      }
+      return;
+    }
+
     const myPlayer = this.game.myPlayer();
     if (
       !this.hasShownDeathModal &&

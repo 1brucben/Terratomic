@@ -81,6 +81,26 @@ export class WorkerClient {
   initialize(): Promise<void> {
     return new Promise((resolve, reject) => {
       const messageId = generateID();
+      const timeoutMs = 15000;
+
+      const handleError = (event: ErrorEvent) => {
+        this.messageHandlers.delete(messageId);
+        reject(
+          new Error(
+            `Worker initialization failed: ${event.message || "unknown error"}`,
+          ),
+        );
+      };
+
+      const handleMessageError = () => {
+        this.messageHandlers.delete(messageId);
+        reject(new Error("Worker initialization failed: message error"));
+      };
+
+      this.worker.addEventListener("error", handleError, { once: true });
+      this.worker.addEventListener("messageerror", handleMessageError, {
+        once: true,
+      });
 
       this.messageHandlers.set(messageId, (message) => {
         if (message.type === "initialized") {
@@ -101,9 +121,11 @@ export class WorkerClient {
       setTimeout(() => {
         if (!this.isInitialized) {
           this.messageHandlers.delete(messageId);
-          reject(new Error("Worker initialization timeout"));
+          reject(
+            new Error(`Worker initialization timeout after ${timeoutMs}ms`),
+          );
         }
-      }, 5000); // 5 second timeout
+      }, timeoutMs);
     });
   }
 

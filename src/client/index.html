@@ -139,18 +139,20 @@
         ></o-button>
         -->
 
-          <div class="container__row">
+          <div class="container__row lobby-profile-row">
             <flag-input class="w-[20%] md:w-[15%]"></flag-input>
             <username-input class="relative w-full"></username-input>
             <news-button
               class="w-[20%] md:w-[15%] component-hideable"
             ></news-button>
           </div>
-          <div></div>
-          <div>
+          <div class="lobby-spacer"></div>
+          <div class="lobby-public-slot">
             <public-lobby class="block"></public-lobby>
           </div>
-          <div class="container__row container__row--equal">
+          <div
+            class="container__row container__row--equal lobby-primary-actions"
+          >
             <o-button
               id="host-lobby-button"
               title="Create Lobby"
@@ -180,21 +182,23 @@
             block
           ></o-button>
 
-          <o-button
-            id="help-button"
-            title="Instructions"
-            translationKey="main.instructions"
-            block
-            secondary
-          ></o-button>
+          <div class="lobby-secondary-actions">
+            <o-button
+              id="help-button"
+              title="Instructions"
+              translationKey="main.instructions"
+              block
+              secondary
+            ></o-button>
 
-          <o-button
-            id="rankings-button"
-            title="Rankings"
-            translationKey="rankings.title"
-            block
-            secondary
-          ></o-button>
+            <o-button
+              id="rankings-button"
+              title="Rankings"
+              translationKey="rankings.title"
+              block
+              secondary
+            ></o-button>
+          </div>
 
           <lang-selector class="w-full"></lang-selector>
           <o-button
@@ -209,6 +213,7 @@
     </main>
 
     <!-- User Setting -->
+    <div id="settings-button-anchor"></div>
     <button
       id="settings-button"
       title="Settings"
@@ -235,7 +240,7 @@
     <div id="app"></div>
     <div id="radialMenu" class="radial-menu"></div>
     <div
-      class="flex gap-2 fixed right-[10px] top-[10px] z-50 flex-col items-end"
+      class="flex gap-2 fixed right-[10px] top-[10px] z-50 flex-col items-end desktop-hud"
     >
       <div
         class="flex flex-col gap-2 w-max ui-scale-surface"
@@ -246,14 +251,10 @@
       </div>
       <player-info-overlay style="width: max-content"></player-info-overlay>
     </div>
-    <div
-      class="fixed bottom-[30px] sm:bottom-auto sm:top-[20px] z-50 mx-auto max-w-max inset-x-0 items-center"
-    >
-      <heads-up-message></heads-up-message>
-    </div>
+    <heads-up-message></heads-up-message>
 
     <div
-      class="bottom-0 w-full flex z-50 justify-between items-end overflow-hidden"
+      class="bottom-0 w-full flex z-50 justify-between items-end overflow-hidden desktop-hud"
       style="position: fixed; pointer-events: none"
     >
       <div
@@ -290,6 +291,8 @@
     <!-- Attack warning overlay - full screen -->
     <attack-warning-overlay></attack-warning-overlay>
 
+    <div id="footer-anchor"></div>
+
     <!-- Footer section -->
     <footer class="l-footer l-footer--compact fixed inset-x-0 bottom-0 z-20">
       <div class="l-footer__content w-full max-w-none">
@@ -299,7 +302,7 @@
             class="t-link inline-flex items-center space-x-2"
             target="_blank"
           >
-            ©2025 Terratomic™
+            ©2026 Terratomic™
             <img
               src="../../resources/icons/github-mark-white.svg"
               alt="GitHub"
@@ -327,6 +330,10 @@
         </div>
         <div class="l-footer__col l-footer__col--right t-text-white">
           <span class="select-text">Based on OpenFront</span>
+          <span
+            id="quick-toggle-anchor"
+            class="l-footer__utility-anchor"
+          ></span>
         </div>
       </div>
     </footer>
@@ -348,12 +355,21 @@
 
     <player-panel></player-panel>
     <help-modal></help-modal>
+    <mobile-help-modal></mobile-help-modal>
     <rankings-modal></rankings-modal>
     <div
       id="quick-toggle-container"
       class="fixed top-0 right-0 z-50 flex gap-2 p-2"
     >
       <dark-mode-button></dark-mode-button>
+      <button
+        id="discord-quick-button"
+        title="Join Discord"
+        onclick="document.getElementById('join-discord-button')?.click()"
+        aria-label="Join Discord"
+      >
+        <img src="../../resources/icons/discord.svg" alt="Discord" />
+      </button>
       <sound-button></sound-button>
     </div>
     <research-toggle-button></research-toggle-button>
@@ -379,6 +395,40 @@
     <!-- Adaptive JS scaling for .scale-container -->
     <script>
       (function () {
+        function isMobileLobbyDevice() {
+          var isMobileWidth = window.matchMedia("(max-width: 1024px)").matches;
+          var mobileUA = /Android|iPhone|iPad|iPod|Mobile/i.test(
+            navigator.userAgent,
+          );
+          var uaDataMobile =
+            typeof navigator.userAgentData !== "undefined" &&
+            !!navigator.userAgentData.mobile;
+          var isIPadDesktopMode =
+            navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1;
+
+          return (
+            isMobileWidth && (mobileUA || uaDataMobile || isIPadDesktopMode)
+          );
+        }
+
+        function isPhoneLandscape() {
+          var isLandscape = window.matchMedia(
+            "(orientation: landscape)",
+          ).matches;
+          return isLandscape && isMobileLobbyDevice();
+        }
+
+        function getMobileLobbySizeClass() {
+          var shortestSide = Math.min(
+            window.innerWidth || 0,
+            window.innerHeight || 0,
+          );
+
+          if (shortestSide <= 360) return "compact";
+          if (shortestSide <= 430) return "regular";
+          return "large";
+        }
+
         function computeScale() {
           var height = Math.max(
             document.documentElement.clientHeight,
@@ -391,19 +441,129 @@
 
         function applyScale() {
           var container = document.querySelector(".scale-container");
+          var lobbyContainer = document.querySelector(
+            ".scale-container > .container",
+          );
           if (!container) return;
+
+          var settingsButton = document.getElementById("settings-button");
+          var quickToggleContainer = document.getElementById(
+            "quick-toggle-container",
+          );
+          var quickToggleAnchor = document.getElementById(
+            "quick-toggle-anchor",
+          );
+          var settingsAnchor = document.getElementById(
+            "settings-button-anchor",
+          );
+          var footer = document.querySelector("footer.l-footer");
+          var footerAnchor = document.getElementById("footer-anchor");
+
+          var mobileMainLobby = isMobileLobbyDevice();
+          var mobileLandscape = isPhoneLandscape();
+          var mobileLobbySizeClass = mobileMainLobby
+            ? getMobileLobbySizeClass()
+            : "";
+
+          document.body.classList.toggle("mobile-main-lobby", mobileMainLobby);
+          document.body.classList.toggle(
+            "mobile-landscape-lobby",
+            mobileLandscape,
+          );
+          document.body.classList.toggle(
+            "mobile-lobby-compact",
+            mobileMainLobby && mobileLobbySizeClass === "compact",
+          );
+
+          if (mobileLobbySizeClass) {
+            document.body.dataset.mobileLobbyClass = mobileLobbySizeClass;
+          } else {
+            delete document.body.dataset.mobileLobbyClass;
+          }
+
+          if (settingsButton && quickToggleContainer && settingsAnchor) {
+            if (mobileLandscape || mobileMainLobby) {
+              if (settingsButton.parentElement !== quickToggleContainer) {
+                quickToggleContainer.appendChild(settingsButton);
+              }
+            } else {
+              var anchorParent = settingsAnchor.parentElement;
+              if (
+                anchorParent &&
+                settingsButton.parentElement !== anchorParent
+              ) {
+                anchorParent.insertBefore(
+                  settingsButton,
+                  settingsAnchor.nextSibling,
+                );
+              }
+            }
+          }
+
+          if (quickToggleContainer && quickToggleAnchor) {
+            if (mobileLandscape || mobileMainLobby) {
+              if (quickToggleContainer.parentElement !== quickToggleAnchor) {
+                quickToggleAnchor.appendChild(quickToggleContainer);
+              }
+            } else {
+              var quickToggleOriginalParent = document.body;
+              if (
+                quickToggleContainer.parentElement !== quickToggleOriginalParent
+              ) {
+                quickToggleOriginalParent.appendChild(quickToggleContainer);
+              }
+            }
+          }
+
+          if (footer && footerAnchor && lobbyContainer) {
+            if (mobileLandscape || mobileMainLobby) {
+              if (footer.parentElement !== lobbyContainer) {
+                lobbyContainer.appendChild(footer);
+              }
+            } else {
+              var footerAnchorParent = footerAnchor.parentElement;
+              if (
+                footerAnchorParent &&
+                footer.parentElement !== footerAnchorParent
+              ) {
+                footerAnchorParent.insertBefore(
+                  footer,
+                  footerAnchor.nextSibling,
+                );
+              }
+            }
+          }
+
+          if (mobileMainLobby) {
+            container.style.transform = "none";
+            container.style.marginBottom = "0px";
+            return;
+          }
+
           var scale = computeScale();
           container.style.transform = "scale(" + scale + ")";
-          // Compensate layout gap created by transform (which doesn't affect flow height)
-          // Compensate using base height as an approximation for natural content height
-          var baseHeight = 1150;
-          var compensation = 440;
-          container.style.marginBottom = compensation
-            ? "-" + compensation + "px"
-            : "0px";
+          // Compensate layout gap created by transform (which doesn't affect flow height).
+          // transform: scale() shrinks the element visually but leaves its original
+          // layout footprint unchanged, creating a gap below the scaled container.
+          // We remove that gap by pulling up by: naturalHeight * (1 - scale).
+          var naturalHeight = container.scrollHeight;
+          var compensation =
+            naturalHeight > 0 ? Math.round(naturalHeight * (1 - scale)) : 0;
+          container.style.marginBottom =
+            compensation > 0 ? "-" + compensation + "px" : "0px";
         }
 
+        var wasLandscape = isPhoneLandscape();
+
         function onResize() {
+          var nowLandscape = isPhoneLandscape();
+          // Portrait → landscape: reset scroll so the top of the menu is shown
+          if (nowLandscape && !wasLandscape) {
+            window.scrollTo(0, 0);
+            document.documentElement.scrollTop = 0;
+            document.body.scrollTop = 0;
+          }
+          wasLandscape = nowLandscape;
           requestAnimationFrame(applyScale);
         }
 

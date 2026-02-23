@@ -190,7 +190,9 @@ export class Executor {
       }
       case "upgrade_structure": {
         const unit = player.units().find((u) => u.id() === intent.unitId);
-        if (!unit || unit.owner() !== player) return new NoOpExecution();
+        if (!unit || unit.owner() !== player) {
+          return new NoOpExecution();
+        }
         // Check if this is an upgradeable structure type
         if (
           !isUpgradeableStructure(intent.unitType) ||

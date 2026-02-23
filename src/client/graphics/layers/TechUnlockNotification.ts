@@ -55,6 +55,9 @@ export class TechUnlockNotification extends LitElement implements Layer {
     }
     notificationQueue.onShow((notification) => {
       if (notification.type === "tech") {
+        if (document.body.classList.contains("mobile-ui-enabled")) {
+          return;
+        }
         this.showTechNotification(notification.payload);
       }
     });

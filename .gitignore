@@ -4,6 +4,7 @@ out/
 static/
 coverage/
 TODO.txt
+PROGRESS.md
 resources/images/.DS_Store
 resources/.DS_Store
 .env*
@@ -13,3 +14,4 @@ errors.txt
 Project_Info.md
 commands.sh
 gemini/
+progress.md

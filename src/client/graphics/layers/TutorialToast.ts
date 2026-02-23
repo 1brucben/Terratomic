@@ -49,6 +49,9 @@ export class TutorialToast extends LitElement implements Layer {
 
     notificationQueue.onShow((notification) => {
       if (notification.type === "tutorial") {
+        if (document.body.classList.contains("mobile-ui-enabled")) {
+          return;
+        }
         this.showTutorialTip(notification.payload);
       }
     });

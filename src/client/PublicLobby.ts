@@ -1,7 +1,7 @@
 import { LitElement, html } from "lit";
 import { customElement, state } from "lit/decorators.js";
 import { translateText } from "../client/Utils";
-import { GameMode } from "../core/game/Game";
+import { GameMapType, GameMode } from "../core/game/Game";
 import { GameID, GameInfo } from "../core/Schemas";
 import { generateID } from "../core/Util";
 import { PublicLobbySocket } from "./LobbySocket";
@@ -19,6 +19,19 @@ export class PublicLobby extends LitElement {
   private lobbySocket = new PublicLobbySocket((lobbies) =>
     this.handleLobbiesUpdate(lobbies),
   );
+
+  private getMapDisplayName(gameMap: string): string {
+    const resolvedMapKey = Object.keys(GameMapType).find(
+      (key) => GameMapType[key as keyof typeof GameMapType] === gameMap,
+    );
+    const normalizedMapKey = (resolvedMapKey ?? gameMap)
+      .toLowerCase()
+      .replace(/[^a-z0-9]/g, "");
+    const translationKey = `map.${normalizedMapKey}`;
+    const translatedMap = translateText(translationKey);
+
+    return translatedMap === translationKey ? gameMap : translatedMap;
+  }
 
   createRenderRoot() {
     return this;
@@ -135,9 +148,7 @@ export class PublicLobby extends LitElement {
               <span
                 class="ml-2 inline-block px-2 py-[2px] rounded-md border border-[#27476e]
                   bg-[rgba(14,26,51,0.55)] text-blue-100 font-semibold shadow-[0_0_8px_rgba(14,26,51,0.35)]"
-                >${translateText(
-                  `map.${lobby.gameConfig.gameMap.toLowerCase().replace(/\s+/g, "")}`,
-                )}</span
+                >${this.getMapDisplayName(lobby.gameConfig.gameMap)}</span
               >
             </div>
           </div>

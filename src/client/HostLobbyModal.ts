@@ -35,6 +35,11 @@ import { DifficultyDescription } from "./components/Difficulties";
 import "./components/LobbyChatPanel";
 import "./components/Maps";
 import type { JoinLobbyEvent } from "./Main";
+import { MobileDetector } from "./mobile/MobileDetector";
+import {
+  getMobileViewportProfile,
+  type MobileViewportProfile,
+} from "./mobile/MobileViewportProfile";
 import { renderUnitTypeOptions } from "./utilities/RenderUnitTypeOptions";
 import { formatStartingGold, translateText } from "./Utils";
 
@@ -81,15 +86,22 @@ export class HostLobbyModal extends LitElement {
   @state() private showUnitSettings = false; // Closed by default for Host
   @state() private chatEnabled: boolean = false;
   @state() private lobbyMessages: LobbyMessage[] = [];
+  @state() private activeMapCategory: string = "continental";
+  @state() private viewportProfile: MobileViewportProfile | null = null;
 
   private playersInterval: NodeJS.Timeout | null = null;
   private botsUpdateTimer: number | null = null;
   private userSettings: UserSettings = new UserSettings();
   private theme = new PastelTheme();
+  private resizeHandler = (): void => {
+    this.updateViewportProfile();
+  };
 
   render() {
     // Calculate percentage for the CSS variable
     const sliderPercent = (this.bots / 400) * 100;
+    const useMobileMapCarousel =
+      typeof window !== "undefined" && MobileDetector.isMobile();
 
     return html`
       <style>
@@ -108,16 +120,139 @@ export class HostLobbyModal extends LitElement {
         @media (max-width: 1024px) {
           .sp-layout {
             grid-template-columns: 1fr;
+            grid-template-rows: auto auto;
             height: auto;
-            max-height: 85vh;
-            overflow-y: auto;
+            max-height: none;
+            overflow: visible;
           }
           .sp-layout.with-chat {
             grid-template-columns: 1fr;
+            grid-template-rows: auto auto auto;
           }
           .sp-map-col {
-            height: 40vh;
+            height: auto;
+            min-height: 0;
+            flex-shrink: 1;
+            overflow: visible;
           }
+          .sp-scroll-area {
+            overflow-y: visible;
+            padding-right: 0;
+            padding-bottom: 8px;
+            max-height: none;
+          }
+          .sp-settings-col {
+            height: auto;
+            min-height: 0;
+            overflow: visible;
+            padding-bottom: calc(8px + env(safe-area-inset-bottom, 0px));
+          }
+          .sp-settings-scroll {
+            overflow-y: visible;
+            padding-right: 0;
+            padding-bottom: 0;
+            min-height: 0;
+            max-height: none;
+          }
+          .sp-player-area {
+            max-height: none;
+            min-height: 0;
+            margin-top: 12px;
+            padding-bottom: calc(8px + env(safe-area-inset-bottom, 0px));
+          }
+          .team-scroll-wrapper {
+            max-height: none;
+            overflow-y: visible;
+            padding-right: 0;
+          }
+          .sp-chat-col {
+            max-height: none;
+            overflow: visible;
+          }
+        }
+
+        /* Responsive adjustments for compact phones in portrait */
+        body[data-lobby-size-class="compact"][data-lobby-orientation="portrait"]
+          .sp-category-tab {
+          font-size: 10px;
+          padding: 6px 10px;
+        }
+        body[data-lobby-size-class="compact"][data-lobby-orientation="portrait"]
+          .sp-map-col {
+          padding: 12px 4px 12px 12px;
+        }
+        body[data-lobby-size-class="compact"][data-lobby-orientation="portrait"]
+          .sp-category-tabs {
+          gap: 6px;
+          margin-bottom: 10px;
+        }
+        body[data-lobby-size-class="compact"][data-lobby-orientation="portrait"]
+          map-display {
+          transform: scale(0.9);
+        }
+        body[data-lobby-size-class="compact"][data-lobby-orientation="portrait"]
+          .sp-map-carousel {
+          gap: 8px;
+          padding: 6px 10px 12px;
+        }
+        body[data-lobby-size-class="compact"][data-lobby-orientation="portrait"]
+          .sp-select {
+          font-size: 13px;
+          padding: 6px;
+        }
+        body[data-lobby-size-class="compact"][data-lobby-orientation="portrait"]
+          .sp-btn {
+          min-height: 32px;
+          padding: 5px 7px;
+        }
+        body[data-lobby-size-class="compact"][data-lobby-orientation="portrait"]
+          .sp-btn-label {
+          font-size: 12px;
+        }
+        body[data-lobby-size-class="compact"][data-lobby-orientation="portrait"]
+          .sp-section {
+          padding: 10px;
+        }
+        body[data-lobby-size-class="compact"][data-lobby-orientation="portrait"]
+          .lobby-id-pill {
+          font-size: 12px;
+          padding: 5px 12px;
+        }
+
+        /* Responsive adjustments for compact phones in landscape */
+        body[data-lobby-size-class="compact"][data-lobby-orientation="landscape"]
+          .sp-category-tab {
+          font-size: 11px;
+          padding: 6px 12px;
+        }
+        body[data-lobby-size-class="compact"][data-lobby-orientation="landscape"]
+          .sp-map-carousel {
+          gap: 10px;
+        }
+        body[data-lobby-size-class="compact"][data-lobby-orientation="landscape"]
+          map-display {
+          transform: scale(0.95);
+        }
+
+        /* Responsive adjustments for regular phones */
+        body[data-lobby-size-class="regular"] .sp-category-tab {
+          font-size: 11px;
+          padding: 7px 14px;
+        }
+        body[data-lobby-size-class="regular"] map-display {
+          transform: scale(0.98);
+        }
+
+        /* Responsive adjustments for large tablets */
+        body[data-lobby-size-class="large"] .sp-category-tab {
+          font-size: 13px;
+          padding: 10px 18px;
+        }
+        body[data-lobby-size-class="large"] map-display {
+          transform: scale(1.1);
+        }
+        body[data-lobby-size-class="large"] .sp-map-carousel {
+          gap: 14px;
         }
 
         /* Chat Column (Right) */
@@ -213,6 +348,46 @@ export class HostLobbyModal extends LitElement {
           user-select: all;
         }
 
+        /* Category Tabs */
+        .sp-category-tabs {
+          display: flex;
+          gap: 8px;
+          margin-bottom: 12px;
+          padding: 0 12px;
+          flex-wrap: nowrap;
+          overflow-x: auto;
+          scrollbar-width: none;
+        }
+        .sp-category-tabs::-webkit-scrollbar {
+          display: none;
+        }
+        .sp-category-tab {
+          flex: 1;
+          min-width: fit-content;
+          background: rgba(0, 0, 0, 0.3);
+          border: 1px solid rgba(255, 255, 255, 0.1);
+          border-radius: 6px;
+          padding: 8px 16px;
+          cursor: pointer;
+          font-size: 12px;
+          font-weight: 600;
+          text-transform: uppercase;
+          letter-spacing: 0.5px;
+          color: var(--ui-text-muted);
+          transition: all 0.2s ease;
+          text-align: center;
+        }
+        .sp-category-tab:hover {
+          background: rgba(255, 255, 255, 0.05);
+          border-color: rgba(255, 255, 255, 0.2);
+        }
+        .sp-category-tab.active {
+          background: rgba(39, 71, 110, 0.35);
+          border-color: var(--ui-secondary);
+          color: var(--ui-text-accent);
+          box-shadow: inset 0 0 0 1px rgba(224, 166, 129, 0.3);
+        }
+
         .sp-scroll-area {
           flex: 1;
           overflow-y: scroll;
@@ -231,6 +406,32 @@ export class HostLobbyModal extends LitElement {
         .sp-scroll-area::-webkit-scrollbar-thumb {
           background: rgba(255, 255, 255, 0.2);
           border-radius: 4px;
+        }
+
+        /* Horizontal Map Carousel */
+        .sp-map-carousel {
+          display: flex;
+          gap: 12px;
+          overflow-x: auto;
+          padding: 8px 12px 16px;
+          scrollbar-width: thin;
+          scrollbar-color: rgba(255, 255, 255, 0.3) rgba(0, 0, 0, 0.1);
+          scroll-snap-type: x proximity;
+        }
+        .sp-map-carousel::-webkit-scrollbar {
+          height: 6px;
+        }
+        .sp-map-carousel::-webkit-scrollbar-track {
+          background: rgba(0, 0, 0, 0.2);
+          border-radius: 3px;
+        }
+        .sp-map-carousel::-webkit-scrollbar-thumb {
+          background: rgba(255, 255, 255, 0.3);
+          border-radius: 3px;
+        }
+        .sp-map-carousel .map-item-wrapper {
+          flex: 0 0 auto;
+          scroll-snap-align: start;
         }
 
         /* Settings Column (Right) - Flex Column */
@@ -436,6 +637,70 @@ export class HostLobbyModal extends LitElement {
           transform-origin: center top;
           margin-bottom: -10px;
         }
+        .desktop-map-item-wrapper {
+          transform: scale(0.9);
+        }
+
+        .sp-map-random {
+          background:
+            linear-gradient(
+              124deg,
+              rgba(182, 193, 208, 0.08) 0 14%,
+              rgba(0, 0, 0, 0) 42%
+            ),
+            linear-gradient(
+              180deg,
+              var(--map-card-bg, rgba(55, 63, 75, 0.99)),
+              var(--map-card-bg-bottom, rgba(36, 42, 52, 0.995))
+            );
+          border: 2px solid var(--map-card-border, rgba(133, 147, 169, 0.62));
+          border-radius: 7px 10px 8px 6px;
+          box-shadow:
+            inset 0 1px 0 rgba(214, 224, 238, 0.12),
+            inset 0 -10px 14px rgba(0, 0, 0, 0.22),
+            0 2px 8px rgba(0, 0, 0, 0.3);
+        }
+        .sp-map-random:hover {
+          border-color: var(--map-card-hover-border, rgba(215, 155, 118, 0.72));
+          background:
+            linear-gradient(
+              124deg,
+              rgba(209, 218, 231, 0.16) 0 16%,
+              rgba(0, 0, 0, 0) 41%
+            ),
+            linear-gradient(
+              180deg,
+              var(--map-card-hover-top, rgba(80, 92, 108, 0.988)),
+              var(--map-card-hover-bottom, rgba(43, 51, 62, 0.996))
+            );
+        }
+        .sp-map-random.selected {
+          border-color: var(--ui-primary);
+          background:
+            linear-gradient(
+              124deg,
+              rgba(214, 223, 236, 0.18) 0 16%,
+              rgba(0, 0, 0, 0) 41%
+            ),
+            linear-gradient(
+              180deg,
+              var(--map-card-selected-top, rgba(85, 97, 114, 0.99)),
+              var(--map-card-selected-bottom, rgba(48, 56, 68, 0.997))
+            );
+          box-shadow:
+            0 0 0 2px var(--map-card-selected-ring, rgba(224, 166, 129, 0.86)),
+            0 0 12px var(--map-card-selected-glow, rgba(224, 166, 129, 0.52)),
+            inset 0 1px 0 rgba(232, 239, 248, 0.2);
+        }
+        .sp-map-random .option-card-title {
+          color: var(--map-card-title, var(--ui-text-muted));
+        }
+        .sp-map-random .option-image {
+          background-color: var(--map-card-image-bg, rgba(17, 21, 28, 0.82));
+          border: 1px solid
+            var(--map-card-image-border, rgba(168, 181, 198, 0.38));
+          box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.26);
+        }
 
         /* Slider Styling */
         input[type="range"] {
@@ -490,6 +755,10 @@ export class HostLobbyModal extends LitElement {
           padding: 8px;
           font-size: 14px;
           outline: none;
+        }
+        .sp-select option {
+          background: var(--ui-panel-shell-top);
+          color: var(--ui-text-default);
         }
 
         /* Collapse Header */
@@ -636,7 +905,7 @@ export class HostLobbyModal extends LitElement {
         title=${translateText("host_modal.title")}
         max-width="1600px"
         max-height="85vh"
-        content-overflow="hidden"
+        content-overflow="auto"
       >
         <div class="sp-layout ${this.chatEnabled ? "with-chat" : ""}">
           <!-- LEFT COLUMN: Maps -->
@@ -709,64 +978,133 @@ export class HostLobbyModal extends LitElement {
               </div>
             </div>
 
-            <div class="sp-scroll-area">
-              ${Object.entries(mapCategories).map(
-                ([categoryKey, maps]) => html`
-                  <div class="w-full mb-4">
-                    <h3
-                      class="text-xs font-bold uppercase tracking-wider mb-2 text-center text-gray-400 border-b border-gray-700 pb-1 mx-10"
+            ${useMobileMapCarousel
+              ? html`
+                  <!-- Category Tabs -->
+                  <div class="sp-category-tabs">
+                    ${Object.keys(mapCategories).map(
+                      (categoryKey) => html`
+                        <div
+                          class="sp-category-tab ${this.activeMapCategory ===
+                          categoryKey
+                            ? "active"
+                            : ""}"
+                          @click=${() => (this.activeMapCategory = categoryKey)}
+                        >
+                          ${translateText(`map_categories.${categoryKey}`)}
+                        </div>
+                      `,
+                    )}
+                  </div>
+
+                  <!-- Horizontal Map Carousel (mobile only) -->
+                  <div class="sp-map-carousel">
+                    ${mapCategories[this.activeMapCategory]?.map((mapValue) => {
+                      const mapKey = Object.keys(GameMapType).find(
+                        (key) =>
+                          GameMapType[key as keyof typeof GameMapType] ===
+                          mapValue,
+                      );
+                      return html`
+                        <div
+                          class="map-item-wrapper"
+                          @click=${() => this.handleMapSelection(mapValue)}
+                        >
+                          <map-display
+                            .mapKey=${mapKey}
+                            .selected=${!this.useRandomMap &&
+                            this.selectedMap === mapValue}
+                            .translation=${translateText(
+                              `map.${mapKey?.toLowerCase()}`,
+                            )}
+                          ></map-display>
+                        </div>
+                      `;
+                    })}
+
+                    <!-- Random Map (always visible in all categories) -->
+                    <div
+                      class="option-card random-map sp-map-random ${this
+                        .useRandomMap
+                        ? "selected"
+                        : ""} map-item-wrapper"
+                      @click=${this.handleRandomMapToggle}
+                      style="width: 100px; flex: 0 0 auto;"
                     >
-                      ${translateText(`map_categories.${categoryKey}`)}
-                    </h3>
-                    <div class="map-grid">
-                      ${maps.map((mapValue) => {
-                        const mapKey = Object.keys(GameMapType).find(
-                          (key) =>
-                            GameMapType[key as keyof typeof GameMapType] ===
-                            mapValue,
-                        );
-                        return html`
-                          <div
-                            class="map-item-wrapper"
-                            @click=${() => this.handleMapSelection(mapValue)}
-                          >
-                            <map-display
-                              .mapKey=${mapKey}
-                              .selected=${!this.useRandomMap &&
-                              this.selectedMap === mapValue}
-                              .translation=${translateText(
-                                `map.${mapKey?.toLowerCase()}`,
-                              )}
-                            ></map-display>
-                          </div>
-                        `;
-                      })}
+                      <div class="option-image">
+                        <img
+                          src=${randomMap}
+                          style="width:100%; aspect-ratio:4/2; object-fit:cover; border-radius:8px;"
+                        />
+                      </div>
+                      <div class="option-card-title">
+                        ${translateText("map.random")}
+                      </div>
                     </div>
                   </div>
-                `,
-              )}
+                `
+              : html`
+                  <div class="sp-scroll-area">
+                    ${Object.entries(mapCategories).map(
+                      ([categoryKey, maps]) => html`
+                        <div class="w-full mb-4">
+                          <h3
+                            class="text-xs font-bold uppercase tracking-wider mb-2 text-center text-gray-400 border-b border-gray-700 pb-1 mx-10"
+                          >
+                            ${translateText(`map_categories.${categoryKey}`)}
+                          </h3>
+                          <div class="map-grid">
+                            ${maps.map((mapValue) => {
+                              const mapKey = Object.keys(GameMapType).find(
+                                (key) =>
+                                  GameMapType[
+                                    key as keyof typeof GameMapType
+                                  ] === mapValue,
+                              );
+                              return html`
+                                <div
+                                  class="map-item-wrapper desktop-map-item-wrapper"
+                                  @click=${() =>
+                                    this.handleMapSelection(mapValue)}
+                                >
+                                  <map-display
+                                    .mapKey=${mapKey}
+                                    .selected=${!this.useRandomMap &&
+                                    this.selectedMap === mapValue}
+                                    .translation=${translateText(
+                                      `map.${mapKey?.toLowerCase()}`,
+                                    )}
+                                  ></map-display>
+                                </div>
+                              `;
+                            })}
+                          </div>
+                        </div>
+                      `,
+                    )}
 
-              <!-- Random Map -->
-              <div class="w-full flex justify-center mb-4 pt-2">
-                <div
-                  class="option-card random-map ${this.useRandomMap
-                    ? "selected"
-                    : ""} map-item-wrapper"
-                  @click=${this.handleRandomMapToggle}
-                  style="width: 100px;"
-                >
-                  <div class="option-image">
-                    <img
-                      src=${randomMap}
-                      style="width:100%; aspect-ratio:4/2; object-fit:cover; border-radius:8px;"
-                    />
+                    <div class="w-full flex justify-center mb-4 pt-2">
+                      <div
+                        class="option-card random-map sp-map-random ${this
+                          .useRandomMap
+                          ? "selected"
+                          : ""} map-item-wrapper desktop-map-item-wrapper"
+                        @click=${this.handleRandomMapToggle}
+                        style="width: 100px;"
+                      >
+                        <div class="option-image">
+                          <img
+                            src=${randomMap}
+                            style="width:100%; aspect-ratio:4/2; object-fit:cover; border-radius:8px;"
+                          />
+                        </div>
+                        <div class="option-card-title">
+                          ${translateText("map.random")}
+                        </div>
+                      </div>
+                    </div>
                   </div>
-                  <div class="option-card-title">
-                    ${translateText("map.random")}
-                  </div>
-                </div>
-              </div>
-            </div>
+                `}
           </div>
 
           <!-- RIGHT COLUMN: Settings + Player List -->
@@ -1146,6 +1484,41 @@ export class HostLobbyModal extends LitElement {
     });
   }
 
+  connectedCallback() {
+    super.connectedCallback();
+    this.updateViewportProfile();
+    window.addEventListener("resize", this.resizeHandler);
+  }
+
+  disconnectedCallback() {
+    super.disconnectedCallback();
+    window.removeEventListener("resize", this.resizeHandler);
+  }
+
+  private updateViewportProfile() {
+    this.viewportProfile = getMobileViewportProfile(
+      window.innerWidth,
+      window.innerHeight,
+    );
+    this.applyResponsiveStyles();
+  }
+
+  private applyResponsiveStyles() {
+    const isMobile = typeof window !== "undefined" && MobileDetector.isMobile();
+
+    if (!isMobile || !this.viewportProfile) {
+      delete document.body.dataset.lobbySizeClass;
+      delete document.body.dataset.lobbyOrientation;
+      return;
+    }
+
+    const { sizeClass, orientation } = this.viewportProfile;
+
+    // Apply data attributes for CSS targeting
+    document.body.dataset.lobbySizeClass = sizeClass;
+    document.body.dataset.lobbyOrientation = orientation;
+  }
+
   createRenderRoot() {
     return this;
   }
@@ -1155,6 +1528,7 @@ export class HostLobbyModal extends LitElement {
     this.playerTeamAssignments = {};
     this.lobbyIdVisible = false; // Censored by default
     this.showUnitSettings = false; // Closed by default
+    this.updateActiveCategoryFromSelectedMap();
 
     createLobby(this.lobbyCreatorClientID)
       .then((lobby) => {
@@ -1198,6 +1572,18 @@ export class HostLobbyModal extends LitElement {
     }
   }
 
+  private updateActiveCategoryFromSelectedMap() {
+    // Find which category contains the currently selected map
+    for (const [categoryKey, maps] of Object.entries(mapCategories)) {
+      if (maps.includes(this.selectedMap)) {
+        this.activeMapCategory = categoryKey;
+        return;
+      }
+    }
+    // Fallback to first category if not found
+    this.activeMapCategory = Object.keys(mapCategories)[0] || "continental";
+  }
+
   private async handleRandomMapToggle() {
     this.useRandomMap = true;
     this.putGameConfig();
@@ -1206,6 +1592,7 @@ export class HostLobbyModal extends LitElement {
   private async handleMapSelection(value: GameMapType) {
     this.selectedMap = value;
     this.useRandomMap = false;
+    this.updateActiveCategoryFromSelectedMap();
     this.putGameConfig();
   }
 
