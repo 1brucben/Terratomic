@@ -580,7 +580,7 @@ export class AIPlayerExecution implements Execution {
               const dist = Math.sqrt(
                 this.mg.euclideanDistSquared(bestTile, s.tile()),
               );
-              const ownerRange = this.nukeHandler!.getEffectiveSAMRange(
+              const ownerRange = this.nukeHandler.getEffectiveSAMRange(
                 s.owner(),
               );
               return `{id=${s.id()} pos=(${ox},${oy}) owner=${s.owner().id()} stack=${s.stackCount()} dist=${dist.toFixed(1)} ownerRange=${ownerRange.toFixed(1)} isActive=${s.isActive()}}`;
