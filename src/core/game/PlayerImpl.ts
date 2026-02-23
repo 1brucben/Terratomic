@@ -1662,9 +1662,9 @@ export class PlayerImpl implements Player {
     return (
       this.troops() +
       0.9 * this.attackingTroops() +
-      Number(this._gold) / 10 +
-      this._militaryAssetValue / 10 +
-      this.estimatedGoldIncomePerMinute()
+      Number(this._gold) / 9 +
+      this._militaryAssetValue / 9 +
+      1.1 * this.estimatedGoldIncomePerMinute()
     );
   }
 
@@ -1794,12 +1794,13 @@ export class PlayerImpl implements Player {
     return this._estimatedGoldIncomePerMinute;
   }
   updateProductivity(): void {
-    const alpha = 0.00035;
+    const alpha = 0.00015;
     const beta = 0.5;
 
     const maxPop = this.mg.config().maxPopulation(this);
     const workers = this.workers();
-    const rate = (this._investmentRate * workers) / maxPop;
+    const rate =
+      (this._investmentRate * Math.pow(workers, 0.65)) / Math.pow(maxPop, 0.65);
     const growth = alpha * Math.pow(rate, beta);
 
     if (!Number.isFinite(growth) || growth < 0) {
