@@ -1,5 +1,4 @@
 import { Config } from "../configuration/Config";
-import { AttackExecution } from "../execution/AttackExecution";
 import {
   AbstractGraph,
   AbstractGraphBuilder,
@@ -14,7 +13,6 @@ import { CargoManager } from "./CargoManager";
 import {
   Alliance,
   AllianceRequest,
-  ATTACK_SUBTICKS_PER_TICK,
   Cell,
   ColoredTeams,
   Duos,
@@ -43,6 +41,7 @@ import {
 } from "./Game";
 import { GameMap, TileRef, TileUpdate } from "./GameMap";
 import { GameUpdate, GameUpdateType } from "./GameUpdates";
+import { PeaceRequestImpl } from "./PeaceRequestImpl";
 import { PlayerImpl } from "./PlayerImpl";
 import { Road, RoadManager } from "./RoadManager";
 import { Stats } from "./Stats";
@@ -68,6 +67,9 @@ export class GameImpl implements Game {
   private _ticks = 0;
   public peaceTimerEndsAtTick: Tick | null = null;
 
+  /** When non-null, border updates are deferred; tiles accumulate here. */
+  private _dirtyBorderTiles: Set<TileRef> | null = null;
+
   private unInitExecs: Execution[] = [];
 
   _players: Map<PlayerID, PlayerImpl> = new Map<PlayerID, PlayerImpl>();
@@ -79,6 +81,7 @@ export class GameImpl implements Game {
   _terraNullius: TerraNulliusImpl;
 
   allianceRequests: AllianceRequestImpl[] = [];
+  peaceRequests: PeaceRequestImpl[] = [];
   alliances_: AllianceImpl[] = [];
   private nextAllianceID = 0;
 
@@ -433,6 +436,71 @@ export class GameImpl implements Game {
     });
   }
 
+  createPeaceRequest(
+    requestor: Player,
+    recipient: Player,
+  ): PeaceRequestImpl | null {
+    if (!requestor.isAtWarWith(recipient)) {
+      console.log("cannot request peace, not at war");
+      return null;
+    }
+    if (
+      recipient
+        .incomingPeaceRequests()
+        .find((pr) => pr.requestor() === requestor) !== undefined
+    ) {
+      console.log(`duplicate peace request from ${requestor.name()}`);
+      return null;
+    }
+    // If both sides sent requests, auto-accept
+    const correspondingReq = requestor
+      .incomingPeaceRequests()
+      .find((pr) => pr.requestor() === recipient);
+    if (correspondingReq !== undefined) {
+      console.log(`got corresponding peace requests, accepting`);
+      correspondingReq.accept();
+      return null;
+    }
+    const pr = new PeaceRequestImpl(requestor, recipient, this._ticks, this);
+    this.peaceRequests.push(pr);
+    this.addUpdate(pr.toUpdate());
+    return pr;
+  }
+
+  acceptPeaceRequest(request: PeaceRequestImpl) {
+    this.peaceRequests = this.peaceRequests.filter((pr) => pr !== request);
+
+    const requestor = request.requestor();
+    const recipient = request.recipient();
+
+    (request.requestor() as PlayerImpl).pastOutgoingPeaceRequests.push(request);
+    (request.recipient() as PlayerImpl).pastIncomingPeaceRequests.push(request);
+
+    if (requestor.isAtWarWith(recipient)) {
+      requestor.setNeutralWith(recipient);
+    }
+    if (recipient.isAtWarWith(requestor)) {
+      recipient.setNeutralWith(requestor);
+    }
+
+    this.addUpdate({
+      type: GameUpdateType.PeaceRequestReply,
+      request: request.toUpdate(),
+      accepted: true,
+    });
+  }
+
+  rejectPeaceRequest(request: PeaceRequestImpl) {
+    this.peaceRequests = this.peaceRequests.filter((pr) => pr !== request);
+    (request.requestor() as PlayerImpl).pastOutgoingPeaceRequests.push(request);
+    (request.recipient() as PlayerImpl).pastIncomingPeaceRequests.push(request);
+    this.addUpdate({
+      type: GameUpdateType.PeaceRequestReply,
+      request: request.toUpdate(),
+      accepted: false,
+    });
+  }
+
   hasPlayer(id: PlayerID): boolean {
     return this._players.has(id);
   }
@@ -460,53 +528,21 @@ export class GameImpl implements Game {
       metrics = (globalThis as any).__PERF_METRICS__;
     }
 
-    // Process attack executions multiple times per tick for smoother territory changes
-    const attackExecs: Execution[] = [];
-    const otherExecs: Execution[] = [];
-
     this.execs.forEach((e) => {
       if (
         (!this.inSpawnPhase() || e.activeDuringSpawnPhase()) &&
         e.isActive()
       ) {
-        // Separate attack executions from others - use instanceof to survive minification
-        if (e instanceof AttackExecution) {
-          attackExecs.push(e);
+        if (metrics?.enabled) {
+          const start = performance.now();
+          e.tick(this._ticks);
+          metrics.recordExecutionTime(
+            e.constructor.name,
+            performance.now() - start,
+          );
         } else {
-          otherExecs.push(e);
+          e.tick(this._ticks);
         }
-      }
-    });
-
-    // Process attack executions multiple times per tick
-    for (let subtick = 0; subtick < ATTACK_SUBTICKS_PER_TICK; subtick++) {
-      attackExecs.forEach((e) => {
-        if (e.isActive()) {
-          if (metrics?.enabled) {
-            const start = performance.now();
-            e.tick(this._ticks);
-            metrics.recordExecutionTime(
-              e.executionName ?? e.constructor.name,
-              performance.now() - start,
-            );
-          } else {
-            e.tick(this._ticks);
-          }
-        }
-      });
-    }
-
-    // Process other executions once per tick
-    otherExecs.forEach((e) => {
-      if (metrics?.enabled) {
-        const start = performance.now();
-        e.tick(this._ticks);
-        metrics.recordExecutionTime(
-          e.executionName ?? e.constructor.name,
-          performance.now() - start,
-        );
-      } else {
-        e.tick(this._ticks);
       }
     });
     const inited: Execution[] = [];
@@ -574,6 +610,37 @@ export class GameImpl implements Game {
     }
 
     // Removed noisy debug logging of road network length
+
+    // Auto-reject pending alliance/peace requests after 150 ticks
+    const REQUEST_EXPIRY_TICKS = 150;
+    for (const ar of [...this.allianceRequests]) {
+      if (this._ticks - ar.createdAt() >= REQUEST_EXPIRY_TICKS) {
+        ar.reject();
+      }
+    }
+    for (const pr of [...this.peaceRequests]) {
+      if (this._ticks - pr.createdAt() >= REQUEST_EXPIRY_TICKS) {
+        pr.reject();
+      }
+    }
+
+    // Log aggregate income by source every 50 ticks (all players)
+    if (this._ticks % 50 === 0) {
+      let totalIndustrial = 0;
+      let totalCargo = 0;
+      let totalTrade = 0;
+      for (const p of this.players()) {
+        const cargo = p.cargoTruckGoldPerMinute();
+        const trade = p.tradeShipGoldPerMinute();
+        const estimated = p.estimatedGoldIncomePerMinute();
+        totalCargo += cargo;
+        totalTrade += trade;
+        totalIndustrial += estimated - cargo - trade;
+      }
+      console.log(
+        `[tick ${this._ticks}] All income/min — Industrial: ${totalIndustrial.toFixed(1)}, Cargo: ${totalCargo.toFixed(1)}, Trade: ${totalTrade.toFixed(1)}, Total: ${(totalIndustrial + totalCargo + totalTrade).toFixed(1)}`,
+      );
+    }
 
     this._ticks++;
     return this.updates;
@@ -692,6 +759,11 @@ export class GameImpl implements Game {
     return this.roadManager.getRoadNetworkQualityForPlayer(playerId);
   }
 
+  // Expose road maintenance rate as fraction of gross gold
+  public getRoadMaintenanceRateForPlayer(player: Player): number {
+    return this.roadManager.getRoadMaintenanceRateForPlayer(player);
+  }
+
   // Check if a structure is connected to the road network
   public isStructureConnectedToRoadNetwork(unit: Unit): boolean {
     return this.roadManager.isStructureConnectedToRoadNetwork(unit);
@@ -806,6 +878,7 @@ export class GameImpl implements Game {
       (currentOwner as PlayerImpl)._lastTileChange = this._ticks;
       (currentOwner as PlayerImpl)._tiles.delete(tile);
       (currentOwner as PlayerImpl)._borderTiles.delete(tile);
+      (currentOwner as PlayerImpl).invalidateNeighborCache();
     }
     this._map.setOwnerID(tile, newOwner.smallID());
     (newOwner as PlayerImpl)._tiles.add(tile);
@@ -815,7 +888,11 @@ export class GameImpl implements Game {
         1 / numTiles,
     );
     (newOwner as PlayerImpl)._lastTileChange = this._ticks;
-    this.updateBorders(tile);
+    if (this._dirtyBorderTiles !== null) {
+      this._dirtyBorderTiles.add(tile);
+    } else {
+      this.updateBorders(tile);
+    }
     this._map.setFallout(tile, false);
 
     this.addUpdate({
@@ -841,54 +918,97 @@ export class GameImpl implements Game {
     previousOwner._lastTileChange = this._ticks;
     previousOwner._tiles.delete(tile);
     previousOwner._borderTiles.delete(tile);
+    previousOwner.invalidateNeighborCache();
 
     this._map.setOwnerID(tile, 0);
-    this.updateBorders(tile);
+    if (this._dirtyBorderTiles !== null) {
+      this._dirtyBorderTiles.add(tile);
+    } else {
+      this.updateBorders(tile);
+    }
     this.addUpdate({
       type: GameUpdateType.Tile,
       update: this.toTileUpdate(tile),
     });
   }
 
-  private updateBorders(tile: TileRef) {
-    const updateBorderStatus = (t: TileRef) => {
-      if (!this.hasOwner(t)) {
-        return;
+  beginBorderBatch(): void {
+    this._dirtyBorderTiles = new Set();
+  }
+
+  endBorderBatch(): void {
+    const dirty = this._dirtyBorderTiles;
+    if (dirty === null) return;
+    this._dirtyBorderTiles = null;
+
+    // Collect all tiles to recheck: dirty tiles + their neighbors, deduped
+    const toCheck = new Set<TileRef>();
+    for (const tile of dirty) {
+      toCheck.add(tile);
+      for (const n of this.neighbors(tile)) {
+        toCheck.add(n);
       }
-      const owner = this.owner(t) as PlayerImpl;
-      if (this.calcIsBorder(t)) {
+    }
+
+    // Process all unique tiles, tracking players for one-shot cache invalidation
+    const playersToInvalidate = new Set<PlayerImpl>();
+    for (const t of toCheck) {
+      const oid = this._map.ownerID(t);
+      if (oid === 0) continue;
+      const owner = this._playersBySmallID[oid - 1] as PlayerImpl;
+      playersToInvalidate.add(owner);
+      if (this.calcIsBorder(t, oid)) {
         owner._borderTiles.add(t);
       } else {
         owner._borderTiles.delete(t);
       }
-    };
+    }
 
-    updateBorderStatus(tile);
-    this.forEachNeighbor(tile, updateBorderStatus);
+    // Invalidate caches once per affected player instead of per tile
+    for (const player of playersToInvalidate) {
+      player.invalidateNeighborCache();
+    }
   }
 
-  private calcIsBorder(tile: TileRef): boolean {
-    if (!this.hasOwner(tile)) {
-      return false;
+  private updateBorders(tile: TileRef) {
+    this.updateBorderForTile(tile);
+    for (const t of this.neighbors(tile)) {
+      this.updateBorderForTile(t);
     }
-    const ownerId = this.ownerID(tile);
+  }
+
+  private updateBorderForTile(t: TileRef): void {
+    const oid = this._map.ownerID(t);
+    if (oid === 0) return;
+    const owner = this._playersBySmallID[oid - 1] as PlayerImpl;
+    owner.invalidateNeighborCache();
+    if (this.calcIsBorder(t, oid)) {
+      owner._borderTiles.add(t);
+    } else {
+      owner._borderTiles.delete(t);
+    }
+  }
+
+  private calcIsBorder(tile: TileRef, tileOwnerID?: number): boolean {
+    const oid = tileOwnerID ?? this._map.ownerID(tile);
+    if (oid === 0) return false;
     const x = this.x(tile);
     const y = this.y(tile);
-    if (x > 0 && this.ownerID(this._map.ref(x - 1, y)) !== ownerId) {
+    if (x > 0 && this._map.ownerID(this._map.ref(x - 1, y)) !== oid) {
       return true;
     }
     if (
       x + 1 < this._width &&
-      this.ownerID(this._map.ref(x + 1, y)) !== ownerId
+      this._map.ownerID(this._map.ref(x + 1, y)) !== oid
     ) {
       return true;
     }
-    if (y > 0 && this.ownerID(this._map.ref(x, y - 1)) !== ownerId) {
+    if (y > 0 && this._map.ownerID(this._map.ref(x, y - 1)) !== oid) {
       return true;
     }
     if (
       y + 1 < this._height &&
-      this.ownerID(this._map.ref(x, y + 1)) !== ownerId
+      this._map.ownerID(this._map.ref(x, y + 1)) !== oid
     ) {
       return true;
     }
@@ -1027,11 +1147,11 @@ export class GameImpl implements Game {
           .map((p) => p.clientID()!),
       ];
     } else {
-      const clientId = winner.clientID();
-      if (clientId === null) return;
+      // Use clientID for humans, fall back to player id for AI/bot players
+      const winnerId = winner.clientID() ?? winner.id();
       return [
         "player",
-        clientId,
+        winnerId,
         // TODO: Assists (vote for peace)
       ];
     }

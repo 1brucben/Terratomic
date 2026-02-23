@@ -167,9 +167,9 @@ export const TECHS: Readonly<Record<string, TechDefinition>> = Object.freeze({
   [RESEARCH_TECH_IDS.LAND_ROADS_HOSPITALS]: {
     meta: {
       name: "Road Network",
-      shortDescription: "Roads, Trade Routes",
+      shortDescription: "Roads",
       description:
-        "Develop critical infrastructure to boost your economy and military mobility. Unlocks Roads (increases unit movement speed and generates passive trade income per connected tile) and Trade Routes (enables trade ships to establish international commerce routes, generating continuous gold income).",
+        "Develop critical infrastructure to boost your economy and military mobility. Unlocks Roads (increases unit movement speed and generates passive trade income per connected tile).",
     },
     effects: {
       onComplete: (player, game) => {
@@ -447,7 +447,7 @@ export function applyTechCompletionEffects(
 }
 
 /**
- * Compute casualty multipliers when a player is defending, based on researched techs and policy directives.
+ * Compute casualty multipliers when a player is defending, based on researched techs.
  * - attackerLossMul > 1 increases enemy losses
  * - defenderLossMul < 1 reduces own losses
  */
@@ -467,7 +467,7 @@ export function defenseCasualtyModifiers(defender: {
 }
 
 /**
- * Compute casualty multipliers when a player is attacking, based on researched techs and policy directives.
+ * Compute casualty multipliers when a player is attacking, based on researched techs.
  * Returned multipliers stack multiplicatively with defender-side modifiers.
  * - attackerLossMul < 1 reduces own losses
  * - defenderLossMul > 1 increases enemy losses
@@ -488,7 +488,7 @@ export function attackCasualtyModifiers(attacker: {
 }
 
 /**
- * Compute attack speed multiplier based on researched techs and policy directives.
+ * Compute attack speed multiplier based on researched techs.
  * speedMul > 1 increases tiles conquered per tick (faster attacks).
  */
 export function attackSpeedModifiers(attacker: {
@@ -506,7 +506,7 @@ export function attackSpeedModifiers(attacker: {
 }
 
 /**
- * Compute construction speed multiplier based on researched techs and policy directives.
+ * Compute construction speed multiplier based on researched techs.
  * speedMul > 1 means construction completes faster (fewer ticks).
  */
 export function constructionSpeedModifiers(player: {
@@ -543,7 +543,7 @@ export function researchEffectivenessModifiers(
 }
 
 /**
- * Compute income multiplier based on researched techs and policy directives.
+ * Compute income multiplier based on researched techs.
  * incomeMul > 1 means higher gross gold income.
  * domesticIncomeMul > 1 means higher domestic (non-trade) income.
  */
@@ -563,7 +563,7 @@ export function incomeModifiers(player: {
 }
 
 /**
- * Compute infrastructure spending effectiveness multiplier based on researched techs and policy directives.
+ * Compute infrastructure spending effectiveness multiplier based on researched techs.
  * effectivenessMul > 1 means more roads per gold spent.
  */
 export function infrastructureEffectivenessModifiers(player: {
@@ -581,7 +581,7 @@ export function infrastructureEffectivenessModifiers(player: {
 }
 
 /**
- * Compute trade income multiplier based on researched techs and policy directives.
+ * Compute trade income multiplier based on researched techs.
  * incomeMul > 1 means higher trade income.
  * tradeShipIncomeMul > 1 means higher income for trade ship owners.
  */
@@ -601,7 +601,7 @@ export function tradeIncomeModifiers(player: {
 }
 
 /**
- * Compute road effect multiplier based on researched techs and policy directives.
+ * Compute road effect multiplier based on researched techs.
  * effectMul > 1 means roads provide stronger bonuses.
  */
 export function roadEffectModifiers(player: {

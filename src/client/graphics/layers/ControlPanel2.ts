@@ -24,7 +24,6 @@ import {
   type InvestmentSyncDetail,
 } from "../../events/InvestmentEvents";
 import { PlayerListChangedEvent } from "../../events/PlayerListChangedEvent";
-import { ToggleBomberUpgradeModeEvent } from "../../events/ToggleBomberUpgradeModeEvent";
 import { ToggleUpgradeModeEvent } from "../../events/ToggleUpgradeModeEvent";
 import { AttackRatioEvent } from "../../InputHandler";
 import "../../StatisticsModal"; // ensure statistics modal is registered
@@ -797,11 +796,6 @@ export class ControlPanel2 extends LitElement implements Layer {
       this.uiState.upgradeMode = false;
       this.eventBus.emit(new ToggleUpgradeModeEvent(false));
     }
-    // Disable bomber upgrade mode if mass production is enabled
-    if (this._multibuildEnabled && this.uiState.bomberUpgradeMode) {
-      this.uiState.bomberUpgradeMode = false;
-      this.eventBus.emit(new ToggleBomberUpgradeModeEvent(false));
-    }
     this.requestUpdate();
   }
 
@@ -1225,12 +1219,6 @@ export class ControlPanel2 extends LitElement implements Layer {
                       if (enabled && this._multibuildEnabled) {
                         this._multibuildEnabled = false;
                         this.uiState.multibuildEnabled = false;
-                      }
-                      if (enabled && this.uiState.bomberUpgradeMode) {
-                        this.uiState.bomberUpgradeMode = false;
-                        this.eventBus.emit(
-                          new ToggleBomberUpgradeModeEvent(false),
-                        );
                       }
                       if (enabled) {
                         this.uiState.pendingBuildUnitType = null;
@@ -1743,14 +1731,13 @@ export class ControlPanel2 extends LitElement implements Layer {
     const myPorts = me.units(UnitType.Port).filter((u) => u.isActive());
     if (myPorts.length === 0) return html``;
 
-    // Count MY trade ships (not global)
-    const myTradeShips = me
-      .units(UnitType.TradeShip)
-      .filter((u) => u.isActive());
-    const myShipCount = myTradeShips.length;
+    const queueLen = me.tradeDemandQueueLength();
+
+    // Use player method for metrics calculation
+    const metrics = me.tradeDemandMetrics(queueLen);
 
     // If I have no trade ships, show "No Ships"
-    if (myShipCount === 0) {
+    if (metrics.shipCount === 0) {
       const icon = html`<svg
         xmlns="http://www.w3.org/2000/svg"
         width="16"
@@ -1785,30 +1772,13 @@ export class ControlPanel2 extends LitElement implements Layer {
       `;
     }
 
-    // Count ships available (idle at my ports)
-    const availableShips = myTradeShips.filter((s) => {
-      const isReturning = s.returning();
-      const phase = s.tradePhase();
-      const hasTarget = s.targetUnitId() !== undefined;
-      const dockOwner = s.dockedAtPortOwner();
-      // Available = at my port, not assigned, not in transit
-      return (
-        !isReturning &&
-        phase === null &&
-        !hasTarget &&
-        dockOwner?.smallID() === me.smallID()
-      );
-    }).length;
-
-    const queueLen = me.tradeDemandQueueLength();
-
     // Only update cache if values changed significantly (reduce re-render flicker)
     const now = Date.now();
     const cacheValid =
       this._tradeDemandCache !== null &&
-      this._tradeDemandCache.queueLen === queueLen &&
-      this._tradeDemandCache.availableShips === availableShips &&
-      this._tradeDemandCache.myShipCount === myShipCount &&
+      this._tradeDemandCache.queueLen === metrics.queueLen &&
+      this._tradeDemandCache.availableShips === metrics.availableShips &&
+      this._tradeDemandCache.myShipCount === metrics.shipCount &&
       now - this._tradeDemandCache.timestamp < 2000; // 2 second cache
 
     if (cacheValid) {
@@ -1847,37 +1817,33 @@ export class ControlPanel2 extends LitElement implements Layer {
       `;
     }
 
-    // Compare queue vs MY ships (not global)
-    const queueRatio = queueLen / Math.max(1, myShipCount);
-    const availableRatio = availableShips / Math.max(1, myShipCount);
-
     let demandLabel = "Medium";
     let demandColor = "var(--ui-text-default)";
 
-    // High demand = lots of routes waiting, need more ships
-    if (queueRatio > 2) {
-      demandLabel = "Very High";
-      demandColor = "var(--ui-alert)";
-    } else if (queueRatio > 1) {
-      demandLabel = "High";
-      demandColor = "var(--ui-warning)";
-    } else if (availableRatio > 0.5) {
-      // Low demand = most ships idle, surplus capacity
-      demandLabel = "Low";
-      demandColor = "var(--ui-success)";
-    } else if (queueLen === 0 && availableShips > 0) {
+    // Check available ships first (low demand = surplus capacity)
+    if (metrics.availableRatio > 0.6) {
       demandLabel = "Very Low";
       demandColor = "var(--ui-info)";
+    } else if (metrics.availableRatio > 0.3) {
+      demandLabel = "Low";
+      demandColor = "var(--ui-success)";
+    } else if (metrics.queueRatio > 2) {
+      // High demand = lots of routes waiting, need more ships
+      demandLabel = "Very High";
+      demandColor = "var(--ui-alert)";
+    } else if (metrics.queueRatio > 1) {
+      demandLabel = "High";
+      demandColor = "var(--ui-warning)";
     }
 
     // Update cache
-    const tooltipText = `Trade Demand: ${queueLen} routes waiting, ${availableShips}/${myShipCount} ships available`;
+    const tooltipText = `Trade Demand: ${metrics.queueLen} routes waiting, ${metrics.availableShips}/${metrics.shipCount} ships available`;
     this._tradeDemandCache = {
       label: demandLabel,
       color: demandColor,
-      queueLen,
-      availableShips,
-      myShipCount,
+      queueLen: metrics.queueLen,
+      availableShips: metrics.availableShips,
+      myShipCount: metrics.shipCount,
       tooltip: tooltipText,
       timestamp: now,
     };

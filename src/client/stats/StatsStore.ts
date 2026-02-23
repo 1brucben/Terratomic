@@ -86,6 +86,8 @@ class StatsStore {
           s.aliveUntil ??= now;
           continue;
         }
+        // Clear stale death marker — player is alive (e.g. late spawn)
+        s.aliveUntil = undefined;
         const v = config.sampler(metric, p);
 
         if (s.samples.length > 0 && s.samples[s.samples.length - 1].t === now) {

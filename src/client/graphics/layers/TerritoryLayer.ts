@@ -1,17 +1,14 @@
+import { PriorityQueue } from "@datastructures-js/priority-queue";
 import type { Colord } from "colord";
 import type { Theme } from "../../../core/configuration/Config";
 import type { EventBus } from "../../../core/EventBus";
-import { Cell, PlayerType, UnitType } from "../../../core/game/Game";
+import { PlayerType, UnitType } from "../../../core/game/Game";
 import type { TileRef } from "../../../core/game/GameMap";
 import { GameUpdateType } from "../../../core/game/GameUpdates";
 import type { GameView } from "../../../core/game/GameView";
 import { PlayerView } from "../../../core/game/GameView";
 import { PseudoRandom } from "../../../core/PseudoRandom";
-import {
-  AlternateViewEvent,
-  DragEvent,
-  MouseOverEvent,
-} from "../../InputHandler";
+import { AlternateViewEvent, MouseOverEvent } from "../../InputHandler";
 import type { TransformHandler } from "../TransformHandler";
 import type { Layer } from "./Layer";
 
@@ -26,15 +23,18 @@ export class TerritoryLayer implements Layer {
   private highlightCanvas: HTMLCanvasElement;
   private highlightContext: CanvasRenderingContext2D;
 
-  private tileToRenderQueue: Set<TileRef> = new Set();
+  private tileToRenderQueue: PriorityQueue<{
+    tile: TileRef;
+    lastUpdate: number;
+  }> = new PriorityQueue((a, b) => {
+    return a.lastUpdate - b.lastUpdate;
+  });
   private random = new PseudoRandom(123);
   private theme: Theme;
 
   private highlightedTerritory: PlayerView | null = null;
 
   private alternativeView = false;
-  private lastDragTime = 0;
-  private nodrawDragDuration = 200;
   private lastMousePosition: { x: number; y: number } | null = null;
 
   private refreshRate = 10; //refresh every 10ms
@@ -61,6 +61,7 @@ export class TerritoryLayer implements Layer {
   private isDirty = false;
   private dirtyRect: { x0: number; y0: number; x1: number; y1: number } | null =
     null;
+  private needsFullRepaint = false;
 
   // Cached map dimensions to avoid repeated method calls in hot render path
   private _width: number;
@@ -269,10 +270,7 @@ export class TerritoryLayer implements Layer {
     this.eventBus.on(MouseOverEvent, (e) => this.onMouseOver(e));
     this.eventBus.on(AlternateViewEvent, (e) => {
       this.alternativeView = e.alternateView;
-    });
-    this.eventBus.on(DragEvent, (e) => {
-      // TODO: consider re-enabling this on mobile or low end devices for smoother dragging.
-      // this.lastDragTime = Date.now();
+      this.needsFullRepaint = true;
     });
     this.redraw();
   }
@@ -349,7 +347,6 @@ export class TerritoryLayer implements Layer {
       this.canvas.width,
       this.canvas.height,
     );
-    this.initImageData();
 
     this.context.putImageData(
       this.alternativeView ? this.alternativeImageData : this.imageData,
@@ -391,27 +388,23 @@ export class TerritoryLayer implements Layer {
     });
   }
 
-  initImageData() {
-    this.game.forEachTile((tile) => {
-      const cell = new Cell(this.game.x(tile), this.game.y(tile));
-      const index = cell.y * this._width + cell.x;
-      const offset = index * 4;
-      this.imageData.data[offset + 3] = 0;
-      this.alternativeImageData.data[offset + 3] = 0;
-    });
-  }
-
   renderLayer(context: CanvasRenderingContext2D) {
     const now = Date.now();
-    if (
-      now > this.lastDragTime + this.nodrawDragDuration &&
-      now > this.lastRefresh + this.refreshRate
-    ) {
+    if (now > this.lastRefresh + this.refreshRate) {
       this.lastRefresh = now;
       this.renderTerritory();
 
-      // Only call putImageData if something actually changed
-      if (this.isDirty && this.dirtyRect) {
+      // Full repaint when switching between normal and diplomacy view
+      if (this.needsFullRepaint) {
+        this.context.putImageData(
+          this.alternativeView ? this.alternativeImageData : this.imageData,
+          0,
+          0,
+        );
+        this.needsFullRepaint = false;
+        this.isDirty = false;
+        this.dirtyRect = null;
+      } else if (this.isDirty && this.dirtyRect) {
         // Apply the dirty rect directly without viewport clipping
         // The canvas needs to stay in sync with ImageData even for off-screen areas
         // so that when the user zooms out, those areas are already rendered
@@ -458,30 +451,36 @@ export class TerritoryLayer implements Layer {
   }
 
   renderTerritory() {
-    if (this.tileToRenderQueue.size === 0) return;
+    let numToRender = Math.floor(this.tileToRenderQueue.size() / 10);
+    if (numToRender === 0 || this.game.inSpawnPhase()) {
+      numToRender = this.tileToRenderQueue.size();
+    }
 
-    // Collect tiles to paint: queued tiles + their neighbors (for border updates)
-    // Use a Set to deduplicate since many neighbors overlap
-    const tilesToPaint = new Set<TileRef>(this.tileToRenderQueue);
-    for (const tile of this.tileToRenderQueue) {
-      // Invalidate border/defended cache for the tile and neighbors
+    while (numToRender > 0) {
+      numToRender--;
+
+      const entry = this.tileToRenderQueue.pop();
+      if (!entry) {
+        break;
+      }
+
+      const tile = entry.tile;
+
+      // Invalidate border/defended cache for the tile
       if (this.borderCache) {
         this.borderCache[tile] = 0;
       }
       if (this.defendedCache) {
         this.defendedCache[tile] = 0;
       }
+
+      this.paintTerritory(tile);
       for (const neighbor of this.game.neighbors(tile)) {
-        tilesToPaint.add(neighbor);
         if (this.borderCache) {
           this.borderCache[neighbor] = 0;
         }
+        this.paintTerritory(neighbor, true);
       }
-    }
-    this.tileToRenderQueue.clear();
-
-    for (const tile of tilesToPaint) {
-      this.paintTerritory(tile);
     }
   }
 
@@ -524,21 +523,7 @@ export class TerritoryLayer implements Layer {
     if (isBorderTile) {
       const playerIsFocused = owner && this.game.focusedPlayer() === owner;
       if (myPlayer) {
-        // Diplomacy alternate view colors:
-        // - Red (enemyColor) for bots and players at war
-        // - Green (selfColor) for self and allies
-        // - Yellow (allyColor) for neutral/peace
-        let alternativeColor = this.theme.allyColor(); // default: neutral/peace (yellow)
-        if (owner.type() === PlayerType.Bot) {
-          alternativeColor = this.theme.enemyColor(); // bots always red
-        } else if (
-          owner.smallID() === myPlayer.smallID() ||
-          owner.isFriendly(myPlayer)
-        ) {
-          alternativeColor = this.theme.selfColor(); // self and allies (green)
-        } else if (myPlayer.isAtWarWith(owner)) {
-          alternativeColor = this.theme.enemyColor(); // at war (red)
-        }
+        const alternativeColor = this.getDiplomacyColor(owner, myPlayer);
         this.paintTile(this.alternativeImageData, tile, alternativeColor, 255);
       }
 
@@ -584,21 +569,7 @@ export class TerritoryLayer implements Layer {
       }
     } else {
       if (myPlayer) {
-        // Diplomacy alternate view colors:
-        // - Red (enemyColor) for bots and players at war
-        // - Green (selfColor) for self and allies
-        // - Yellow (allyColor) for neutral/peace
-        let alternativeColor = this.theme.allyColor(); // default: neutral/peace (yellow)
-        if (owner.type() === PlayerType.Bot) {
-          alternativeColor = this.theme.enemyColor(); // bots always red
-        } else if (
-          owner.smallID() === myPlayer.smallID() ||
-          owner.isFriendly(myPlayer)
-        ) {
-          alternativeColor = this.theme.selfColor(); // self and allies (green)
-        } else if (myPlayer.isAtWarWith(owner)) {
-          alternativeColor = this.theme.enemyColor(); // at war (red)
-        }
+        const alternativeColor = this.getDiplomacyColor(owner, myPlayer);
         this.paintTile(
           this.alternativeImageData,
           tile,
@@ -622,27 +593,17 @@ export class TerritoryLayer implements Layer {
     imageData.data[offset + 1] = color.rgba.g;
     imageData.data[offset + 2] = color.rgba.b;
     imageData.data[offset + 3] = alpha;
-
-    // Track dirty region
-    this.isDirty = true;
-    const x = tile % this._width;
-    const y = Math.floor(tile / this._width);
-    if (!this.dirtyRect) {
-      this.dirtyRect = { x0: x, y0: y, x1: x, y1: y };
-    } else {
-      if (x < this.dirtyRect.x0) this.dirtyRect.x0 = x;
-      if (y < this.dirtyRect.y0) this.dirtyRect.y0 = y;
-      if (x > this.dirtyRect.x1) this.dirtyRect.x1 = x;
-      if (y > this.dirtyRect.y1) this.dirtyRect.y1 = y;
-    }
+    this.markDirty(tile);
   }
 
   clearTile(tile: TileRef) {
     const offset = tile * 4;
-    this.imageData.data[offset + 3] = 0; // Set alpha to 0 (fully transparent)
-    this.alternativeImageData.data[offset + 3] = 0; // Set alpha to 0 (fully transparent)
+    this.imageData.data[offset + 3] = 0;
+    this.alternativeImageData.data[offset + 3] = 0;
+    this.markDirty(tile);
+  }
 
-    // Track dirty region
+  private markDirty(tile: TileRef) {
     this.isDirty = true;
     const x = tile % this._width;
     const y = Math.floor(tile / this._width);
@@ -657,7 +618,10 @@ export class TerritoryLayer implements Layer {
   }
 
   enqueueTile(tile: TileRef) {
-    this.tileToRenderQueue.add(tile);
+    this.tileToRenderQueue.push({
+      tile: tile,
+      lastUpdate: this.game.ticks() + this.random.nextFloat(0, 0.5),
+    });
   }
 
   paintHighlightTile(tile: TileRef, color: Colord, alpha: number) {
@@ -668,10 +632,18 @@ export class TerritoryLayer implements Layer {
     this.highlightContext.fillRect(x, y, 1, 1);
   }
 
-  clearHighlightTile(tile: TileRef) {
-    const x = this.game.x(tile);
-    const y = this.game.y(tile);
-    this.highlightContext.clearRect(x, y, 1, 1);
+  /** Diplomacy alternate view color for a tile owner relative to myPlayer. */
+  private getDiplomacyColor(owner: PlayerView, myPlayer: PlayerView): Colord {
+    if (owner.type() === PlayerType.Bot) {
+      return this.theme.enemyColor();
+    }
+    if (owner.smallID() === myPlayer.smallID() || owner.isFriendly(myPlayer)) {
+      return this.theme.selfColor();
+    }
+    if (myPlayer.isAtWarWith(owner)) {
+      return this.theme.enemyColor();
+    }
+    return this.theme.allyColor();
   }
 
   private getOffsets(

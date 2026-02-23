@@ -2,12 +2,12 @@ import { Execution, Game, Player, PlayerID } from "../game/Game";
 
 export class PeaceRequestExecution implements Execution {
   executionName = "PeaceRequestExecution";
-  private mg: Game;
   private active = true;
+  private recipient: Player | null = null;
 
   constructor(
-    private sender: Player,
-    private recipientId: PlayerID,
+    private requestor: Player,
+    private recipientID: PlayerID,
   ) {}
 
   isActive(): boolean {
@@ -17,28 +17,28 @@ export class PeaceRequestExecution implements Execution {
     return false;
   }
 
-  init(mg: Game): void {
-    this.mg = mg;
-    const recipient = this.mg
-      .players()
-      .find((p) => p.id() === this.recipientId);
-    if (!recipient) {
+  init(mg: Game, ticks: number): void {
+    if (!mg.hasPlayer(this.recipientID)) {
+      console.warn(
+        `PeaceRequestExecution recipient ${this.recipientID} not found`,
+      );
       this.active = false;
       return;
     }
-    if (recipient === this.sender) {
-      this.active = false;
-      return;
-    }
-    // If they are at war, set both to neutral now (immediate accept). Otherwise no-op.
-    if (this.sender.isAtWarWith(recipient)) {
-      this.sender.setNeutralWith(recipient);
-      recipient.setNeutralWith(this.sender);
-    }
-    this.active = false;
+    this.recipient = mg.player(this.recipientID);
   }
 
-  tick(): void {
-    // no-op
+  tick(ticks: number): void {
+    if (this.recipient === null) {
+      throw new Error("Not initialized");
+    }
+    if (!this.requestor.isAtWarWith(this.recipient)) {
+      console.warn("not at war");
+    } else if (!this.requestor.canSendPeaceRequest(this.recipient)) {
+      console.warn("recent or pending peace request");
+    } else {
+      this.requestor.createPeaceRequest(this.recipient);
+    }
+    this.active = false;
   }
 }

@@ -37,6 +37,7 @@ export type Intent =
   | AllianceExtensionIntent
   | BreakAllianceIntent
   | PeaceRequestIntent
+  | PeaceRequestReplyIntent
   | DeclareWarIntent
   | TargetPlayerIntent
   | EmojiIntent
@@ -61,8 +62,8 @@ export type Intent =
   | SetAutoBombingIntent
   | KickPlayerIntent
   | UpgradeStructureIntent
-  | UpgradeBomberIntent
-  | UpdateGameConfigIntent;
+  | UpdateGameConfigIntent
+  | UpgradeStructureIntent;
 
 export type AttackIntent = z.infer<typeof AttackIntentSchema>;
 export type CancelAttackIntent = z.infer<typeof CancelAttackIntentSchema>;
@@ -75,6 +76,9 @@ export type AllianceRequestReplyIntent = z.infer<
 >;
 export type BreakAllianceIntent = z.infer<typeof BreakAllianceIntentSchema>;
 export type PeaceRequestIntent = z.infer<typeof PeaceRequestIntentSchema>;
+export type PeaceRequestReplyIntent = z.infer<
+  typeof PeaceRequestReplyIntentSchema
+>;
 export type DeclareWarIntent = z.infer<typeof DeclareWarIntentSchema>;
 export type TargetPlayerIntent = z.infer<typeof TargetPlayerIntentSchema>;
 export type EmojiIntent = z.infer<typeof EmojiIntentSchema>;
@@ -118,8 +122,6 @@ export type UpdateGameConfigIntent = z.infer<
 export type UpgradeStructureIntent = z.infer<
   typeof UpgradeStructureIntentSchema
 >;
-export type UpgradeBomberIntent = z.infer<typeof UpgradeBomberIntentSchema>;
-
 export type Turn = z.infer<typeof TurnSchema>;
 export enum PeaceTimerDuration {
   None = 0,
@@ -369,6 +371,12 @@ export const PeaceRequestIntentSchema = BaseIntentSchema.extend({
   recipient: ID,
 });
 
+export const PeaceRequestReplyIntentSchema = BaseIntentSchema.extend({
+  type: z.literal("peaceRequestReply"),
+  requestor: ID, // The one who made the original peace request
+  accept: z.boolean(),
+});
+
 export const DeclareWarIntentSchema = BaseIntentSchema.extend({
   type: z.literal("declareWar"),
   recipient: ID,
@@ -431,21 +439,13 @@ export const BuildUnitIntentSchema = BaseIntentSchema.extend({
   tile: z.number(),
   // Optional desired starting level for upgradeable structures.
   // Server will clamp based on type and game rules.
-  targetLevel: z.number().int().min(1).max(25).optional(),
-  // Optional desired bomber upgrade level for airfields.
-  // Server will clamp based on maxUnitLevel(UnitType.Bomber).
-  bomberLevel: z.number().int().min(1).max(99).optional(),
+  targetLevel: z.number().int().min(1).max(99).optional(),
 });
 
 export const UpgradeStructureIntentSchema = BaseIntentSchema.extend({
   type: z.literal("upgrade_structure"),
   unitId: z.number(),
   unitType: z.enum(UnitType),
-});
-
-export const UpgradeBomberIntentSchema = BaseIntentSchema.extend({
-  type: z.literal("upgrade_bomber"),
-  airfieldId: z.number(),
 });
 
 export const ResearchTreeSelectIntentSchema = BaseIntentSchema.extend({
@@ -544,6 +544,7 @@ const IntentSchema = z.discriminatedUnion("type", [
   AllianceExtensionIntentSchema,
   BreakAllianceIntentSchema,
   PeaceRequestIntentSchema,
+  PeaceRequestReplyIntentSchema,
   DeclareWarIntentSchema,
   TargetPlayerIntentSchema,
   EmojiIntentSchema,
@@ -555,7 +556,6 @@ const IntentSchema = z.discriminatedUnion("type", [
   ResearchInvestmentIntentSchema,
   BuildUnitIntentSchema,
   UpgradeStructureIntentSchema,
-  UpgradeBomberIntentSchema,
   ResearchTreeSelectIntentSchema,
   EmbargoIntentSchema,
   MoveWarshipIntentSchema,

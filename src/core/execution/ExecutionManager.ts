@@ -1,3 +1,6 @@
+import { getAIProfile } from "../ai";
+import { AIBehaviorParams } from "../ai/AIBehaviorParams";
+import { AIPlayerExecution } from "../ai/AIPlayerExecution";
 import { Execution, Game, UnitType } from "../game/Game";
 import { getArtilleryMaxDistance } from "../game/UnitUpgrades";
 import { isUpgradeableStructure } from "../game/Upgradeables";
@@ -18,7 +21,6 @@ import { DonateGoldExecution } from "./DonateGoldExecution";
 import { DonateTroopsExecution } from "./DonateTroopExecution";
 import { EmbargoExecution } from "./EmbargoExecution";
 import { EmojiExecution } from "./EmojiExecution";
-import { FakeHumanExecution } from "./FakeHumanExecution";
 import { MarkDisconnectedExecution } from "./MarkDisconnectedExecution";
 import { MoveArtilleryExecution } from "./MoveArtilleryExecution";
 import { MoveFighterJetExecution } from "./MoveFighterJetExecution";
@@ -28,6 +30,7 @@ import { NoOpExecution } from "./NoOpExecution";
 import { ParatrooperAttackExecution } from "./ParatrooperAttackExecution";
 import { ParatrooperRetreatExecution } from "./ParatrooperRetreatExecution";
 import { PeaceRequestExecution } from "./PeaceRequestExecution";
+import { PeaceRequestReplyExecution } from "./PeaceRequestReplyExecution";
 import { QuickChatExecution } from "./QuickChatExecution";
 import { ResearchTreeSelectExecution } from "./ResearchTreeSelectExecution";
 import { RetreatExecution } from "./RetreatExecution";
@@ -39,7 +42,6 @@ import { SetTargetTroopRatioExecution } from "./SetTargetTroopRatioExecution";
 import { SpawnExecution } from "./SpawnExecution";
 import { TargetPlayerExecution } from "./TargetPlayerExecution";
 import { TransportShipExecution } from "./TransportShipExecution";
-import { UpgradeBomberExecution } from "./UpgradeBomberExecution";
 import { UpgradeStructureExecution } from "./UpgradeStructureExecution";
 
 export class Executor {
@@ -122,6 +124,12 @@ export class Executor {
         return new BreakAllianceExecution(player, intent.recipient);
       case "peaceRequest":
         return new PeaceRequestExecution(player, intent.recipient);
+      case "peaceRequestReply":
+        return new PeaceRequestReplyExecution(
+          intent.requestor,
+          player,
+          intent.accept,
+        );
       case "declareWar":
         return new DeclareWarExecution(player, intent.recipient);
       case "targetPlayer":
@@ -178,7 +186,6 @@ export class Executor {
           intent.unit,
           intent.tile,
           intent.targetLevel,
-          intent.bomberLevel,
         );
       }
       case "upgrade_structure": {
@@ -223,13 +230,6 @@ export class Executor {
         return new MarkDisconnectedExecution(player, intent.isDisconnected);
       case "set_auto_bombing":
         return new SetAutoBombingExecution(player, intent.enabled);
-      case "upgrade_bomber": {
-        const airfield = player
-          .units(UnitType.Airfield)
-          .find((u) => u.id() === intent.airfieldId);
-        if (!airfield) return new NoOpExecution();
-        return new UpgradeBomberExecution(player, airfield);
-      }
       default:
         throw new Error(`intent type ${intent} not found`);
     }
@@ -239,10 +239,13 @@ export class Executor {
     return new BotSpawner(this.mg, this.gameID).spawnBots(numBots);
   }
 
-  fakeHumanExecutions(): Execution[] {
+  aiPlayerExecutions(profileMap?: Map<string, AIBehaviorParams>): Execution[] {
+    const defaultProfile = getAIProfile("default");
     const execs: Execution[] = [];
     for (const nation of this.mg.nations()) {
-      execs.push(new FakeHumanExecution(this.gameID, nation));
+      const params =
+        profileMap?.get(nation.playerInfo.id) ?? defaultProfile?.params ?? {};
+      execs.push(new AIPlayerExecution(this.gameID, nation, params));
     }
     return execs;
   }

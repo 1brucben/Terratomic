@@ -30,6 +30,7 @@
     "@datastructures-js/priority-queue": "^6.3.3",
     "@eslint/compat": "^1.2.7",
     "@eslint/js": "^9.21.0",
+    "@swc/core": "^1.15.11",
     "@swc/jest": "^0.2.39",
     "@types/benchmark": "^2.1.5",
     "@types/chai": "^4.3.17",
@@ -136,6 +137,5 @@
     "ws": "^8.18.0",
     "zod": "^4.0.5"
   },
-  "optionalDependencies": {},
   "type": "module"
 }

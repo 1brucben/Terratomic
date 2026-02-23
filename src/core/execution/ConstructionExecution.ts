@@ -1,7 +1,4 @@
-import {
-  aggregateStructureBuildCost,
-  computeBomberUpgradeCost,
-} from "../game/Costs";
+import { aggregateStructureBuildCost } from "../game/Costs";
 import {
   Execution,
   Game,
@@ -52,7 +49,6 @@ export class ConstructionExecution implements Execution {
     private constructionType: UnitType,
     private tile: TileRef,
     private stackCount?: number, // User-selected stack count (renamed from targetLevel)
-    private bomberLevel?: number, // Bomber upgrade level for airfields
   ) {}
 
   init(mg: Game, ticks: number): void {
@@ -106,11 +102,7 @@ export class ConstructionExecution implements Execution {
           return;
         }
         this.player.removeGold(total);
-        // Refund base before constructing final unit (buildUnit deducts base)
-        if (this.baseCost > 0n) {
-          this.player.addGold(this.baseCost);
-        }
-        // Immediately complete construction logic
+        // Gold is fully reserved upfront; buildUnit no longer deducts.
         this.completeConstruction();
         this.active = false;
         return;
@@ -163,11 +155,7 @@ export class ConstructionExecution implements Execution {
     if (this.ticksUntilComplete === 0) {
       this.player = this.construction.owner();
       this.construction.delete(false);
-      // Refund only base cost; PlayerImpl.buildUnit will deduct base again.
-      // Net effect over the flow is total aggregated cost.
-      if (this.baseCost > 0n) {
-        this.player.addGold(this.baseCost);
-      }
+      // Gold was fully reserved upfront; buildUnit no longer deducts.
       this.completeConstruction();
       this.active = false;
       return;
@@ -253,7 +241,7 @@ export class ConstructionExecution implements Execution {
         break;
       case UnitType.SAMLauncher:
         if (
-          player.type() === PlayerType.FakeHuman &&
+          player.type() === PlayerType.AI &&
           player.unitsOwned(UnitType.SAMLauncher) === 0
         ) {
           player.addUpgrade(UpgradeType.CityAntiAir);
@@ -292,14 +280,8 @@ export class ConstructionExecution implements Execution {
         }
         break;
       case UnitType.Airfield:
-        // Airfield uses bomber level for capability AND stack count for multiple bombers
         this.mg.addExecution(
-          new AirfieldExecution(
-            player,
-            this.tile,
-            this.bomberLevel ?? this.desiredTechLevel,
-            this.desiredStackCount,
-          ),
+          new AirfieldExecution(player, this.tile, this.desiredStackCount),
         );
         break;
       default:
@@ -372,20 +354,6 @@ export class ConstructionExecution implements Execution {
       this.desiredStackCount,
       this.mg.config().structureUpgradeCostMultiplier(this.constructionType),
     );
-
-    // Add bomber upgrade cost for airfields
-    if (this.constructionType === UnitType.Airfield) {
-      const bomberLvl = this.bomberLevel ?? this.desiredTechLevel;
-      return (
-        stackCost +
-        computeBomberUpgradeCost(
-          this.mg,
-          this.player,
-          bomberLvl,
-          this.desiredStackCount,
-        )
-      );
-    }
 
     return stackCost;
   }

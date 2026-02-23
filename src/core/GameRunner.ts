@@ -1,8 +1,18 @@
 import { placeName } from "../client/graphics/NameBoxCalculator";
+import { AIAttackHandler, AttackDebugData } from "./ai/AIAttackHandler";
+import { AIBehaviorParams } from "./ai/AIBehaviorParams";
+import { AIDiplomacyHandler, WarScoreDebugData } from "./ai/AIDiplomacyHandler";
+import { AIPlayerExecution } from "./ai/AIPlayerExecution";
+import { ConstructionDebugData } from "./ai/ConstructionDebugData";
 import { getConfig } from "./configuration/ConfigLoader";
 import { AllianceExpireCheckExecution } from "./execution/alliance/AllianceExpireCheckExecution";
 import { CapitalRecalculationExecution } from "./execution/CapitalRecalculationExecution";
 import { Executor } from "./execution/ExecutionManager";
+import {
+  TradeDebugPayload,
+  TradePlayerDebug,
+  TradeShipDebug,
+} from "./execution/TradeDebugData";
 import { TradeManagerExecution } from "./execution/TradeManagerExecution";
 import { WinCheckExecution } from "./execution/WinCheckExecution";
 import { AllianceImpl } from "./game/AllianceImpl";
@@ -38,10 +48,17 @@ import { getTechNodes } from "./tech/ResearchTree";
 import { sanitize, simpleHash } from "./Util";
 import { censorNameWithClanTag } from "./validations/username";
 
+export interface CalibrationData {
+  numPlayers: number;
+  profileA: { id: string; name: string; params: AIBehaviorParams };
+  profileB: { id: string; name: string; params: AIBehaviorParams };
+}
+
 export async function createGameRunner(
   gameStart: GameStartInfo,
   clientID: ClientID,
   callBack: (gu: GameUpdateViewData | ErrorUpdate) => void,
+  calibration?: CalibrationData,
 ): Promise<GameRunner> {
   const config = await getConfig(gameStart.config, null);
   const gameMap = await loadGameMap(gameStart.config.gameMap);
@@ -59,22 +76,62 @@ export async function createGameRunner(
     );
   });
 
-  const nations = gameStart.config.disableNPCs
-    ? []
-    : gameMap.nationMap.nations.map(
-        (n) =>
-          new Nation(
-            new Cell(n.coordinates[0], n.coordinates[1]),
-            n.strength,
-            new PlayerInfo(
-              n.flag || "",
-              n.name,
-              PlayerType.FakeHuman,
-              null,
-              random.nextID(),
-            ),
-          ),
+  let nations: Nation[];
+  let aiProfileMap: Map<string, AIBehaviorParams> | undefined;
+
+  if (calibration) {
+    // Calibration mode: generate uniformly distributed AI players
+    const spawnPoints = generateCalibrationSpawnPoints(
+      gameMap.gameMap,
+      calibration.numPlayers,
+      random,
+    );
+
+    nations = [];
+    aiProfileMap = new Map<string, AIBehaviorParams>();
+    const half = Math.floor(calibration.numPlayers / 2);
+
+    for (let i = 0; i < calibration.numPlayers; i++) {
+      const isProfileA = i < half;
+      const profile = isProfileA ? calibration.profileA : calibration.profileB;
+      const playerName = `${profile.name} #${isProfileA ? i + 1 : i - half + 1}`;
+      const playerID = random.nextID();
+
+      const playerInfo = new PlayerInfo(
+        "",
+        playerName,
+        PlayerType.AI,
+        null,
+        playerID,
       );
+
+      const ref = spawnPoints[i];
+      const nation = new Nation(
+        new Cell(gameMap.gameMap.x(ref), gameMap.gameMap.y(ref)),
+        1,
+        playerInfo,
+      );
+      nations.push(nation);
+      aiProfileMap.set(playerID, profile.params);
+    }
+  } else {
+    nations = gameStart.config.disableNPCs
+      ? []
+      : gameMap.nationMap.nations.map(
+          (n) =>
+            new Nation(
+              new Cell(n.coordinates[0], n.coordinates[1]),
+              n.strength,
+              new PlayerInfo(
+                n.flag || "",
+                n.name,
+                PlayerType.AI,
+                null,
+                random.nextID(),
+              ),
+            ),
+        );
+  }
 
   const game: Game = createGame(
     humans,
@@ -89,9 +146,88 @@ export async function createGameRunner(
     new Executor(game, gameStart.gameID, clientID),
     callBack,
     clientID,
+    aiProfileMap,
   );
   gr.init();
   return gr;
+}
+
+/**
+ * Generate N uniformly distributed spawn points on land tiles using
+ * farthest-point sampling for calibration matches.
+ */
+function generateCalibrationSpawnPoints(
+  gameMap: {
+    width(): number;
+    height(): number;
+    isLand(ref: number): boolean;
+    ref(x: number, y: number): number;
+    manhattanDist(a: number, b: number): number;
+  },
+  numPlayers: number,
+  random: PseudoRandom,
+): number[] {
+  const width = gameMap.width();
+  const height = gameMap.height();
+
+  // Collect all land tiles
+  const landTiles: number[] = [];
+  for (let y = 0; y < height; y++) {
+    for (let x = 0; x < width; x++) {
+      const ref = gameMap.ref(x, y);
+      if (gameMap.isLand(ref)) {
+        landTiles.push(ref);
+      }
+    }
+  }
+
+  if (landTiles.length < numPlayers) {
+    throw new Error(
+      `Not enough land tiles (${landTiles.length}) for ${numPlayers} players`,
+    );
+  }
+
+  // Use greedy farthest-point sampling for uniform distribution
+  const selected: number[] = [];
+  const minDistances = new Float32Array(landTiles.length).fill(Infinity);
+
+  const firstIndex = random.nextInt(0, landTiles.length);
+  selected.push(landTiles[firstIndex]);
+
+  for (let i = 0; i < landTiles.length; i++) {
+    const dist = gameMap.manhattanDist(landTiles[i], landTiles[firstIndex]);
+    if (dist < minDistances[i]) {
+      minDistances[i] = dist;
+    }
+  }
+
+  while (selected.length < numPlayers) {
+    let bestIndex = -1;
+    let bestDist = -1;
+
+    for (let i = 0; i < landTiles.length; i++) {
+      if (minDistances[i] > bestDist) {
+        bestDist = minDistances[i];
+        bestIndex = i;
+      }
+    }
+
+    if (bestIndex === -1) break;
+
+    selected.push(landTiles[bestIndex]);
+    minDistances[bestIndex] = 0;
+
+    for (let i = 0; i < landTiles.length; i++) {
+      if (minDistances[i] > 0) {
+        const dist = gameMap.manhattanDist(landTiles[i], landTiles[bestIndex]);
+        if (dist < minDistances[i]) {
+          minDistances[i] = dist;
+        }
+      }
+    }
+  }
+
+  return selected;
 }
 
 function toAllianceViewData(
@@ -122,13 +258,19 @@ export class GameRunner {
   private lastKnownPosBySub: Map<number, TileRef> = new Map();
   private ghostActiveUntilBySub: Map<number, number> = new Map();
 
+  // Optional profile map: maps playerInfo.id → AIBehaviorParams for calibration
+  private aiProfileMap?: Map<string, AIBehaviorParams>;
+  private tradeManager?: TradeManagerExecution;
+
   constructor(
     public game: Game,
     private execManager: Executor,
     private callBack: (gu: GameUpdateViewData | ErrorUpdate) => void,
     clientID: ClientID,
+    aiProfileMap?: Map<string, AIBehaviorParams>,
   ) {
     this.clientID = clientID;
+    this.aiProfileMap = aiProfileMap;
   }
 
   /**
@@ -278,14 +420,17 @@ export class GameRunner {
       );
     }
     if (this.game.config().spawnNPCs()) {
-      this.game.addExecution(...this.execManager.fakeHumanExecutions());
+      this.game.addExecution(
+        ...this.execManager.aiPlayerExecutions(this.aiProfileMap),
+      );
     }
     this.game.addExecution(new WinCheckExecution());
     this.game.addExecution(new AllianceExpireCheckExecution());
     // Background: periodically compute player capitals (geographic centers)
     this.game.addExecution(new CapitalRecalculationExecution());
     // Trade rework: central trade manager for demand/supply/assignment
-    this.game.addExecution(new TradeManagerExecution());
+    this.tradeManager = new TradeManagerExecution();
+    this.game.addExecution(this.tradeManager);
   }
 
   public addTurn(turn: Turn): void {
@@ -327,8 +472,7 @@ export class GameRunner {
       this.game
         .players()
         .filter(
-          (p) =>
-            p.type() === PlayerType.Human || p.type() === PlayerType.FakeHuman,
+          (p) => p.type() === PlayerType.Human || p.type() === PlayerType.AI,
         )
         .forEach(
           (p) => (this.playerViewData[p.id()] = placeName(this.game, p)),
@@ -396,15 +540,14 @@ export class GameRunner {
         canTarget: player.canTarget(other),
         canSendAllianceRequest: player.canSendAllianceRequest(other),
         canBreakAlliance: player.isAlliedWith(other),
-        // Only show Peace when at war
-        canRequestPeace: player.isAtWarWith(other),
-        // Only show Declare War when not at war and not allied, and target is human/fakehuman
+        // Only show Peace when at war and can send (no pending/cooldown)
+        canRequestPeace: player.canSendPeaceRequest(other),
+        // Only show Declare War when not at war and not allied, and target is human/AI (not bots)
         canDeclareWar:
           !player.isAtWarWith(other) &&
           !player.isAlliedWith(other) &&
           other !== player &&
-          (other.type() === PlayerType.Human ||
-            other.type() === PlayerType.FakeHuman),
+          (other.type() === PlayerType.Human || other.type() === PlayerType.AI),
         canDonate: player.canDonate(other),
         canEmbargo: !player.hasEmbargoAgainst(other),
       };
@@ -462,5 +605,166 @@ export class GameRunner {
       throw new Error(`player with id ${playerID} not found`);
     }
     return player.bestTransportShipSpawn(targetTile);
+  }
+
+  public warScoreDebug(): WarScoreDebugData[] {
+    return AIDiplomacyHandler.getAllWarScoreBreakdowns(
+      this.game,
+      this.game.ticks(),
+    );
+  }
+
+  public attackDebug(): AttackDebugData[] {
+    return AIAttackHandler.getAllAttackDebugData(this.game);
+  }
+
+  public constructionDebug(): ConstructionDebugData[] {
+    return AIPlayerExecution.getAllConstructionDebugData(this.game);
+  }
+
+  public tradeDebug(): TradeDebugPayload {
+    const g = this.game;
+    const allShips = [...g.units(UnitType.TradeShip)];
+    const allPorts = [...g.units(UnitType.Port)];
+
+    // Group ships by owner
+    const byOwner = new Map<
+      string,
+      { player: Player; ships: typeof allShips }
+    >();
+    for (const ship of allShips) {
+      const owner = ship.owner();
+      const pid = owner.id();
+      if (!byOwner.has(pid)) {
+        byOwner.set(pid, { player: owner, ships: [] });
+      }
+      byOwner.get(pid)!.ships.push(ship);
+    }
+
+    // The queue length is set on the game object by TradeManagerExecution
+    const queueLength: number = (g as any).tradeDemandQueueLength?.() ?? 0;
+
+    const playerDebugList: TradePlayerDebug[] = [];
+
+    for (const [pid, { player, ships }] of byOwner) {
+      const shipDebugList: TradeShipDebug[] = [];
+      let idleCount = 0;
+      let toStartCount = 0;
+      let toEndCount = 0;
+      let returningCount = 0;
+      let stuckAtPortCount = 0;
+      let stationaryCount = 0;
+
+      for (const ship of ships) {
+        const tile = ship.tile();
+        const lastTile = ship.lastTile();
+        const x = g.x(tile);
+        const y = g.y(tile);
+        const isOnOcean = g.isOcean(tile);
+        const portsHere = g
+          .unitsAt(tile)
+          .filter((u) => u.type() === UnitType.Port);
+        const isAtPort = portsHere.length > 0;
+        const dockedPortId = isAtPort ? portsHere[0].id() : null;
+        const phase = ship.tradePhase();
+        const returning = ship.returning();
+        const target = ship.targetUnit();
+        const targetUnitId = target?.id() ?? null;
+        const targetX = target ? g.x(target.tile()) : null;
+        const targetY = target ? g.y(target.tile()) : null;
+        const distToTarget = target
+          ? g.manhattanDist(tile, target.tile())
+          : null;
+        const startOwner = ship.tradeRouteStartOwner();
+        const endOwner = ship.tradeRouteEndOwner();
+        const stationaryThisTick = tile === lastTile;
+        const adjacentOceanCount = g
+          .neighbors(tile)
+          .filter((t) => g.isOcean(t)).length;
+
+        const phaseStr = phase ?? "idle";
+
+        if (phase === null) idleCount++;
+        else if (phase === "toStart") toStartCount++;
+        else if (phase === "toEnd") toEndCount++;
+        if (returning) returningCount++;
+        if (stationaryThisTick) stationaryCount++;
+        // Heuristic for stuck at port: at a port, has a target, stationary, and very close to target
+        if (
+          isAtPort &&
+          target &&
+          stationaryThisTick &&
+          distToTarget !== null &&
+          distToTarget <= 2
+        ) {
+          stuckAtPortCount++;
+        }
+
+        shipDebugList.push({
+          shipId: ship.id(),
+          ownerName: player.displayName(),
+          ownerId: pid,
+          x,
+          y,
+          isOnOcean,
+          isAtPort,
+          dockedPortId,
+          phase: phaseStr,
+          returning,
+          targetUnitId,
+          targetX,
+          targetY,
+          distToTarget,
+          startOwner: startOwner?.displayName() ?? null,
+          endOwner: endOwner?.displayName() ?? null,
+          cargoGold: ship.cargoGold().toString(),
+          stationaryThisTick,
+          adjacentOceanCount,
+        });
+      }
+
+      // Sort ships: stuck-looking first, then by phase
+      shipDebugList.sort((a, b) => {
+        // Stuck at port first
+        const aStuck =
+          a.isAtPort && a.stationaryThisTick && a.targetUnitId !== null ? 0 : 1;
+        const bStuck =
+          b.isAtPort && b.stationaryThisTick && b.targetUnitId !== null ? 0 : 1;
+        if (aStuck !== bStuck) return aStuck - bStuck;
+        // Then by phase
+        const phaseOrder = { toStart: 0, toEnd: 1, idle: 2 };
+        return phaseOrder[a.phase] - phaseOrder[b.phase];
+      });
+
+      const portCount = allPorts.filter(
+        (p) => p.owner() === player && p.isActive(),
+      ).length;
+
+      playerDebugList.push({
+        playerId: pid,
+        playerName: player.displayName(),
+        totalShips: ships.length,
+        idleShips: idleCount,
+        toStartShips: toStartCount,
+        toEndShips: toEndCount,
+        returningShips: returningCount,
+        stuckAtPort: stuckAtPortCount,
+        stationaryShips: stationaryCount,
+        goldPerMinute: player.tradeShipGoldPerMinute(),
+        portCount,
+        ships: shipDebugList,
+      });
+    }
+
+    // Sort players by total ships descending
+    playerDebugList.sort((a, b) => b.totalShips - a.totalShips);
+
+    return {
+      tick: g.ticks(),
+      queueLength,
+      totalTradeShips: allShips.length,
+      players: playerDebugList,
+      demands: this.tradeManager?.getDemandDebug() ?? [],
+    };
   }
 }

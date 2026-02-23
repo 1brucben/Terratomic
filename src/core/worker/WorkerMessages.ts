@@ -1,3 +1,7 @@
+import { AttackDebugData } from "../ai/AIAttackHandler";
+import { WarScoreDebugData } from "../ai/AIDiplomacyHandler";
+import { ConstructionDebugData } from "../ai/ConstructionDebugData";
+import { TradeDebugPayload } from "../execution/TradeDebugData";
 import {
   PlayerActions,
   PlayerBorderTiles,
@@ -25,7 +29,15 @@ export type WorkerMessageType =
   | "transport_ship_spawn"
   | "transport_ship_spawn_result"
   | "set_metrics_enabled"
-  | "execution_metrics";
+  | "execution_metrics"
+  | "war_score_debug"
+  | "war_score_debug_result"
+  | "attack_debug"
+  | "attack_debug_result"
+  | "trade_debug"
+  | "trade_debug_result"
+  | "construction_debug"
+  | "construction_debug_result";
 
 // Base interface for all messages
 interface BaseWorkerMessage {
@@ -42,6 +54,12 @@ export interface InitMessage extends BaseWorkerMessage {
   type: "init";
   gameStartInfo: GameStartInfo;
   clientID: ClientID;
+  // Calibration data for AI-vs-AI matches
+  calibration?: {
+    numPlayers: number;
+    profileA: { id: string; name: string; params: Record<string, unknown> };
+    profileB: { id: string; name: string; params: Record<string, unknown> };
+  };
 }
 
 export interface TurnMessage extends BaseWorkerMessage {
@@ -124,6 +142,42 @@ export interface ExecutionMetricsMessage extends BaseWorkerMessage {
   metrics: Array<{ type: string; time: number; count: number }>;
 }
 
+export interface WarScoreDebugMessage extends BaseWorkerMessage {
+  type: "war_score_debug";
+}
+
+export interface WarScoreDebugResultMessage extends BaseWorkerMessage {
+  type: "war_score_debug_result";
+  result: WarScoreDebugData[];
+}
+
+export interface AttackDebugMessage extends BaseWorkerMessage {
+  type: "attack_debug";
+}
+
+export interface AttackDebugResultMessage extends BaseWorkerMessage {
+  type: "attack_debug_result";
+  result: AttackDebugData[];
+}
+
+export interface TradeDebugMessage extends BaseWorkerMessage {
+  type: "trade_debug";
+}
+
+export interface TradeDebugResultMessage extends BaseWorkerMessage {
+  type: "trade_debug_result";
+  result: TradeDebugPayload;
+}
+
+export interface ConstructionDebugMessage extends BaseWorkerMessage {
+  type: "construction_debug";
+}
+
+export interface ConstructionDebugResultMessage extends BaseWorkerMessage {
+  type: "construction_debug_result";
+  result: ConstructionDebugData[];
+}
+
 // Union types for type safety
 export type MainThreadMessage =
   | HeartbeatMessage
@@ -134,7 +188,11 @@ export type MainThreadMessage =
   | PlayerBorderTilesMessage
   | AttackAveragePositionMessage
   | TransportShipSpawnMessage
-  | SetMetricsEnabledMessage;
+  | SetMetricsEnabledMessage
+  | WarScoreDebugMessage
+  | AttackDebugMessage
+  | TradeDebugMessage
+  | ConstructionDebugMessage;
 
 // Message send from worker
 export type WorkerMessage =
@@ -145,4 +203,8 @@ export type WorkerMessage =
   | PlayerBorderTilesResultMessage
   | AttackAveragePositionResultMessage
   | TransportShipSpawnResultMessage
-  | ExecutionMetricsMessage;
+  | ExecutionMetricsMessage
+  | WarScoreDebugResultMessage
+  | AttackDebugResultMessage
+  | TradeDebugResultMessage
+  | ConstructionDebugResultMessage;

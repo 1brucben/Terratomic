@@ -1,6 +1,5 @@
 import { Gold, UnitType } from "./Game";
 import { getUnitLevelCost, getUnitUpgradeData } from "./UnitUpgrades";
-import { maxUnitLevel } from "./Upgradeables";
 
 const SCALE = 100n; // two decimal places of precision
 
@@ -63,33 +62,4 @@ export function aggregateStructureBuildCost(
     total += computeUpgradeStepCost(stepBase, multiplier);
   }
   return total;
-}
-
-type AirfieldCostProvider = {
-  unitInfo: (t: UnitType) => { cost: (player: any) => Gold };
-};
-
-/**
- * Compute bomber upgrade cost for airfields during construction.
- * Now uses hardcoded costs from UnitUpgrades instead of calculating.
- */
-export function computeBomberUpgradeCost(
-  provider: AirfieldCostProvider,
-  player: any,
-  bomberLevel: number,
-  _airfieldLevel: number = 1,
-): Gold {
-  const bLevel = Math.min(
-    maxUnitLevel(UnitType.Bomber),
-    Math.max(1, bomberLevel),
-  );
-  if (bLevel <= 1) return 0n;
-  // Check if infinite gold is enabled for human players via base bomber cost
-  const baseBomberCost = provider.unitInfo(UnitType.Bomber).cost(player);
-  if (baseBomberCost === 0n) {
-    // If base cost is 0 (infinite gold enabled), return 0 for upgrades too
-    return 0n;
-  }
-  // Use hardcoded total cost from UnitUpgrades
-  return getUnitLevelCost(UnitType.Bomber, bLevel);
 }

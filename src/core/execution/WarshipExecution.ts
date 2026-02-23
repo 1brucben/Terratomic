@@ -187,7 +187,7 @@ export class WarshipExecution implements Execution {
         }
       }
       if (unit.type() === UnitType.TradeShip) {
-        if (!hasPort || unit.isSafeFromPirates()) {
+        if (!hasPort || unit.isSafeFromPirates() || this.isDockedAtPort(unit)) {
           continue;
         }
         // Keep patrol range constraint for trade ships
@@ -586,5 +586,12 @@ export class WarshipExecution implements Execution {
     }
 
     return this.mg.owner(targetTile) === this.warship.owner();
+  }
+
+  /** Returns true when a trade ship is sitting on a port tile (docked). */
+  private isDockedAtPort(tradeShip: Unit): boolean {
+    return this.mg
+      .unitsAt(tradeShip.tile())
+      .some((u) => u.type() === UnitType.Port);
   }
 }

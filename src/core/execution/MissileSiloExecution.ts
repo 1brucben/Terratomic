@@ -1,5 +1,6 @@
 import { Execution, Game, Player, Unit, UnitType } from "../game/Game";
 import { TileRef } from "../game/GameMap";
+import { UnitImpl } from "../game/UnitImpl";
 
 export class MissileSiloExecution implements Execution {
   executionName = "MissileSiloExecution";
@@ -57,7 +58,8 @@ export class MissileSiloExecution implements Execution {
     }
 
     const cooldown = this.silo.ticksLeftInCooldown();
-    if (typeof cooldown === "number" && cooldown >= 0) {
+    const recovering = (this.silo as UnitImpl).hasRecoveringSlots?.() ?? false;
+    if ((typeof cooldown === "number" && cooldown >= 0) || recovering) {
       this.silo.touch();
     }
   }

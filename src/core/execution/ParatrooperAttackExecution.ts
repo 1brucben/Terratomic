@@ -64,10 +64,8 @@ export class ParatrooperAttackExecution implements Execution {
       const defenderType = target.type();
 
       if (
-        (attackerType === PlayerType.Human ||
-          attackerType === PlayerType.FakeHuman) &&
-        (defenderType === PlayerType.Human ||
-          defenderType === PlayerType.FakeHuman)
+        (attackerType === PlayerType.Human || attackerType === PlayerType.AI) &&
+        (defenderType === PlayerType.Human || defenderType === PlayerType.AI)
       ) {
         return;
       }

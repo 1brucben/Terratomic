@@ -39,12 +39,6 @@ import {
   PlayerTeamAssignments,
   TeamCountConfig,
 } from "../Schemas";
-import {
-  attackCasualtyModifiers,
-  attackSpeedModifiers,
-  defenseCasualtyModifiers,
-  incomeModifiers,
-} from "../tech/TechEffects";
 import { assertNever, simpleHash, within } from "../Util";
 import { Config, GameEnv, NukeMagnitude, ServerConfig, Theme } from "./Config";
 import { PastelTheme } from "./PastelTheme";
@@ -372,9 +366,6 @@ export class DefaultConfig implements Config {
     const bonus = 1 + 2 * (numPortBonus / (numPortBonus + 5));
     return BigInt(Math.floor(baseGold * bonus));
   }
-  tradeShipSpawnRate(numberOfPorts: number): number {
-    return Math.round(10 * Math.pow(numberOfPorts, 0.37));
-  }
   // Trade rework parameters
   tradeGravityK(): number {
     // Tunable coefficient for gravity model demand accumulation
@@ -387,11 +378,11 @@ export class DefaultConfig implements Config {
     return 1;
   }
   tradeIncomeFixed(): Gold {
-    return BigInt(10_000);
+    return BigInt(20_000);
   }
   tradeShipReplacementDelayTicks(): number {
-    // Assume ~10 ticks/sec => 600 ticks ~= 60s
-    return 600;
+    // Assume ~10 ticks/sec => 300 ticks ~= 30s
+    return 300;
   }
 
   // Roads and Cargo Trucks
@@ -927,12 +918,10 @@ export class DefaultConfig implements Config {
       const attackerType = attacker.type();
       const defenderType = defender.isPlayer() ? defender.type() : null;
 
-      // If both attacker and defender are Human or FakeHuman, block the attack
+      // If both attacker and defender are Human or AI, block the attack
       if (
-        (attackerType === PlayerType.Human ||
-          attackerType === PlayerType.FakeHuman) &&
-        (defenderType === PlayerType.Human ||
-          defenderType === PlayerType.FakeHuman)
+        (attackerType === PlayerType.Human || attackerType === PlayerType.AI) &&
+        (defenderType === PlayerType.Human || defenderType === PlayerType.AI)
       ) {
         // Display a message to the players
         gm.displayMessage(
@@ -963,17 +952,20 @@ export class DefaultConfig implements Config {
 
     if (defenderIsPlayer) {
       let maxDefensePostHealthRatio = 0;
-      for (const dp of gm.nearbyUnits(
-        tileToConquer,
-        gm.config().defensePostRange(),
-        UnitType.DefensePost,
-        ({ unit }) => unit.owner() === defender,
-      )) {
-        const ratio = dp.unit.hasHealth()
-          ? Number(dp.unit.health()) / (dp.unit.info().maxHealth ?? 1)
-          : 1;
-        if (ratio > maxDefensePostHealthRatio) {
-          maxDefensePostHealthRatio = ratio;
+      // Skip expensive spatial query when defender has no defense posts
+      if (defender.effectiveUnits(UnitType.DefensePost) > 0) {
+        for (const dp of gm.nearbyUnits(
+          tileToConquer,
+          gm.config().defensePostRange(),
+          UnitType.DefensePost,
+          ({ unit }) => unit.owner() === defender,
+        )) {
+          const ratio = dp.unit.hasHealth()
+            ? Number(dp.unit.health()) / (dp.unit.info().maxHealth ?? 1)
+            : 1;
+          if (ratio > maxDefensePostHealthRatio) {
+            maxDefensePostHealthRatio = ratio;
+          }
         }
       }
       if (maxDefensePostHealthRatio > 0) {
@@ -990,8 +982,7 @@ export class DefaultConfig implements Config {
 
     if (attacker.isPlayer() && defenderIsPlayer) {
       if (
-        (attackerType === PlayerType.Human ||
-          attackerType === PlayerType.FakeHuman) &&
+        (attackerType === PlayerType.Human || attackerType === PlayerType.AI) &&
         defenderType === PlayerType.Bot
       ) {
         mag *= 0.6;
@@ -1027,8 +1018,9 @@ export class DefaultConfig implements Config {
       let defenderLoss = baseDefenderLoss;
 
       // Combine attacker-side and defender-side tech modifiers multiplicatively.
-      const atkMods = attackCasualtyModifiers(attacker as Player);
-      const defMods = defenseCasualtyModifiers(defender as Player);
+      // Use cached getters for performance (avoid iterating all techs per tile)
+      const atkMods = attacker.getAttackCasualtyModifiers();
+      const defMods = defender.getDefenseCasualtyModifiers();
       attackerLoss *= atkMods.attackerLossMul * defMods.attackerLossMul;
       defenderLoss *= atkMods.defenderLossMul * defMods.defenderLossMul;
 
@@ -1059,8 +1051,8 @@ export class DefaultConfig implements Config {
     defender: Player | TerraNullius,
     numAdjacentTilesWithEnemy: number,
   ): number {
-    // Get tech-based speed modifier
-    const speedMods = attackSpeedModifiers(attacker);
+    // Get tech-based speed modifier (cached on player)
+    const speedMods = attacker.getAttackSpeedModifiers();
     const baseTiles = defender.isPlayer()
       ? 10 * numAdjacentTilesWithEnemy
       : 12 * numAdjacentTilesWithEnemy;
@@ -1099,12 +1091,12 @@ export class DefaultConfig implements Config {
     if (playerInfo.playerType === PlayerType.Bot) {
       return 6_000;
     }
-    if (playerInfo.playerType === PlayerType.FakeHuman) {
+    if (playerInfo.playerType === PlayerType.AI) {
       switch (this._gameConfig.difficulty) {
         case Difficulty.Easy:
           return 2_500 + 1000 * (playerInfo?.nation?.strength ?? 1);
         case Difficulty.Medium:
-          return 5_000 + 2000 * (playerInfo?.nation?.strength ?? 1);
+          return 8_000 + 4000 * (playerInfo?.nation?.strength ?? 1);
         case Difficulty.Hard:
           return 18_000 + 4000 * (playerInfo?.nation?.strength ?? 1);
         case Difficulty.Impossible:
@@ -1133,7 +1125,7 @@ export class DefaultConfig implements Config {
       case Difficulty.Easy:
         return maxPop * 0.4;
       case Difficulty.Medium:
-        return maxPop * 0.7;
+        return maxPop * 1.0;
       case Difficulty.Hard:
         return maxPop * 1.4;
       case Difficulty.Impossible:
@@ -1162,13 +1154,13 @@ export class DefaultConfig implements Config {
       toAdd *= 0.7;
     }
 
-    if (player.type() === PlayerType.FakeHuman) {
+    if (player.type() === PlayerType.AI) {
       switch (this._gameConfig.difficulty) {
         case Difficulty.Easy:
           toAdd *= 0.7;
           break;
         case Difficulty.Medium:
-          toAdd *= 0.8;
+          toAdd *= 1.0;
           break;
         case Difficulty.Hard:
           toAdd *= 1.0;
@@ -1184,20 +1176,8 @@ export class DefaultConfig implements Config {
 
   // Gross gold per tick BEFORE any investments are subtracted
   grossGoldAdditionRate(player: Player | PlayerView): number {
-    const base = 0.11 * Math.pow(player.workers(), 0.65);
-    const productivity = player.productivity();
-    const k = player.effectiveUnits(UnitType.Factory);
-    const factoryFactor = Math.pow(1 + k, 0.35);
     const multiplier = this._gameConfig.goldMultiplier ?? 1;
-    // Apply tech/policy-based domestic income multiplier
-    const incomeMods = incomeModifiers(player);
-    const grossGold =
-      base *
-      productivity *
-      factoryFactor *
-      multiplier *
-      incomeMods.domesticIncomeMul;
-    return Number.isFinite(grossGold) && grossGold >= 0 ? grossGold : 0;
+    return player.rawIndustrialProduction() * multiplier;
   }
 
   goldAdditionRate(player: Player): bigint {
@@ -1277,7 +1257,6 @@ export class DefaultConfig implements Config {
   }
 
   structureMinDist(): number {
-    // TODO: Increase this to ~15 once upgradable structures are implemented.
     return 1;
   }
 

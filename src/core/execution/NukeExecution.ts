@@ -16,10 +16,6 @@ import { PathStatus } from "../pathfinding/types";
 import { PseudoRandom } from "../PseudoRandom";
 import { NukeType } from "../StatsSchemas";
 import { DoomsdayActivationExecution } from "./DoomsdayActivationExecution";
-import {
-  attemptNukeInterception,
-  findEligibleCitiesForNuke,
-} from "./utils/CityAntiAirUtils";
 
 const SPRITE_RADIUS = 16;
 
@@ -163,13 +159,6 @@ export class NukeExecution implements Execution {
         launcher.launch();
       }
 
-      if (
-        this.nuke.type() === UnitType.AtomBomb ||
-        this.nuke.type() === UnitType.HydrogenBomb
-      ) {
-        this.eligibleCities = findEligibleCitiesForNuke(this.nuke, this.mg);
-      }
-
       return;
     }
 
@@ -195,29 +184,6 @@ export class NukeExecution implements Execution {
       this.nuke.move(result.node);
       // Update index so SAM can interpolate future position
       this.nuke.setTrajectoryIndex(this.pathFinder.currentIndex());
-
-      // City-based interception: attempt if in range and off cooldown
-      if (this.nuke !== null && !this.nuke.targetedBySAM()) {
-        const currentNuke = this.nuke;
-        const readyInterceptors = this.eligibleCities.filter(
-          (city) =>
-            (city.ticksLeftInCooldown() ?? 0) <= 0 &&
-            this.mg.euclideanDistSquared(currentNuke.tile(), city.tile()) <=
-              this.mg.config().citySamLaunchRange() *
-                this.mg.config().citySamLaunchRange(),
-        );
-
-        if (readyInterceptors.length > 0) {
-          readyInterceptors.sort(
-            (a, b) =>
-              this.mg.euclideanDistSquared(currentNuke.tile(), a.tile()) -
-              this.mg.euclideanDistSquared(currentNuke.tile(), b.tile()),
-          );
-
-          const closestInterceptor = readyInterceptors[0];
-          attemptNukeInterception(currentNuke, this.mg, closestInterceptor);
-        }
-      }
     }
   }
 

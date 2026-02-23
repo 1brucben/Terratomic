@@ -8,13 +8,13 @@ import {
   Tick,
   Unit,
   UnitType,
-  UpgradeType,
 } from "../game/Game";
 import { TileRef } from "../game/GameMap";
 import { PathFinding } from "../pathfinding/PathFinder";
 import { PathStatus, SteppingPathFinder } from "../pathfinding/types";
 import { PseudoRandom } from "../PseudoRandom";
 import { roadEffectModifiers, tradeIncomeModifiers } from "../tech/TechEffects";
+import { TradeDemandDebug } from "./TradeDebugData";
 
 type PairKey = string; // `${fromId}->${toId}`
 
@@ -52,10 +52,17 @@ export class TradeManagerExecution implements Execution {
   private shipHomePortById: Map<number, number /*portUnitID*/> = new Map();
   private knownPortIds: Set<number> = new Set();
 
+  // Debug: throttle logging to once per second
+  private lastDebugLogTick: Tick = -100;
+
   // Per-tick cache to avoid multiple global iterations
   private cachedShips: Unit[] = [];
   private cachedPorts: Unit[] = [];
   private cacheTickStamp: number = -1;
+  // Per-processPortSupply cache: portId -> active ship count for that port
+  private activeSupplyCache: Map<number, number> = new Map();
+  // Per-processPortSupply cache: portId -> Port unit
+  private portByIdCache: Map<number, Unit> = new Map();
 
   // --- Debug helpers (human owners only) ---
   // Logging removed per request; retain no-op stubs to avoid refactor churn
@@ -93,6 +100,69 @@ export class TradeManagerExecution implements Execution {
     return false;
   }
 
+  /** Expose bilateral demand + queue breakdown for the debug overlay. */
+  public getDemandDebug(): TradeDemandDebug[] {
+    // Collect all players referenced in demand map or queue
+    const playerById = new Map<string, Player>();
+    for (const p of this.mg.players()) {
+      playerById.set(p.id(), p);
+    }
+
+    // Count queued routes per pair
+    const queueCounts = new Map<PairKey, number>();
+    for (const { from, to } of this.queue) {
+      const k = this.key(from, to);
+      queueCounts.set(k, (queueCounts.get(k) ?? 0) + 1);
+    }
+
+    // Count active ships per pair (ships with a tradePhase that are en route)
+    const activeShipCounts = new Map<PairKey, number>();
+    for (const ship of this.cachedShips) {
+      if (!ship.isActive()) continue;
+      const phase = ship.tradePhase?.();
+      if (phase === null || phase === undefined) continue;
+      const startOwner = ship.tradeRouteStartOwner?.();
+      const endOwner = ship.tradeRouteEndOwner?.();
+      if (startOwner && endOwner) {
+        const k = this.key(startOwner, endOwner);
+        activeShipCounts.set(k, (activeShipCounts.get(k) ?? 0) + 1);
+      }
+    }
+
+    // Collect all pair keys from demand, queue and active ships
+    const allKeys = new Set<PairKey>([
+      ...this.demand.keys(),
+      ...queueCounts.keys(),
+      ...activeShipCounts.keys(),
+    ]);
+
+    const results: TradeDemandDebug[] = [];
+    for (const k of allKeys) {
+      const [fromId, toId] = k.split("->");
+      const fromPlayer = playerById.get(fromId);
+      const toPlayer = playerById.get(toId);
+      if (!fromPlayer || !toPlayer) continue;
+      results.push({
+        fromId,
+        fromName: fromPlayer.displayName(),
+        toId,
+        toName: toPlayer.displayName(),
+        fractionalDemand: this.demand.get(k) ?? 0,
+        queuedRoutes: queueCounts.get(k) ?? 0,
+        activeShips: activeShipCounts.get(k) ?? 0,
+      });
+    }
+
+    // Sort by queued+active descending, then fractional demand descending
+    results.sort(
+      (a, b) =>
+        b.queuedRoutes + b.activeShips - (a.queuedRoutes + a.activeShips) ||
+        b.fractionalDemand - a.fractionalDemand,
+    );
+
+    return results;
+  }
+
   tick(ticks: number): void {
     if (!this.active) return;
 
@@ -114,6 +184,9 @@ export class TradeManagerExecution implements Execution {
 
     // 2) Maintain per-port replacement timers and spawn replacements when due
     this.processPortSupply(ticks);
+
+    // 2.5) Recover stranded idle ships (on ocean, not at a port, no target/phase)
+    this.recoverStrandedShips();
 
     // 3) Drop any queued routes that are now embargoed
     this.pruneEmbargoedRoutes();
@@ -153,29 +226,24 @@ export class TradeManagerExecution implements Execution {
 
   private accumulateDemand(): void {
     const K = this.mg.config().tradeGravityK();
-    // World Industrial Production = sum of all alive players' industrialProduction values (bots and humans)
-    const worldIndustrialProduction = this.mg
-      .players()
-      .filter((p) => p.isAlive())
-      .reduce((sum, p) => sum + p.industrialProduction(), 0);
     const players = this.playersForTrade();
+    // World Industrial Production = sum of trade-eligible players only (excludes Bots)
+    // Using the same population as playersForTrade() so bot IP doesn't inflate the
+    // denominator and suppress demand between actual trading partners.
+    const worldIndustrialProduction = players.reduce(
+      (sum, p) => sum + p.industrialProduction(),
+      0,
+    );
+
     for (let i = 0; i < players.length; i++) {
       for (let j = 0; j < players.length; j++) {
         if (i === j) continue;
         const a = players[i];
         const b = players[j];
-        // If either side has an embargo against the other, demand is zero
+        // If either side has an embargo against the other, skip accumulation
+        // but preserve the existing fractional demand so it resumes where it
+        // left off once the embargo lifts.
         if (a.hasEmbargoAgainst(b) || b.hasEmbargoAgainst(a)) {
-          // Keep fractional demand at 0 for this pair
-          this.demand.set(this.key(a, b), 0);
-          continue;
-        }
-        // If either side lacks InternationalTrade upgrade (autarky), demand is zero
-        if (
-          !a.hasUpgrade(UpgradeType.InternationalTrade) ||
-          !b.hasUpgrade(UpgradeType.InternationalTrade)
-        ) {
-          this.demand.set(this.key(a, b), 0);
           continue;
         }
         const capA = a.capital();
@@ -196,8 +264,21 @@ export class TradeManagerExecution implements Execution {
         const k = this.key(a, b);
         // Initialize with a uniform random fractional remainder in [0,1) once per pair
         let prev = this.demand.get(k);
-        prev ??= 0.8 + this.rand.next() * 0.2;
+        prev ??= this.rand.next();
         const next = (prev as number) + demandDelta;
+
+        // Debug: log demand between Human and Madagascar (once per second)
+        const isHumanMadagascar =
+          (a.type() === PlayerType.Human && b.name().includes("Madagascar")) ||
+          (b.type() === PlayerType.Human && a.name().includes("Madagascar"));
+        const ticks = this.mg.ticks();
+        if (isHumanMadagascar && ticks - this.lastDebugLogTick >= 10) {
+          this.lastDebugLogTick = ticks;
+          console.log(
+            `[TradeDemand] ${a.name()} -> ${b.name()}: prev=${(prev as number).toFixed(3)} delta=${demandDelta.toFixed(5)} next=${next.toFixed(3)} ip_a=${a.industrialProduction()} ip_b=${b.industrialProduction()} dist=${dist.toFixed(0)} worldIP=${worldIndustrialProduction}`,
+          );
+        }
+
         // Enqueue integer demand, keep fractional remainder
         if (next >= 1) {
           const count = Math.floor(next);
@@ -215,7 +296,11 @@ export class TradeManagerExecution implements Execution {
   private capitalDistance(a: Cell, b: Cell): number {
     const refA = this.mg.ref(a.x, a.y);
     const refB = this.mg.ref(b.x, b.y);
-    return Math.sqrt(this.mg.euclideanDistSquared(refA, refB));
+    const raw = Math.sqrt(this.mg.euclideanDistSquared(refA, refB));
+    // Normalize by geometric mean of map dimensions so K behaves
+    // consistently across different map sizes.
+    const geomMean = Math.sqrt(this.mg.width() * this.mg.height());
+    return raw / geomMean;
   }
 
   // (removed) nearestOceanWithin helper was unused after direct undocking implementation
@@ -225,10 +310,12 @@ export class TradeManagerExecution implements Execution {
     const delay = this.mg.config().tradeShipReplacementDelayTicks();
     const targetSupplyFor = (port: Unit) => basePerPort * port.level();
 
+    // Build per-tick caches for O(1) lookups
+    this.buildPortSupplyCaches();
+
     // 1) Update current home-port assignments and track current owners
     const currentShipIds = new Set<number>();
-    const shipsSnapshot = [...this.cachedShips];
-    for (const ship of shipsSnapshot) {
+    for (const ship of this.cachedShips) {
       // Remove trade ships owned by eliminated players
       if (!ship.owner().isAlive()) {
         // Delete without messages; considered a consequence of elimination
@@ -262,31 +349,14 @@ export class TradeManagerExecution implements Execution {
         );
         const homePortId = this.shipHomePortById.get(sid);
         if (homePortId !== undefined) {
-          const port = this.mg
-            .units(UnitType.Port)
-            .find((p) => p.id() === homePortId && p.isActive());
-          if (
-            port &&
-            this.activeHomeSupplyCount(port) < targetSupplyFor(port)
-          ) {
-            const list = this.replacementDueAt.get(homePortId) ?? [];
-            const target = targetSupplyFor(port);
-            const active = this.activeHomeSupplyCount(port);
-            const pending = list.length;
-            const missing = Math.max(0, target - (active + pending));
-            if (missing > 0) {
-              const newList = [...list];
-              for (let i = 0; i < missing; i++) newList.push(ticks + delay);
-              this.replacementDueAt.set(homePortId, newList);
-              const homePortObj = this.mg
-                .units(UnitType.Port)
-                .find((p) => p.id() === homePortId && p.isActive());
-              if (homePortObj)
-                (homePortObj as any).setPendingTradeShipDueTicks(newList);
-              this.log(
-                `t=${ticks} schedule replacement after capture homePort=${homePortId} add=${missing} due=${ticks + delay}`,
-              );
-            }
+          const port = this.portByIdCache.get(homePortId);
+          if (port) {
+            this.scheduleReplacementsIfNeeded(
+              port,
+              targetSupplyFor,
+              ticks,
+              delay,
+            );
           }
         }
         // Clear home assignment after capture
@@ -317,31 +387,14 @@ export class TradeManagerExecution implements Execution {
         );
         const homePortId = this.shipHomePortById.get(sid);
         if (homePortId !== undefined) {
-          const port = this.mg
-            .units(UnitType.Port)
-            .find((p) => p.id() === homePortId && p.isActive());
-          if (
-            port &&
-            this.activeHomeSupplyCount(port) < targetSupplyFor(port)
-          ) {
-            const list = this.replacementDueAt.get(homePortId) ?? [];
-            const target = targetSupplyFor(port);
-            const active = this.activeHomeSupplyCount(port);
-            const pending = list.length;
-            const missing = Math.max(0, target - (active + pending));
-            if (missing > 0) {
-              const newList = [...list];
-              for (let i = 0; i < missing; i++) newList.push(ticks + delay);
-              this.replacementDueAt.set(homePortId, newList);
-              const homePortObj2 = this.mg
-                .units(UnitType.Port)
-                .find((p) => p.id() === homePortId && p.isActive());
-              if (homePortObj2)
-                (homePortObj2 as any).setPendingTradeShipDueTicks(newList);
-              this.log(
-                `t=${ticks} schedule replacement (ship lost) homePort=${homePortId} add=${missing} due=${ticks + delay}`,
-              );
-            }
+          const port = this.portByIdCache.get(homePortId);
+          if (port) {
+            this.scheduleReplacementsIfNeeded(
+              port,
+              targetSupplyFor,
+              ticks,
+              delay,
+            );
           }
         }
         this.shipOwnerById.delete(sid);
@@ -360,41 +413,11 @@ export class TradeManagerExecution implements Execution {
       const prevLevel = this.portLevelById.get(port.id());
       if (prevOwner && prevOwner !== port.owner()) {
         // Port captured: ensure new owner can reach level-scaled supply target
-        if (this.activeHomeSupplyCount(port) < targetSupplyFor(port)) {
-          const list = this.replacementDueAt.get(port.id()) ?? [];
-          const target = targetSupplyFor(port);
-          const active = this.activeHomeSupplyCount(port);
-          const pending = list.length;
-          const missing = Math.max(0, target - (active + pending));
-          if (missing > 0) {
-            const newList = [...list];
-            for (let i = 0; i < missing; i++) newList.push(ticks + delay);
-            this.replacementDueAt.set(port.id(), newList);
-            (port as any).setPendingTradeShipDueTicks(newList);
-            this.log(
-              `t=${ticks} portCapture port=${port.id()} level=${currentLevel} add=${missing} due=${ticks + delay}`,
-            );
-          }
-        }
+        this.scheduleReplacementsIfNeeded(port, targetSupplyFor, ticks, delay);
       }
       // Detect level upgrade
       if (prevLevel !== undefined && currentLevel > prevLevel) {
-        if (this.activeHomeSupplyCount(port) < targetSupplyFor(port)) {
-          const list = this.replacementDueAt.get(port.id()) ?? [];
-          const target = targetSupplyFor(port);
-          const active = this.activeHomeSupplyCount(port);
-          const pending = list.length;
-          const missing = Math.max(0, target - (active + pending));
-          if (missing > 0) {
-            const newList = [...list];
-            for (let i = 0; i < missing; i++) newList.push(ticks + delay);
-            this.replacementDueAt.set(port.id(), newList);
-            (port as any).setPendingTradeShipDueTicks(newList);
-            this.log(
-              `t=${ticks} portUpgrade port=${port.id()} oldLevel=${prevLevel} newLevel=${currentLevel} add=${missing} due=${ticks + delay}`,
-            );
-          }
-        }
+        this.scheduleReplacementsIfNeeded(port, targetSupplyFor, ticks, delay);
       }
       // Track current owner
       this.portOwnerById.set(port.id(), port.owner());
@@ -402,19 +425,7 @@ export class TradeManagerExecution implements Execution {
       this.portLevelById.set(port.id(), currentLevel);
       if (!this.knownPortIds.has(port.id())) {
         // New port detected
-        if (this.activeHomeSupplyCount(port) < targetSupplyFor(port)) {
-          const list = this.replacementDueAt.get(port.id()) ?? [];
-          const target = targetSupplyFor(port);
-          const active = this.activeHomeSupplyCount(port);
-          const pending = list.length;
-          const missing = Math.max(0, target - (active + pending));
-          if (missing > 0) {
-            const newList = [...list];
-            for (let i = 0; i < missing; i++) newList.push(ticks + delay);
-            this.replacementDueAt.set(port.id(), newList);
-            (port as any).setPendingTradeShipDueTicks(newList);
-          }
-        }
+        this.scheduleReplacementsIfNeeded(port, targetSupplyFor, ticks, delay);
         this.knownPortIds.add(port.id());
       }
     }
@@ -430,9 +441,7 @@ export class TradeManagerExecution implements Execution {
     for (const [portID, dueList] of Array.from(
       this.replacementDueAt.entries(),
     )) {
-      const port = this.mg
-        .units(UnitType.Port)
-        .find((p) => p.id() === portID && p.isActive());
+      const port = this.portByIdCache.get(portID);
       if (!port) {
         this.replacementDueAt.delete(portID);
         continue;
@@ -441,7 +450,7 @@ export class TradeManagerExecution implements Execution {
       let remaining = dueList.filter((d) => d > ticks);
       const ready = dueList.filter((d) => d <= ticks);
       for (const dueTick of ready) {
-        if (this.activeHomeSupplyCount(port) >= targetSupplyFor(port)) {
+        if (this.getCachedActiveSupply(port) >= targetSupplyFor(port)) {
           remaining = [];
           break;
         }
@@ -460,6 +469,11 @@ export class TradeManagerExecution implements Execution {
             );
             this.shipOwnerById.set(newShip.id(), newShip.owner());
             this.shipHomePortById.set(newShip.id(), portID);
+            // Update cache to reflect the new ship
+            this.activeSupplyCache.set(
+              portID,
+              (this.activeSupplyCache.get(portID) ?? 0) + 1,
+            );
             this.logShip(
               newShip,
               `spawned replacement port=${portID} owner='${owner.displayName()}' due=${dueTick}`,
@@ -469,7 +483,7 @@ export class TradeManagerExecution implements Execution {
       }
       // After spawns, schedule additional if still missing
       const target = targetSupplyFor(port);
-      const active = this.activeHomeSupplyCount(port);
+      const active = this.getCachedActiveSupply(port);
       const pending = remaining.length;
       const missing = Math.max(0, target - (active + pending));
       if (missing > 0) {
@@ -518,6 +532,11 @@ export class TradeManagerExecution implements Execution {
   }
 
   private activeHomeSupplyCount(port: Unit): number {
+    // Fallback for any callers outside processPortSupply (e.g., assignRoutes)
+    // Uses cached value if available, otherwise computes directly
+    const cached = this.activeSupplyCache.get(port.id());
+    if (cached !== undefined) return cached;
+
     let count = 0;
     const pid = port.id();
     for (const ship of this.cachedShips) {
@@ -526,6 +545,70 @@ export class TradeManagerExecution implements Execution {
       if (this.shipHomePortById.get(ship.id()) === pid) count++;
     }
     return count;
+  }
+
+  /**
+   * Build caches for O(1) lookups during processPortSupply.
+   * - activeSupplyCache: portId -> count of active ships homed to that port (matching owner)
+   * - portByIdCache: portId -> Port unit
+   */
+  private buildPortSupplyCaches(): void {
+    this.activeSupplyCache.clear();
+    this.portByIdCache.clear();
+
+    // Build port lookup cache
+    for (const port of this.cachedPorts) {
+      if (port.isActive()) {
+        this.portByIdCache.set(port.id(), port);
+      }
+    }
+
+    // Build active supply cache: count ships per home port (only if owner matches)
+    for (const ship of this.cachedShips) {
+      if (!ship.isActive()) continue;
+      const homePortId = this.shipHomePortById.get(ship.id());
+      if (homePortId === undefined) continue;
+      const port = this.portByIdCache.get(homePortId);
+      // Only count if ship owner matches port owner
+      if (port && ship.owner() === port.owner()) {
+        this.activeSupplyCache.set(
+          homePortId,
+          (this.activeSupplyCache.get(homePortId) ?? 0) + 1,
+        );
+      }
+    }
+  }
+
+  /**
+   * Get cached active supply count for a port (O(1) lookup).
+   */
+  private getCachedActiveSupply(port: Unit): number {
+    return this.activeSupplyCache.get(port.id()) ?? 0;
+  }
+
+  /**
+   * Schedule replacement ships if the port is below target supply.
+   * Uses cached active supply count for efficiency.
+   */
+  private scheduleReplacementsIfNeeded(
+    port: Unit,
+    targetSupplyFor: (port: Unit) => number,
+    ticks: Tick,
+    delay: number,
+  ): void {
+    const active = this.getCachedActiveSupply(port);
+    const target = targetSupplyFor(port);
+    if (active >= target) return;
+
+    const list = this.replacementDueAt.get(port.id()) ?? [];
+    const pending = list.length;
+    const missing = Math.max(0, target - (active + pending));
+    if (missing > 0) {
+      const newList = [...list];
+      for (let i = 0; i < missing; i++) newList.push(ticks + delay);
+      this.replacementDueAt.set(port.id(), newList);
+      (port as any).setPendingTradeShipDueTicks(newList);
+    }
   }
 
   private assignRoutes(carryOverMode: boolean, ticks: Tick): void {
@@ -688,6 +771,29 @@ export class TradeManagerExecution implements Execution {
   // Requeue a route demand back into FIFO queue (called by executions on abort)
   public requeueRoute(from: Player, to: Player): void {
     this.queue.push({ from, to });
+  }
+
+  /**
+   * Detect trade ships that are idle (no phase, no target, not returning) but
+   * stranded on the ocean (not at a port tile). These ships can never be
+   * assigned a new route because availableShips() requires docking at a port.
+   * Spawn a lightweight execution to navigate them to their nearest port.
+   */
+  private recoverStrandedShips(): void {
+    for (const ship of this.cachedShips) {
+      if (!ship.isActive()) continue;
+      if (ship.returning()) continue;
+      if (ship.tradePhase && ship.tradePhase() !== null) continue;
+      if (ship.targetUnit() !== undefined) continue;
+      // Ship is idle — check if it's on the ocean and NOT at a port
+      if (!this.mg.isOcean(ship.tile())) continue;
+      const isAtPort = this.mg
+        .unitsAt(ship.tile())
+        .some((u) => u.type() === UnitType.Port);
+      if (isAtPort) continue;
+      // This ship is stranded. Send it home.
+      this.mg.addExecution(new StrandedTradeShipReturnExecution(ship));
+    }
   }
 }
 
@@ -896,6 +1002,8 @@ export class AssignedTradeRouteExecution implements Execution {
       // Propagate cleared phase immediately
       this.ship.touch();
       this.active = false;
+      // If ship is on ocean and not at a port, send it home so it doesn't get stranded
+      this.sendHomeIfStranded();
       this.log(
         `externalRetargetCancel ship=${this.ship.id()} oldTargetUnit=${this.ship
           .targetUnit()
@@ -963,6 +1071,8 @@ export class AssignedTradeRouteExecution implements Execution {
       const neighbors = this.mg.neighbors(targetTile);
       const oceanAdj = neighbors.filter((t) => this.mg.isOcean(t));
       this.active = false;
+      // Send ship home so it doesn't get stranded on the ocean
+      this.sendHomeIfStranded();
       this.log(
         `abort ship=${this.ship.id()} reason=noNavTarget destPort=${expectedTargetUnit.id()} portTile=(${this.mg.x(
           targetTile,
@@ -1107,6 +1217,8 @@ export class AssignedTradeRouteExecution implements Execution {
           );
         }
         this.active = false;
+        // Send ship home so it doesn't get stranded on the ocean
+        this.sendHomeIfStranded();
         this.log(
           `abort ship=${this.ship.id()} reason=pathNotFound phase=${this.phase} requeuedRoute=(${this.startPort.owner().smallID()}->${this.endPort
             .owner()
@@ -1153,8 +1265,11 @@ export class AssignedTradeRouteExecution implements Execution {
     const ownerShare = ownerBaseTechShare;
 
     a.addGold(aShare);
+    a.recordTradeShipGold(aShare);
     b.addGold(bShare);
+    b.recordTradeShipGold(bShare);
     owner.addGold(ownerShare);
+    owner.recordTradeShipGold(ownerShare);
 
     // Clear trade phase upon successful completion so the ship is eligible for reassignment
     this.setPhaseWithLog(null, "complete_clear_phase");
@@ -1279,10 +1394,184 @@ export class AssignedTradeRouteExecution implements Execution {
     return list[0] ?? null;
   }
 
+  /**
+   * If the ship is on ocean and not co-located with a port, spawn a
+   * StrandedTradeShipReturnExecution to navigate it back home.
+   * Called from abort paths to prevent ships from being stranded.
+   */
+  private sendHomeIfStranded(): void {
+    if (!this.ship.isActive()) return;
+    if (!this.mg.isOcean(this.ship.tile())) return;
+    const isAtPort = this.mg
+      .unitsAt(this.ship.tile())
+      .some((u) => u.type() === UnitType.Port);
+    if (isAtPort) return;
+    this.mg.addExecution(new StrandedTradeShipReturnExecution(this.ship));
+  }
+
   // --- Logging helpers (human owners only) ---
   private log(msg: string): void {
     const owner = this.ship.owner();
     // Per-request: trade logging removed
   }
   // Per-tile movement logging removed per user request.
+}
+
+/**
+ * Lightweight execution that navigates a stranded idle trade ship back to its
+ * owner's nearest port. Once docked, the ship becomes available for new routes.
+ */
+class StrandedTradeShipReturnExecution implements Execution {
+  private mg!: Game;
+  private pathfinder!: SteppingPathFinder<TileRef>;
+  private active = true;
+  private lastMoveTick = 0;
+  private destPort: Unit | null = null;
+
+  constructor(private ship: Unit) {}
+
+  init(mg: Game, ticks: number): void {
+    this.mg = mg;
+    this.pathfinder = PathFinding.Water(mg);
+    this.lastMoveTick = ticks;
+    // Mark a transient trade phase so the recovery manager doesn't re-detect this ship
+    this.ship.setTradePhase("toStart");
+    this.destPort = this.selectNearestPort(this.ship.owner());
+    if (this.destPort) {
+      this.ship.setTargetUnit(this.destPort);
+    } else {
+      // No port to return to; clear phase and give up
+      this.ship.setTradePhase(null);
+      this.active = false;
+    }
+  }
+
+  isActive(): boolean {
+    return this.active;
+  }
+
+  activeDuringSpawnPhase(): boolean {
+    return false;
+  }
+
+  tick(ticks: number): void {
+    if (!this.active) return;
+    if (!this.ship.isActive()) {
+      this.active = false;
+      return;
+    }
+    if (!this.destPort || !this.destPort.isActive()) {
+      this.destPort = this.selectNearestPort(this.ship.owner());
+      if (!this.destPort) {
+        this.ship.setTradePhase(null);
+        this.ship.setTargetUnit(undefined);
+        this.active = false;
+        return;
+      }
+      this.ship.setTargetUnit(this.destPort);
+    }
+
+    if (ticks - this.lastMoveTick < 1) return;
+    this.lastMoveTick = ticks;
+
+    const targetTile = this.destPort.tile();
+
+    // Adjacent to port -> dock
+    if (this.mg.manhattanDist(this.ship.tile(), targetTile) === 1) {
+      this.ship.move(targetTile);
+      this.ship.setTradePhase(null);
+      this.ship.setTargetUnit(undefined);
+      this.ship.touch();
+      this.active = false;
+      return;
+    }
+
+    // Already on port tile
+    if (this.ship.tile() === targetTile) {
+      this.ship.setTradePhase(null);
+      this.ship.setTargetUnit(undefined);
+      this.ship.touch();
+      this.active = false;
+      return;
+    }
+
+    const navTarget = this.navTargetForPort(targetTile);
+    if (navTarget === null) {
+      this.ship.setTradePhase(null);
+      this.ship.setTargetUnit(undefined);
+      this.active = false;
+      return;
+    }
+
+    // If somehow on land without being at a port, step into ocean
+    if (!this.mg.isOcean(this.ship.tile())) {
+      const adjOcean = this.mg
+        .neighbors(this.ship.tile())
+        .filter((t) => this.mg.isOcean(t))
+        .sort(
+          (a, b) =>
+            this.mg.manhattanDist(a, navTarget) -
+            this.mg.manhattanDist(b, navTarget),
+        );
+      if (adjOcean.length > 0) {
+        this.ship.move(adjOcean[0]);
+        return;
+      }
+      this.ship.setTradePhase(null);
+      this.ship.setTargetUnit(undefined);
+      this.active = false;
+      return;
+    }
+
+    const res = this.pathfinder.next(this.ship.tile(), navTarget);
+    switch (res.status) {
+      case PathStatus.COMPLETE:
+        this.ship.move(navTarget);
+        break;
+      case PathStatus.NEXT:
+        this.ship.move(res.node);
+        break;
+      case PathStatus.PENDING:
+        this.ship.touch();
+        break;
+      case PathStatus.NOT_FOUND:
+        // Cannot reach port; give up
+        this.ship.setTradePhase(null);
+        this.ship.setTargetUnit(undefined);
+        this.active = false;
+        break;
+    }
+  }
+
+  private navTargetForPort(portTile: TileRef): TileRef | null {
+    if (this.mg.isOcean(portTile)) return portTile;
+    const candidates = this.mg
+      .neighbors(portTile)
+      .filter((t) => this.mg.isOcean(t));
+    if (candidates.length === 0) return null;
+    candidates.sort(
+      (a, b) =>
+        this.mg.manhattanDist(this.ship.tile(), a) -
+        this.mg.manhattanDist(this.ship.tile(), b),
+    );
+    return candidates[0];
+  }
+
+  private selectNearestPort(owner: Player): Unit | null {
+    const ports = [...this.mg.units(UnitType.Port)].filter(
+      (p) => p.isActive() && p.owner() === owner,
+    );
+    if (ports.length === 0) return null;
+    let best: Unit | null = null;
+    let bestDist = Number.POSITIVE_INFINITY;
+    const here = this.ship.tile();
+    for (const p of ports) {
+      const d = this.mg.euclideanDistSquared(here, p.tile());
+      if (d < bestDist) {
+        bestDist = d;
+        best = p;
+      }
+    }
+    return best;
+  }
 }

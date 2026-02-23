@@ -124,6 +124,8 @@ export class PlayerExecution implements Execution {
     }
     this.player.addGold(netGold);
     this.player.updateProductivity();
+    // Update income-per-minute EMA trackers every tick
+    this.player.updateIncomeTracking();
     // Record stats
     // Track net income after investment in stats
     this.mg.stats().goldWork(this.player, netGold);
@@ -394,7 +396,7 @@ export class PlayerExecution implements Execution {
   /**
    * Encircle and annex bot clusters that are surrounded by a single enemy player.
    * Only applicable when this.player is a Bot (PlayerType.Bot).
-   * Any player type (Human, FakeHuman, Bot) can annex a surrounded Bot.
+   * Any player type (Human, AI, Bot) can annex a surrounded Bot.
    */
   private removeClusters() {
     // Only Bots can be encircled and annexed

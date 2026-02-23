@@ -3,13 +3,17 @@ import { createGameRunner, GameRunner } from "../GameRunner";
 import { ErrorUpdate, GameUpdateViewData } from "../game/GameUpdates";
 import {
   AttackAveragePositionResultMessage,
+  AttackDebugResultMessage,
+  ConstructionDebugResultMessage,
   ExecutionMetricsMessage,
   InitializedMessage,
   MainThreadMessage,
   PlayerActionsResultMessage,
   PlayerBorderTilesResultMessage,
   PlayerProfileResultMessage,
+  TradeDebugResultMessage,
   TransportShipSpawnResultMessage,
+  WarScoreDebugResultMessage,
   WorkerMessage,
 } from "./WorkerMessages";
 
@@ -80,6 +84,7 @@ ctx.addEventListener("message", async (e: MessageEvent<MainThreadMessage>) => {
           message.gameStartInfo,
           message.clientID,
           gameUpdate,
+          message.calibration as any,
         ).then((gr) => {
           sendMessage({
             type: "initialized",
@@ -202,6 +207,74 @@ ctx.addEventListener("message", async (e: MessageEvent<MainThreadMessage>) => {
         } as TransportShipSpawnResultMessage);
       } catch (error) {
         console.error("Failed to spawn transport ship:", error);
+      }
+      break;
+    case "war_score_debug":
+      if (!gameRunner) {
+        throw new Error("Game runner not initialized");
+      }
+
+      try {
+        const debugData = (await gameRunner).warScoreDebug();
+        sendMessage({
+          type: "war_score_debug_result",
+          id: message.id,
+          result: debugData,
+        } as WarScoreDebugResultMessage);
+      } catch (error) {
+        console.error("Failed to get war score debug:", error);
+        throw error;
+      }
+      break;
+    case "attack_debug":
+      if (!gameRunner) {
+        throw new Error("Game runner not initialized");
+      }
+
+      try {
+        const attackData = (await gameRunner).attackDebug();
+        sendMessage({
+          type: "attack_debug_result",
+          id: message.id,
+          result: attackData,
+        } as AttackDebugResultMessage);
+      } catch (error) {
+        console.error("Failed to get attack debug:", error);
+        throw error;
+      }
+      break;
+    case "trade_debug":
+      if (!gameRunner) {
+        throw new Error("Game runner not initialized");
+      }
+
+      try {
+        const tradeData = (await gameRunner).tradeDebug();
+        sendMessage({
+          type: "trade_debug_result",
+          id: message.id,
+          result: tradeData,
+        } as TradeDebugResultMessage);
+      } catch (error) {
+        console.error("Failed to get trade debug:", error);
+        throw error;
+      }
+      break;
+    case "construction_debug":
+      if (!gameRunner) {
+        throw new Error("Game runner not initialized");
+      }
+
+      try {
+        const constructionData = (await gameRunner).constructionDebug();
+        sendMessage({
+          type: "construction_debug_result",
+          id: message.id,
+          result: constructionData,
+        } as ConstructionDebugResultMessage);
+      } catch (error) {
+        console.error("Failed to get construction debug:", error);
+        throw error;
       }
       break;
     default:

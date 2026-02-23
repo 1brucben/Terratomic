@@ -266,6 +266,19 @@ export class UnitLayer implements Layer {
     this.pixiCanvas = document.createElement("canvas");
     this.pixiCanvas.width = window.innerWidth;
     this.pixiCanvas.height = window.innerHeight;
+
+    // Use DOM overlay instead of drawImage compositing to avoid
+    // expensive WebGL-to-2D-canvas GPU readback every frame.
+    this.pixiCanvas.style.position = "fixed";
+    this.pixiCanvas.style.left = "0";
+    this.pixiCanvas.style.top = "0";
+    this.pixiCanvas.style.width = "100%";
+    this.pixiCanvas.style.height = "100%";
+    this.pixiCanvas.style.pointerEvents = "none";
+    // Render above ArtilleryLayer PIXI (z-32), below AABulletLayer PIXI (z-34)
+    this.pixiCanvas.style.zIndex = "33";
+    document.body.appendChild(this.pixiCanvas);
+
     this.pixiStage = new PIXI.Container();
     await this.pixiRenderer.init({
       canvas: this.pixiCanvas,
@@ -605,38 +618,6 @@ export class UnitLayer implements Layer {
         );
       }
     }
-
-    // DEBUG: Log bomber status every 10 ticks
-    if (this.game.ticks() % 10 === 0) {
-      const myPlayer = this.game.myPlayer();
-      if (myPlayer) {
-        // First log all airfields
-        const allAirfields = this.game.units(UnitType.Airfield);
-        const myAirfields = allAirfields.filter(
-          (a) => a.owner().smallID() === myPlayer.smallID(),
-        );
-        const airfieldTiles = myAirfields.map((a) => a.tile());
-        console.log(
-          `[My Airfields] Total: ${myAirfields.length}, tiles: [${airfieldTiles.join(", ")}]`,
-        );
-
-        for (const render of this.pixiRenders) {
-          if (
-            render.unit.type() === UnitType.Bomber &&
-            render.unit.owner().smallID() === myPlayer.smallID()
-          ) {
-            const unit = render.unit;
-            const cachedAtAirfield = this.bomberAtAirfield.get(unit.id());
-            const bomberTile = unit.tile();
-            const tileMatches = airfieldTiles.includes(bomberTile);
-            console.log(
-              `[Bomber ${unit.id()}] tile=${bomberTile}, tileMatchesAnyAirfield=${tileMatches}, ` +
-                `cachedAtAirfield=${cachedAtAirfield}, spriteVisible=${render.pixiSprite.visible}`,
-            );
-          }
-        }
-      }
-    }
   }
 
   private isUnitAtOwnedAirfield(unit: UnitView): boolean {
@@ -970,7 +951,7 @@ export class UnitLayer implements Layer {
     this.updateInterpolatedUnits();
 
     // Update and render PIXI units
-    this.renderPixiUnits(context);
+    this.renderPixiUnits();
 
     PerformanceMetrics.getInstance().incrementVisibleEntities(
       this.renderedUnits.size + this.pixiRenders.length,
@@ -1000,7 +981,7 @@ export class UnitLayer implements Layer {
     }
   }
 
-  private renderPixiUnits(mainContext: CanvasRenderingContext2D) {
+  private renderPixiUnits() {
     if (!this.pixiRenderer) return;
 
     const metrics = PerformanceMetrics.getInstance();
@@ -1051,15 +1032,10 @@ export class UnitLayer implements Layer {
     // Update ghost sprite positions
     this.updatePixiGhosts();
 
-    // Render PIXI stage to its canvas
+    // Render PIXI stage to its own DOM-overlaid canvas.
+    // No drawImage compositing needed — the browser's hardware compositor
+    // layers the WebGL canvas on top of the 2D canvas for free.
     this.pixiRenderer.render(this.pixiStage);
-
-    // Save current transform, reset to identity, draw PIXI canvas, then restore
-    // This prevents the canvas transform from affecting the PIXI canvas positioning
-    mainContext.save();
-    mainContext.setTransform(1, 0, 0, 1, 0, 0); // Reset to identity matrix
-    mainContext.drawImage(this.pixiRenderer.canvas, 0, 0);
-    mainContext.restore();
   }
 
   private updatePixiSpritePosition(render: UnitRenderInfo) {

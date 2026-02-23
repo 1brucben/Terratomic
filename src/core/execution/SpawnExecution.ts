@@ -38,7 +38,7 @@ export class SpawnExecution implements Execution {
       player = this.mg.addPlayer(this.playerInfo);
     }
 
-    player.tiles().forEach((t) => player.relinquish(t));
+    for (const t of Array.from(player.tiles())) player.relinquish(t);
     getSpawnTiles(this.mg, this.tile).forEach((t) => {
       player.conquer(t);
     });

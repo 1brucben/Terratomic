@@ -353,6 +353,7 @@ export class SAMLauncherExecution implements Execution {
     this.targetingSystem ??= new SAMTargetingSystem(this.mg, this.sam);
 
     if (this.sam.isInCooldown()) {
+      this.sam.touch(); // Emit updates for per-slot cooldown recovery
       return;
     }
 
@@ -385,7 +386,7 @@ export class SAMLauncherExecution implements Execution {
       },
     );
 
-    // Get a single target - stacked SAMs use launchesRemaining to fire multiple times before cooldown
+    // Get a single target - stacked SAMs use per-slot independent cooldowns
     let target: Target | null = null;
     if (mirvWarheadTargets.length === 0) {
       target = this.targetingSystem.getSingleTarget(ticks);

@@ -29,7 +29,7 @@ export function getDetailedTechTooltip(techId: string): string {
 
     // --- LAND ---
     case RESEARCH_TECH_IDS.LAND_ROADS_HOSPITALS:
-      return `Unlocks:\n• Roads: Increases unit movement speed, generates passive trade income per connected tile\n• Trade Routes: Trade ships establish international commerce routes for continuous gold income`;
+      return `Unlocks:\n• Roads: Increases unit movement speed, generates passive trade income per connected tile`;
     case RESEARCH_TECH_IDS.LAND_MILITARY_ACADEMY: {
       const a1 = ARTILLERY_UPGRADES[0];
       return `Unlocks:\n• City Anti-Air: Cities automatically engage enemy aircraft with AA batteries\n• Improved SAM: +35% range to 94.5 pixels, improved accuracy vs bombers/fighters/missiles\n• Artillery Level 1 (${a1.maxHealth} health, ${a1.damageMin}-${a1.damageMax} damage, 60 tile range): Land-based heavy artillery spawns from Factories`;

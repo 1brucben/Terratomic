@@ -5,6 +5,7 @@ import { Config } from "../configuration/Config";
 import { EventBus } from "../EventBus";
 import { ClientID, GameID } from "../Schemas";
 import { computeResearchLevel } from "../tech/ResearchTree";
+import { incomeModifiers } from "../tech/TechEffects";
 import { createRandomName } from "../Util";
 import { WorkerClient } from "../worker/WorkerClient";
 import {
@@ -25,6 +26,7 @@ import {
   TerrainType,
   TerraNullius,
   Tick,
+  TradeDemandMetrics,
   UnitInfo,
   UnitType,
   UpgradeType,
@@ -198,7 +200,7 @@ export class UnitView {
     return (this.data as any).stackCount ?? 1;
   }
 
-  // Missile silo specific: remaining launches before cooldown (for stacked silos)
+  // Silo/SAM specific: number of ready slots (for stacked structures with per-slot cooldowns)
   launchesRemaining(): number | null {
     const v = (this.data as any).launchesRemaining as number | undefined;
     return v ?? null;
@@ -393,6 +395,17 @@ export class PlayerView {
   gold(): Gold {
     return this.data.gold;
   }
+  rawIndustrialProduction(): number {
+    const base = 0.11 * Math.pow(this.workers(), 0.65);
+    const productivity = this.productivity();
+    const k = this.effectiveUnits(UnitType.Factory);
+    const factoryFactor = Math.pow(1 + k, 0.35);
+    const incomeMods = incomeModifiers(this);
+    const g =
+      base * productivity * factoryFactor * incomeMods.domesticIncomeMul;
+    if (!Number.isFinite(g) || g < 0) return 0;
+    return g;
+  }
   industrialProduction(): number {
     return (this.data as any).industrialProduction;
   }
@@ -411,11 +424,23 @@ export class PlayerView {
   troops(): number {
     return this.data.troops;
   }
+  militaryStrength(): number {
+    return this.data.militaryStrength;
+  }
   productivity(): number {
     return this.data.productivity;
   }
   productivityGrowthPerMinute(): number {
     return this.data.productivityGrowthPerMinute;
+  }
+  cargoTruckGoldPerMinute(): number {
+    return this.data.cargoTruckGoldPerMinute ?? 0;
+  }
+  tradeShipGoldPerMinute(): number {
+    return this.data.tradeShipGoldPerMinute ?? 0;
+  }
+  estimatedGoldIncomePerMinute(): number {
+    return this.data.estimatedGoldIncomePerMinute ?? 0;
   }
   investmentRate(): number {
     return this.data.investmentRate;
@@ -458,6 +483,10 @@ export class PlayerView {
 
   isRequestingAllianceWith(other: PlayerView) {
     return this.data.outgoingAllianceRequests.some((id) => other.id() === id);
+  }
+
+  isRequestingPeaceWith(other: PlayerView) {
+    return this.data.outgoingPeaceRequests.some((id) => other.id() === id);
   }
 
   hasEmbargoAgainst(other: PlayerView): boolean {
@@ -503,6 +532,22 @@ export class PlayerView {
   // Trade: global demand queue length (server-provided; default 0)
   tradeDemandQueueLength(): number {
     return (this.data as any).tradeDemandQueueLength ?? 0;
+  }
+
+  // Trade demand metrics for UI display
+  tradeDemandMetrics(queueLen: number): TradeDemandMetrics {
+    const shipCount = this.units(UnitType.TradeShip).length;
+    // Count idle ships: not returning, no trade phase, no target
+    const availableShips = this.units(UnitType.TradeShip).filter((ship) => {
+      const returning = (ship as any).returning?.() ?? false;
+      const tradePhase = (ship as any).tradePhase?.() ?? null;
+      const targetUnit = (ship as any).targetUnit?.() ?? undefined;
+      return !returning && tradePhase === null && targetUnit === undefined;
+    }).length;
+    const queueRatio =
+      shipCount > 0 ? queueLen / shipCount : queueLen > 0 ? 1 : 0;
+    const availableRatio = shipCount > 0 ? availableShips / shipCount : 0;
+    return { shipCount, availableShips, queueLen, queueRatio, availableRatio };
   }
 }
 

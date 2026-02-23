@@ -69,6 +69,12 @@ export interface LobbyConfig {
   gameStartInfo?: GameStartInfo;
   // GameRecord exists when replaying an archived game.
   gameRecord?: GameRecord;
+  // Calibration mode data for AI-vs-AI matches.
+  calibration?: {
+    numPlayers: number;
+    profileA: import("../core/ai/AIBehaviorParams").AIProfile;
+    profileB: import("../core/ai/AIBehaviorParams").AIProfile;
+  };
 }
 
 export function joinLobby(
@@ -157,6 +163,7 @@ export async function createClientGame(
   const worker = new WorkerClient(
     lobbyConfig.gameStartInfo,
     lobbyConfig.clientID,
+    lobbyConfig.calibration,
   );
   await worker.initialize();
   const gameView = new GameView(
@@ -324,7 +331,7 @@ export class ClientGameRunner {
           this.gameView
             .players()
             .filter((p) =>
-              [PlayerType.Human, PlayerType.FakeHuman].includes(
+              [PlayerType.Human, PlayerType.AI].includes(
                 p.type() as PlayerType,
               ),
             ),

@@ -86,13 +86,13 @@ describe("UpgradeStructureExecution", () => {
 
   it("does not charge or upgrade a Missile Silo at max stack level", () => {
     const { mockPlayer, mockGame } = makeMocks(UnitType.MissileSilo);
-    // Create a unit mock that reports level 25 (max stack count)
+    // Create a unit mock that reports level 99 (max stack count)
     const mockUnit = {
       isUnit: jest.fn().mockReturnValue(true),
       type: jest.fn().mockReturnValue(UnitType.MissileSilo),
       owner: jest.fn().mockReturnValue(mockPlayer),
-      level: jest.fn().mockReturnValue(25), // MAX_STACK_COUNT
-      stackCount: jest.fn().mockReturnValue(25),
+      level: jest.fn().mockReturnValue(99), // MAX_STACK_COUNT
+      stackCount: jest.fn().mockReturnValue(99),
       setStackCount: jest.fn(),
       upgradeStructure: jest.fn(),
     } as unknown as jest.Mocked<

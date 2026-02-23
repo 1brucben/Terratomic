@@ -7,11 +7,13 @@ import { TransformHandler } from "./TransformHandler";
 import { UIState } from "./UIState";
 import { AABulletLayer } from "./layers/AABulletLayer";
 import { ArtilleryLayer } from "./layers/ArtilleryLayer";
+import { AttackDebugOverlay } from "./layers/AttackDebugOverlay";
 import { AttackWarningOverlay } from "./layers/AttackWarningOverlay";
 import { BuildMenu } from "./layers/BuildMenu";
 import { CargoTruckLayer } from "./layers/CargoTruckLayer";
 import { ChatDisplay } from "./layers/ChatDisplay";
 import { ChatModal } from "./layers/ChatModal";
+import { ConstructionDebugOverlay } from "./layers/ConstructionDebugOverlay";
 import { ControlPanel } from "./layers/ControlPanel";
 import { ControlPanel2 } from "./layers/ControlPanel2";
 import { DevHud } from "./layers/DevHud";
@@ -40,10 +42,12 @@ import { TechUnlockNotification } from "./layers/TechUnlockNotification";
 import { TerrainLayer } from "./layers/TerrainLayer";
 import { TerritoryLayer } from "./layers/TerritoryLayer";
 import { TopBar } from "./layers/TopBar";
+import { TradeDebugOverlay } from "./layers/TradeDebugOverlay";
 import { TutorialToast } from "./layers/TutorialToast";
 import { TutorialTriggers } from "./layers/TutorialTriggers";
 import { UILayer } from "./layers/UILayer";
 import { UnitLayer } from "./layers/UnitLayer";
+import { WarScoreOverlay } from "./layers/WarScoreOverlay";
 import { WinModal } from "./layers/WinModal";
 
 // Debug flags (keep off for normal gameplay)
@@ -73,7 +77,6 @@ export function createRenderer(
     pendingBuildUnitType: null,
     multibuildEnabled: false,
     upgradeMode: false,
-    bomberUpgradeMode: false,
     unitLevels: {},
   };
 
@@ -325,6 +328,10 @@ export function createRenderer(
     headsUpMessage,
     multiTabModal,
     new DevHud(game, transformHandler),
+    new WarScoreOverlay(game),
+    new AttackDebugOverlay(game),
+    new TradeDebugOverlay(game),
+    new ConstructionDebugOverlay(game),
   ];
 
   return new GameRenderer(
@@ -375,10 +382,10 @@ export class GameRenderer {
   }
 
   resizeCanvas() {
-    this.canvas.width = window.innerWidth;
-    this.canvas.height = window.innerHeight;
+    const dpr = window.devicePixelRatio || 1;
+    this.canvas.width = window.innerWidth * dpr;
+    this.canvas.height = window.innerHeight * dpr;
     this.transformHandler.updateCanvasBoundingRect();
-    //this.redraw()
   }
 
   redraw() {
@@ -392,13 +399,16 @@ export class GameRenderer {
   renderGame() {
     PerformanceMetrics.getInstance().resetVisibleCount();
     const start = performance.now();
+    const dpr = window.devicePixelRatio || 1;
+    // Apply DPR base transform so all drawing uses CSS-pixel coordinates
+    this.context.setTransform(dpr, 0, 0, dpr, 0, 0);
     // Set background
     this.context.fillStyle = this.game
       .config()
       .theme()
       .backgroundColor()
       .toHex();
-    this.context.fillRect(0, 0, this.canvas.width, this.canvas.height);
+    this.context.fillRect(0, 0, window.innerWidth, window.innerHeight);
 
     // Render layers in order, switching transform state as needed
     let isTransformed = false;
@@ -445,7 +455,8 @@ export class GameRenderer {
   }
 
   resize(width: number, height: number): void {
-    this.canvas.width = Math.ceil(width / window.devicePixelRatio);
-    this.canvas.height = Math.ceil(height / window.devicePixelRatio);
+    const dpr = window.devicePixelRatio || 1;
+    this.canvas.width = Math.ceil(width * dpr);
+    this.canvas.height = Math.ceil(height * dpr);
   }
 }

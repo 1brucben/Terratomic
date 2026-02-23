@@ -4,11 +4,16 @@ import { ClientID } from "../Schemas";
 import { Category, findTech } from "../tech/ResearchTree";
 import {
   applyTechCompletionEffects,
+  attackCasualtyModifiers,
+  attackSpeedModifiers,
+  AttackSpeedModifiers,
+  defenseCasualtyModifiers,
+  DefenseCasualtyModifiers,
+  incomeModifiers,
   roadEffectModifiers,
 } from "../tech/TechEffects";
 import {
   assertNever,
-  distSortUnit,
   maxInt,
   minInt,
   simpleHash,
@@ -30,8 +35,10 @@ import {
   GameMode,
   GameType,
   Gold,
+  isStructureType,
   MessageType,
   MutableAlliance,
+  PeaceRequest,
   Player,
   PlayerID,
   PlayerInfo,
@@ -42,6 +49,7 @@ import {
   TerrainType,
   TerraNullius,
   Tick,
+  TradeDemandMetrics,
   Unit,
   UnitParams,
   UnitType,
@@ -55,7 +63,21 @@ import {
   canBuildTransportShip,
 } from "./TransportShipUtils";
 import { UnitImpl } from "./UnitImpl";
+import { getUnitLevelCost } from "./UnitUpgrades";
 import { playerMaxUnitLevel } from "./Upgradeables";
+
+/** Structure types whose unitsOwned count uses stackCount/targetLevel. */
+const STACKABLE_TYPES: ReadonlySet<UnitType> = new Set([
+  UnitType.City,
+  UnitType.Port,
+  UnitType.Hospital,
+  UnitType.Academy,
+  UnitType.ResearchLab,
+  UnitType.Factory,
+  UnitType.SAMLauncher,
+  UnitType.Airfield,
+  UnitType.MissileSilo,
+]);
 
 interface Target {
   tick: Tick;
@@ -87,6 +109,13 @@ export class PlayerImpl implements Player {
   private _roadInvestmentRate: number = 0; // 0..1, fraction of per-tick income allocated to roads
   private _researchInvestmentRate: number = 0; // 0..1, fraction of per-tick income allocated to research
 
+  // Income tracking (per-tick EMA for per-minute estimates)
+  private _cargoTruckGoldThisTick: bigint = 0n; // per-tick accumulator
+  private _tradeShipGoldThisTick: bigint = 0n; // per-tick accumulator
+  private _cargoTruckGoldPerMinute: number = 0; // EMA
+  private _tradeShipGoldPerMinute: number = 0; // EMA
+  private _estimatedGoldIncomePerMinute: number = 0; // combined estimate
+
   markedTraitorTick = -1;
 
   private embargoes = new Map<PlayerID, Embargo>();
@@ -96,9 +125,30 @@ export class PlayerImpl implements Player {
   public _units: Unit[] = [];
   private _effectiveUnitsCache: Map<UnitType, number> = new Map();
 
+  // Cached total cost of all non-city/non-factory units & structures (updated every 50 ticks)
+  private _militaryAssetValue: number = 0;
+  private _militaryAssetValueLastTick: number = -1;
+
   // Phase 1 Optimization: Cache airfield existence
   private _hasAirfieldCache: boolean = false;
   private _hasAirfieldCacheDirty: boolean = true;
+
+  // Neighbor cache: stores smallIDs of all players (including TerraNullius=0) bordering this player
+  private _neighborCache: Set<number> | null = null;
+  // Shared border length cache: stores count of border tiles adjacent to each neighbor (keyed by smallID)
+  private _sharedBorderLengthCache: Map<number, number> | null = null;
+  // Cache for whether this player borders the ocean
+  private _bordersOceanCache: boolean | null = null;
+  // Cache for ocean shore extrema tiles (min/max X/Y)
+  private _oceanShoreExtremaCache: TileRef[] | null = null;
+  // Cache for all ocean shore tiles
+  private _oceanShoreTilesCache: TileRef[] | null = null;
+
+  // Phase 2 Optimization: Cache casualty modifiers (invalidated on tech research)
+  private _attackCasualtyModifiersCache: DefenseCasualtyModifiers | null = null;
+  private _defenseCasualtyModifiersCache: DefenseCasualtyModifiers | null =
+    null;
+  private _attackSpeedModifiersCache: AttackSpeedModifiers | null = null;
 
   public _tiles: Set<TileRef> = new Set();
   private _upgrades: Set<UpgradeType> = new Set();
@@ -115,6 +165,8 @@ export class PlayerImpl implements Player {
   private _hospitalReturns: number = 0;
 
   public pastOutgoingAllianceRequests: AllianceRequest[] = [];
+  public pastOutgoingPeaceRequests: PeaceRequest[] = [];
+  public pastIncomingPeaceRequests: PeaceRequest[] = [];
   private _expiredAlliances: Alliance[] = [];
 
   private targets_: Target[] = [];
@@ -168,6 +220,9 @@ export class PlayerImpl implements Player {
     const outgoingAllianceRequests = this.outgoingAllianceRequests().map((ar) =>
       ar.recipient().id(),
     );
+    const outgoingPeaceRequests = this.outgoingPeaceRequests().map((pr) =>
+      pr.recipient().id(),
+    );
     const stats = this.mg.stats().getPlayerStats(this);
 
     return {
@@ -202,9 +257,13 @@ export class PlayerImpl implements Player {
       tradeDemandQueueLength: (this.mg as any).tradeDemandQueueLength?.() ?? 0,
       troops: this.troops(),
       attackingTroops: this.attackingTroops(),
+      militaryStrength: this.militaryStrength(),
       targetTroopRatio: this.targetTroopRatio(),
       productivity: this.productivity(),
       productivityGrowthPerMinute: this.productivityGrowthPerMinute(),
+      cargoTruckGoldPerMinute: this.cargoTruckGoldPerMinute(),
+      tradeShipGoldPerMinute: this.tradeShipGoldPerMinute(),
+      estimatedGoldIncomePerMinute: this.estimatedGoldIncomePerMinute(),
       investmentRate: this.investmentRate(),
       roadInvestmentRate: this.roadInvestmentRate(),
       researchInvestmentRate: this.researchInvestmentRate(),
@@ -233,6 +292,7 @@ export class PlayerImpl implements Player {
         } satisfies AttackUpdate;
       }),
       outgoingAllianceRequests: outgoingAllianceRequests,
+      outgoingPeaceRequests: outgoingPeaceRequests,
       hasSpawned: this.hasSpawned(),
       betrayals: stats?.betrayals,
       effectiveUnits: Object.values(UnitType).reduce(
@@ -242,13 +302,7 @@ export class PlayerImpl implements Player {
         },
         {} as Record<UnitType, number>,
       ),
-      unitsOwned: Object.values(UnitType).reduce(
-        (acc, type) => {
-          acc[type] = this.unitsOwned(type);
-          return acc;
-        },
-        {} as Record<UnitType, number>,
-      ),
+      unitsOwned: this.allUnitsOwned(),
       upgrades: Array.from(this._upgrades),
       researchTreeTechs: Array.from(this._researchTreeTechs),
       researchTreeBeakers:
@@ -291,18 +345,62 @@ export class PlayerImpl implements Player {
     return this.playerInfo.playerType;
   }
 
-  // Economic: Industrial Production proxy (formerly GDP) as parameter * max population
-  industrialProduction(): number {
-    const factor = this.mg.config().industrialProductionFactor();
-    const maxPop = this.mg.config().maxPopulation(this);
-    const g = factor * maxPop;
-    // Ensure finite, non-negative number
+  // Economic: Industrial Production = gross gold rate without gold multiplier
+  // Formula: 0.11 * workers^0.65 * productivity * factoryFactor * domesticIncomeMul
+  rawIndustrialProduction(): number {
+    const base = 0.11 * Math.pow(this.workers(), 0.65);
+    const productivity = this.productivity();
+    const k = this.effectiveUnits(UnitType.Factory);
+    const factoryFactor = Math.pow(1 + k, 0.35);
+    const incomeMods = incomeModifiers(this);
+    const g =
+      base * productivity * factoryFactor * incomeMods.domesticIncomeMul;
     if (!Number.isFinite(g) || g < 0) return 0;
-    return Math.floor(g);
+    return g;
+  }
+  industrialProduction(): number {
+    return Math.floor(this.rawIndustrialProduction());
   }
 
   clan(): string | null {
     return this.playerInfo.clan;
+  }
+
+  // Trade demand metrics for AI scoring and UI
+  tradeDemandMetrics(queueLen: number): TradeDemandMetrics {
+    const tradeShips = this.units(UnitType.TradeShip).filter((u) =>
+      u.isActive(),
+    );
+    const shipCount = tradeShips.length;
+
+    if (shipCount === 0) {
+      return {
+        shipCount: 0,
+        availableShips: 0,
+        queueLen,
+        queueRatio: 0,
+        availableRatio: 0,
+      };
+    }
+
+    // A ship is idle if not returning, no trade phase, and no target
+    const availableShips = tradeShips.filter((s) => {
+      const isReturning = s.returning();
+      const phase = s.tradePhase();
+      const hasTarget = s.targetUnit() !== undefined;
+      return !isReturning && phase === null && !hasTarget;
+    }).length;
+
+    const queueRatio = queueLen / shipCount;
+    const availableRatio = availableShips / shipCount;
+
+    return {
+      shipCount,
+      availableShips,
+      queueLen,
+      queueRatio,
+      availableRatio,
+    };
   }
 
   units(...types: UnitType[]): Unit[] {
@@ -388,25 +486,11 @@ export class PlayerImpl implements Player {
   // Count of units owned by the player, including construction
   unitsOwned(type: UnitType): number {
     let total = 0;
-    // All stackable structure types
-    const stackableTypes = new Set([
-      UnitType.City,
-      UnitType.Port,
-      UnitType.Hospital,
-      UnitType.Academy,
-      UnitType.ResearchLab,
-      UnitType.Factory,
-      UnitType.SAMLauncher,
-      UnitType.Airfield,
-      UnitType.MissileSilo,
-    ]);
-    const isStackable = stackableTypes.has(type);
+    const isStackable = STACKABLE_TYPES.has(type);
 
     for (const unit of this._units) {
       if (unit.type() === type) {
         if (isStackable) {
-          // Stacked structures count their stackCount toward totals
-          // (affects scaling like new build cost and display counts)
           total += unit.stackCount?.() ?? 1;
         } else {
           total++;
@@ -415,7 +499,6 @@ export class PlayerImpl implements Player {
       }
       if (unit.type() !== UnitType.Construction) continue;
       if (unit.constructionType() !== type) continue;
-      // For stackable structures, count the target level instead of just 1
       if (isStackable) {
         total += unit.constructionTargetLevel();
       } else {
@@ -423,6 +506,37 @@ export class PlayerImpl implements Player {
       }
     }
     return total;
+  }
+
+  /**
+   * Computes unitsOwned counts for ALL UnitTypes in a single pass over _units.
+   * Used by toUpdate() to avoid O(UnitTypes × units) iteration.
+   */
+  private allUnitsOwned(): Record<UnitType, number> {
+    const counts = {} as Record<UnitType, number>;
+    for (const type of Object.values(UnitType)) {
+      counts[type] = 0;
+    }
+    for (const unit of this._units) {
+      const uType = unit.type();
+      if (uType === UnitType.Construction) {
+        const cType = unit.constructionType();
+        if (cType !== null) {
+          if (STACKABLE_TYPES.has(cType)) {
+            counts[cType] += unit.constructionTargetLevel();
+          } else {
+            counts[cType]++;
+          }
+        }
+      } else {
+        if (STACKABLE_TYPES.has(uType)) {
+          counts[uType] += unit.stackCount?.() ?? 1;
+        } else {
+          counts[uType]++;
+        }
+      }
+    }
+    return counts;
   }
 
   hasUpgrade(upgrade: UpgradeType): boolean {
@@ -567,6 +681,11 @@ export class PlayerImpl implements Player {
     // Add tech to researched set
     this._researchTreeTechs.add(techId);
 
+    // Invalidate casualty/speed modifier caches since they depend on researched techs
+    this._attackCasualtyModifiersCache = null;
+    this._defenseCasualtyModifiersCache = null;
+    this._attackSpeedModifiersCache = null;
+
     // Apply centralized side-effects upon research completion
     applyTechCompletionEffects(this, this.mg, techId);
   }
@@ -612,6 +731,40 @@ export class PlayerImpl implements Player {
   hasResearchedTech(techId: string): boolean {
     return this._researchTreeTechs.has(techId);
   }
+
+  /**
+   * Get cached attack casualty modifiers (based on researched techs).
+   * Cache is invalidated when a new tech is researched.
+   */
+  getAttackCasualtyModifiers(): DefenseCasualtyModifiers {
+    if (this._attackCasualtyModifiersCache === null) {
+      this._attackCasualtyModifiersCache = attackCasualtyModifiers(this);
+    }
+    return this._attackCasualtyModifiersCache;
+  }
+
+  /**
+   * Get cached defense casualty modifiers (based on researched techs).
+   * Cache is invalidated when a new tech is researched.
+   */
+  getDefenseCasualtyModifiers(): DefenseCasualtyModifiers {
+    if (this._defenseCasualtyModifiersCache === null) {
+      this._defenseCasualtyModifiersCache = defenseCasualtyModifiers(this);
+    }
+    return this._defenseCasualtyModifiersCache;
+  }
+
+  /**
+   * Get cached attack speed modifiers (based on researched techs).
+   * Cache is invalidated when a new tech is researched.
+   */
+  getAttackSpeedModifiers(): AttackSpeedModifiers {
+    if (this._attackSpeedModifiersCache === null) {
+      this._attackSpeedModifiersCache = attackSpeedModifiers(this);
+    }
+    return this._attackSpeedModifiersCache;
+  }
+
   researchBeakers(techId: string): number {
     return this._researchBeakers.get(techId) ?? 0;
   }
@@ -727,21 +880,153 @@ export class PlayerImpl implements Player {
   }
 
   sharesBorderWith(other: Player | TerraNullius): boolean {
-    for (const border of this._borderTiles) {
-      for (const neighbor of this.mg.map().neighbors(border)) {
-        if (this.mg.map().ownerID(neighbor) === other.smallID()) {
-          return true;
+    return this.neighborSmallIDs().has(other.smallID());
+  }
+
+  /**
+   * Returns the cached set of neighbor smallIDs, computing it if needed.
+   * Includes TerraNullius (smallID=0) if bordering unclaimed land.
+   * Also populates the shared border length cache.
+   */
+  private neighborSmallIDs(): Set<number> {
+    if (this._neighborCache === null) {
+      this._neighborCache = new Set();
+      this._sharedBorderLengthCache = new Map();
+      for (const border of this._borderTiles) {
+        // Track which neighbors this border tile touches (to count each tile only once per neighbor)
+        const touchedNeighbors = new Set<number>();
+        for (const neighbor of this.mg.map().neighbors(border)) {
+          if (this.mg.map().isLand(neighbor)) {
+            const ownerID = this.mg.map().ownerID(neighbor);
+            if (ownerID !== this.smallID()) {
+              this._neighborCache.add(ownerID);
+              touchedNeighbors.add(ownerID);
+            }
+          }
+        }
+        // Increment shared border length for each neighbor this tile touches
+        for (const ownerID of touchedNeighbors) {
+          const current = this._sharedBorderLengthCache.get(ownerID) ?? 0;
+          this._sharedBorderLengthCache.set(ownerID, current + 1);
         }
       }
     }
-    return false;
+    return this._neighborCache;
+  }
+
+  /**
+   * Invalidates the neighbor cache. Called when tile ownership changes.
+   */
+  invalidateNeighborCache(): void {
+    this._neighborCache = null;
+    this._sharedBorderLengthCache = null;
+    this._bordersOceanCache = null;
+    this._oceanShoreExtremaCache = null;
+    this._oceanShoreTilesCache = null;
+  }
+
+  /**
+   * Returns the number of border tiles shared with another player.
+   * Uses cached value if available.
+   */
+  sharedBorderLength(other: Player | TerraNullius): number {
+    // Ensure cache is populated
+    this.neighborSmallIDs();
+    return this._sharedBorderLengthCache?.get(other.smallID()) ?? 0;
+  }
+
+  /**
+   * Returns true if this player has any border tiles on the ocean.
+   * Uses cached value if available.
+   */
+  bordersOcean(): boolean {
+    if (this._bordersOceanCache === null) {
+      this._bordersOceanCache = false;
+      for (const tile of this._borderTiles) {
+        if (this.mg.isOceanShore(tile)) {
+          this._bordersOceanCache = true;
+          break;
+        }
+      }
+    }
+    return this._bordersOceanCache;
+  }
+
+  /**
+   * Returns all ocean shore tiles. Cached.
+   */
+  oceanShoreTiles(): readonly TileRef[] {
+    if (this._oceanShoreTilesCache === null) {
+      this._oceanShoreTilesCache = [];
+      for (const tile of this._borderTiles) {
+        if (this.mg.isOceanShore(tile)) {
+          this._oceanShoreTilesCache.push(tile);
+        }
+      }
+    }
+    return this._oceanShoreTilesCache;
+  }
+
+  /**
+   * Returns up to 4 extremum ocean shore tiles (min/max X/Y).
+   * Uses cached value if available.
+   */
+  oceanShoreExtrema(): readonly TileRef[] {
+    if (this._oceanShoreExtremaCache === null) {
+      const oceanShores = this.oceanShoreTiles();
+      this._oceanShoreExtremaCache = [];
+
+      if (oceanShores.length === 0) {
+        return this._oceanShoreExtremaCache;
+      }
+
+      let minX = oceanShores[0],
+        maxX = oceanShores[0],
+        minY = oceanShores[0],
+        maxY = oceanShores[0];
+      let minXVal = this.mg.x(oceanShores[0]),
+        maxXVal = minXVal,
+        minYVal = this.mg.y(oceanShores[0]),
+        maxYVal = minYVal;
+
+      for (const tile of oceanShores) {
+        const x = this.mg.x(tile);
+        const y = this.mg.y(tile);
+        if (x < minXVal) {
+          minXVal = x;
+          minX = tile;
+        }
+        if (x > maxXVal) {
+          maxXVal = x;
+          maxX = tile;
+        }
+        if (y < minYVal) {
+          minYVal = y;
+          minY = tile;
+        }
+        if (y > maxYVal) {
+          maxYVal = y;
+          maxY = tile;
+        }
+      }
+
+      // Deduplicate
+      const seen = new Set<TileRef>();
+      for (const t of [minX, maxX, minY, maxY]) {
+        if (!seen.has(t)) {
+          seen.add(t);
+          this._oceanShoreExtremaCache.push(t);
+        }
+      }
+    }
+    return this._oceanShoreExtremaCache;
   }
   numTilesOwned(): number {
     return this._tiles.size;
   }
 
   tiles(): ReadonlySet<TileRef> {
-    return new Set(this._tiles.values()) as Set<TileRef>;
+    return this._tiles;
   }
 
   borderTiles(): ReadonlySet<TileRef> {
@@ -749,20 +1034,12 @@ export class PlayerImpl implements Player {
   }
 
   neighbors(): (Player | TerraNullius)[] {
-    const ns: Set<Player | TerraNullius> = new Set();
-    for (const border of this.borderTiles()) {
-      for (const neighbor of this.mg.map().neighbors(border)) {
-        if (this.mg.map().isLand(neighbor)) {
-          const owner = this.mg.map().ownerID(neighbor);
-          if (owner !== this.smallID()) {
-            ns.add(
-              this.mg.playerBySmallID(owner) satisfies Player | TerraNullius,
-            );
-          }
-        }
-      }
+    const smallIDs = this.neighborSmallIDs();
+    const result: (Player | TerraNullius)[] = [];
+    for (const id of smallIDs) {
+      result.push(this.mg.playerBySmallID(id));
     }
-    return Array.from(ns);
+    return result;
   }
 
   isPlayer(): this is Player {
@@ -904,6 +1181,54 @@ export class PlayerImpl implements Player {
       throw new Error(`cannot create alliance request, already allies`);
     }
     return this.mg.createAllianceRequest(this, recipient satisfies Player);
+  }
+
+  incomingPeaceRequests(): PeaceRequest[] {
+    return this.mg.peaceRequests.filter((pr) => pr.recipient() === this);
+  }
+
+  outgoingPeaceRequests(): PeaceRequest[] {
+    return this.mg.peaceRequests.filter((pr) => pr.requestor() === this);
+  }
+
+  canSendPeaceRequest(other: Player): boolean {
+    if (other === this) {
+      return false;
+    }
+    if (!this.isAtWarWith(other) || !this.isAlive()) {
+      return false;
+    }
+
+    const hasPending =
+      this.incomingPeaceRequests().some((pr) => pr.requestor() === other) ||
+      this.outgoingPeaceRequests().some((pr) => pr.recipient() === other);
+
+    if (hasPending) {
+      return false;
+    }
+
+    const recent = this.pastOutgoingPeaceRequests
+      .filter((pr) => pr.recipient() === other)
+      .sort((a, b) => b.createdAt() - a.createdAt());
+
+    if (recent.length === 0) {
+      return true;
+    }
+
+    const delta = this.mg.ticks() - recent[0].createdAt();
+
+    if (delta < this.mg.config().allianceRequestCooldown()) {
+      return false;
+    }
+
+    return true;
+  }
+
+  createPeaceRequest(recipient: Player): PeaceRequest | null {
+    if (!this.isAtWarWith(recipient)) {
+      throw new Error(`cannot create peace request, not at war`);
+    }
+    return this.mg.createPeaceRequest(this, recipient satisfies Player);
   }
 
   relation(other: Player): Relation {
@@ -1332,11 +1657,141 @@ export class PlayerImpl implements Player {
     return Number(toRemove);
   }
 
+  militaryStrength(): number {
+    this.refreshMilitaryAssetValueCache();
+    return (
+      this.troops() +
+      0.9 * this.attackingTroops() +
+      Number(this._gold) / 10 +
+      this._militaryAssetValue / 10 +
+      this.estimatedGoldIncomePerMinute()
+    );
+  }
+
+  /**
+   * Recompute the cached sum of unit costs for all owned units/structures
+   * that are not Cities. Uses the unit's actual level cost (falling back
+   * to the base info cost) and multiplies by stackCount for stacked structures.
+   * Only recalculates every 50 ticks.
+   */
+  private refreshMilitaryAssetValueCache(): void {
+    const currentTick = this.mg.ticks();
+    if (currentTick - this._militaryAssetValueLastTick < 50) return;
+    this._militaryAssetValueLastTick = currentTick;
+
+    let total = 0n;
+    const excludedTypes = new Set<UnitType>([
+      // Economic / non-military structures
+      UnitType.City,
+      UnitType.Factory,
+      UnitType.Port,
+      // In-flight projectiles / transient units
+      UnitType.Shell,
+      UnitType.SAMMissile,
+      UnitType.AtomBomb,
+      UnitType.HydrogenBomb,
+      UnitType.MIRV,
+      UnitType.MIRVWarhead,
+      UnitType.AABullet,
+      // Non-combat / transport units
+      UnitType.TransportShip,
+      UnitType.TradeShip,
+      UnitType.CargoPlane,
+      // Excluded military units
+      UnitType.Bomber,
+      UnitType.DoomsdayDevice,
+    ]);
+    for (const unit of this._units) {
+      const t = unit.type();
+      if (excludedTypes.has(t)) continue;
+
+      // For in-progress constructions, use the target unit's cost instead of 0.
+      // Gold was already deducted upfront, so this restores visibility during build.
+      if (t === UnitType.Construction) {
+        const targetType = unit.constructionType();
+        if (targetType === null || excludedTypes.has(targetType)) continue;
+        const targetLevel = unit.constructionTargetLevel();
+        let constructionCost: Gold;
+        if (targetLevel > 1) {
+          const levelCost = getUnitLevelCost(targetType, targetLevel);
+          constructionCost =
+            levelCost > 0n
+              ? levelCost
+              : this.mg.unitInfo(targetType).cost(this);
+        } else {
+          constructionCost = this.mg.unitInfo(targetType).cost(this);
+        }
+        total += constructionCost;
+        continue;
+      }
+
+      // Use level-specific cost when available, otherwise base cost
+      const level = unit.level();
+      let unitCost: Gold;
+      if (level > 1) {
+        const levelCost = getUnitLevelCost(t, level);
+        unitCost = levelCost > 0n ? levelCost : unit.info().cost(this);
+      } else {
+        unitCost = unit.info().cost(this);
+      }
+
+      // Multiply by stack count for stacked structures
+      const stacks = unit.stackCount();
+      total += stacks > 1 ? unitCost * BigInt(stacks) : unitCost;
+    }
+    this._militaryAssetValue = Number(total);
+  }
+
   productivity(): number {
     return this._productivity;
   }
   productivityGrowthPerMinute(): number {
     return this._productivityGrowthPerMinute;
+  }
+
+  // --- Income tracking ---
+  recordCargoTruckGold(gold: Gold): void {
+    this._cargoTruckGoldThisTick += gold;
+  }
+  recordTradeShipGold(gold: Gold): void {
+    this._tradeShipGoldThisTick += gold;
+  }
+  updateIncomeTracking(): void {
+    // EMA decay: 599/600 ≈ 1-minute time constant (600 ticks = 1 min)
+    const DECAY = 599 / 600;
+    this._cargoTruckGoldPerMinute =
+      this._cargoTruckGoldPerMinute * DECAY +
+      Number(this._cargoTruckGoldThisTick);
+    this._tradeShipGoldPerMinute =
+      this._tradeShipGoldPerMinute * DECAY +
+      Number(this._tradeShipGoldThisTick);
+    this._cargoTruckGoldThisTick = 0n;
+    this._tradeShipGoldThisTick = 0n;
+    // Net industrial income per tick, extrapolated to per minute (600 ticks)
+    const grossGoldPerTick =
+      this.rawIndustrialProduction() *
+      (this.mg.config().gameConfig().goldMultiplier ?? 1);
+    const prodInvest = this.investmentRate();
+    const roadInvest = this.hasUpgrade(UpgradeType.Roads)
+      ? this.roadInvestmentRate()
+      : 0;
+    const researchInvest = this.researchInvestmentRate();
+    const totalInvest = Math.min(prodInvest + roadInvest + researchInvest, 1.1);
+    const netGoldPerTick = grossGoldPerTick * (1 - totalInvest);
+    const netIndustrialPerMinute = netGoldPerTick * 600;
+    this._estimatedGoldIncomePerMinute =
+      netIndustrialPerMinute +
+      this._cargoTruckGoldPerMinute +
+      this._tradeShipGoldPerMinute;
+  }
+  cargoTruckGoldPerMinute(): number {
+    return this._cargoTruckGoldPerMinute;
+  }
+  tradeShipGoldPerMinute(): number {
+    return this._tradeShipGoldPerMinute;
+  }
+  estimatedGoldIncomePerMinute(): number {
+    return this._estimatedGoldIncomePerMinute;
   }
   updateProductivity(): void {
     const alpha = 0.00035;
@@ -1436,7 +1891,6 @@ export class PlayerImpl implements Player {
       );
     }
 
-    const cost = this.mg.unitInfo(type).cost(this);
     const b = new UnitImpl(
       type,
       this.mg,
@@ -1447,7 +1901,7 @@ export class PlayerImpl implements Player {
     );
     this._units.push(b);
     this.recordUnitConstructed(type);
-    this.removeGold(cost);
+    // Gold is handled by ConstructionExecution upfront; no deduction here.
     this.removeTroops("troops" in params ? (params.troops ?? 0) : 0);
     this.mg.addUpdate(b.toUpdate());
     this.mg.addUnit(b);
@@ -1459,12 +1913,15 @@ export class PlayerImpl implements Player {
   public buildableUnits(tile: TileRef): BuildableUnit[] {
     const validTiles = this.validStructureSpawnTiles(tile);
     return Object.values(UnitType).map((u) => {
+      const cost = this.mg.config().unitInfo(u).cost(this);
       return {
         type: u,
         canBuild: this.mg.inSpawnPhase()
           ? false
-          : this.canBuild(u, tile, validTiles),
-        cost: this.mg.config().unitInfo(u).cost(this),
+          : this.gold() < cost
+            ? false
+            : this.canBuild(u, tile, validTiles),
+        cost,
       } as BuildableUnit;
     });
   }
@@ -1541,13 +1998,66 @@ export class PlayerImpl implements Player {
       return false;
     }
 
-    const cost = this.mg.unitInfo(unitType).cost(this);
-    if (
-      unitType !== UnitType.MIRVWarhead &&
-      (!this.isAlive() || this.gold() < cost)
-    ) {
+    if (!this.isAlive() && unitType !== UnitType.MIRVWarhead) {
       return false;
     }
+    // Gold affordability is checked by ConstructionExecution and buildableUnits(),
+    // not here, to avoid false negatives when gold is already reserved.
+    return this.canBuildAtTileInternal(unitType, targetTile, validTiles);
+  }
+
+  /**
+   * Lightweight check if a structure can be built at a specific tile, ignoring gold cost.
+   * Used by AI for tile evaluation. Unlike canBuild(), this does NOT do a BFS search -
+   * it only validates the specific tile directly (ownership + structure spacing).
+   * For ports, it checks if the tile is an ocean shore owned by this player.
+   * For land structures, it checks if the tile is land owned by this player.
+   */
+  canBuildAtTile(unitType: UnitType, targetTile: TileRef): TileRef | false {
+    if (!this.isAlive()) {
+      return false;
+    }
+    if (this.mg.config().isUnitDisabled(unitType)) {
+      return false;
+    }
+
+    // Check ownership
+    if (this.mg.owner(targetTile) !== this) {
+      return false;
+    }
+
+    // Type-specific terrain checks
+    if (unitType === UnitType.Port) {
+      // Ports must be on ocean shore
+      if (!this.mg.isOceanShore(targetTile)) {
+        return false;
+      }
+    } else if (isStructureType(unitType)) {
+      // Land-based structures cannot be on ocean
+      if (this.mg.isOcean(targetTile)) {
+        return false;
+      }
+    }
+
+    // Check structure spacing - no existing structure within minDist
+    const minDist = this.mg.config().structureMinDist();
+    const types = Object.values(UnitType).filter((t) => {
+      return this.mg.config().unitInfo(t).territoryBound;
+    });
+    const nearbyUnits = this.mg.nearbyUnits(targetTile, minDist, types);
+    if (nearbyUnits.length > 0) {
+      // There's at least one structure too close
+      return false;
+    }
+
+    return targetTile;
+  }
+
+  private canBuildAtTileInternal(
+    unitType: UnitType,
+    targetTile: TileRef,
+    validTiles: TileRef[] | null,
+  ): TileRef | false {
     switch (unitType) {
       case UnitType.MIRV:
         if (!this.mg.hasOwner(targetTile)) {
@@ -1618,7 +2128,16 @@ export class PlayerImpl implements Player {
       .filter((unit) => {
         return !unit.isInCooldown();
       })
-      .sort(distSortUnit(this.mg, tile));
+      .sort((a, b) => {
+        // Prefer the silo with the most levels (highest capacity first),
+        // break ties by distance to target (closest first).
+        const levelDiff = (b.stackCount?.() ?? 1) - (a.stackCount?.() ?? 1);
+        if (levelDiff !== 0) return levelDiff;
+        return (
+          this.mg.euclideanDistSquared(a.tile(), tile) -
+          this.mg.euclideanDistSquared(b.tile(), tile)
+        );
+      });
     if (spawns.length === 0) {
       return false;
     }
@@ -1862,10 +2381,8 @@ export class PlayerImpl implements Player {
       const defenderType = other.isPlayer() ? other.type() : null;
 
       if (
-        (attackerType === PlayerType.Human ||
-          attackerType === PlayerType.FakeHuman) &&
-        (defenderType === PlayerType.Human ||
-          defenderType === PlayerType.FakeHuman)
+        (attackerType === PlayerType.Human || attackerType === PlayerType.AI) &&
+        (defenderType === PlayerType.Human || defenderType === PlayerType.AI)
       ) {
         return false; // Block attack if peace timer is active and both are protected types
       }

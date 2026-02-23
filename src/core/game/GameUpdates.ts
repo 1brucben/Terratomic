@@ -37,6 +37,8 @@ export enum GameUpdateType {
   DisplayChatEvent,
   AllianceRequest,
   AllianceRequestReply,
+  PeaceRequest,
+  PeaceRequestReply,
   BrokeAlliance,
   AllianceExpired,
   TargetPlayer,
@@ -82,6 +84,8 @@ export type GameUpdate =
   | PlayerUpdate
   | AllianceRequestUpdate
   | AllianceRequestReplyUpdate
+  | PeaceRequestUpdate
+  | PeaceRequestReplyUpdate
   | BrokeAllianceUpdate
   | AllianceExpiredUpdate
   | AllianceExtensionAcceptedUpdate
@@ -153,7 +157,7 @@ export interface UnitUpdate {
   level?: number;
   // Stack count (>=1). Number of stacked instances for stackable structures.
   stackCount?: number;
-  // Missile silo specific: remaining launches before cooldown (for stacked silos)
+  // Silo/SAM specific: number of ready slots (for stacked structures with per-slot cooldowns)
   launchesRemaining?: number;
   // Trade-ship specific, for precise UI without heuristics
   tradeRouteStartOwnerID?: number; // smallID of start port owner
@@ -201,6 +205,10 @@ export interface PlayerUpdate {
   workers: number;
   productivity: number;
   productivityGrowthPerMinute: number;
+  // Income tracking (per-minute EMA estimates)
+  cargoTruckGoldPerMinute?: number;
+  tradeShipGoldPerMinute?: number;
+  estimatedGoldIncomePerMinute?: number;
   investmentRate: number;
   // Investment sliders (fractions 0..1)
   roadInvestmentRate?: number;
@@ -216,6 +224,7 @@ export interface PlayerUpdate {
   roadNetPixelsPerSecond?: number;
   troops: number;
   attackingTroops: number;
+  militaryStrength: number;
   targetTroopRatio: number;
   allies: number[];
   // Diplomacy: explicit wars (smallIDs), separate from trade embargoes
@@ -227,6 +236,7 @@ export interface PlayerUpdate {
   outgoingAttacks: AttackUpdate[];
   incomingAttacks: AttackUpdate[];
   outgoingAllianceRequests: PlayerID[];
+  outgoingPeaceRequests: PlayerID[];
   hasSpawned: boolean;
   betrayals?: bigint;
   effectiveUnits: Record<UnitType, number>;
@@ -240,10 +250,6 @@ export interface PlayerUpdate {
   researchPriorityTech?: string | null;
   // All selected research priority tech ids (optional; omitted if none)
   researchPriorities?: string[];
-  // Policy directive choices: directiveId -> optionId (optional; omitted if none)
-  policyChoices?: Record<string, string>;
-  // Whether the player has unseen policy directives to review
-  hasUnseenPolicyDirectives?: boolean;
 }
 
 export interface AllianceRequestUpdate {
@@ -256,6 +262,19 @@ export interface AllianceRequestUpdate {
 export interface AllianceRequestReplyUpdate {
   type: GameUpdateType.AllianceRequestReply;
   request: AllianceRequestUpdate;
+  accepted: boolean;
+}
+
+export interface PeaceRequestUpdate {
+  type: GameUpdateType.PeaceRequest;
+  requestorID: number;
+  recipientID: number;
+  createdAt: Tick;
+}
+
+export interface PeaceRequestReplyUpdate {
+  type: GameUpdateType.PeaceRequestReply;
+  request: PeaceRequestUpdate;
   accepted: boolean;
 }
 

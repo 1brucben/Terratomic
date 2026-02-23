@@ -3,6 +3,10 @@ import { AbstractGraph } from "../pathfinding/algorithms/AbstractGraph";
 import { PathFinder } from "../pathfinding/types";
 import { AllPlayersStats, ClientID } from "../Schemas";
 import { Category } from "../tech/ResearchTree";
+import {
+  AttackSpeedModifiers,
+  DefenseCasualtyModifiers,
+} from "../tech/TechEffects";
 import { Cell, GameMap, MapPos, TerrainType, TileRef } from "./GameMap";
 
 import {
@@ -21,9 +25,6 @@ export type Tick = number;
 export type Gold = bigint;
 
 export const AllPlayers = "AllPlayers" as const;
-
-// Attack execution subticks per game tick for smoother territory changes
-export const ATTACK_SUBTICKS_PER_TICK = 10;
 
 // export type GameUpdates = Record<GameUpdateType, GameUpdate[]>;
 // Create a type that maps GameUpdateType to its corresponding update type
@@ -356,7 +357,7 @@ export class Nation {
 export enum PlayerType {
   Bot = "BOT",
   Human = "HUMAN",
-  FakeHuman = "FAKEHUMAN",
+  AI = "AI",
 }
 
 export interface Execution {
@@ -389,6 +390,14 @@ export interface Attack {
 }
 
 export interface AllianceRequest {
+  accept(): void;
+  reject(): void;
+  requestor(): Player;
+  recipient(): Player;
+  createdAt(): Tick;
+}
+
+export interface PeaceRequest {
   accept(): void;
   reject(): void;
   requestor(): Player;
@@ -568,6 +577,14 @@ export interface Embargo {
   target: PlayerID;
 }
 
+export interface TradeDemandMetrics {
+  shipCount: number;
+  availableShips: number;
+  queueLen: number;
+  queueRatio: number;
+  availableRatio: number;
+}
+
 export interface Player {
   // Basic Info
   smallID(): number;
@@ -610,15 +627,33 @@ export interface Player {
   workers(): number;
   troops(): number;
   attackingTroops(): number;
+  militaryStrength(): number;
   targetTroopRatio(): number;
   productivity(): number; // Returns the productivity rate based on investment rate
   updateProductivity(): void;
   productivityGrowthPerMinute(): number; // Returns the productivity growth per minute
   removeProductivity(amount: number): void;
   investmentRate(): number; // Returns the investment rate (0 to 1)
+
+  // Income tracking (per-minute estimates, updated every tick via EMA)
+  /** Record gold received from a cargo truck delivery */
+  recordCargoTruckGold(gold: Gold): void;
+  /** Record gold received from a trade ship delivery */
+  recordTradeShipGold(gold: Gold): void;
+  /** Update income-per-minute EMA trackers (call every tick) */
+  updateIncomeTracking(): void;
+  /** Gold earned from cargo trucks per minute (EMA) */
+  cargoTruckGoldPerMinute(): number;
+  /** Gold earned from trade ships per minute (EMA) */
+  tradeShipGoldPerMinute(): number;
+  /** Estimated total gold income per minute (net industrial + cargo + trade) */
+  estimatedGoldIncomePerMinute(): number;
   setInvestmentRate(rate: number): void;
   // Economic: Industrial Production proxy (formerly GDP)
-  industrialProduction(): number; // Computed as config.industrialProductionFactor() * maxPopulation(this)
+  /** Raw (unrounded) industrial production: 0.11 * workers^0.65 * productivity * factoryFactor * domesticIncomeMul */
+  rawIndustrialProduction(): number;
+  /** Floored version for display / wire */
+  industrialProduction(): number;
   // Roads: investment ratio (0..1) of per-tick income allocated to roads
   roadInvestmentRate(): number;
   setRoadInvestmentRate(rate: number): void;
@@ -647,6 +682,9 @@ export interface Player {
   // Internal mutators used by infrastructure systems
   addRoadNetworkLength(delta: number): void;
 
+  // Trade demand metrics for AI scoring and UI
+  tradeDemandMetrics(queueLen: number): TradeDemandMetrics;
+
   // Units
   units(...types: UnitType[]): Unit[];
   unitCount(type: UnitType): number;
@@ -656,6 +694,11 @@ export interface Player {
   invalidateEffectiveUnitsCache(type: UnitType): void;
   buildableUnits(tile: TileRef): BuildableUnit[];
   canBuild(type: UnitType, targetTile: TileRef): TileRef | false;
+  /**
+   * Check if a structure can be built at a tile, ignoring gold cost.
+   * Used by AI for tile evaluation.
+   */
+  canBuildAtTile(type: UnitType, targetTile: TileRef): TileRef | false;
   buildUnit<T extends UnitType>(
     type: T,
     spawnTile: TileRef,
@@ -673,12 +716,26 @@ export interface Player {
   hasResearchedTech(techId: string): boolean;
   addResearchedTech(techId: string): void;
   removeResearchedTechsByCategory(category: Category): void;
+  // Cached casualty/speed modifiers (based on researched techs)
+  getAttackCasualtyModifiers(): DefenseCasualtyModifiers;
+  getDefenseCasualtyModifiers(): DefenseCasualtyModifiers;
+  getAttackSpeedModifiers(): AttackSpeedModifiers;
 
   captureUnit(unit: Unit): void;
 
   // Relations & Diplomacy
   neighbors(): (Player | TerraNullius)[];
   sharesBorderWith(other: Player | TerraNullius): boolean;
+  /** Returns the number of border tiles shared with another player. */
+  sharedBorderLength(other: Player | TerraNullius): number;
+  /** Returns true if this player has any border tiles on the ocean. Cached. */
+  bordersOcean(): boolean;
+  /** Returns up to 4 extremum ocean shore tiles (min/max X/Y). Cached. */
+  oceanShoreExtrema(): readonly TileRef[];
+  /** Returns all ocean shore tiles. Cached. */
+  oceanShoreTiles(): readonly TileRef[];
+  /** Invalidates the cached neighbor set. Called internally when tile ownership changes. */
+  invalidateNeighborCache(): void;
   relation(other: Player): Relation;
   allRelationsSorted(): { player: Player; relation: Relation }[];
   updateRelation(other: Player, delta: number): void;
@@ -704,6 +761,10 @@ export interface Player {
   canSendAllianceRequest(other: Player): boolean;
   breakAlliance(alliance: Alliance): void;
   createAllianceRequest(recipient: Player): AllianceRequest | null;
+  incomingPeaceRequests(): PeaceRequest[];
+  outgoingPeaceRequests(): PeaceRequest[];
+  canSendPeaceRequest(other: Player): boolean;
+  createPeaceRequest(recipient: Player): PeaceRequest | null;
 
   // Targeting
   canTarget(other: Player): boolean;
@@ -812,6 +873,12 @@ export interface Game extends GameMap {
   markPlayerNodesForReconnection(player: Player): void;
   // Road KPIs
   getRoadNetworkQualityForPlayer(playerId: PlayerID): number;
+  /**
+   * Get the road maintenance rate as a fraction of gross gold (0-1).
+   * Represents what percentage of gross gold is needed to maintain
+   * current roads at their current quality.
+   */
+  getRoadMaintenanceRateForPlayer(player: Player): number;
   // Helper for player road KPI calculations
   getRoadCountsForPlayer(player: Player): {
     completed: number;
@@ -889,6 +956,10 @@ export interface Game extends GameMap {
   miniWaterGraph(): AbstractGraph | null;
   getWaterComponent(tile: TileRef): number | null;
   hasWaterComponent(tile: TileRef, component: number): boolean;
+  // Border update batching for bulk conquest operations.
+  // While a batch is open, border recalculations are deferred and deduped.
+  beginBorderBatch(): void;
+  endBorderBatch(): void;
 }
 
 export interface PlayerActions {
@@ -957,6 +1028,9 @@ export enum MessageType {
   ALLIANCE_EXPIRED,
   WAR_DECLARED,
   PEACE_MADE,
+  PEACE_REQUEST,
+  PEACE_ACCEPTED,
+  PEACE_REJECTED,
   // Trade ship lifecycle events (new)
   TRADE_SHIP_CAPTURED,
   TRADE_SHIP_SUNK,
@@ -1005,6 +1079,9 @@ export const MESSAGE_TYPE_CATEGORIES: Record<MessageType, MessageCategory> = {
   [MessageType.ALLIANCE_EXPIRED]: MessageCategory.ALLIANCE,
   [MessageType.WAR_DECLARED]: MessageCategory.ALLIANCE,
   [MessageType.PEACE_MADE]: MessageCategory.ALLIANCE,
+  [MessageType.PEACE_REQUEST]: MessageCategory.ALLIANCE,
+  [MessageType.PEACE_ACCEPTED]: MessageCategory.ALLIANCE,
+  [MessageType.PEACE_REJECTED]: MessageCategory.ALLIANCE,
   [MessageType.WARN]: MessageCategory.ALLIANCE,
   [MessageType.PEACE_TIMER_BLOCKED]: MessageCategory.ATTACK,
   [MessageType.TRADE_SHIP_CAPTURED]: MessageCategory.ATTACK,

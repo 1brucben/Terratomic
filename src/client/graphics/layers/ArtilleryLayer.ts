@@ -76,6 +76,18 @@ export class ArtilleryLayer implements Layer {
     this.pixiCanvas = document.createElement("canvas");
     this.pixiCanvas.width = window.innerWidth;
     this.pixiCanvas.height = window.innerHeight;
+
+    // DOM overlay: avoids expensive WebGL-to-2D drawImage compositing.
+    this.pixiCanvas.style.position = "fixed";
+    this.pixiCanvas.style.left = "0";
+    this.pixiCanvas.style.top = "0";
+    this.pixiCanvas.style.width = "100%";
+    this.pixiCanvas.style.height = "100%";
+    this.pixiCanvas.style.pointerEvents = "none";
+    // Above StructureLayer PIXI (z-31), below UnitLayer PIXI (z-33)
+    this.pixiCanvas.style.zIndex = "32";
+    document.body.appendChild(this.pixiCanvas);
+
     this.stage = new PIXI.Container();
     await this.renderer.init({
       canvas: this.pixiCanvas,
@@ -170,7 +182,6 @@ export class ArtilleryLayer implements Layer {
     }
 
     this.renderer.render(this.stage);
-    mainContext.drawImage(this.renderer.canvas, 0, 0);
   }
 
   private updateSpritePosition(render: ArtilleryRenderInfo) {

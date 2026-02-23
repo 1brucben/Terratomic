@@ -61,10 +61,8 @@ export class TransportShipExecution implements Execution {
       const defenderType = this.target.type();
 
       if (
-        (attackerType === PlayerType.Human ||
-          attackerType === PlayerType.FakeHuman) &&
-        (defenderType === PlayerType.Human ||
-          defenderType === PlayerType.FakeHuman)
+        (attackerType === PlayerType.Human || attackerType === PlayerType.AI) &&
+        (defenderType === PlayerType.Human || defenderType === PlayerType.AI)
       ) {
         mg.displayMessage(
           `Attack blocked: Peace timer is active.`,
@@ -121,11 +119,29 @@ export class TransportShipExecution implements Execution {
     });
     // Track intended target player on the boat for selective cancellation on peace
     (this.boat as any).setBoatTargetPlayerID?.(this.target.id());
-
+    // Track the destination tile on the boat so AI warships can intercept
+    (this.boat as any).setBoatTargetTile?.(this.dst);
     if (this.dst !== null) {
       this.boat.setTargetTile(this.dst);
     } else {
       this.boat.setTargetTile(undefined);
+    }
+
+    // Immediately declare war on the target when launching a boat attack
+    if (this.target.isPlayer()) {
+      const targetPlayer = this.target as Player;
+      // Break alliance first if allied
+      const alliance = this.attacker.allianceWith(targetPlayer);
+      if (alliance) {
+        this.attacker.breakAlliance(alliance);
+      }
+      // Declare war if not already at war
+      if (!this.attacker.isAtWarWith(targetPlayer)) {
+        this.attacker.setWarWith(targetPlayer);
+        targetPlayer.setWarWith(this.attacker);
+        this.attacker.recordAggression(targetPlayer);
+        targetPlayer.recordAggression(this.attacker);
+      }
     }
 
     // Notify the target player about the incoming naval invasion
@@ -161,6 +177,20 @@ export class TransportShipExecution implements Execution {
       return;
     }
     this.lastMove = ticks;
+
+    // Retreat if the destination tile's owner changed, unless we're at war
+    // with the new owner or the new owner is a bot
+    if (!this.boat.retreating() && this.dst !== null) {
+      const dstOwner = this.mg.owner(this.dst);
+      if (
+        dstOwner !== this.target &&
+        dstOwner.isPlayer() &&
+        !this.attacker.isAtWarWith(dstOwner as Player) &&
+        (dstOwner as Player).type() !== PlayerType.Bot
+      ) {
+        this.boat.orderBoatRetreat();
+      }
+    }
 
     if (this.boat.retreating()) {
       // Ensure retreat source is still valid for (new) owner

@@ -482,6 +482,7 @@ export class RadialMenu implements Layer {
             return;
 
           const dst = this.g.ref(this.clickedCell.x, this.clickedCell.y);
+          const src = spawnTile ? this.g.ref(spawnTile.x, spawnTile.y) : null;
           this.eventBus.emit(
             new SendBoatAttackIntentEvent(
               dst,
@@ -599,10 +600,8 @@ export class RadialMenu implements Layer {
       const defenderType = (owner as PlayerView).type();
 
       if (
-        (attackerType === PlayerType.Human ||
-          attackerType === PlayerType.FakeHuman) &&
-        (defenderType === PlayerType.Human ||
-          defenderType === PlayerType.FakeHuman)
+        (attackerType === PlayerType.Human || attackerType === PlayerType.AI) &&
+        (defenderType === PlayerType.Human || defenderType === PlayerType.AI)
       ) {
         return false;
       }
