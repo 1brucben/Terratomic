@@ -149,25 +149,8 @@ export class WarshipExecution implements Execution {
       }
       // Decide engagement rules per unit type
       if (unit.type() === UnitType.TradeShip) {
-        const shipOwner = unit.owner();
-        const myOwner = this.warship.owner();
-        const startOwner = unit.tradeRouteStartOwner();
-        const endOwner = unit.tradeRouteEndOwner();
-        const atWarWithAnyEndpoint = [startOwner, endOwner]
-          .filter((p): p is Player => !!p)
-          .some((p) => myOwner.isAtWarWith(p));
-
-        const embargoAgainstAnyEndpoint = [startOwner, endOwner]
-          .filter((p): p is Player => !!p)
-          .some(
-            (p) => myOwner.hasEmbargoAgainst(p) || p.hasEmbargoAgainst(myOwner),
-          );
-
-        const canTargetTrade =
-          myOwner.isAtWarWith(shipOwner) ||
-          ((atWarWithAnyEndpoint || embargoAgainstAnyEndpoint) &&
-            !myOwner.isFriendly(shipOwner));
-        if (!canTargetTrade) {
+        // Warships capture trade ships sent by enemies they are at war with
+        if (!this.warship.owner().isAtWarWith(unit.owner())) {
           continue;
         }
       } else {
@@ -187,7 +170,7 @@ export class WarshipExecution implements Execution {
         }
       }
       if (unit.type() === UnitType.TradeShip) {
-        if (!hasPort || unit.isSafeFromPirates() || this.isDockedAtPort(unit)) {
+        if (unit.isSafeFromPirates()) {
           continue;
         }
         // Keep patrol range constraint for trade ships
@@ -284,18 +267,16 @@ export class WarshipExecution implements Execution {
     if (target.owner().isFriendly(this.warship.owner())) return false;
     if (this.alreadySentShell.has(target)) return false;
 
-    // Check if at war (for non-trade ships), with exception for incoming transport ships
-    if (target.type() !== UnitType.TradeShip) {
-      if (!this.warship.owner().isAtWarWith(target.owner())) {
-        if (target.type() === UnitType.TransportShip) {
-          const targetPID = (target as any).boatTargetPlayerID?.();
-          const incomingToMe =
-            targetPID === this.warship.owner().id() &&
-            !this.warship.owner().isFriendly(target.owner());
-          if (!incomingToMe) return false;
-        } else {
-          return false;
-        }
+    // Check if at war, with exception for incoming transport ships
+    if (!this.warship.owner().isAtWarWith(target.owner())) {
+      if (target.type() === UnitType.TransportShip) {
+        const targetPID = (target as any).boatTargetPlayerID?.();
+        const incomingToMe =
+          targetPID === this.warship.owner().id() &&
+          !this.warship.owner().isFriendly(target.owner());
+        if (!incomingToMe) return false;
+      } else {
+        return false;
       }
     }
 
@@ -369,7 +350,11 @@ export class WarshipExecution implements Execution {
       );
       switch (result.status) {
         case PathStatus.COMPLETE:
-          this.warship.owner().captureUnit(this.warship.targetUnit()!);
+          if (this.warship.owner().unitCount(UnitType.Port) > 0) {
+            this.warship.owner().captureUnit(this.warship.targetUnit()!);
+          } else {
+            this.warship.targetUnit()!.delete();
+          }
           this.warship.setTargetUnit(undefined);
           this.warship.move(this.warship.tile());
           return;
@@ -580,12 +565,5 @@ export class WarshipExecution implements Execution {
     }
 
     return this.mg.owner(targetTile) === this.warship.owner();
-  }
-
-  /** Returns true when a trade ship is sitting on a port tile (docked). */
-  private isDockedAtPort(tradeShip: Unit): boolean {
-    return this.mg
-      .unitsAt(tradeShip.tile())
-      .some((u) => u.type() === UnitType.Port);
   }
 }

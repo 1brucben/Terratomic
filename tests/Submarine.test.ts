@@ -109,7 +109,7 @@ describe("Submarine", () => {
     expect(tradeShip.isActive()).toBe(false);
   });
 
-  test("Submarine does not destroy trade if player has no port", async () => {
+  test("Submarine destroys trade ship even if player has no port", async () => {
     game.addExecution(
       new SubmarineExecution(
         player1.buildUnit(UnitType.Submarine, game.ref(coastX + 1, 11), {
@@ -122,17 +122,19 @@ describe("Submarine", () => {
       UnitType.TradeShip,
       game.ref(coastX + 1, 11),
       {
-        targetUnit: player1.buildUnit(UnitType.Port, game.ref(coastX, 11), {}),
+        targetUnit: player2.buildUnit(UnitType.Port, game.ref(coastX, 11), {}),
       },
     );
 
+    player1.setWarWith(player2);
+
     expect(tradeShip.owner().id()).toBe(player2.id());
-    // Let plenty of time for warship to potentially capture trade ship
     for (let i = 0; i < 10; i++) {
       game.executeNextTick();
     }
 
-    expect(tradeShip.owner().id()).toBe(player2.id());
+    // Submarine should still sink trade ship even without owning a port
+    expect(tradeShip.isActive()).toBe(false);
   });
 
   test("Submarine does not target trade ships that are safe from pirates", async () => {
@@ -160,40 +162,6 @@ describe("Submarine", () => {
 
     executeTicks(game, 10);
 
-    expect(tradeShip.owner().id()).toBe(player2.id());
-  });
-
-  test("Submarine does not target trade ship docked at a port", async () => {
-    // build port so submarine can target trade ships
-    player1.buildUnit(UnitType.Port, game.ref(coastX, 10), {});
-
-    const submarine = player1.buildUnit(
-      UnitType.Submarine,
-      game.ref(coastX + 1, 10),
-      {
-        patrolTile: game.ref(coastX + 1, 10),
-      },
-    );
-    game.addExecution(new SubmarineExecution(submarine));
-
-    // Place a port for player2 and put the trade ship ON the port tile (docked)
-    const enemyPort = player2.buildUnit(
-      UnitType.Port,
-      game.ref(coastX, 11),
-      {},
-    );
-    const tradeShip = player2.buildUnit(
-      UnitType.TradeShip,
-      enemyPort.tile(), // docked at port
-      {
-        targetUnit: enemyPort,
-      },
-    );
-
-    executeTicks(game, 10);
-
-    // Trade ship should remain alive and owned by player2
-    expect(tradeShip.isActive()).toBe(true);
     expect(tradeShip.owner().id()).toBe(player2.id());
   });
 
