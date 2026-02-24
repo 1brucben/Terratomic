@@ -145,13 +145,14 @@ export interface Config {
   donateCooldown(): Tick;
   defaultDonationAmount(sender: Player): number;
   unitInfo(type: UnitType): UnitInfo;
+  tradeShipShortRangeDebuff(): number;
   tradeShipGold(dist: number): Gold;
-  // Trade rework: gravity-based demand and port-supplied ships
-  tradeGravityK(): number; // Coefficient K in K * ip_i * ip_j / distance / world_industrial_production
-  tradeDemandTickInterval(): number; // Ticks between gravity accumulation (default 10)
-  tradeShipPerPortSupply(): number; // Number of trade ships each port supplies (default 1)
-  tradeIncomeFixed(): Gold; // Fixed income per completed trade (default 10k)
-  tradeShipReplacementDelayTicks(): number; // Ticks to generate a new/replacement trade ship (default 600 ~= 60s)
+  // Probability of trade ship spawn = 1 / tradeShipSpawnRate
+  tradeShipSpawnRate(
+    tradeShipSpawnRejections: number,
+    numTradeShips: number,
+  ): number;
+  tradeIncomeFixed(): Gold; // Fixed income per completed trade (default 20k)
   cargoTruckSpawnRate(numberOfStructures: number): number;
   cargoTruckGold(distance: number): Gold;
   roadUpdatesPerTick(): number;

@@ -164,10 +164,7 @@ export interface UnitUpdate {
   tradeRouteEndOwnerID?: number; // smallID of end port owner
   tradePhase?: "toStart" | "toEnd"; // current navigation phase (returning is provided separately)
   dockedAtPortOwnerID?: number; // smallID of the owner of the port the ship is currently docked at (if any)
-  // Port-specific: when a trade ship is scheduled from this port, its construction completion tick
-  pendingTradeShipDueTick?: Tick;
-  // Port-specific: support multiple concurrent trade ship constructions
-  pendingTradeShipDueTicks?: Tick[];
+
   // Airfield-specific: bomber upgrade level
   bomberLevel?: number;
 }
@@ -213,8 +210,7 @@ export interface PlayerUpdate {
   // Investment sliders (fractions 0..1)
   roadInvestmentRate?: number;
   researchInvestmentRate?: number;
-  // Trade: current global demand queue length (for UI indicators)
-  tradeDemandQueueLength?: number;
+
   // Road KPIs (percent values 0..100)
   roadNetworkQuality?: number;
   roadNetworkCompletion?: number;

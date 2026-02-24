@@ -126,18 +126,6 @@ export class ControlPanel2 extends LitElement implements Layer {
   @state()
   private _uiSelectedStructures: UnitType[] = [];
 
-  // Cache for trade demand to prevent flickering tooltips
-  @state()
-  private _tradeDemandCache: {
-    label: string;
-    color: string;
-    queueLen: number;
-    availableShips: number;
-    myShipCount: number;
-    tooltip: string;
-    timestamp: number;
-  } | null = null;
-
   private unitIconMap: { [key: string]: string } = {
     City: "/images/CityIconWhite.svg",
     Hospital: "/images/HospitalIconWhite.svg",
@@ -1282,7 +1270,6 @@ export class ControlPanel2 extends LitElement implements Layer {
                     </button>
                   </div>
                   <div class="toolbar-spacer"></div>
-                  ${this._renderTradeDemand()}
                 </div>
                 <!-- Build Grid -->
                 <build-menu
@@ -1719,166 +1706,6 @@ export class ControlPanel2 extends LitElement implements Layer {
               `
             : ""}
         </div>
-      </div>
-    `;
-  }
-
-  private _renderTradeDemand() {
-    const me = this.game.myPlayer();
-    if (!me) return html``;
-
-    // Hide trade demand if player has no ports (trading not yet available)
-    const myPorts = me.units(UnitType.Port).filter((u) => u.isActive());
-    if (myPorts.length === 0) return html``;
-
-    const queueLen = me.tradeDemandQueueLength();
-
-    // Use player method for metrics calculation
-    const metrics = me.tradeDemandMetrics(queueLen);
-
-    // If I have no trade ships, show "No Ships"
-    if (metrics.shipCount === 0) {
-      const icon = html`<svg
-        xmlns="http://www.w3.org/2000/svg"
-        width="16"
-        height="16"
-        viewBox="0 0 24 24"
-        fill="none"
-        stroke="currentColor"
-        stroke-width="2"
-        stroke-linecap="round"
-        stroke-linejoin="round"
-        class="text-gray-400"
-      >
-        <path
-          d="M2 21c.6.5 1.2 1 2.5 1 2.5 0 2.5-2 5-2 1.3 0 1.9.5 2.5 1 .6.5 1.2 1 2.5 1 2.5 0 2.5-2 5-2 1.3 0 1.9.5 2.5 1"
-        />
-        <path d="M19.38 20A11.6 11.6 0 0 0 21 14l-9-4-9 4c0 2.9.9 5.8 2.5 8" />
-        <path d="M12 10V4" />
-        <path d="M8 8v2" />
-        <path d="M16 8v2" />
-      </svg>`;
-      return html`
-        <div
-          class="trade-demand-indicator"
-          title="Build trade ships to fulfill trade routes"
-        >
-          ${icon}
-          <span style="opacity: 0.7;">Trade Demand:</span>
-          <span class="trade-demand-value" style="color: var(--ui-text-muted);">
-            No Ships
-          </span>
-        </div>
-      `;
-    }
-
-    // Only update cache if values changed significantly (reduce re-render flicker)
-    const now = Date.now();
-    const cacheValid =
-      this._tradeDemandCache !== null &&
-      this._tradeDemandCache.queueLen === metrics.queueLen &&
-      this._tradeDemandCache.availableShips === metrics.availableShips &&
-      this._tradeDemandCache.myShipCount === metrics.shipCount &&
-      now - this._tradeDemandCache.timestamp < 2000; // 2 second cache
-
-    if (cacheValid) {
-      const cached = this._tradeDemandCache!;
-      const icon = html`<svg
-        xmlns="http://www.w3.org/2000/svg"
-        width="16"
-        height="16"
-        viewBox="0 0 24 24"
-        fill="none"
-        stroke="currentColor"
-        stroke-width="2"
-        stroke-linecap="round"
-        stroke-linejoin="round"
-        class="text-gray-400"
-      >
-        <path
-          d="M2 21c.6.5 1.2 1 2.5 1 2.5 0 2.5-2 5-2 1.3 0 1.9.5 2.5 1 .6.5 1.2 1 2.5 1 2.5 0 2.5-2 5-2 1.3 0 1.9.5 2.5 1"
-        />
-        <path d="M19.38 20A11.6 11.6 0 0 0 21 14l-9-4-9 4c0 2.9.9 5.8 2.5 8" />
-        <path d="M12 10V4" />
-        <path d="M8 8v2" />
-        <path d="M16 8v2" />
-      </svg>`;
-      return html`
-        <div class="trade-demand-indicator" title="${cached.tooltip}">
-          ${icon}
-          <span style="opacity: 0.7;">Trade Demand:</span>
-          <span
-            class="trade-demand-value"
-            style="color: ${cached.color}; filter: drop-shadow(0 0 2px ${cached.color}80);"
-          >
-            ${cached.label}
-          </span>
-        </div>
-      `;
-    }
-
-    let demandLabel = "Medium";
-    let demandColor = "var(--ui-text-default)";
-
-    // Check available ships first (low demand = surplus capacity)
-    if (metrics.availableRatio > 0.6) {
-      demandLabel = "Very Low";
-      demandColor = "var(--ui-info)";
-    } else if (metrics.availableRatio > 0.3) {
-      demandLabel = "Low";
-      demandColor = "var(--ui-success)";
-    } else if (metrics.queueRatio > 2) {
-      // High demand = lots of routes waiting, need more ships
-      demandLabel = "Very High";
-      demandColor = "var(--ui-alert)";
-    } else if (metrics.queueRatio > 1) {
-      demandLabel = "High";
-      demandColor = "var(--ui-warning)";
-    }
-
-    // Update cache
-    const tooltipText = `Trade Demand: ${metrics.queueLen} routes waiting, ${metrics.availableShips}/${metrics.shipCount} ships available`;
-    this._tradeDemandCache = {
-      label: demandLabel,
-      color: demandColor,
-      queueLen: metrics.queueLen,
-      availableShips: metrics.availableShips,
-      myShipCount: metrics.shipCount,
-      tooltip: tooltipText,
-      timestamp: now,
-    };
-
-    const icon = html`<svg
-      xmlns="http://www.w3.org/2000/svg"
-      width="16"
-      height="16"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      stroke-width="2"
-      stroke-linecap="round"
-      stroke-linejoin="round"
-      class="text-gray-400"
-    >
-      <path
-        d="M2 21c.6.5 1.2 1 2.5 1 2.5 0 2.5-2 5-2 1.3 0 1.9.5 2.5 1 .6.5 1.2 1 2.5 1 2.5 0 2.5-2 5-2 1.3 0 1.9.5 2.5 1"
-      />
-      <path d="M19.38 20A11.6 11.6 0 0 0 21 14l-9-4-9 4c0 2.9.9 5.8 2.5 8" />
-      <path d="M12 10V4" />
-      <path d="M8 8v2" />
-      <path d="M16 8v2" />
-    </svg>`;
-
-    return html`
-      <div class="trade-demand-indicator" title="${tooltipText}">
-        ${icon}
-        <span style="opacity: 0.7;">Trade Demand:</span>
-        <span
-          class="trade-demand-value"
-          style="color: ${demandColor}; filter: drop-shadow(0 0 2px ${demandColor}80);"
-        >
-          ${demandLabel}
-        </span>
       </div>
     `;
   }

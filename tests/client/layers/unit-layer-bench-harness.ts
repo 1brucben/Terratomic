@@ -555,8 +555,6 @@ function createMockUnitView(
     stackCount: () => 1,
     launchesRemaining: () => null,
     bomberLevel: () => 1,
-    pendingTradeShipDueTick: () => null,
-    pendingTradeShipDueTicks: () => [],
     tradeRouteStartOwner: () => null,
     tradeRouteEndOwner: () => null,
     tradePhase: () => null,

@@ -93,8 +93,6 @@ export class GameImpl implements Game {
   private roadManager: RoadManager;
   private _roads = new Map<number, Road>();
   private cargoManager: CargoManager;
-  // Trade: global demand queue length, updated by TradeManagerExecution each tick
-  private _tradeDemandQueueLength: number = 0;
 
   private playerTeams: Team[];
   private botTeam: Team = ColoredTeams.Bot;
@@ -644,15 +642,6 @@ export class GameImpl implements Game {
 
     this._ticks++;
     return this.updates;
-  }
-
-  // Trade demand queue length accessors (used by PlayerImpl.toUpdate and UI)
-  public setTradeDemandQueueLength(n: number): void {
-    // Clamp to non-negative integer
-    this._tradeDemandQueueLength = n < 0 ? 0 : Math.floor(n);
-  }
-  public tradeDemandQueueLength(): number {
-    return this._tradeDemandQueueLength;
   }
 
   private hash(): number {

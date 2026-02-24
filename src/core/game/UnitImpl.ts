@@ -67,9 +67,7 @@ export class UnitImpl implements Unit {
   // Trade-ship specific: cargo carried (gold)
   private _cargoGold: bigint = 0n;
   private _tradePhase: "toStart" | "toEnd" | null = null;
-  // Port-specific: pending trade ship construction due tick (legacy single) and multiple concurrent builds
-  private _pendingTradeShipDueTick: Tick | null = null; // deprecated after multi-build
-  private _pendingTradeShipDueTicks: Tick[] = [];
+
   // Bomber-specific: source airfield for respawning
   private _sourceAirfield: Unit | undefined;
   // Airfield-specific: last bomber takeoff tick
@@ -215,15 +213,7 @@ export class UnitImpl implements Unit {
           .find((u) => u.type() === UnitType.Port) as UnitImpl | undefined;
         return portHere ? portHere.owner().smallID() : undefined;
       })(),
-      pendingTradeShipDueTick:
-        this._type === UnitType.Port && this._pendingTradeShipDueTick !== null
-          ? this._pendingTradeShipDueTick
-          : undefined,
-      pendingTradeShipDueTicks:
-        this._type === UnitType.Port &&
-        this._pendingTradeShipDueTicks.length > 0
-          ? [...this._pendingTradeShipDueTicks]
-          : undefined,
+
       bomberLevel:
         this._type === UnitType.Airfield && this._bomberLevel > 1
           ? this._bomberLevel
@@ -313,34 +303,6 @@ export class UnitImpl implements Unit {
       this._ensureSlots();
     }
     this.mg.addUpdate(this.toUpdate());
-  }
-
-  // Port-specific accessor/mutator for scheduled trade ship construction (single legacy)
-  setPendingTradeShipDueTick(due: Tick | null): void {
-    if (this._pendingTradeShipDueTick !== due) {
-      this._pendingTradeShipDueTick = due;
-      // Only emit update for ports
-      if (this._type === UnitType.Port) {
-        this.mg.addUpdate(this.toUpdate());
-      }
-    }
-  }
-  pendingTradeShipDueTick(): Tick | null {
-    return this._pendingTradeShipDueTick;
-  }
-  // Multi-build: replace entire set
-  setPendingTradeShipDueTicks(dueTicks: Tick[]): void {
-    // Normalize & sort ascending for UI consistency
-    const normalized = [...dueTicks].sort((a, b) => a - b);
-    const changed =
-      normalized.length !== this._pendingTradeShipDueTicks.length ||
-      normalized.some((v, i) => v !== this._pendingTradeShipDueTicks[i]);
-    if (!changed) return;
-    this._pendingTradeShipDueTicks = normalized;
-    if (this._type === UnitType.Port) this.mg.addUpdate(this.toUpdate());
-  }
-  pendingTradeShipDueTicks(): Tick[] {
-    return [...this._pendingTradeShipDueTicks];
   }
 
   /**

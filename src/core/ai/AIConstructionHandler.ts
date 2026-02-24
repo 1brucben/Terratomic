@@ -17,7 +17,6 @@ import {
   playerMaxStructureTechLevel,
 } from "../game/Upgradeables";
 import { PseudoRandom } from "../PseudoRandom";
-import { tradeIncomeModifiers } from "../tech/TechEffects";
 import { AIBehaviorParams } from "./AIBehaviorParams";
 
 /**
@@ -47,13 +46,6 @@ export class AIConstructionHandler {
   private static readonly MIN_TILE_EVALUATIONS_BEFORE_BUILD = 30;
   private static readonly TILE_EVALUATION_INTERVAL = 1;
   private static readonly TILE_CACHE_REBUILD_INTERVAL = 200; // Rebuild tile cache every ~10s (200 ticks at 20 tps)
-
-  private static readonly PORT_STATS_CACHE_INTERVAL = 50;
-
-  // Cached global port statistics (refreshed every PORT_STATS_CACHE_INTERVAL ticks)
-  private _cachedGlobalPortCount = 0;
-  private _cachedGlobalShipsUnderConstruction = 0;
-  private _cachedPortStatsTick = -Infinity;
 
   // Lazy-computed map dimension (√(width×height), never changes)
   private _cachedMapDim = 0;
@@ -950,64 +942,8 @@ export class AIConstructionHandler {
       return base;
     }
 
-    // Get global trade demand queue length
-    const queueLen = (this.mg as any).tradeDemandQueueLength?.() ?? 0;
-
-    // Use player method for metrics calculation
-    const metrics = player.tradeDemandMetrics(queueLen);
-
-    // Get trade income multipliers
-    const tradeMods = tradeIncomeModifiers(player);
-    const tradeIncomeMul = tradeMods.incomeMul * tradeMods.tradeShipIncomeMul;
-
-    // Calculate global ships under construction vs global ports multiplier
-    // Uses cached values refreshed every PORT_STATS_CACHE_INTERVAL ticks
-    const currentTick = this.mg.ticks();
-    if (
-      currentTick - this._cachedPortStatsTick >=
-      AIConstructionHandler.PORT_STATS_CACHE_INTERVAL
-    ) {
-      this._cachedPortStatsTick = currentTick;
-      const allPorts = this.mg.units(UnitType.Port).filter((p) => p.isActive());
-      this._cachedGlobalPortCount = allPorts.reduce(
-        (sum, port) => sum + (port.stackCount?.() ?? 1),
-        0,
-      );
-      this._cachedGlobalShipsUnderConstruction = allPorts.reduce(
-        (sum, port) => sum + (port as any).pendingTradeShipDueTicks().length,
-        0,
-      );
-    }
-    const globalPortCount = this._cachedGlobalPortCount;
-    const globalShipsUnderConstruction =
-      this._cachedGlobalShipsUnderConstruction;
-    const constructionRatioMul =
-      globalPortCount > 0
-        ? 1 - globalShipsUnderConstruction / globalPortCount
-        : 1;
-
-    // Time-discount: (1+r)^T where T = minutes to fund the port
-    const portCost = Number(
-      costOverride ?? this.mg.unitInfo(UnitType.Port).cost(player),
-    );
-    const grossGoldPerMinute = player.estimatedGoldIncomePerMinute();
-    const r = this.params.discountFactor ?? 0.1;
-    let timeDiscount = 1;
-    if (grossGoldPerMinute > 0 && portCost > 0) {
-      const T = portCost / grossGoldPerMinute;
-      timeDiscount = Math.pow(1 + r, T);
-    }
-
-    // Base score = multiplier * (1 + queueRatio) * (1 - availableRatio) * tradeIncomeMods * constructionRatioMul * productivity / (1+r)^T
-    return (
-      (AIConstructionHandler.PORT_SCORE_MULTIPLIER *
-        (1 + metrics.queueRatio) *
-        (1 - metrics.availableRatio) *
-        tradeIncomeMul *
-        Math.max(0, constructionRatioMul) *
-        player.productivity()) /
-      timeDiscount
-    );
+    // TODO: implement proper port scoring for the new per-port trade system
+    return 0;
   }
 
   /**

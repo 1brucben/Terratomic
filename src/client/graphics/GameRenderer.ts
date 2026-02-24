@@ -42,7 +42,6 @@ import { TechUnlockNotification } from "./layers/TechUnlockNotification";
 import { TerrainLayer } from "./layers/TerrainLayer";
 import { TerritoryLayer } from "./layers/TerritoryLayer";
 import { TopBar } from "./layers/TopBar";
-import { TradeDebugOverlay } from "./layers/TradeDebugOverlay";
 import { TutorialToast } from "./layers/TutorialToast";
 import { TutorialTriggers } from "./layers/TutorialTriggers";
 import { UILayer } from "./layers/UILayer";
@@ -330,7 +329,6 @@ export function createRenderer(
     new DevHud(game, transformHandler),
     new WarScoreOverlay(game),
     new AttackDebugOverlay(game),
-    new TradeDebugOverlay(game),
     new ConstructionDebugOverlay(game),
   ];
 

@@ -10,7 +10,7 @@ import { getConfig } from "../core/configuration/ConfigLoader";
 import { AllianceExpireCheckExecution } from "../core/execution/alliance/AllianceExpireCheckExecution";
 import { CapitalRecalculationExecution } from "../core/execution/CapitalRecalculationExecution";
 import { Executor } from "../core/execution/ExecutionManager";
-import { TradeManagerExecution } from "../core/execution/TradeManagerExecution";
+
 import { WinCheckExecution } from "../core/execution/WinCheckExecution";
 import {
   Cell,
@@ -205,7 +205,6 @@ export async function runCalibrationMatch(
   game.addExecution(new WinCheckExecution());
   game.addExecution(new AllianceExpireCheckExecution());
   game.addExecution(new CapitalRecalculationExecution());
-  game.addExecution(new TradeManagerExecution());
 
   // Run the game tick loop
   let tick = 0;

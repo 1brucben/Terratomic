@@ -26,7 +26,6 @@ import {
   TerrainType,
   TerraNullius,
   Tick,
-  TradeDemandMetrics,
   UnitInfo,
   UnitType,
   UpgradeType,
@@ -212,17 +211,6 @@ export class UnitView {
   }
 
   // Port-specific: pending trade ship construction due tick (or null if none scheduled)
-  pendingTradeShipDueTick(): Tick | null {
-    const v = (this.data as any).pendingTradeShipDueTick as Tick | undefined;
-    return v ?? null;
-  }
-  // Port-specific: multiple pending trade ship construction due ticks
-  pendingTradeShipDueTicks(): Tick[] {
-    const arr = (this.data as any).pendingTradeShipDueTicks as
-      | Tick[]
-      | undefined;
-    return Array.isArray(arr) ? [...arr] : [];
-  }
 
   // Get effective max health from server
   effectiveMaxHealth(): number {
@@ -528,26 +516,6 @@ export class PlayerView {
   }
   isDisconnected(): boolean {
     return this.data.isDisconnected;
-  }
-  // Trade: global demand queue length (server-provided; default 0)
-  tradeDemandQueueLength(): number {
-    return (this.data as any).tradeDemandQueueLength ?? 0;
-  }
-
-  // Trade demand metrics for UI display
-  tradeDemandMetrics(queueLen: number): TradeDemandMetrics {
-    const shipCount = this.units(UnitType.TradeShip).length;
-    // Count idle ships: not returning, no trade phase, no target
-    const availableShips = this.units(UnitType.TradeShip).filter((ship) => {
-      const returning = (ship as any).returning?.() ?? false;
-      const tradePhase = (ship as any).tradePhase?.() ?? null;
-      const targetUnit = (ship as any).targetUnit?.() ?? undefined;
-      return !returning && tradePhase === null && targetUnit === undefined;
-    }).length;
-    const queueRatio =
-      shipCount > 0 ? queueLen / shipCount : queueLen > 0 ? 1 : 0;
-    const availableRatio = shipCount > 0 ? availableShips / shipCount : 0;
-    return { shipCount, availableShips, queueLen, queueRatio, availableRatio };
   }
 }
 

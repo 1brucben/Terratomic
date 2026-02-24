@@ -27,6 +27,7 @@ import { FighterJetExecution } from "./FighterJetExecution";
 import { MirvExecution } from "./MIRVExecution";
 import { MissileSiloExecution } from "./MissileSiloExecution";
 import { NukeExecution } from "./NukeExecution";
+import { PortExecution } from "./PortExecution";
 import { SAMLauncherExecution } from "./SAMLauncherExecution";
 import { SubmarineExecution } from "./SubmarineExecution";
 import { WarshipExecution } from "./WarshipExecution";
@@ -223,6 +224,7 @@ export class ConstructionExecution implements Execution {
             {},
           );
           this.applyStackingIfNeeded(built, this.desiredStackCount);
+          this.mg.addExecution(new PortExecution(built));
         }
         break;
       case UnitType.MissileSilo:

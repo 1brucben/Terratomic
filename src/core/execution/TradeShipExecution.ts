@@ -10,6 +10,7 @@ import {
 import { TileRef } from "../game/GameMap";
 import { PathFinding } from "../pathfinding/PathFinder";
 import { PathStatus, SteppingPathFinder } from "../pathfinding/types";
+import { tradeIncomeModifiers } from "../tech/TechEffects";
 import { distSortUnit } from "../Util";
 
 export class TradeShipExecution implements Execution {
@@ -133,10 +134,14 @@ export class TradeShipExecution implements Execution {
   private complete() {
     this.active = false;
     this.tradeShip!.delete(false);
-    const gold = this.mg.config().tradeShipGold(this.tilesTraveled);
+    const baseGold = this.mg.config().tradeShipGold(this.tilesTraveled);
 
     if (this.wasCaptured) {
-      this.tradeShip!.owner().addGold(gold, this._dstPort.tile());
+      const captor = this.tradeShip!.owner();
+      const captorMods = tradeIncomeModifiers(captor);
+      const gold = BigInt(Math.floor(Number(baseGold) * captorMods.incomeMul));
+      captor.addGold(gold, this._dstPort.tile());
+      captor.recordTradeShipGold(gold);
       this.mg.displayMessage(
         `Received ${renderNumber(gold)} gold from ship captured from ${this.origOwner.displayName()}`,
         MessageType.CAPTURED_ENEMY_UNIT,
@@ -148,24 +153,42 @@ export class TradeShipExecution implements Execution {
         .stats()
         .boatCapturedTrade(this.tradeShip!.owner(), this.origOwner, gold);
     } else {
-      this.srcPort.owner().addGold(gold);
-      this._dstPort.owner().addGold(gold, this._dstPort.tile());
+      const srcOwner = this.srcPort.owner();
+      const dstOwner = this._dstPort.owner();
+      const srcMods = tradeIncomeModifiers(srcOwner);
+      const dstMods = tradeIncomeModifiers(dstOwner);
+
+      const srcGold = BigInt(
+        Math.floor(
+          Number(baseGold) * srcMods.incomeMul * srcMods.tradeShipIncomeMul,
+        ),
+      );
+      const dstGold = BigInt(Math.floor(Number(baseGold) * dstMods.incomeMul));
+
+      srcOwner.addGold(srcGold);
+      srcOwner.recordTradeShipGold(srcGold);
+      dstOwner.addGold(dstGold, this._dstPort.tile());
+      dstOwner.recordTradeShipGold(dstGold);
       this.mg.displayMessage(
-        `Received ${renderNumber(gold)} gold from trade with ${this.srcPort.owner().displayName()}`,
+        `Received ${renderNumber(dstGold)} gold from trade with ${srcOwner.displayName()}`,
         MessageType.RECEIVED_GOLD_FROM_TRADE,
         this._dstPort.owner().id(),
-        gold,
+        dstGold,
       );
       this.mg.displayMessage(
-        `Received ${renderNumber(gold)} gold from trade with ${this._dstPort.owner().displayName()}`,
+        `Received ${renderNumber(srcGold)} gold from trade with ${this._dstPort.owner().displayName()}`,
         MessageType.RECEIVED_GOLD_FROM_TRADE,
         this.srcPort.owner().id(),
-        gold,
+        srcGold,
       );
       // Record stats
       this.mg
         .stats()
-        .boatArriveTrade(this.srcPort.owner(), this._dstPort.owner(), gold);
+        .boatArriveTrade(
+          this.srcPort.owner(),
+          this._dstPort.owner(),
+          srcGold + dstGold,
+        );
     }
     return;
   }

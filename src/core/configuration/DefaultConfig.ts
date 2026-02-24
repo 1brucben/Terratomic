@@ -356,33 +356,29 @@ export class DefaultConfig implements Config {
   tradeShipShortRangeDebuff(): number {
     return 300;
   }
-  tradeShipGold(dist: number, numPorts: number = 1): Gold {
+  tradeShipGold(dist: number): Gold {
     // Sigmoid: concave start, sharp S-curve middle, linear end
+    // Heavily punishes trades under range debuff.
     const debuff = this.tradeShipShortRangeDebuff();
     const baseGold =
-      100_000 / (1 + Math.exp(-0.03 * (dist - debuff))) + 100 * dist;
-    const numPortBonus = numPorts - 1;
-    // Hyperbolic decay, midpoint at 5 ports, 3x bonus max.
-    const bonus = 1 + 2 * (numPortBonus / (numPortBonus + 5));
-    return BigInt(Math.floor(baseGold * bonus));
+      50_000 / (1 + Math.exp(-0.03 * (dist - debuff))) + 50 * dist;
+    return BigInt(Math.floor(baseGold));
   }
-  // Trade rework parameters
-  tradeGravityK(): number {
-    // Tunable coefficient for gravity model demand accumulation
-    return 3e-6; // conservative default to avoid flooding the queue
-  }
-  tradeDemandTickInterval(): number {
-    return 10;
-  }
-  tradeShipPerPortSupply(): number {
-    return 1;
+  // Probability of trade ship spawn = 1 / tradeShipSpawnRate
+  tradeShipSpawnRate(
+    tradeShipSpawnRejections: number,
+    numTradeShips: number,
+  ): number {
+    const decayRate = Math.LN2 / 50;
+    // Approaches 0 as numTradeShips increase
+    const baseSpawnRate =
+      1 - 1 / (1 + Math.exp(-decayRate * (numTradeShips - 200)));
+    // Pity timer: increases spawn chance after consecutive rejections
+    const rejectionModifier = 1 / (tradeShipSpawnRejections + 1);
+    return Math.floor((100 * rejectionModifier) / baseSpawnRate);
   }
   tradeIncomeFixed(): Gold {
     return BigInt(20_000);
-  }
-  tradeShipReplacementDelayTicks(): number {
-    // Assume ~10 ticks/sec => 300 ticks ~= 30s
-    return 300;
   }
 
   // Roads and Cargo Trucks
