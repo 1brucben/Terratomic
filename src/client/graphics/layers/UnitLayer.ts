@@ -94,7 +94,6 @@ const UNIT_LAYER_TYPES = new Set<UnitType>([
   UnitType.Shell,
   UnitType.SAMMissile,
   UnitType.TradeShip,
-  UnitType.CargoPlane,
   UnitType.MIRVWarhead,
   UnitType.Bomber,
   UnitType.FighterJet,
@@ -150,7 +149,6 @@ export class UnitLayer implements Layer {
     UnitType.Submarine,
     UnitType.Bomber,
     UnitType.FighterJet,
-    UnitType.CargoPlane,
   ];
 
   private baseTickIntervalMs = 100;
@@ -1751,9 +1749,6 @@ export class UnitLayer implements Layer {
       case UnitType.TradeShip:
         this.handleTradeShipEvent(unit, angleByUnit);
         break;
-      case UnitType.CargoPlane:
-        this.handleCargoPlaneEvent(unit, angleByUnit);
-        break;
       case UnitType.MIRVWarhead:
         this.handleMIRVWarhead(unit);
         break;
@@ -1940,13 +1935,6 @@ export class UnitLayer implements Layer {
     this.drawSprite(unit, undefined, angleByUnit);
   }
 
-  private handleCargoPlaneEvent(
-    unit: UnitView,
-    angleByUnit?: Map<UnitView, number | null>,
-  ) {
-    this.drawSprite(unit, undefined, angleByUnit);
-  }
-
   private handleBomberEvent(
     unit: UnitView,
     angleByUnit?: Map<UnitView, number | null>,
@@ -2065,11 +2053,7 @@ export class UnitLayer implements Layer {
     if (this.alternateView) {
       let rel = this.relationship(unit);
       const destinationId = unit.targetUnitId();
-      if (
-        (unit.type() === UnitType.TradeShip ||
-          unit.type() === UnitType.CargoPlane) &&
-        destinationId !== undefined
-      ) {
+      if (unit.type() === UnitType.TradeShip && destinationId !== undefined) {
         const target = this.game.unit(destinationId)?.owner();
         const myPlayer = this.game.myPlayer();
         if (myPlayer !== null && target !== undefined) {
@@ -2179,11 +2163,7 @@ export class UnitLayer implements Layer {
     if (this.alternateView) {
       let rel = this.relationship(unit);
       const destinationId = unit.targetUnitId();
-      if (
-        (unit.type() === UnitType.TradeShip ||
-          unit.type() === UnitType.CargoPlane) &&
-        destinationId !== undefined
-      ) {
+      if (unit.type() === UnitType.TradeShip && destinationId !== undefined) {
         const target = this.game.unit(destinationId)?.owner();
         const myPlayer = this.game.myPlayer();
         if (myPlayer !== null && target !== undefined) {
@@ -2230,9 +2210,7 @@ export class UnitLayer implements Layer {
 
       // Apply rotation on interpolation overlay for aircraft
       const isAircraft =
-        unit.type() === UnitType.Bomber ||
-        unit.type() === UnitType.FighterJet ||
-        unit.type() === UnitType.CargoPlane;
+        unit.type() === UnitType.Bomber || unit.type() === UnitType.FighterJet;
       let rotated = false;
       if (isAircraft) {
         const angle = this.getUnitAngle(unit);
@@ -2296,9 +2274,7 @@ export class UnitLayer implements Layer {
     if (
       lastTile &&
       currentTile &&
-      (unit.type() === UnitType.Bomber ||
-        unit.type() === UnitType.FighterJet ||
-        unit.type() === UnitType.CargoPlane)
+      (unit.type() === UnitType.Bomber || unit.type() === UnitType.FighterJet)
     ) {
       const lastPos = { x: this.game.x(lastTile), y: this.game.y(lastTile) };
       const currentPos = {

@@ -12,7 +12,6 @@ import { CityAABulletExecution } from "./CityAABulletExecution";
 const PLANE_TYPES: UnitType[] = [
   UnitType.Bomber,
   UnitType.FighterJet,
-  UnitType.CargoPlane,
   UnitType.Paratrooper,
 ];
 

@@ -3,7 +3,6 @@ import { TileRef } from "../game/GameMap";
 import { playerMaxUnitLevel } from "../game/Upgradeables";
 import { PseudoRandom } from "../PseudoRandom";
 import { BomberExecution } from "./BomberExecution";
-import { CargoPlaneExecution } from "./CargoPlaneExecution";
 
 export class AirfieldExecution implements Execution {
   executionName = "AirfieldExecution";
@@ -87,26 +86,6 @@ export class AirfieldExecution implements Execution {
     }
 
     const airfieldUnit = this.airfield;
-
-    // Handle cargo planes
-    if (mg.config().cargoPlanesEnabled()) {
-      const totalEffectiveAirfields = mg
-        .players()
-        .reduce((sum, p) => sum + p.effectiveUnits(UnitType.Airfield), 0);
-      if (
-        this.random.chance(
-          mg.config().cargoPlaneSpawnRate(totalEffectiveAirfields),
-        )
-      ) {
-        const possiblePorts = this.player.airfields(airfieldUnit);
-        if (possiblePorts.length > 0) {
-          const destField = this.random.randElement(possiblePorts);
-          mg.addExecution(
-            new CargoPlaneExecution(this.player, airfieldUnit, destField),
-          );
-        }
-      }
-    }
   }
 
   private spawnBombersForStackCount(mg: Game): void {

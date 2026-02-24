@@ -119,7 +119,6 @@ export interface Config {
   // When computing likelihood of trading for any given port, the X closest port
   // are twice more likely to be selected. X is determined below.
   proximityBonusPortsNb(totalPorts: number): number;
-  proximityBonusAirfieldsNumber(totalAirfields: number): number;
   maxPopulation(player: Player | PlayerView): number;
   // Multiplier used to compute a player's Industrial Production as: industrialProductionFactor * maxPopulation(player)
   industrialProductionFactor(): number;
@@ -181,10 +180,6 @@ export interface Config {
   // Hardcoded unit upgrade cost: total cost to build unit at targetLevel
   unitUpgradeTotalCost(type: UnitType, targetLevel: number): Gold;
 
-  cargoPlaneGold(dist: number): Gold;
-  cargoPlaneSpawnRate(numberOfAirplanes: number): number;
-  cargoPlaneMaxNumber(): number;
-  cargoPlanesEnabled(): boolean;
   bombersEnabled(): boolean;
   bomberDropCadence(): number;
   bomberPayload(): number;

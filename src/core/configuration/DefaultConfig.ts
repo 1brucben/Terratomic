@@ -422,21 +422,6 @@ export class DefaultConfig implements Config {
     return 0.2; // 0.2 percentage points per second when gap == maintenance
   }
 
-  // Cargoplanes (Turned off for now)
-  cargoPlanesEnabled(): boolean {
-    return false;
-  }
-  cargoPlaneGold(distance: number): Gold {
-    const tradeShipGold = this.tradeShipGold(distance);
-    return BigInt(Math.floor(Number(tradeShipGold) * 0.6));
-  }
-  cargoPlaneSpawnRate(numberOfAirfields: number): number {
-    return Math.min(50, Math.round(10 * Math.pow(numberOfAirfields, 0.6)));
-  }
-  cargoPlaneMaxNumber(): number {
-    return 3;
-  }
-
   // Bomber planes
   bombersEnabled(): boolean {
     return true;
@@ -791,11 +776,6 @@ export class DefaultConfig implements Config {
           constructionDuration: this.instantBuild() ? 0 : 10 * 10,
           maxHealth: 1000,
         };
-      case UnitType.CargoPlane:
-        return {
-          cost: () => 0n,
-          territoryBound: false,
-        };
       case UnitType.Bomber:
         return {
           cost: () => 0n,
@@ -1064,10 +1044,6 @@ export class DefaultConfig implements Config {
 
   proximityBonusPortsNb(totalPorts: number) {
     return within(totalPorts / 3, 4, totalPorts);
-  }
-
-  proximityBonusAirfieldsNumber(totalAirfields: number) {
-    return within(totalAirfields / 3, 4, totalAirfields);
   }
 
   attackAmount(attacker: Player, defender: Player | TerraNullius) {

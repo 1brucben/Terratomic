@@ -48,7 +48,6 @@ export class SAMMissileExecution implements Execution {
     const Whitelist = [
       UnitType.AtomBomb,
       UnitType.HydrogenBomb,
-      UnitType.CargoPlane,
       UnitType.Bomber,
       UnitType.FighterJet,
       UnitType.Paratrooper,

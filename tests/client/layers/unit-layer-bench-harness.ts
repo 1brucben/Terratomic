@@ -780,7 +780,6 @@ export const UNIT_MIXES: Record<string, UnitMix> = {
       [UnitType.SAMMissile, 30],
       [UnitType.Warship, 30],
       [UnitType.TradeShip, 20],
-      [UnitType.CargoPlane, 10],
     ],
   },
   /** Stress test: maximum unit count */

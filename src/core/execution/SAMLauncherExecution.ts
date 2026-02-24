@@ -274,9 +274,6 @@ export class SAMLauncherExecution implements Execution {
   private MIRVWarheadProtectionRadius = 50;
   private targetingSystem: SAMTargetingSystem;
 
-  private cargoPlaneSearchRadius = 150;
-  private cargoPlaneCheckOffset: number = 0;
-
   private pseudoRandom: PseudoRandom | undefined;
 
   constructor(
@@ -293,7 +290,6 @@ export class SAMLauncherExecution implements Execution {
 
   init(mg: Game, ticks: number): void {
     this.mg = mg;
-    this.cargoPlaneCheckOffset = mg.ticks() % 20;
   }
   private isHit(type: UnitType, random: number): boolean {
     if (!this.sam) return false; // Should not happen
@@ -311,7 +307,7 @@ export class SAMLauncherExecution implements Execution {
       return random < this.mg.config().samWarheadHittingChance();
     }
 
-    // For planes (CargoPlane, Bomber, FighterJet)
+    // For planes (Bomber, FighterJet)
     return random < this.mg.config().samPlaneHittingChance() * healthPercentage;
   }
 
@@ -454,7 +450,7 @@ export class SAMLauncherExecution implements Execution {
         // No valid target to engage (should not happen when firing)
       }
     }
-    if ((this.mg.ticks() + this.cargoPlaneCheckOffset) % 20 === 0) {
+    if (this.mg.ticks() % 20 === 0) {
       this.interceptPlanes();
     }
   }
@@ -480,12 +476,7 @@ export class SAMLauncherExecution implements Execution {
     const potentialAirborneTargets = this.mg.nearbyUnits(
       this.sam!.tile(),
       effectiveRange,
-      [
-        UnitType.CargoPlane,
-        UnitType.Bomber,
-        UnitType.FighterJet,
-        UnitType.Paratrooper,
-      ],
+      [UnitType.Bomber, UnitType.FighterJet, UnitType.Paratrooper],
     );
     if (!this.sam) return;
 
@@ -524,11 +515,10 @@ export class SAMLauncherExecution implements Execution {
         return !unit.targetedBySAM();
       })
       .sort((a, b) => {
-        // Prioritize by unit type: Bomber > FighterJet > CargoPlane
+        // Prioritize by unit type: Bomber > FighterJet
         const typeOrder = {
           [UnitType.Bomber]: 0,
           [UnitType.FighterJet]: 1,
-          [UnitType.CargoPlane]: 2,
         };
         const typeA = typeOrder[a.unit.type() as UnitType];
         const typeB = typeOrder[b.unit.type() as UnitType];

@@ -104,12 +104,7 @@ export class FighterJetExecution implements Execution {
     if (this.fighterJet.targetUnit() !== undefined) {
       // Reset patrol angle when engaging in combat so we smoothly rejoin figure-eight after
       this.patrolAngleInitialized = false;
-
-      if (this.fighterJet.targetUnit()?.type() === UnitType.CargoPlane) {
-        this.captureCargoPlane();
-      } else {
-        this.attackTarget();
-      }
+      this.attackTarget();
     } else {
       this.patrol();
     }
@@ -124,7 +119,6 @@ export class FighterJetExecution implements Execution {
     const targetableUnitTypes: UnitType[] = [
       UnitType.Bomber,
       UnitType.FighterJet,
-      UnitType.CargoPlane,
       UnitType.Paratrooper,
       UnitType.Artillery,
     ];
@@ -155,16 +149,14 @@ export class FighterJetExecution implements Execution {
           return 2;
         case UnitType.Paratrooper:
           return 3;
-        case UnitType.CargoPlane:
-          return 4;
         case UnitType.Artillery:
-          return 5;
+          return 4;
         case UnitType.TransportShip:
-          return 6;
+          return 5;
         case UnitType.Warship:
-          return 7;
+          return 6;
         case UnitType.TradeShip:
-          return 8;
+          return 7;
         default:
           return 99;
       }
@@ -184,22 +176,6 @@ export class FighterJetExecution implements Execution {
       // Only target units from players we are at war with
       if (unit.owner().isPlayer() && !owner.isAtWarWith(unit.owner())) {
         continue;
-      }
-
-      if (unit.type() === UnitType.CargoPlane) {
-        if (!owner.hasAirfield()) {
-          continue;
-        }
-        const cargoPlaneDestinationAirfield = unit.targetUnit();
-        if (cargoPlaneDestinationAirfield) {
-          const destinationOwner = cargoPlaneDestinationAirfield.owner();
-          if (
-            destinationOwner === owner ||
-            destinationOwner.isFriendly(owner)
-          ) {
-            continue;
-          }
-        }
       }
 
       if (ownerHasUpgrade && unit.type() === UnitType.TradeShip) {
@@ -337,46 +313,6 @@ export class FighterJetExecution implements Execution {
         );
         break;
     }
-  }
-
-  private captureCargoPlane() {
-    const isPeaceTimerActive =
-      this.mg.peaceTimerEndsAtTick !== null &&
-      this.mg.ticks() < this.mg.peaceTimerEndsAtTick;
-
-    if (isPeaceTimerActive) {
-      this.fighterJet.setTargetUnit(undefined);
-      return; // Block capture
-    }
-
-    if (this.fighterJet.targetUnit() === undefined) {
-      return;
-    }
-
-    const targetUnit = this.fighterJet.targetUnit()!;
-    const distToTargetSquared = this.mg.euclideanDistSquared(
-      this.fighterJet.tile(),
-      targetUnit.tile(),
-    );
-    const targetReachedDistanceSquared =
-      this.mg.config().fighterJetTargetReachedDistance() ** 2;
-
-    if (distToTargetSquared <= targetReachedDistanceSquared) {
-      this.fighterJet.owner().captureUnit(targetUnit);
-      this.fighterJet.setTargetUnit(undefined);
-      return;
-    }
-
-    const result = this.pathFinder.nextTile(
-      this.fighterJet.tile(),
-      targetUnit.tile(),
-      4,
-    );
-
-    if (result !== true) {
-      this.fighterJet.move(result);
-    }
-    this.fighterJet.touch();
   }
 
   private patrol() {

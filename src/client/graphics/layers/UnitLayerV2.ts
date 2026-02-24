@@ -111,7 +111,6 @@ const UNIT_LAYER_TYPES: ReadonlySet<UnitType> = new Set<UnitType>([
   UnitType.Shell,
   UnitType.SAMMissile,
   UnitType.TradeShip,
-  UnitType.CargoPlane,
   UnitType.MIRVWarhead,
   UnitType.Bomber,
   UnitType.FighterJet,
@@ -138,7 +137,6 @@ const INTERPOLATED_UNIT_TYPES: ReadonlySet<UnitType> = new Set<UnitType>([
   UnitType.Submarine,
   UnitType.Bomber,
   UnitType.FighterJet,
-  UnitType.CargoPlane,
 ]);
 
 /** Array form of the same set, for passing to game.units(). */
@@ -151,7 +149,6 @@ const INTERPOLATED_UNIT_TYPES_ARRAY: UnitType[] = [...INTERPOLATED_UNIT_TYPES];
 const ROTATABLE_UNIT_TYPES: ReadonlySet<UnitType> = new Set<UnitType>([
   UnitType.Bomber,
   UnitType.FighterJet,
-  UnitType.CargoPlane,
 ]);
 
 /** Units that use horizontal flip instead of rotation. */
@@ -1673,9 +1670,6 @@ export class UnitLayerV2 implements Layer {
       case UnitType.TradeShip:
         this.handleTradeShipEvent(unit, angleByUnit);
         break;
-      case UnitType.CargoPlane:
-        this.handleCargoPlaneEvent(unit, angleByUnit);
-        break;
       case UnitType.MIRVWarhead:
         this.handleMIRVWarhead(unit);
         break;
@@ -1836,13 +1830,6 @@ export class UnitLayerV2 implements Layer {
     this.drawSprite(unit, undefined, angleByUnit);
   }
 
-  private handleCargoPlaneEvent(
-    unit: UnitView,
-    angleByUnit?: Map<UnitView, number | null>,
-  ) {
-    this.drawSprite(unit, undefined, angleByUnit);
-  }
-
   private handleBomberEvent(
     unit: UnitView,
     angleByUnit?: Map<UnitView, number | null>,
@@ -1960,11 +1947,7 @@ export class UnitLayerV2 implements Layer {
     if (this.alternateView) {
       let rel = this.relationship(unit);
       const destinationId = unit.targetUnitId();
-      if (
-        (unit.type() === UnitType.TradeShip ||
-          unit.type() === UnitType.CargoPlane) &&
-        destinationId !== undefined
-      ) {
+      if (unit.type() === UnitType.TradeShip && destinationId !== undefined) {
         const target = this.game.unit(destinationId)?.owner();
         const myPlayer = this.game.myPlayer();
         if (myPlayer !== null && target !== undefined) {
@@ -2062,11 +2045,7 @@ export class UnitLayerV2 implements Layer {
     if (this.alternateView) {
       let rel = this.relationship(unit);
       const destinationId = unit.targetUnitId();
-      if (
-        (unit.type() === UnitType.TradeShip ||
-          unit.type() === UnitType.CargoPlane) &&
-        destinationId !== undefined
-      ) {
+      if (unit.type() === UnitType.TradeShip && destinationId !== undefined) {
         const target = this.game.unit(destinationId)?.owner();
         const myPlayer = this.game.myPlayer();
         if (myPlayer !== null && target !== undefined) {

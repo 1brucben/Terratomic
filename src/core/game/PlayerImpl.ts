@@ -1657,7 +1657,6 @@ export class PlayerImpl implements Player {
       // Non-combat / transport units
       UnitType.TransportShip,
       UnitType.TradeShip,
-      UnitType.CargoPlane,
       // Excluded military units
       UnitType.Bomber,
       UnitType.DoomsdayDevice,
@@ -2058,10 +2057,9 @@ export class PlayerImpl implements Player {
       case UnitType.Airfield:
       case UnitType.DoomsdayDevice:
         return this.landBasedStructureSpawn(targetTile, validTiles);
-      case UnitType.CargoPlane:
       case UnitType.Bomber:
       case UnitType.Paratrooper:
-        return this.cargoPlaneSpawn(targetTile);
+        return this.airplaneSpawn(targetTile);
       case UnitType.FighterJet:
         return this.fighterJetSpawn(targetTile);
       default:
@@ -2235,7 +2233,7 @@ export class PlayerImpl implements Player {
     }
     return spawns[0].tile();
   }
-  cargoPlaneSpawn(targetTile: TileRef): TileRef | false {
+  airplaneSpawn(targetTile: TileRef): TileRef | false {
     const spawns = this.units(UnitType.Airfield).filter(
       (u) => u.tile() === targetTile,
     );
@@ -2432,37 +2430,6 @@ export class PlayerImpl implements Player {
     return ports;
   }
 
-  airfields(airfield: Unit): Unit[] {
-    const airfields = this.mg
-      .players()
-      .filter((p) => p !== airfield.owner() && p.canTrade(airfield.owner()))
-      .flatMap((p) => p.units(UnitType.Airfield))
-      .sort((p1, p2) => {
-        return (
-          this.mg.manhattanDist(airfield.tile(), p1.tile()) -
-          this.mg.manhattanDist(airfield.tile(), p2.tile())
-        );
-      });
-
-    if (airfields.length > 0) {
-      for (
-        let i = 0;
-        i < this.mg.config().proximityBonusAirfieldsNumber(airfields.length);
-        i++
-      ) {
-        airfields.push(airfields[i]);
-      }
-    }
-
-    this.mg
-      .players()
-      .filter((p) => p !== airfield.owner() && p.canTrade(airfield.owner()))
-      .filter((p) => p.isAlliedWith(airfield.owner()))
-      .flatMap((p) => p.units(UnitType.Airfield))
-      .forEach((p) => airfields.push(p));
-
-    return airfields;
-  }
   public setBomberIntent(
     intent: {
       targetPlayerID: string;

@@ -149,7 +149,6 @@ export enum UnitType {
   Academy = "Academy",
   Factory = "Factory",
   Airfield = "Air Field",
-  CargoPlane = "Cargo Plane",
   Bomber = "Bomber",
   Paratrooper = "Paratrooper",
   FighterJet = "Fighter Jet", // Represents a Fighter Jet unit.
@@ -305,10 +304,6 @@ export interface UnitParamsMap {
   [UnitType.Construction]: Record<string, never>;
 
   [UnitType.Airfield]: Record<string, never>;
-
-  [UnitType.CargoPlane]: {
-    targetUnit: Unit;
-  };
 
   [UnitType.Bomber]: {
     targetTile: TileRef;
@@ -798,7 +793,6 @@ export interface Player {
   toUpdate(): PlayerUpdate;
   playerProfile(): PlayerProfile;
   tradingPorts(port: Unit): Unit[];
-  airfields(airfield: Unit): Unit[];
   setBomberIntent(
     intent: {
       targetPlayerID: string;
