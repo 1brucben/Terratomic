@@ -357,12 +357,7 @@ export class DefaultConfig implements Config {
     return 300;
   }
   tradeShipGold(dist: number): Gold {
-    // Sigmoid: concave start, sharp S-curve middle, linear end
-    // Heavily punishes trades under range debuff.
-    const debuff = this.tradeShipShortRangeDebuff();
-    const baseGold =
-      50_000 / (1 + Math.exp(-0.03 * (dist - debuff))) + 50 * dist;
-    return BigInt(Math.floor(baseGold));
+    return 10_000n;
   }
   // Probability of trade ship spawn = 1 / tradeShipSpawnRate
   tradeShipSpawnRate(
